@@ -6,6 +6,8 @@ use tssd::{
     KeygenRound1Response,
     KeygenRound2Request,
     KeygenRound2Response,
+    KeygenRound3Request,
+    KeygenRound3Response,
 };
 
 use std::collections::HashMap;
@@ -93,7 +95,7 @@ impl Gg20 for GG20Service {
             commit: Some(tssd::Commit {
                 paillier_encryption_key: format!("{:?}", bc_i.e),
                 dlog_statement: format!("{:?}", bc_i.dlog_statement),
-                commit: format!("{:?}", bc_i.com),
+                value: format!("{:?}", bc_i.com),
                 correct_key_proof: format!("{:?}", bc_i.correct_key_proof),
                 composite_dlog_proof: format!("{:?}", bc_i.composite_dlog_proof),
             }),
@@ -128,11 +130,34 @@ impl Gg20 for GG20Service {
 
     async fn keygen_round2(
         &self,
-        request: tonic::Request<KeygenRound2Request>,
-    ) -> Result<tonic::Response<KeygenRound2Response>, tonic::Status> {
+        request: Request<KeygenRound2Request>,
+    ) -> Result<Response<KeygenRound2Response>, Status> {
         println!("Got a request: {:?}", request);
 
+        let session_id = Uuid::parse_str(
+            &request.into_inner().session_id.unwrap().value
+        ).unwrap();
+
         let reply = tssd::KeygenRound2Response {
+            reveal: Some(tssd::Reveal {
+                blind_factor: "Rick".to_string(),
+                pk_share: "Morty".to_string(),
+            }),
+        };
+        Ok(Response::new(reply))
+    }
+
+    async fn keygen_round3(
+        &self,
+        request: tonic::Request<KeygenRound3Request>,
+    ) -> Result<tonic::Response<KeygenRound3Response>, tonic::Status> {
+        println!("Got a request: {:?}", request);
+
+        let session_id = Uuid::parse_str(
+            &request.into_inner().session_id.unwrap().value
+        ).unwrap();
+        
+        let reply = tssd::KeygenRound3Response {
             vss_scheme: "foo".to_string(),
             secret_shares: "bar".to_string(),
         };

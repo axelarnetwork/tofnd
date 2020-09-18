@@ -4,6 +4,7 @@ package tssd;
 service GG20 {
     rpc KeygenRound1(KeygenRound1Request) returns (KeygenRound1Response);
     rpc KeygenRound2(KeygenRound2Request) returns (KeygenRound2Response);
+    rpc KeygenRound3(KeygenRound3Request) returns (KeygenRound3Response);
 }
 
 message KeygenRound1Request {
@@ -23,7 +24,7 @@ message KeygenSessionId {
 message Commit {
     string paillier_encryption_key = 1; // e: EncryptionKey
     string dlog_statement = 2;          // dlog_statement: DLogStatement
-    string commit = 3;                  // com: BigInt
+    string value = 3;                   // com: BigInt
     string correct_key_proof = 4;       // correct_key_proof: NICorrectKeyProof
     string composite_dlog_proof = 5;    // composite_dlog_proof: CompositeDLogProof
 }
@@ -35,22 +36,26 @@ message Reveal {
     string pk_share = 2;     // pub y_i: GE,  
 }
 
-// following parameters to phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute from multi-party-ecdsa::gg20
-// TODO should commit_reveals should be a streaming request?
+// TODO should commits be a streaming request?
 message KeygenRound2Request {
     KeygenSessionId session_id = 1;
-    int32 share_count = 2; // n
-    int32 threshold = 3;   // t
-    repeated CommitReveal commit_reveals = 4;
+    repeated Commit commits = 2;
 }
 
-message CommitReveal {
-    Commit commit = 1;
-    Reveal reveal = 2;
+message KeygenRound2Response {
+    Reveal reveal = 1;
+}
+
+// following parameters to phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute from multi-party-ecdsa::gg20
+// TODO should commit_reveals should be a streaming request?
+message KeygenRound3Request {
+    KeygenSessionId session_id = 1;
+    int32 threshold = 2; // t
+    repeated Reveal reveals = 3;
 }
 
 // following return values from phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute from multi-party-ecdsa::gg20
-message KeygenRound2Response {
+message KeygenRound3Response {
     string vss_scheme = 1; // VerifiableSS
     string secret_shares = 2; // Vec<FE>
 }
