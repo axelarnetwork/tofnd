@@ -8,50 +8,29 @@ service GG20 {
 }
 
 message KeygenRound1Request {
-    KeygenSessionId session_id = 1;
+    string session_id = 1; // uuid
 }
 
 message KeygenRound1Response {
-    Commit commit = 1;
+    bytes my_commit = 1;
 }
 
-message KeygenSessionId {
-    string value = 1; // uuid: TODO use bytes instead?
-}
-
-// following KeyGenBroadcastMessage1 from multi-party-ecdsa::gg20
-// TODO fields should not be strings
-message Commit {
-    string paillier_encryption_key = 1; // e: EncryptionKey
-    string dlog_statement = 2;          // dlog_statement: DLogStatement
-    string value = 3;                   // com: BigInt
-    string correct_key_proof = 4;       // correct_key_proof: NICorrectKeyProof
-    string composite_dlog_proof = 5;    // composite_dlog_proof: CompositeDLogProof
-}
-
-// following KeyGenDecommitMessage1 from multi-party-ecdsa:gg20
-// TODO fields should not be strings
-message Reveal {
-    string blind_factor = 1; // blind_factor: BigInt,
-    string pk_share = 2;     // pub y_i: GE,  
-}
-
-// TODO should commits be a streaming request?
+// TODO should other_commits be a streaming request?
 message KeygenRound2Request {
-    KeygenSessionId session_id = 1;
-    repeated Commit commits = 2;
+    string session_id = 1; // uuid
+    repeated bytes other_commits = 2;
 }
 
 message KeygenRound2Response {
-    Reveal reveal = 1;
+    bytes my_reveal = 1;
 }
 
 // following parameters to phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute from multi-party-ecdsa::gg20
 // TODO should commit_reveals should be a streaming request?
 message KeygenRound3Request {
-    KeygenSessionId session_id = 1;
+    string session_id = 1; // uuid
     int32 threshold = 2; // t
-    repeated Reveal reveals = 3;
+    repeated bytes other_reveals = 3;
 }
 
 // following return values from phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute from multi-party-ecdsa::gg20

@@ -5,18 +5,12 @@ use tonic;
 
 use super::grpc as grpc;
 use grpc::gg20_server::{Gg20, Gg20Server};
-use grpc::{
-    KeygenRound1Request,
-    KeygenRound1Response,
-    KeygenRound2Request,
-    KeygenRound2Response,
-    KeygenRound3Request,
-    KeygenRound3Response,
-};
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
+
+use bincode;
 
 use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as zengo;
 // use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i::{
@@ -58,7 +52,7 @@ struct ZengoState {
     // y_sum: GE,
     my_commit: zengo::KeyGenBroadcastMessage1,
     my_reveal: zengo::KeyGenDecommitMessage1,
-    // other_commits: Vec<KeyGenBroadcastMessage1>,
+    other_commits: Vec<zengo::KeyGenBroadcastMessage1>,
     // other_reveals: Vec<KeyGenDecommitMessage1>,
 }
 
@@ -79,8 +73,8 @@ pub struct GG20Service {
 impl Gg20 for GG20Service {
     async fn keygen_round1(
         &self,
-        request: tonic::Request<KeygenRound1Request>,
-    ) -> Result<tonic::Response<KeygenRound1Response>, tonic::Status> {
+        request: tonic::Request<grpc::KeygenRound1Request>,
+    ) -> Result<tonic::Response<grpc::KeygenRound1Response>, tonic::Status> {
         println!("Got a request: {:?}", request);
 
         // do as much work as possible before locking self.keygen_sessions
@@ -88,26 +82,18 @@ impl Gg20 for GG20Service {
         //   by contrast, updating an existing session requires only a lock on that portion of the HashMap
         //   should we split session creation into another (faster) gRPC call?
 
-        // TODO for now, uuids are just strings
-        let session_id = Uuid::parse_str(
-            &request.into_inner().session_id.unwrap().value
-        ).unwrap();
+        // use this when session_id is of protobuf type `string`
+        let session_id = Uuid::parse_str(&request.get_ref().session_id).unwrap();
+        // use this when session_id is of protobuf type `bytes`
+        // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap();
 
         // create new key material, get responses for rounds 1, 2
         let my_keys = zengo::Keys::create(0); // TODO we don't use party index
         let (my_commit, my_reveal) =
             my_keys.phase1_broadcast_phase3_proof_of_correct_key_proof_of_correct_h1h2();
 
-        // prepare response
-        // TODO for now reply fields are merely strings
-        let reply = grpc::KeygenRound1Response {
-            commit: Some(grpc::Commit {
-                paillier_encryption_key: format!("{:?}", my_commit.e),
-                dlog_statement: format!("{:?}", my_commit.dlog_statement),
-                value: format!("{:?}", my_commit.com),
-                correct_key_proof: format!("{:?}", my_commit.correct_key_proof),
-                composite_dlog_proof: format!("{:?}", my_commit.composite_dlog_proof),
-            }),
+        let response = grpc::KeygenRound1Response {
+            my_commit: bincode::serialize(&my_commit).unwrap(),
         };
 
         { // lock state
@@ -116,13 +102,12 @@ impl Gg20 for GG20Service {
             // session_id should be brand new
             if keygen_sessions.contains_key(&session_id) {
                 return Err(tonic::Status::already_exists(format!(
-                    "KeygenSessionId {:?} already exists",
+                    "session_id {:?} already exists",
                     session_id
                 )));
             }
 
             // save state
-            // TODO save state from decom_i
             keygen_sessions.insert(
                 session_id,
                 KeygenSessionState {
@@ -131,61 +116,77 @@ impl Gg20 for GG20Service {
                         my_keys: my_keys,
                         my_commit: my_commit,
                         my_reveal: my_reveal,
+                        other_commits: Vec::default(), // wish I had Default...
                     },
                 },
             );
         } // unlock state
 
-        Ok(tonic::Response::new(reply))
+        Ok(tonic::Response::new(response))
     }
 
     async fn keygen_round2(
         &self,
-        request: tonic::Request<KeygenRound2Request>,
-    ) -> Result<tonic::Response<KeygenRound2Response>, tonic::Status> {
+        request: tonic::Request<grpc::KeygenRound2Request>,
+    ) -> Result<tonic::Response<grpc::KeygenRound2Response>, tonic::Status> {
         println!("Got a request: {:?}", request);
 
-        let session_id = Uuid::parse_str(
-            &request.get_ref().session_id.as_ref().unwrap().value
-        ).unwrap();
+        // use this when session_id is of protobuf type `string`
+        let session_id = Uuid::parse_str(&request.get_ref().session_id).unwrap();
+        // use this when session_id is of protobuf type `bytes`
+        // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap();
 
-        let num_parties = request.get_ref().commits.len();
-        if num_parties < 2 {
-            return Err(tonic::Status::invalid_argument(format!("not enough parties: {:?}", num_parties)));
+        // deserialize request_commits
+        let request_commits = &request.get_ref().other_commits;
+        if request_commits.len() < 1 {
+            return Err(tonic::Status::invalid_argument(format!("not enough other parties: {:?}", request_commits.len())));
         }
+        // TODO there should be a way to do this using unwrap_or_else
+        // let other_commits : Vec<zengo::KeyGenBroadcastMessage1> = request_commits.iter().map(|c| bincode::deserialize(&c).unwrap()).collect::<Vec<_>>();
+        let mut other_commits : Vec<zengo::KeyGenBroadcastMessage1> = Vec::with_capacity(request_commits.len());
+        for request_commit in request_commits.iter() {
+            other_commits.push(
+                match bincode::deserialize(request_commit) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        return Err(tonic::Status::invalid_argument(format!("deserialization failure for other_commits: {:?}", e)));
+                    }
+                }
+            );
+        }
+
+        // lock state
+        let mut keygen_sessions = self.keygen_sessions.lock().unwrap();
 
         // session_id should exist and be in state Round1Done
-        let mut keygen_sessions = self.keygen_sessions.lock().unwrap();
         let mut keygen_session = match keygen_sessions.get_mut(&session_id) {
             Some(s) => s,
-            None => {return Err(tonic::Status::not_found(format!("KeygenSessionId {:?} not found", session_id)))},
+            None => {return Err(tonic::Status::not_found(format!("session_id {:?} not found", session_id)))},
         };
         if keygen_session.status != KeygenStatus::Round1Done {
-            return Err(tonic::Status::failed_precondition(format!("incorrect status for KeygenSessionId {:?}", session_id)));
+            return Err(tonic::Status::failed_precondition(format!("incorrect status for session_id {:?}", session_id)));
         }
+
+        let response = grpc::KeygenRound2Response {
+            my_reveal: bincode::serialize(&keygen_session.state.my_reveal).unwrap(),
+        };
+
+        keygen_session.state.other_commits = other_commits;
         keygen_session.status = KeygenStatus::Round2Done;
 
-        let commits = &request.get_ref().commits;
-        // convert commits and copy into keygen_session.state.other_commits
-
-        let reply = grpc::KeygenRound2Response {
-            reveal: Some(grpc::Reveal {
-                blind_factor: "Rick".to_string(),
-                pk_share: "Morty".to_string(),
-            }),
-        };
-        Ok(tonic::Response::new(reply))
+        Ok(tonic::Response::new(response))
     }
 
     async fn keygen_round3(
         &self,
-        request: tonic::Request<KeygenRound3Request>,
-    ) -> Result<tonic::Response<KeygenRound3Response>, tonic::Status> {
+        request: tonic::Request<grpc::KeygenRound3Request>,
+    ) -> Result<tonic::Response<grpc::KeygenRound3Response>, tonic::Status> {
         println!("Got a request: {:?}", request);
 
-        let session_id = Uuid::parse_str(
-            &request.into_inner().session_id.unwrap().value
-        ).unwrap();
+        // use this when session_id is of protobuf type `string`
+        let session_id = Uuid::parse_str(&request.get_ref().session_id).unwrap();
+        // use this when session_id is of protobuf type `bytes`
+        // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap();
         
         let reply = grpc::KeygenRound3Response {
             vss_scheme: "foo".to_string(),
