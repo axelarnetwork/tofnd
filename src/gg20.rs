@@ -1,4 +1,8 @@
-use tonic::{transport::Server, Request, Response, Status};
+use tonic;
+// Go-style usage idiom:
+// prefer `use tonic;` to `use tonic::Request;`
+// so that we write `tonic::Request` instead of `Request`
+
 use super::grpc as grpc;
 use grpc::gg20_server::{Gg20, Gg20Server};
 use grpc::{
@@ -14,12 +18,13 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i::{
-    Keys,
-    SharedKeys,
-    KeyGenBroadcastMessage1,
-    KeyGenDecommitMessage1,
-};
+use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as zengo;
+// use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i::{
+//     Keys,
+//     SharedKeys,
+//     KeyGenBroadcastMessage1,
+//     KeyGenDecommitMessage1,
+// };
 
 // inherited from multi-party-ecdsa
 use curv::{
@@ -45,14 +50,14 @@ enum KeygenStatus {
 // keygen state persisted to disk in the multi-party-ecdsa library
 // TODO there's probably lots of duplication here; multi-party-ecdsa is a mess
 #[derive(Debug)]
-struct MultiPartyEcdsaKeygenState {
-    my_keys: Keys,
+struct ZengoState {
+    my_keys: zengo::Keys,
     // shared_keys: SharedKeys,
     // vss_scheme_vec: Vec<VerifiableSS>,
     // paillier_key_vec: Vec<EncryptionKey>,
     // y_sum: GE,
-    my_commit: KeyGenBroadcastMessage1,
-    my_reveal: KeyGenDecommitMessage1,
+    my_commit: zengo::KeyGenBroadcastMessage1,
+    my_reveal: zengo::KeyGenDecommitMessage1,
     // other_commits: Vec<KeyGenBroadcastMessage1>,
     // other_reveals: Vec<KeyGenDecommitMessage1>,
 }
@@ -60,7 +65,7 @@ struct MultiPartyEcdsaKeygenState {
 #[derive(Debug)]
 struct KeygenSessionState {
     status: KeygenStatus,
-    state: MultiPartyEcdsaKeygenState,
+    state: ZengoState,
 }
 
 #[derive(Debug, Default)]
@@ -74,8 +79,8 @@ pub struct GG20Service {
 impl Gg20 for GG20Service {
     async fn keygen_round1(
         &self,
-        request: Request<KeygenRound1Request>,
-    ) -> Result<Response<KeygenRound1Response>, Status> {
+        request: tonic::Request<KeygenRound1Request>,
+    ) -> Result<tonic::Response<KeygenRound1Response>, tonic::Status> {
         println!("Got a request: {:?}", request);
 
         // do as much work as possible before locking self.keygen_sessions
@@ -89,7 +94,7 @@ impl Gg20 for GG20Service {
         ).unwrap();
 
         // create new key material, get responses for rounds 1, 2
-        let my_keys = Keys::create(0); // TODO we don't use party index
+        let my_keys = zengo::Keys::create(0); // TODO we don't use party index
         let (my_commit, my_reveal) =
             my_keys.phase1_broadcast_phase3_proof_of_correct_key_proof_of_correct_h1h2();
 
@@ -110,7 +115,7 @@ impl Gg20 for GG20Service {
 
             // session_id should be brand new
             if keygen_sessions.contains_key(&session_id) {
-                return Err(Status::already_exists(format!(
+                return Err(tonic::Status::already_exists(format!(
                     "KeygenSessionId {:?} already exists",
                     session_id
                 )));
@@ -122,7 +127,7 @@ impl Gg20 for GG20Service {
                 session_id,
                 KeygenSessionState {
                     status: KeygenStatus::Round1Done,
-                    state: MultiPartyEcdsaKeygenState {
+                    state: ZengoState {
                         my_keys: my_keys,
                         my_commit: my_commit,
                         my_reveal: my_reveal,
@@ -131,13 +136,13 @@ impl Gg20 for GG20Service {
             );
         } // unlock state
 
-        Ok(Response::new(reply))
+        Ok(tonic::Response::new(reply))
     }
 
     async fn keygen_round2(
         &self,
-        request: Request<KeygenRound2Request>,
-    ) -> Result<Response<KeygenRound2Response>, Status> {
+        request: tonic::Request<KeygenRound2Request>,
+    ) -> Result<tonic::Response<KeygenRound2Response>, tonic::Status> {
         println!("Got a request: {:?}", request);
 
         let session_id = Uuid::parse_str(
@@ -146,17 +151,17 @@ impl Gg20 for GG20Service {
 
         let num_parties = request.get_ref().commits.len();
         if num_parties < 2 {
-            return Err(Status::invalid_argument(format!("not enough parties: {:?}", num_parties)));
+            return Err(tonic::Status::invalid_argument(format!("not enough parties: {:?}", num_parties)));
         }
 
         // session_id should exist and be in state Round1Done
         let mut keygen_sessions = self.keygen_sessions.lock().unwrap();
         let mut keygen_session = match keygen_sessions.get_mut(&session_id) {
             Some(s) => s,
-            None => {return Err(Status::not_found(format!("KeygenSessionId {:?} not found", session_id)))},
+            None => {return Err(tonic::Status::not_found(format!("KeygenSessionId {:?} not found", session_id)))},
         };
         if keygen_session.status != KeygenStatus::Round1Done {
-            return Err(Status::failed_precondition(format!("incorrect status for KeygenSessionId {:?}", session_id)));
+            return Err(tonic::Status::failed_precondition(format!("incorrect status for KeygenSessionId {:?}", session_id)));
         }
         keygen_session.status = KeygenStatus::Round2Done;
 
@@ -169,7 +174,7 @@ impl Gg20 for GG20Service {
                 pk_share: "Morty".to_string(),
             }),
         };
-        Ok(Response::new(reply))
+        Ok(tonic::Response::new(reply))
     }
 
     async fn keygen_round3(
@@ -186,6 +191,6 @@ impl Gg20 for GG20Service {
             vss_scheme: "foo".to_string(),
             secret_shares: "bar".to_string(),
         };
-        Ok(Response::new(reply))
+        Ok(tonic::Response::new(reply))
     }
 }
