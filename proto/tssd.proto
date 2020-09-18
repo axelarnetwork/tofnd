@@ -2,13 +2,55 @@ syntax = "proto3";
 package tssd;
 
 service GG20 {
-    rpc SayHello (HelloRequest) returns (HelloReply);
+    rpc KeygenRound1(KeygenRound1Request) returns (KeygenRound1Response);
+    rpc KeygenRound2(KeygenRound2Request) returns (KeygenRound2Response);
 }
 
-message HelloRequest {
-   string name = 1;
+message KeygenRound1Request {
+    KeygenSessionId session_id = 1;
 }
 
-message HelloReply {
-    string message = 1;
+message KeygenRound1Response {
+    Commit commit = 1;
+}
+
+message KeygenSessionId {
+    string value = 1; // uuid: TODO use bytes instead?
+}
+
+// following KeyGenBroadcastMessage1 from multi-party-ecdsa::gg20
+// TODO fields should not be strings
+message Commit {
+    string paillier_encryption_key = 1; // e: EncryptionKey
+    string dlog_statement = 2;          // dlog_statement: DLogStatement
+    string commit = 3;                  // com: BigInt
+    string correct_key_proof = 4;       // correct_key_proof: NICorrectKeyProof
+    string composite_dlog_proof = 5;    // composite_dlog_proof: CompositeDLogProof
+}
+
+// following KeyGenDecommitMessage1 from multi-party-ecdsa:gg20
+// TODO fields should not be strings
+message Reveal {
+    string blind_factor = 1; // blind_factor: BigInt,
+    string pk_share = 2;     // pub y_i: GE,  
+}
+
+// following parameters to phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute from multi-party-ecdsa::gg20
+// TODO should commit_reveals should be a streaming request?
+message KeygenRound2Request {
+    KeygenSessionId session_id = 1;
+    int32 share_count = 2; // n
+    int32 threshold = 3;   // t
+    repeated CommitReveal commit_reveals = 4;
+}
+
+message CommitReveal {
+    Commit commit = 1;
+    Reveal reveal = 2;
+}
+
+// following return values from phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute from multi-party-ecdsa::gg20
+message KeygenRound2Response {
+    string vss_scheme = 1; // VerifiableSS
+    string secret_shares = 2; // Vec<FE>
 }

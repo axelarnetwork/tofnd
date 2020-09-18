@@ -7,6 +7,14 @@ edition = "2018"
 tonic = "0.3"
 prost = "0.6"
 tokio = { version = "0.2", features = ["macros"] }
+uuid = { version = "0.8.1", features = ["v4"] }
+multi-party-ecdsa = { git = "https://github.com/ZenGo-X/multi-party-ecdsa.git" }
+paillier = { git = "https://github.com/KZen-networks/rust-paillier", tag = "v0.3.4"} # inherited from multi-party-ecdsa
+
+[dependencies.curv] # inherited from multi-party-ecdsa
+git = "https://github.com/KZen-networks/curv"
+tag = "v0.2.6"
+features = ["ec_secp256k1"]
 
 [build-dependencies]
 tonic-build = "0.3"
