@@ -52,10 +52,10 @@ struct ZengoState {
     // vss_scheme_vec: Vec<VerifiableSS>,
     // paillier_key_vec: Vec<EncryptionKey>,
     // y_sum: GE,
-    // my_commit: zengo::KeyGenBroadcastMessage1,
-    // my_reveal: zengo::KeyGenDecommitMessage1,
-    commits: Vec<zengo::KeyGenBroadcastMessage1>, // mine is first
-    reveals: Vec<zengo::KeyGenDecommitMessage1>, // mine is first
+    my_commit: zengo::KeyGenBroadcastMessage1,
+    my_reveal: zengo::KeyGenDecommitMessage1,
+    other_commits: Vec<zengo::KeyGenBroadcastMessage1>,
+    other_reveals: Vec<zengo::KeyGenDecommitMessage1>,
 }
 
 #[derive(Debug)]
@@ -115,10 +115,12 @@ impl grpc::gg20_server::Gg20 for GG20Service {
             KeygenSessionState {
                 status: KeygenStatus::Round1Done,
                 state: ZengoState {
-                    tn: zengo::Parameters{ share_count: 0, threshold: 0}, // with I had a Default...
+                    tn: zengo::Parameters{ share_count: 0, threshold: 0}, // wish I had a Default...
                     my_keys: my_keys,
-                    commits: vec![my_commit], // mine is first
-                    reveals: vec![my_reveal], // mine is first
+                    my_commit: my_commit,
+                    my_reveal: my_reveal,
+                    other_commits: Vec::default(), // wish I had a Default...
+                    other_reveals: Vec::default(), // wish I had a Default...
                 },
             },
         );
@@ -170,11 +172,11 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         }
 
         let response = grpc::KeygenRound2Response {
-            my_reveal: bincode::serialize(&keygen_session.state.reveals[0]).unwrap(),
+            my_reveal: bincode::serialize(&keygen_session.state.my_reveal).unwrap(),
         };
 
-        keygen_session.state.commits.append(&mut other_commits);
-        keygen_session.state.tn.share_count = keygen_session.state.commits.len().try_into().unwrap();
+        keygen_session.state.other_commits = other_commits;
+        keygen_session.state.tn.share_count = (keygen_session.state.other_commits.len()+1).try_into().unwrap();
         keygen_session.status = KeygenStatus::Round2Done;
 
         Ok(tonic::Response::new(response))
@@ -195,7 +197,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         if request_reveals.len() < 1 {
             return Err(tonic::Status::invalid_argument(format!("not enough other parties: {:?}", request_reveals.len())));
         }
-        let mut other_reveals : Vec<zengo::KeyGenDecommitMessage1> = Vec::with_capacity(request_reveals.len()+1);
+        let mut other_reveals : Vec<zengo::KeyGenDecommitMessage1> = Vec::with_capacity(request_reveals.len());
         for request_reveal in request_reveals.iter() {
             other_reveals.push(
                 match bincode::deserialize(request_reveal) {
@@ -210,6 +212,8 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         // lock state
         let mut keygen_sessions = self.keygen_sessions.lock().unwrap();
 
+        // TODO is it possible to get read-only access to session state?
+
         // ---
         // begin: check parameters
 
@@ -223,7 +227,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         }
 
         // verify correct number of parties
-        if other_reveals.len() != keygen_session.state.commits.len()-1 {
+        if other_reveals.len() != keygen_session.state.other_commits.len() {
             return Err(tonic::Status::failed_precondition(format!("incorrect number of parties: {:?}", other_reveals.len())));
         }
 
@@ -241,17 +245,23 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         // begin: compute response
 
         // get secret shares
-        let mut reveals = other_reveals;
-        reveals.insert(0, keygen_session.state.reveals[0].clone()); // TODO don't use insert; pre-allocate the memory instead
-        let (vss_scheme, secret_shares, _index) // _index should not be part of the zengo API
+
+        // TODO zengo API should not need my_commit, my_reveal
+        // TODO fix horrible Vec copying
+        let mut all_reveals = other_reveals.clone();
+        all_reveals.push(keygen_session.state.my_reveal.clone());
+        let mut all_commits = keygen_session.state.other_commits.clone();
+        all_commits.push(keygen_session.state.my_commit.clone());
+
+        let (vss_scheme, secret_shares, _index) // zengo API should not return _index
             = match keygen_session.state.my_keys
             .phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute(
                 &zengo::Parameters{
                     share_count: keygen_session.state.tn.share_count,
                     threshold: threshold,
                 },
-                &reveals,
-                &keygen_session.state.commits,
+                &all_reveals,
+                &all_commits,
             )
             {
                 Ok(r) => r,
@@ -272,8 +282,10 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         // ---
         // begin: update session state
 
+        // TODO this is the only place we need write acces to keygen_session
+
         keygen_session.state.tn.threshold = threshold;
-        keygen_session.state.reveals = reveals;
+        keygen_session.state.other_reveals = other_reveals;
         keygen_session.status = KeygenStatus::Round3Done;
 
         // end: update session state
