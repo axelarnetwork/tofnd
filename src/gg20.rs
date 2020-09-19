@@ -14,25 +14,22 @@ use uuid::Uuid;
 use bincode;
 
 use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as zengo;
-// use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i::{
-//     Keys,
-//     SharedKeys,
-//     KeyGenBroadcastMessage1,
-//     KeyGenDecommitMessage1,
-// };
 
-// inherited from multi-party-ecdsa
+// baggage from multi_party_ecdsa
+
 // use curv::{
 //     arithmetic::traits::Converter,
 //     cryptographic_primitives::{
-//         proofs::sigma_dlog::DLogProof,
-//         secret_sharing::feldman_vss::VerifiableSS,
+//         proofs::sigma_dlog::DLogProof, secret_sharing::feldman_vss::VerifiableSS,
 //     },
 //     elliptic::curves::traits::{ECPoint, ECScalar},
 //     BigInt, FE, GE,
-//     GE,
 // };
-// use paillier::EncryptionKey;
+use curv::{
+    arithmetic::traits::Converter,
+    elliptic::curves::traits::ECPoint,
+    BigInt,
+}; 
 
 #[derive(Debug, PartialEq)]
 enum KeygenStatus {
@@ -56,6 +53,7 @@ struct ZengoState {
     my_reveal: zengo::KeyGenDecommitMessage1,
     other_commits: Vec<zengo::KeyGenBroadcastMessage1>,
     other_reveals: Vec<zengo::KeyGenDecommitMessage1>,
+    other_ss_enc_keys: Vec<Vec<u8>>,
 }
 
 #[derive(Debug)]
@@ -121,6 +119,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
                     my_reveal: my_reveal,
                     other_commits: Vec::default(), // wish I had a Default...
                     other_reveals: Vec::default(), // wish I had a Default...
+                    other_ss_enc_keys: Vec::default(), // wish I had a Default...
                 },
             },
         );
@@ -272,8 +271,21 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         
         // encrypt secret shares
 
+        let mut other_ss_enc_keys : Vec<Vec<u8>> = Vec::with_capacity(other_reveals.len());
+        for r in other_reveals.iter() {
+            other_ss_enc_keys.push(
+
+                // following https://github.com/ZenGo-X/multi-party-ecdsa/blob/10d37b89561d95f68fe94baf95fc14226dadfa80/examples/gg18_keygen_client.rs#L133
+                BigInt::to_vec(
+                    &(r.y_i.clone() * keygen_session.state.my_keys.u_i).x_coor().unwrap()
+                )
+
+            );
+        }
+
+
         let response = grpc::KeygenRound3Response {
-            encrypted_secret_shares: Vec::default(), // bincode::serialize(&keygen_session.state.my_reveal).unwrap(),
+            other_encrypted_secret_shares: Vec::default(), // bincode::serialize(&keygen_session.state.my_reveal).unwrap(),
         };
 
         // end: compute response
@@ -286,6 +298,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
 
         keygen_session.state.tn.threshold = threshold;
         keygen_session.state.other_reveals = other_reveals;
+        keygen_session.state.other_ss_enc_keys = other_ss_enc_keys;
         keygen_session.status = KeygenStatus::Round3Done;
 
         // end: update session state
