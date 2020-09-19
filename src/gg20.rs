@@ -4,7 +4,7 @@ use tonic;
 // so that we write `tonic::Request` instead of `Request`
 
 use super::grpc as grpc;
-use grpc::gg20_server::{Gg20, Gg20Server};
+// use grpc::gg20_server::{Gg20, Gg20Server};
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -21,17 +21,17 @@ use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as zengo;
 // };
 
 // inherited from multi-party-ecdsa
-use curv::{
-    // arithmetic::traits::Converter,
-    cryptographic_primitives::{
-        // proofs::sigma_dlog::DLogProof,
-        secret_sharing::feldman_vss::VerifiableSS,
-    },
-    // elliptic::curves::traits::{ECPoint, ECScalar},
-    // BigInt, FE, GE,
-    GE,
-};
-use paillier::EncryptionKey;
+// use curv::{
+//     arithmetic::traits::Converter,
+//     cryptographic_primitives::{
+//         proofs::sigma_dlog::DLogProof,
+//         secret_sharing::feldman_vss::VerifiableSS,
+//     },
+//     elliptic::curves::traits::{ECPoint, ECScalar},
+//     BigInt, FE, GE,
+//     GE,
+// };
+// use paillier::EncryptionKey;
 
 #[derive(Debug, PartialEq)]
 enum KeygenStatus {
@@ -70,7 +70,7 @@ pub struct GG20Service {
 }
 
 #[tonic::async_trait]
-impl Gg20 for GG20Service {
+impl grpc::gg20_server::Gg20 for GG20Service {
     async fn keygen_round1(
         &self,
         request: tonic::Request<grpc::KeygenRound1Request>,
@@ -88,7 +88,9 @@ impl Gg20 for GG20Service {
         // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap();
 
         // create new key material, get responses for rounds 1, 2
-        let my_keys = zengo::Keys::create(0); // TODO we don't use party index
+        let my_keys = zengo::Keys::create(0); // we don't use party index
+        // TODO use create_safe_prime in production
+        // let my_keys = zengo::Keys::create_safe_prime(0);
         let (my_commit, my_reveal) =
             my_keys.phase1_broadcast_phase3_proof_of_correct_key_proof_of_correct_h1h2();
 
@@ -188,10 +190,9 @@ impl Gg20 for GG20Service {
         // use this when session_id is of protobuf type `bytes`
         // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap();
         
-        let reply = grpc::KeygenRound3Response {
-            vss_scheme: "foo".to_string(),
-            secret_shares: "bar".to_string(),
+        let response = grpc::KeygenRound3Response {
+            encrypted_secret_shares: Vec::default(),
         };
-        Ok(tonic::Response::new(reply))
+        Ok(tonic::Response::new(response))
     }
 }

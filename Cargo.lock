@@ -1509,9 +1509,7 @@ name = "tssd"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "curv 0.2.6",
  "multi-party-ecdsa",
- "paillier",
  "prost",
  "tokio",
  "tonic",

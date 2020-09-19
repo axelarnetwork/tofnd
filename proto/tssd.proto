@@ -8,33 +8,28 @@ service GG20 {
 }
 
 message KeygenRound1Request {
-    string session_id = 1; // uuid
+    string session_id = 1; // uuid, use bytes instead?
 }
 
 message KeygenRound1Response {
     bytes my_commit = 1;
 }
 
-// TODO should other_commits be a streaming request?
 message KeygenRound2Request {
-    string session_id = 1; // uuid
-    repeated bytes other_commits = 2;
+    string session_id = 1; // uuid, use bytes instead?
+    repeated bytes other_commits = 2; // stream instead?
 }
 
 message KeygenRound2Response {
     bytes my_reveal = 1;
 }
 
-// following parameters to phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute from multi-party-ecdsa::gg20
-// TODO should commit_reveals should be a streaming request?
 message KeygenRound3Request {
-    string session_id = 1; // uuid
-    int32 threshold = 2; // t
-    repeated bytes other_reveals = 3;
+    string session_id = 1; // uuid, use bytes instead?
+    int32 threshold = 2;
+    repeated bytes other_reveals = 3; // stream instead?
 }
 
-// following return values from phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute from multi-party-ecdsa::gg20
 message KeygenRound3Response {
-    string vss_scheme = 1; // VerifiableSS
-    string secret_shares = 2; // Vec<FE>
+    repeated bytes encrypted_secret_shares = 1; // stream instead?
 }
