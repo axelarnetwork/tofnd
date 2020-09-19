@@ -8,6 +8,7 @@ use super::grpc as grpc;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::convert::TryInto;
 use uuid::Uuid;
 
 use bincode;
@@ -45,6 +46,7 @@ enum KeygenStatus {
 // TODO there's probably lots of duplication here; multi-party-ecdsa is a mess
 #[derive(Debug)]
 struct ZengoState {
+    tn: zengo::Parameters,
     my_keys: zengo::Keys,
     // shared_keys: SharedKeys,
     // vss_scheme_vec: Vec<VerifiableSS>,
@@ -113,6 +115,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
             KeygenSessionState {
                 status: KeygenStatus::Round1Done,
                 state: ZengoState {
+                    tn: zengo::Parameters{ share_count: 0, threshold: 0}, // with I had a Default...
                     my_keys: my_keys,
                     commits: vec![my_commit], // mine is first
                     reveals: vec![my_reveal], // mine is first
@@ -171,6 +174,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         };
 
         keygen_session.state.commits.append(&mut other_commits);
+        keygen_session.state.tn.share_count = keygen_session.state.commits.len().try_into().unwrap();
         keygen_session.status = KeygenStatus::Round2Done;
 
         Ok(tonic::Response::new(response))
@@ -191,7 +195,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         if request_reveals.len() < 1 {
             return Err(tonic::Status::invalid_argument(format!("not enough other parties: {:?}", request_reveals.len())));
         }
-        let mut other_reveals : Vec<zengo::KeyGenDecommitMessage1> = Vec::with_capacity(request_reveals.len());
+        let mut other_reveals : Vec<zengo::KeyGenDecommitMessage1> = Vec::with_capacity(request_reveals.len()+1);
         for request_reveal in request_reveals.iter() {
             other_reveals.push(
                 match bincode::deserialize(request_reveal) {
@@ -203,12 +207,11 @@ impl grpc::gg20_server::Gg20 for GG20Service {
             );
         }
 
-        // get secret shares
-
-        // encrypt secret shares
-
         // lock state
         let mut keygen_sessions = self.keygen_sessions.lock().unwrap();
+
+        // ---
+        // begin: check parameters
 
         // session_id should exist and be in state Round2Done
         let mut keygen_session = match keygen_sessions.get_mut(&session_id) {
@@ -219,12 +222,62 @@ impl grpc::gg20_server::Gg20 for GG20Service {
             return Err(tonic::Status::failed_precondition(format!("incorrect status for session_id {:?}", session_id)));
         }
 
+        // verify correct number of parties
+        if other_reveals.len() != keygen_session.state.commits.len()-1 {
+            return Err(tonic::Status::failed_precondition(format!("incorrect number of parties: {:?}", other_reveals.len())));
+        }
+
+        // verify a reasonable threshold
+        let threshold : u16 = request.get_ref().threshold.try_into().unwrap();
+        // TODO do you need threshold+1 parties or threshold parties to sign?
+        if threshold <= 0 || threshold >= keygen_session.state.tn.share_count {
+            return Err(tonic::Status::failed_precondition(format!("invalid threshold: {:?}", threshold)));
+        }
+
+        // end: check parameters
+        // ---
+
+        // ---
+        // begin: compute response
+
+        // get secret shares
+        let mut reveals = other_reveals;
+        reveals.insert(0, keygen_session.state.reveals[0].clone()); // TODO don't use insert; pre-allocate the memory instead
+        let (vss_scheme, secret_shares, _index) // _index should not be part of the zengo API
+            = match keygen_session.state.my_keys
+            .phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute(
+                &zengo::Parameters{
+                    share_count: keygen_session.state.tn.share_count,
+                    threshold: threshold,
+                },
+                &reveals,
+                &keygen_session.state.commits,
+            )
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    return Err(tonic::Status::failed_precondition(format!("{:?}", e)));
+                }
+            };
+        
+        // encrypt secret shares
+
         let response = grpc::KeygenRound3Response {
             encrypted_secret_shares: Vec::default(), // bincode::serialize(&keygen_session.state.my_reveal).unwrap(),
         };
 
-        keygen_session.state.reveals.append(&mut other_reveals);
+        // end: compute response
+        // ---
+
+        // ---
+        // begin: update session state
+
+        keygen_session.state.tn.threshold = threshold;
+        keygen_session.state.reveals = reveals;
         keygen_session.status = KeygenStatus::Round3Done;
+
+        // end: update session state
+        // ---
 
         Ok(tonic::Response::new(response))
     }
