@@ -37,7 +37,7 @@ use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as zengo;
 enum KeygenStatus {
     Round1Done,
     Round2Done,
-    // Round3Done,
+    Round3Done,
     // Round4Done,
 }
 
@@ -50,10 +50,10 @@ struct ZengoState {
     // vss_scheme_vec: Vec<VerifiableSS>,
     // paillier_key_vec: Vec<EncryptionKey>,
     // y_sum: GE,
-    my_commit: zengo::KeyGenBroadcastMessage1,
-    my_reveal: zengo::KeyGenDecommitMessage1,
-    other_commits: Vec<zengo::KeyGenBroadcastMessage1>,
-    // other_reveals: Vec<KeyGenDecommitMessage1>,
+    // my_commit: zengo::KeyGenBroadcastMessage1,
+    // my_reveal: zengo::KeyGenDecommitMessage1,
+    commits: Vec<zengo::KeyGenBroadcastMessage1>, // mine is first
+    reveals: Vec<zengo::KeyGenDecommitMessage1>, // mine is first
 }
 
 #[derive(Debug)]
@@ -82,10 +82,8 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         //   by contrast, updating an existing session requires only a lock on that portion of the HashMap
         //   should we split session creation into another (faster) gRPC call?
 
-        // use this when session_id is of protobuf type `string`
-        let session_id = Uuid::parse_str(&request.get_ref().session_id).unwrap();
-        // use this when session_id is of protobuf type `bytes`
-        // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap();
+        let session_id = Uuid::parse_str(&request.get_ref().session_id).unwrap(); // string
+        // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap(); // bytes
 
         // create new key material, get responses for rounds 1, 2
         let my_keys = zengo::Keys::create(0); // we don't use party index
@@ -98,31 +96,29 @@ impl grpc::gg20_server::Gg20 for GG20Service {
             my_commit: bincode::serialize(&my_commit).unwrap(),
         };
 
-        { // lock state
-            let mut keygen_sessions = self.keygen_sessions.lock().unwrap();
+        // lock state
+        let mut keygen_sessions = self.keygen_sessions.lock().unwrap();
 
-            // session_id should be brand new
-            if keygen_sessions.contains_key(&session_id) {
-                return Err(tonic::Status::already_exists(format!(
-                    "session_id {:?} already exists",
-                    session_id
-                )));
-            }
+        // session_id should be brand new
+        if keygen_sessions.contains_key(&session_id) {
+            return Err(tonic::Status::already_exists(format!(
+                "session_id {:?} already exists",
+                session_id
+            )));
+        }
 
-            // save state
-            keygen_sessions.insert(
-                session_id,
-                KeygenSessionState {
-                    status: KeygenStatus::Round1Done,
-                    state: ZengoState {
-                        my_keys: my_keys,
-                        my_commit: my_commit,
-                        my_reveal: my_reveal,
-                        other_commits: Vec::default(), // wish I had Default...
-                    },
+        // save state
+        keygen_sessions.insert(
+            session_id,
+            KeygenSessionState {
+                status: KeygenStatus::Round1Done,
+                state: ZengoState {
+                    my_keys: my_keys,
+                    commits: vec![my_commit], // mine is first
+                    reveals: vec![my_reveal], // mine is first
                 },
-            );
-        } // unlock state
+            },
+        );
 
         Ok(tonic::Response::new(response))
     }
@@ -133,10 +129,8 @@ impl grpc::gg20_server::Gg20 for GG20Service {
     ) -> Result<tonic::Response<grpc::KeygenRound2Response>, tonic::Status> {
         println!("Got a request: {:?}", request);
 
-        // use this when session_id is of protobuf type `string`
-        let session_id = Uuid::parse_str(&request.get_ref().session_id).unwrap();
-        // use this when session_id is of protobuf type `bytes`
-        // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap();
+        let session_id = Uuid::parse_str(&request.get_ref().session_id).unwrap(); // string
+        // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap(); // bytes
 
         // deserialize request_commits
         let request_commits = &request.get_ref().other_commits;
@@ -157,6 +151,9 @@ impl grpc::gg20_server::Gg20 for GG20Service {
             );
         }
 
+        // TODO the number and order of parties is dictated by whatever we find in request_commits
+        // it's the responsibility of the caller to maintain this order in subsequent rounds
+
         // lock state
         let mut keygen_sessions = self.keygen_sessions.lock().unwrap();
 
@@ -170,10 +167,10 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         }
 
         let response = grpc::KeygenRound2Response {
-            my_reveal: bincode::serialize(&keygen_session.state.my_reveal).unwrap(),
+            my_reveal: bincode::serialize(&keygen_session.state.reveals[0]).unwrap(),
         };
 
-        keygen_session.state.other_commits = other_commits;
+        keygen_session.state.commits.append(&mut other_commits);
         keygen_session.status = KeygenStatus::Round2Done;
 
         Ok(tonic::Response::new(response))
@@ -185,14 +182,50 @@ impl grpc::gg20_server::Gg20 for GG20Service {
     ) -> Result<tonic::Response<grpc::KeygenRound3Response>, tonic::Status> {
         println!("Got a request: {:?}", request);
 
-        // use this when session_id is of protobuf type `string`
-        let session_id = Uuid::parse_str(&request.get_ref().session_id).unwrap();
-        // use this when session_id is of protobuf type `bytes`
-        // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap();
+        let session_id = Uuid::parse_str(&request.get_ref().session_id).unwrap(); // string
+        // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap(); // bytes
         
-        let response = grpc::KeygenRound3Response {
-            encrypted_secret_shares: Vec::default(),
+        // deserialize request_reveals
+        // TODO repeated code from keygen_round2
+        let request_reveals = &request.get_ref().other_reveals;
+        if request_reveals.len() < 1 {
+            return Err(tonic::Status::invalid_argument(format!("not enough other parties: {:?}", request_reveals.len())));
+        }
+        let mut other_reveals : Vec<zengo::KeyGenDecommitMessage1> = Vec::with_capacity(request_reveals.len());
+        for request_reveal in request_reveals.iter() {
+            other_reveals.push(
+                match bincode::deserialize(request_reveal) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        return Err(tonic::Status::invalid_argument(format!("deserialization failure for other_reveals: {:?}", e)));
+                    }
+                }
+            );
+        }
+
+        // get secret shares
+
+        // encrypt secret shares
+
+        // lock state
+        let mut keygen_sessions = self.keygen_sessions.lock().unwrap();
+
+        // session_id should exist and be in state Round2Done
+        let mut keygen_session = match keygen_sessions.get_mut(&session_id) {
+            Some(s) => s,
+            None => {return Err(tonic::Status::not_found(format!("session_id {:?} not found", session_id)))},
         };
+        if keygen_session.status != KeygenStatus::Round2Done {
+            return Err(tonic::Status::failed_precondition(format!("incorrect status for session_id {:?}", session_id)));
+        }
+
+        let response = grpc::KeygenRound3Response {
+            encrypted_secret_shares: Vec::default(), // bincode::serialize(&keygen_session.state.my_reveal).unwrap(),
+        };
+
+        keygen_session.state.reveals.append(&mut other_reveals);
+        keygen_session.status = KeygenStatus::Round3Done;
+
         Ok(tonic::Response::new(response))
     }
 }
