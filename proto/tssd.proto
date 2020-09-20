@@ -13,6 +13,7 @@ message KeygenRound1Request {
 
 message KeygenRound1Response {
     bytes my_commit = 1;
+    bytes my_paillier_key = 2;
 }
 
 message KeygenRound2Request {

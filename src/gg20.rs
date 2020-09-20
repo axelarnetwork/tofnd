@@ -100,6 +100,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
 
         let response = grpc::KeygenRound1Response {
             my_commit: bincode::serialize(&my_commit).unwrap(),
+            my_paillier_key: bincode::serialize(&my_keys.ek).unwrap(),
         };
 
         // lock state
