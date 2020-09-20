@@ -32,5 +32,6 @@ message KeygenRound3Request {
 }
 
 message KeygenRound3Response {
-    repeated bytes other_encrypted_secret_shares = 1; // stream instead?
+    bytes my_vss_scheme = 1;
+    repeated bytes other_encrypted_secret_shares = 2; // stream instead?
 }

@@ -12,11 +12,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::convert::TryInto;
 use uuid::Uuid;
-
 use bincode;
 
 use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as multi_party_ecdsa;
-// use super::zengo;
 
 // baggage from multi_party_ecdsa
 // use curv::{
@@ -28,9 +26,7 @@ use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as multi_p
 //     BigInt, FE, GE,
 // };
 use curv;
-use curv::{
-    elliptic::curves::traits::{ECPoint, ECScalar},
-};
+use curv::elliptic::curves::traits::ECPoint; // see if you can figure out how to use fully qualified syntax to get rid of this use
 
 const MAX_SHARE_COUNT : u16 = 10;
 
@@ -60,7 +56,8 @@ struct ZengoState {
     // set in keygen_round3
     other_reveals: Vec<multi_party_ecdsa::KeyGenDecommitMessage1>,
     other_ss_aes_keys: Vec<Vec<u8>>,
-    my_secret_share: curv::FE,
+    my_secret_share: Option<curv::FE>,
+    my_vss_scheme: Option<curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS>,
     // tn.threshold
 }
 
@@ -129,7 +126,8 @@ impl grpc::gg20_server::Gg20 for GG20Service {
                     other_commits: Vec::default(), // wish I had a Default...
                     other_reveals: Vec::default(), // wish I had a Default...
                     other_ss_aes_keys: Vec::default(), // wish I had a Default...
-                    my_secret_share: curv::FE::zero(), // wish I had a Default...
+                    my_secret_share: None, // wish I had a Default...
+                    my_vss_scheme: None // wish I had a Default...
                 },
             },
         );
@@ -264,7 +262,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         let mut all_commits = keygen_session.state.other_commits.clone();
         all_commits.push(keygen_session.state.my_commit.clone());
 
-        let (vss_scheme, mut all_secret_shares, _index) // zengo API should not return _index
+        let (my_vss_scheme, mut all_secret_shares, _index) // zengo API should not return _index
             = match keygen_session.state.my_keys
             .phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute(
                 &multi_party_ecdsa::Parameters{
@@ -311,6 +309,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         }
 
         let response = grpc::KeygenRound3Response {
+            my_vss_scheme: bincode::serialize(&my_vss_scheme).unwrap(),
             other_encrypted_secret_shares: other_encrypted_secret_shares,
         };
 
@@ -325,7 +324,8 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         keygen_session.state.tn.threshold = threshold;
         keygen_session.state.other_reveals = other_reveals;
         keygen_session.state.other_ss_aes_keys = other_ss_aes_keys;
-        keygen_session.state.my_secret_share = my_secret_share;
+        keygen_session.state.my_secret_share = Some(my_secret_share);
+        keygen_session.state.my_vss_scheme = Some(my_vss_scheme);
         keygen_session.status = KeygenStatus::Round3Done;
 
         // end: update session state
