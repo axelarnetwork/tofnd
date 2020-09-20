@@ -32,6 +32,8 @@ use curv::{
     elliptic::curves::traits::{ECPoint, ECScalar},
 };
 
+const MAX_SHARE_COUNT : u16 = 10;
+
 #[derive(Debug, PartialEq)]
 enum KeygenStatus {
     Round1Done,
@@ -144,14 +146,18 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         let session_id = Uuid::parse_str(&request.get_ref().session_id).unwrap(); // string
         // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap(); // bytes
 
+        // TODO the number and order of parties is dictated by whatever we find in request_commits
+        // it's the responsibility of the caller to maintain this order in subsequent rounds
+
         // deserialize request_commits
         let request_commits = &request.get_ref().other_commits;
-        if request_commits.len() < 1 {
-            return Err(tonic::Status::invalid_argument(format!("not enough other parties: {:?}", request_commits.len())));
+        let num_other_parties : u16 = request_commits.len().try_into().unwrap(); 
+        if num_other_parties < 1 || num_other_parties > MAX_SHARE_COUNT-1 {
+            return Err(tonic::Status::invalid_argument(format!("invalid number of parties: {:?}", num_other_parties+1)));
         }
         // TODO there should be a way to do this using unwrap_or_else
         // let other_commits : Vec<multi_party_ecdsa::KeyGenBroadcastMessage1> = request_commits.iter().map(|c| bincode::deserialize(&c).unwrap()).collect::<Vec<_>>();
-        let mut other_commits : Vec<multi_party_ecdsa::KeyGenBroadcastMessage1> = Vec::with_capacity(request_commits.len());
+        let mut other_commits : Vec<multi_party_ecdsa::KeyGenBroadcastMessage1> = Vec::with_capacity(num_other_parties.into());
         for request_commit in request_commits.iter() {
             other_commits.push(
                 match bincode::deserialize(request_commit) {
@@ -162,9 +168,6 @@ impl grpc::gg20_server::Gg20 for GG20Service {
                 }
             );
         }
-
-        // TODO the number and order of parties is dictated by whatever we find in request_commits
-        // it's the responsibility of the caller to maintain this order in subsequent rounds
 
         // lock state
         let mut keygen_sessions = self.keygen_sessions.lock().unwrap();
@@ -183,7 +186,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         };
 
         keygen_session.state.other_commits = other_commits;
-        keygen_session.state.tn.share_count = (keygen_session.state.other_commits.len()+1).try_into().unwrap();
+        keygen_session.state.tn.share_count = num_other_parties + 1;
         keygen_session.status = KeygenStatus::Round2Done;
 
         Ok(tonic::Response::new(response))
