@@ -6,6 +6,8 @@ use tonic;
 use super::grpc as grpc;
 // use grpc::gg20_server::{Gg20, Gg20Server};
 
+use super::multi_party_ecdsa_common as multi_party_ecdsa_common;
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::convert::TryInto;
@@ -13,10 +15,10 @@ use uuid::Uuid;
 
 use bincode;
 
-use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as zengo;
+use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as multi_party_ecdsa;
+// use super::zengo;
 
 // baggage from multi_party_ecdsa
-
 // use curv::{
 //     arithmetic::traits::Converter,
 //     cryptographic_primitives::{
@@ -25,11 +27,11 @@ use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as zengo;
 //     elliptic::curves::traits::{ECPoint, ECScalar},
 //     BigInt, FE, GE,
 // };
+use curv;
 use curv::{
     arithmetic::traits::Converter,
-    elliptic::curves::traits::ECPoint,
-    BigInt,
-}; 
+    elliptic::curves::traits::{ECPoint, ECScalar},
+};
 
 #[derive(Debug, PartialEq)]
 enum KeygenStatus {
@@ -43,17 +45,19 @@ enum KeygenStatus {
 // TODO there's probably lots of duplication here; multi-party-ecdsa is a mess
 #[derive(Debug)]
 struct ZengoState {
-    tn: zengo::Parameters,
-    my_keys: zengo::Keys,
+    tn: multi_party_ecdsa::Parameters,
+    my_keys: multi_party_ecdsa::Keys,
     // shared_keys: SharedKeys,
     // vss_scheme_vec: Vec<VerifiableSS>,
     // paillier_key_vec: Vec<EncryptionKey>,
     // y_sum: GE,
-    my_commit: zengo::KeyGenBroadcastMessage1,
-    my_reveal: zengo::KeyGenDecommitMessage1,
-    other_commits: Vec<zengo::KeyGenBroadcastMessage1>,
-    other_reveals: Vec<zengo::KeyGenDecommitMessage1>,
+    my_commit: multi_party_ecdsa::KeyGenBroadcastMessage1,
+    my_reveal: multi_party_ecdsa::KeyGenDecommitMessage1,
+    other_commits: Vec<multi_party_ecdsa::KeyGenBroadcastMessage1>,
+    other_reveals: Vec<multi_party_ecdsa::KeyGenDecommitMessage1>,
     other_ss_enc_keys: Vec<Vec<u8>>,
+    my_share: curv::FE,
+    other_shares: Vec<curv::FE>,
 }
 
 #[derive(Debug)]
@@ -86,9 +90,9 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap(); // bytes
 
         // create new key material, get responses for rounds 1, 2
-        let my_keys = zengo::Keys::create(0); // we don't use party index
+        let my_keys = multi_party_ecdsa::Keys::create(0); // we don't use party index
         // TODO use create_safe_prime in production
-        // let my_keys = zengo::Keys::create_safe_prime(0);
+        // let my_keys = multi_party_ecdsa::Keys::create_safe_prime(0);
         let (my_commit, my_reveal) =
             my_keys.phase1_broadcast_phase3_proof_of_correct_key_proof_of_correct_h1h2();
 
@@ -113,13 +117,15 @@ impl grpc::gg20_server::Gg20 for GG20Service {
             KeygenSessionState {
                 status: KeygenStatus::Round1Done,
                 state: ZengoState {
-                    tn: zengo::Parameters{ share_count: 0, threshold: 0}, // wish I had a Default...
+                    tn: multi_party_ecdsa::Parameters{ share_count: 0, threshold: 0}, // wish I had a Default...
                     my_keys: my_keys,
                     my_commit: my_commit,
                     my_reveal: my_reveal,
                     other_commits: Vec::default(), // wish I had a Default...
                     other_reveals: Vec::default(), // wish I had a Default...
                     other_ss_enc_keys: Vec::default(), // wish I had a Default...
+                    my_share: curv::FE::zero(), // wish I had a Default...
+                    other_shares: Vec::default(), // wish I had a Default...
                 },
             },
         );
@@ -142,8 +148,8 @@ impl grpc::gg20_server::Gg20 for GG20Service {
             return Err(tonic::Status::invalid_argument(format!("not enough other parties: {:?}", request_commits.len())));
         }
         // TODO there should be a way to do this using unwrap_or_else
-        // let other_commits : Vec<zengo::KeyGenBroadcastMessage1> = request_commits.iter().map(|c| bincode::deserialize(&c).unwrap()).collect::<Vec<_>>();
-        let mut other_commits : Vec<zengo::KeyGenBroadcastMessage1> = Vec::with_capacity(request_commits.len());
+        // let other_commits : Vec<multi_party_ecdsa::KeyGenBroadcastMessage1> = request_commits.iter().map(|c| bincode::deserialize(&c).unwrap()).collect::<Vec<_>>();
+        let mut other_commits : Vec<multi_party_ecdsa::KeyGenBroadcastMessage1> = Vec::with_capacity(request_commits.len());
         for request_commit in request_commits.iter() {
             other_commits.push(
                 match bincode::deserialize(request_commit) {
@@ -196,7 +202,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         if request_reveals.len() < 1 {
             return Err(tonic::Status::invalid_argument(format!("not enough other parties: {:?}", request_reveals.len())));
         }
-        let mut other_reveals : Vec<zengo::KeyGenDecommitMessage1> = Vec::with_capacity(request_reveals.len());
+        let mut other_reveals : Vec<multi_party_ecdsa::KeyGenDecommitMessage1> = Vec::with_capacity(request_reveals.len());
         for request_reveal in request_reveals.iter() {
             other_reveals.push(
                 match bincode::deserialize(request_reveal) {
@@ -252,10 +258,10 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         let mut all_commits = keygen_session.state.other_commits.clone();
         all_commits.push(keygen_session.state.my_commit.clone());
 
-        let (vss_scheme, secret_shares, _index) // zengo API should not return _index
+        let (vss_scheme, mut all_secret_shares, _index) // zengo API should not return _index
             = match keygen_session.state.my_keys
             .phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute(
-                &zengo::Parameters{
+                &multi_party_ecdsa::Parameters{
                     share_count: keygen_session.state.tn.share_count,
                     threshold: threshold,
                 },
@@ -269,20 +275,23 @@ impl grpc::gg20_server::Gg20 for GG20Service {
                 }
             };
         
+        let my_secret_share = all_secret_shares.pop().unwrap();
+        let other_secret_shares = all_secret_shares;
+        
         // encrypt secret shares
 
         let mut other_ss_enc_keys : Vec<Vec<u8>> = Vec::with_capacity(other_reveals.len());
+        // let mut other_encrypted_secret_shares : 
         for r in other_reveals.iter() {
             other_ss_enc_keys.push(
 
                 // following https://github.com/ZenGo-X/multi-party-ecdsa/blob/10d37b89561d95f68fe94baf95fc14226dadfa80/examples/gg18_keygen_client.rs#L133
-                BigInt::to_vec(
+                curv::BigInt::to_vec(
                     &(r.y_i.clone() * keygen_session.state.my_keys.u_i).x_coor().unwrap()
                 )
 
             );
         }
-
 
         let response = grpc::KeygenRound3Response {
             other_encrypted_secret_shares: Vec::default(), // bincode::serialize(&keygen_session.state.my_reveal).unwrap(),

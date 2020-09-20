@@ -1,6 +1,7 @@
 use tonic::transport::Server;
 use grpc::gg20_server::Gg20Server;
 mod gg20;
+mod multi_party_ecdsa_common;
 use gg20::GG20Service;
 
 pub mod grpc {

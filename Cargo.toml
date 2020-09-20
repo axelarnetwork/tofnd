@@ -11,8 +11,9 @@ uuid = { version = "0.8.1", features = ["v4"] }
 bincode = "1.3.1"
 multi-party-ecdsa = { git = "https://github.com/ZenGo-X/multi-party-ecdsa.git" }
 # paillier = { git = "https://github.com/KZen-networks/rust-paillier", tag = "v0.3.4"} # inherited from multi-party-ecdsa
+rust-crypto = "0.2" # baggage from multi-party-ecdsa
 
-[dependencies.curv] # baggage from multi-party-ecds
+[dependencies.curv] # baggage from multi-party-ecdsa
 git = "https://github.com/KZen-networks/curv"
 tag = "v0.2.6"
 features = ["ec_secp256k1"]
