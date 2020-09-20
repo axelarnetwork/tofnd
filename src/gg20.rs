@@ -152,7 +152,7 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         // deserialize request_commits
         let request_commits = &request.get_ref().other_commits;
         let num_other_parties : u16 = request_commits.len().try_into().unwrap(); 
-        if num_other_parties < 1 || num_other_parties > MAX_SHARE_COUNT-1 {
+        if num_other_parties < 1 || num_other_parties >= MAX_SHARE_COUNT {
             return Err(tonic::Status::invalid_argument(format!("invalid number of parties: {:?}", num_other_parties+1)));
         }
         // TODO there should be a way to do this using unwrap_or_else
@@ -202,11 +202,11 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         // let session_id = Uuid::from_slice( &request.get_ref().session_id ).unwrap(); // bytes
         
         // deserialize request_reveals
-        // TODO repeated code from keygen_round2
         let request_reveals = &request.get_ref().other_reveals;
-        if request_reveals.len() < 1 {
-            return Err(tonic::Status::invalid_argument(format!("not enough other parties: {:?}", request_reveals.len())));
+        if request_reveals.len() >= MAX_SHARE_COUNT.into() {
+            return Err(tonic::Status::invalid_argument(format!("too many other_reveals: {:?}", request_reveals.len())));
         }
+        // TODO repeated code from keygen_round2
         let mut other_reveals : Vec<multi_party_ecdsa::KeyGenDecommitMessage1> = Vec::with_capacity(request_reveals.len());
         for request_reveal in request_reveals.iter() {
             other_reveals.push(
