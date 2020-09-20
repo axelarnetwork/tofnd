@@ -1,4 +1,5 @@
-// TODO code opied from multi_party_ecdsa common.rs
+// code copied from https://github.com/ZenGo-X/multi-party-ecdsa/blob/master/examples/common.rs
+// because multi-party-ecdsa does not export code from examples/common.rs
 
 // use std::{env, iter::repeat, thread, time, time::Duration};
 use std::iter::repeat;
@@ -14,10 +15,9 @@ use crypto::{
 //     BigInt, FE, GE,
 // };
 // use reqwest::Client;
-// use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
-// #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct AEAD {
     pub ciphertext: Vec<u8>,
     pub tag: Vec<u8>,

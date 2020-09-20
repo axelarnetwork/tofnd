@@ -5,18 +5,18 @@ edition = "2018"
 
 [dependencies]
 tonic = "0.3"
-prost = "0.6"  # tonic dependency
-tokio = { version = "0.2", features = ["macros"] } # tonic dependency
 uuid = { version = "0.8.1", features = ["v4"] }
 bincode = "1.3.1"
 multi-party-ecdsa = { git = "https://github.com/ZenGo-X/multi-party-ecdsa.git" }
-# paillier = { git = "https://github.com/KZen-networks/rust-paillier", tag = "v0.3.4"} # inherited from multi-party-ecdsa
-rust-crypto = "0.2" # baggage from multi-party-ecdsa
 
-[dependencies.curv] # baggage from multi-party-ecdsa
-git = "https://github.com/KZen-networks/curv"
-tag = "v0.2.6"
-features = ["ec_secp256k1"]
+# tonic dependencies
+prost = "0.6"
+tokio = { version = "0.2", features = ["macros"] }
+
+# baggage from multi-party-ecdsa
+serde = { version = "1.0", features = ["derive"] }
+rust-crypto = "0.2"
+curv = { git = "https://github.com/KZen-networks/curv", tag = "v0.2.6", features = ["ec_secp256k1"] }
 
 [build-dependencies]
 tonic-build = "0.3"

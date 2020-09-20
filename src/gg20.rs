@@ -29,7 +29,6 @@ use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i as multi_p
 // };
 use curv;
 use curv::{
-    arithmetic::traits::Converter,
     elliptic::curves::traits::{ECPoint, ECScalar},
 };
 
@@ -45,19 +44,22 @@ enum KeygenStatus {
 // TODO there's probably lots of duplication here; multi-party-ecdsa is a mess
 #[derive(Debug)]
 struct ZengoState {
-    tn: multi_party_ecdsa::Parameters,
+    tn: multi_party_ecdsa::Parameters, // tn: threshold (t), share_count (n)
+
+    // set in keygen_round1
     my_keys: multi_party_ecdsa::Keys,
-    // shared_keys: SharedKeys,
-    // vss_scheme_vec: Vec<VerifiableSS>,
-    // paillier_key_vec: Vec<EncryptionKey>,
-    // y_sum: GE,
     my_commit: multi_party_ecdsa::KeyGenBroadcastMessage1,
     my_reveal: multi_party_ecdsa::KeyGenDecommitMessage1,
+
+    // set in keygen_round2
     other_commits: Vec<multi_party_ecdsa::KeyGenBroadcastMessage1>,
+    // tn.share_count
+
+    // set in keygen_round3
     other_reveals: Vec<multi_party_ecdsa::KeyGenDecommitMessage1>,
-    other_ss_enc_keys: Vec<Vec<u8>>,
-    my_share: curv::FE,
-    other_shares: Vec<curv::FE>,
+    other_ss_aes_keys: Vec<Vec<u8>>,
+    my_secret_share: curv::FE,
+    // tn.threshold
 }
 
 #[derive(Debug)]
@@ -123,9 +125,8 @@ impl grpc::gg20_server::Gg20 for GG20Service {
                     my_reveal: my_reveal,
                     other_commits: Vec::default(), // wish I had a Default...
                     other_reveals: Vec::default(), // wish I had a Default...
-                    other_ss_enc_keys: Vec::default(), // wish I had a Default...
-                    my_share: curv::FE::zero(), // wish I had a Default...
-                    other_shares: Vec::default(), // wish I had a Default...
+                    other_ss_aes_keys: Vec::default(), // wish I had a Default...
+                    my_secret_share: curv::FE::zero(), // wish I had a Default...
                 },
             },
         );
@@ -232,8 +233,9 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         }
 
         // verify correct number of parties
-        if other_reveals.len() != keygen_session.state.other_commits.len() {
-            return Err(tonic::Status::failed_precondition(format!("incorrect number of parties: {:?}", other_reveals.len())));
+        let num_other_parties = other_reveals.len();
+        if num_other_parties != keygen_session.state.other_commits.len() {
+            return Err(tonic::Status::failed_precondition(format!("incorrect number of parties: {:?}", num_other_parties)));
         }
 
         // verify a reasonable threshold
@@ -280,21 +282,32 @@ impl grpc::gg20_server::Gg20 for GG20Service {
         
         // encrypt secret shares
 
-        let mut other_ss_enc_keys : Vec<Vec<u8>> = Vec::with_capacity(other_reveals.len());
-        // let mut other_encrypted_secret_shares : 
-        for r in other_reveals.iter() {
-            other_ss_enc_keys.push(
+        let mut other_ss_aes_keys : Vec<Vec<u8>> = Vec::with_capacity(num_other_parties);
+        let mut other_encrypted_secret_shares : Vec<Vec<u8>> = Vec::with_capacity(num_other_parties);
+        for i in 0..num_other_parties {
 
-                // following https://github.com/ZenGo-X/multi-party-ecdsa/blob/10d37b89561d95f68fe94baf95fc14226dadfa80/examples/gg18_keygen_client.rs#L133
-                curv::BigInt::to_vec(
-                    &(r.y_i.clone() * keygen_session.state.my_keys.u_i).x_coor().unwrap()
-                )
+            // use a Diffie-Hellman for symmetric encryption as per
+            // https://github.com/ZenGo-X/multi-party-ecdsa/blob/10d37b89561d95f68fe94baf95fc14226dadfa80/examples/gg18_keygen_client.rs#L133
+            // except use bincode::serialize instead of BigInt::to_vec
+            other_ss_aes_keys.push(
+
+                bincode::serialize(
+                    &(other_reveals[i].y_i.clone() * keygen_session.state.my_keys.u_i).x_coor().unwrap()
+                ).unwrap()
 
             );
+            other_encrypted_secret_shares.push(
+                bincode::serialize(
+                    &multi_party_ecdsa_common::aes_encrypt(
+                        &other_ss_aes_keys[i],
+                        &bincode::serialize( &other_secret_shares[i] ).unwrap()
+                    )
+                ).unwrap()
+            )
         }
 
         let response = grpc::KeygenRound3Response {
-            other_encrypted_secret_shares: Vec::default(), // bincode::serialize(&keygen_session.state.my_reveal).unwrap(),
+            other_encrypted_secret_shares: other_encrypted_secret_shares,
         };
 
         // end: compute response
@@ -307,7 +320,8 @@ impl grpc::gg20_server::Gg20 for GG20Service {
 
         keygen_session.state.tn.threshold = threshold;
         keygen_session.state.other_reveals = other_reveals;
-        keygen_session.state.other_ss_enc_keys = other_ss_enc_keys;
+        keygen_session.state.other_ss_aes_keys = other_ss_aes_keys;
+        keygen_session.state.my_secret_share = my_secret_share;
         keygen_session.status = KeygenStatus::Round3Done;
 
         // end: update session state

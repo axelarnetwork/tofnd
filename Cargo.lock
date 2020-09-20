@@ -1561,6 +1561,7 @@ dependencies = [
  "multi-party-ecdsa",
  "prost",
  "rust-crypto",
+ "serde",
  "tokio",
  "tonic",
  "tonic-build",
