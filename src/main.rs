@@ -1,20 +1,17 @@
-use tonic::transport::Server;
-use grpc::gg20_server::Gg20Server;
 mod gg20;
-mod multi_party_ecdsa_common;
-use gg20::GG20Service;
 
-pub mod grpc {
+pub mod proto {
     tonic::include_proto!("tssd");
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
-    let greeter = GG20Service::default();
+    let my_service = gg20::GG20Service;
+    let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
-    Server::builder()
-        .add_service(Gg20Server::new(greeter))
+    tonic::transport::Server::builder()
+        .add_service(proto_service)
         .serve(addr)
         .await?;
 
