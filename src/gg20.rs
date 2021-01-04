@@ -19,4 +19,9 @@ impl proto::gg20_server::Gg20 for GG20Service {
     ) -> Result<Response<Self::KeygenStream>, Status> {
         unimplemented!()
     }
+
+    async fn get_key(&self, request: Request<proto::Uid>) -> Result<Response<proto::Bytes>, Status> {
+        println!("get_key uid {:?}", request.get_ref());
+        Ok(Response::new(proto::Bytes{payload: vec!(1,2,3)}))
+    }
 }

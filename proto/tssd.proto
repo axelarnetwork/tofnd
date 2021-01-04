@@ -7,7 +7,7 @@ package tssd;
 service GG20 {
     rpc Keygen(stream MessageIn) returns (stream MessageOut);
     // rpc Sign(stream MessageIn) returns (stream MessageOut);
-    // rpc GetKey(Uid) returns (Bytes);
+    rpc GetKey(Uid) returns (Bytes);
     // rpc GetSig(Uid) returns (Bytes);
 }
 

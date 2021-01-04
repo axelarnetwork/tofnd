@@ -7,6 +7,7 @@ pub mod proto {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
+    println!("rust-tssd listen addr {:?}", addr);
     let my_service = gg20::GG20Service;
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
