@@ -12,7 +12,8 @@ tonic = "0.3"
 # tonic dependencies
 prost = "0.6"
 tokio = { version = "0.2", features = ["macros"] }
-futures-core = "0.3"
+# futures-core = "0.3"
+futures-util = "0.3"
 
 [build-dependencies]
 tonic-build = "0.3"
