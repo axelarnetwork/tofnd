@@ -1,5 +1,8 @@
 // File copied from golang tssd with minor tweaks
 syntax = "proto3";
+
+option go_package = "tssd/pb";
+
 package tssd;
 
 // GG18 is the protocol https://eprint.iacr.org/2019/114
