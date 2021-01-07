@@ -14,7 +14,10 @@ use tokio::{
 // use std::pin::Pin;
 // use futures_core::Stream;
 use std::convert::TryFrom;
-
+use thrush::{
+    // protocol,
+    protocol::gg20::keygen
+};
 #[derive(Debug)]
 pub struct GG20Service;
 
@@ -45,19 +48,29 @@ impl proto::gg20_server::Gg20 for GG20Service {
             proto::message_in::Data::KeygenInit(k) => k,
             _ => return Err(Status::invalid_argument("first message must be keygen init data")),
         };
-        keygen_check_args(&init)?;
-
         println!("received keygen init {:?}", init);
+
+        let (my_id_index, threshold) = keygen_check_args(&init)?; // TODO move this check to thrush?
+
+        // keep everything single-threaded for now
+        // TODO switch to multi-threaded?
+        let keygen = keygen::new_protocol(&init.party_uids, my_id_index, threshold);
+
+        // TODO testing round 1
+        let (bcast, _p2ps) = keygen.get_messages_out();
+        let bcast = bcast.unwrap();
 
         // while let Some(point) = stream.next().await {
         // }
+
+        // rust complains if I don't send messages inside a tokio::spawn
         tokio::spawn(async move {
             // send a test dummy message
             let msg = proto::MessageOut {
                 data: Some(proto::message_out::Data::Traffic(
                     proto::TrafficOut {
-                        to_party_uid: String::from("test_id"),
-                        payload: vec![5,6,7,8],
+                        to_party_uid: String::new(),
+                        payload: bcast,
                         is_broadcast: true,
                     }
                 )),
@@ -68,7 +81,7 @@ impl proto::gg20_server::Gg20 for GG20Service {
     }
 }
 
-fn keygen_check_args(args : &proto::KeygenInit) -> Result<(), Status> {
+fn keygen_check_args(args : &proto::KeygenInit) -> Result<(usize, usize), Status> {
     let my_index = usize::try_from(args.my_party_index)
         .map_err(|_| Status::invalid_argument("my_party_index can't convert to usize"))?;
     let threshold = usize::try_from(args.threshold)
@@ -79,5 +92,5 @@ fn keygen_check_args(args : &proto::KeygenInit) -> Result<(), Status> {
     if threshold >= args.party_uids.len() {
         return Err(Status::invalid_argument(format!("threshold {} out of range for {} parties", threshold, args.party_uids.len())));
     }
-    Ok(())
+    Ok((my_index, threshold))
 }
