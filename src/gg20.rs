@@ -56,27 +56,22 @@ impl proto::gg20_server::Gg20 for GG20Service {
         // TODO switch to multi-threaded?
         let keygen = keygen::new_protocol(&init.party_uids, my_id_index, threshold);
 
-        // TODO testing round 1
-        let (bcast, _p2ps) = keygen.get_messages_out();
-        let bcast = bcast.unwrap();
+        // TODO this is generic protocol code---refactor it!
+        // while !keygen.done() {
+            let (bcast, _p2ps) = keygen.get_messages_out();
+            if let Some(bcast) = bcast {
+                let msg = wrap_bcast(bcast);
+                tokio::spawn(async move {          
+                    tx.send(Ok(msg)).await.unwrap();
+                });    
+            }
+        // }
 
         // while let Some(point) = stream.next().await {
         // }
 
+        // send a test dummy message
         // rust complains if I don't send messages inside a tokio::spawn
-        tokio::spawn(async move {
-            // send a test dummy message
-            let msg = proto::MessageOut {
-                data: Some(proto::message_out::Data::Traffic(
-                    proto::TrafficOut {
-                        to_party_uid: String::new(),
-                        payload: bcast,
-                        is_broadcast: true,
-                    }
-                )),
-            };
-            tx.send(Ok(msg)).await.unwrap();
-        });
         Ok(Response::new(rx))
     }
 }
@@ -93,4 +88,16 @@ fn keygen_check_args(args : &proto::KeygenInit) -> Result<(usize, usize), Status
         return Err(Status::invalid_argument(format!("threshold {} out of range for {} parties", threshold, args.party_uids.len())));
     }
     Ok((my_index, threshold))
+}
+
+fn wrap_bcast(bcast: Vec<u8>) -> proto::MessageOut {
+    proto::MessageOut {
+        data: Some(proto::message_out::Data::Traffic(
+            proto::TrafficOut {
+                to_party_uid: String::new(),
+                payload: bcast,
+                is_broadcast: true,
+            }
+        )),
+    }
 }
