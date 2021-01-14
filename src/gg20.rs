@@ -5,19 +5,16 @@ use super::proto;
 // use proto::message_out::Data;
 
 // tonic cruft
-use tonic::{Request, Response, Status};
 use tokio::{
-    sync::mpsc,
     stream::StreamExt, // TODO instead use futures_util::StreamExt; as recommended https://github.com/hyperium/tonic/blob/master/examples/routeguide-tutorial.md ?
+    sync::mpsc,
 };
+use tonic::{Request, Response, Status};
 // use futures_util::StreamExt;
 // use std::pin::Pin;
 // use futures_core::Stream;
 use std::convert::TryFrom;
-use thrush::{
-    // protocol,
-    protocol::gg20::keygen
-};
+use thrush::protocol::gg20::keygen;
 
 #[derive(Debug)]
 pub struct GG20Service;
@@ -26,29 +23,54 @@ pub struct GG20Service;
 impl proto::gg20_server::Gg20 for GG20Service {
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
     type KeygenStream = mpsc::Receiver<Result<proto::MessageOut, Status>>;
+    type SignStream = Self::KeygenStream;
 
-    async fn get_key(&self, request: Request<proto::Uid>) -> Result<Response<proto::Bytes>, Status> {
+    // TODO delete get_key, get_sign?
+    async fn get_key(
+        &self,
+        request: Request<proto::Uid>,
+    ) -> Result<Response<proto::Bytes>, Status> {
         println!("get_key uid {:?}", request.get_ref());
-        Ok(Response::new(proto::Bytes{payload: vec!(1,2,3)}))
+        Ok(Response::new(proto::Bytes {
+            payload: vec![1, 2, 3],
+        }))
+    }
+
+    async fn get_sig(
+        &self,
+        request: Request<proto::Uid>,
+    ) -> Result<Response<proto::Bytes>, Status> {
+        println!("get_sig uid {:?}", request.get_ref());
+        Ok(Response::new(proto::Bytes {
+            payload: vec![3, 2, 1],
+        }))
     }
 
     async fn keygen(
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,
-    ) -> Result<Response<Self::KeygenStream>, Status>
-    {
+    ) -> Result<Response<Self::KeygenStream>, Status> {
         let mut stream = request.into_inner();
 
         // TODO we can only return errors outside of tokio::spawn---for consistency, perhaps we should never return an error?
 
         // the first message in the stream contains init data
-	    // block on this message; we can't proceed without it
-        let msg_init = stream.next().await
-            .ok_or_else(|| Status::invalid_argument("stream closed by client before sending any messages"))??
-            .data.ok_or_else(|| Status::invalid_argument("missing data for stream message"))?;
+        // block on this message; we can't proceed without it
+        let msg_init = stream
+            .next()
+            .await
+            .ok_or_else(|| {
+                Status::invalid_argument("stream closed by client before sending any messages")
+            })??
+            .data
+            .ok_or_else(|| Status::invalid_argument("missing data for stream message"))?;
         let init = match msg_init {
             proto::message_in::Data::KeygenInit(k) => k,
-            _ => return Err(Status::invalid_argument("first message must be keygen init data")),
+            _ => {
+                return Err(Status::invalid_argument(
+                    "first message must be keygen init data",
+                ))
+            }
         };
         println!("received keygen init {:?}", init);
         let (my_id_index, threshold) = keygen_check_args(&init)?;
@@ -57,7 +79,7 @@ impl proto::gg20_server::Gg20 for GG20Service {
 
         // rust complains if I don't send messages inside a tokio::spawn
         // can't return an error from a spawned thread
-        tokio::spawn(async move {    
+        tokio::spawn(async move {
             // TODO this is generic protocol code---refactor it!  Need a `Protocol` interface minus `get_result` method
             // keep everything single-threaded for now
             // TODO switch to multi-threaded?
@@ -78,24 +100,24 @@ impl proto::gg20_server::Gg20 for GG20Service {
                     let msg_in = stream.next().await;
                     if msg_in.is_none() {
                         println!("stream closed by client before protocol has completed");
-                        return
+                        return;
                     }
                     let msg_in = msg_in.unwrap();
                     if msg_in.is_err() {
                         println!("stream failure to receive {:?}", msg_in.unwrap_err());
-                        continue
+                        continue;
                     }
                     let msg_in = msg_in.unwrap().data;
                     if msg_in.is_none() {
                         println!("missing data in client message");
-                        continue
+                        continue;
                     }
                     let msg_in = match msg_in.unwrap() {
                         proto::message_in::Data::Traffic(t) => t,
                         _ => {
                             println!("all messages after the first must be traffic in");
-                            continue
-                        },
+                            continue;
+                        }
                     };
 
                     // TODO add_message_in does not yet return an error
@@ -113,18 +135,34 @@ impl proto::gg20_server::Gg20 for GG20Service {
 
         Ok(Response::new(rx))
     }
+
+    async fn sign(
+        &self,
+        _request: Request<tonic::Streaming<proto::MessageIn>>,
+    ) -> Result<Response<Self::KeygenStream>, Status> {
+        let (mut _tx, rx) = mpsc::channel(4);
+        Ok(Response::new(rx))
+    }
 }
 
-fn keygen_check_args(args : &proto::KeygenInit) -> Result<(usize, usize), Status> {
+fn keygen_check_args(args: &proto::KeygenInit) -> Result<(usize, usize), Status> {
     let my_index = usize::try_from(args.my_party_index)
         .map_err(|_| Status::invalid_argument("my_party_index can't convert to usize"))?;
     let threshold = usize::try_from(args.threshold)
         .map_err(|_| Status::invalid_argument("threshold can't convert to usize"))?;
     if my_index >= args.party_uids.len() {
-        return Err(Status::invalid_argument(format!("my_party_index {} out of range for {} parties", my_index, args.party_uids.len())));
+        return Err(Status::invalid_argument(format!(
+            "my_party_index {} out of range for {} parties",
+            my_index,
+            args.party_uids.len()
+        )));
     }
     if threshold >= args.party_uids.len() {
-        return Err(Status::invalid_argument(format!("threshold {} out of range for {} parties", threshold, args.party_uids.len())));
+        return Err(Status::invalid_argument(format!(
+            "threshold {} out of range for {} parties",
+            threshold,
+            args.party_uids.len()
+        )));
     }
     Ok((my_index, threshold))
 }
@@ -139,20 +177,16 @@ fn wrap_p2p(receiver_id: String, p2p: Vec<u8>) -> proto::MessageOut {
 
 fn wrap_msg(receiver_id: String, msg: Vec<u8>, is_broadcast: bool) -> proto::MessageOut {
     proto::MessageOut {
-        data: Some(proto::message_out::Data::Traffic(
-            proto::TrafficOut {
-                to_party_uid: receiver_id,
-                payload: msg,
-                is_broadcast,
-            }
-        )),
+        data: Some(proto::message_out::Data::Traffic(proto::TrafficOut {
+            to_party_uid: receiver_id,
+            payload: msg,
+            is_broadcast,
+        })),
     }
 }
 
 fn wrap_result(result: Vec<u8>) -> proto::MessageOut {
     proto::MessageOut {
-        data: Some(proto::message_out::Data::KeygenResult(
-            result,
-        )),
+        data: Some(proto::message_out::Data::KeygenResult(result)),
     }
 }
