@@ -105,7 +105,7 @@ impl proto::gg20_server::Gg20 for GG20Service {
                     let msg_in = msg_in.unwrap();
                     if msg_in.is_err() {
                         println!("stream failure to receive {:?}", msg_in.unwrap_err());
-                        continue;
+                        return;
                     }
                     let msg_in = msg_in.unwrap().data;
                     if msg_in.is_none() {
