@@ -3,8 +3,8 @@ use super::proto;
 
 #[tonic::async_trait]
 pub trait Party {
-    fn execute(&self);
-    fn msg_in(&self, msg: &proto::MessageIn);
+    async fn execute(&mut self);
+    async fn msg_in(&mut self, msg: &proto::MessageIn);
     async fn close(self);
 }
 
