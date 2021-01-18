@@ -5,12 +5,9 @@ use super::proto;
 // use proto::message_out::Data;
 
 // tonic cruft
-use tokio::{
-    stream::StreamExt, // TODO instead use futures_util::StreamExt; as recommended https://github.com/hyperium/tonic/blob/master/examples/routeguide-tutorial.md ?
-    sync::mpsc,
-};
+use futures_util::StreamExt;
+use tokio::sync::mpsc;
 use tonic::{Request, Response, Status};
-// use futures_util::StreamExt;
 // use std::pin::Pin;
 // use futures_core::Stream;
 use std::convert::TryFrom;
@@ -145,7 +142,8 @@ impl proto::gg20_server::Gg20 for GG20Service {
     }
 }
 
-fn keygen_check_args(args: &proto::KeygenInit) -> Result<(usize, usize), Status> {
+// TODO move me somewhere better
+pub fn keygen_check_args(args: &proto::KeygenInit) -> Result<(usize, usize), Status> {
     let my_index = usize::try_from(args.my_party_index)
         .map_err(|_| Status::invalid_argument("my_party_index can't convert to usize"))?;
     let threshold = usize::try_from(args.threshold)
