@@ -48,39 +48,50 @@ impl proto::gg20_server::Gg20 for GG20Service {
         request: Request<tonic::Streaming<proto::MessageIn>>,
     ) -> Result<Response<Self::KeygenStream>, Status> {
         let mut stream = request.into_inner();
+        let (mut tx, rx) = mpsc::channel(4);
 
         // TODO we can only return errors outside of tokio::spawn---for consistency, perhaps we should never return an error?
-
-        // the first message in the stream contains init data
-        // block on this message; we can't proceed without it
-        let msg_init = stream
-            .next()
-            .await
-            .ok_or_else(|| {
-                Status::invalid_argument("stream closed by client before sending any messages")
-            })??
-            .data
-            .ok_or_else(|| Status::invalid_argument("missing data for stream message"))?;
-        let init = match msg_init {
-            proto::message_in::Data::KeygenInit(k) => k,
-            _ => {
-                return Err(Status::invalid_argument(
-                    "first message must be keygen init data",
-                ))
-            }
-        };
-        println!("received keygen init {:?}", init);
-        let (my_id_index, threshold) = keygen_check_args(&init)?;
-
-        let (mut tx, rx) = mpsc::channel(4);
 
         // rust complains if I don't send messages inside a tokio::spawn
         // can't return an error from a spawned thread
         tokio::spawn(async move {
+            // the first message in the stream contains init data
+            // block on this message; we can't proceed without it
+            let msg_init = stream.next().await;
+            if msg_init.is_none() {
+                println!("stream closed by client before protocol has completed");
+                return;
+            }
+            let msg_init = msg_init.unwrap();
+            if msg_init.is_err() {
+                println!("stream failure to receive {:?}", msg_init.unwrap_err());
+                return;
+            }
+            let msg_init = msg_init.unwrap().data;
+            if msg_init.is_none() {
+                println!("missing data in client message");
+                return;
+            }
+            let msg_init = match msg_init.unwrap() {
+                proto::message_in::Data::KeygenInit(k) => k,
+                _ => {
+                    println!("first message must be keygen init");
+                    return;
+                }
+            };
+            println!("received keygen init {:?}", msg_init);
+            let (my_id_index, threshold) = match keygen_check_args(&msg_init) {
+                Ok(v) => v,
+                Err(e) => {
+                    println!("{}", e);
+                    return;
+                }
+            };
+
             // TODO this is generic protocol code---refactor it!  Need a `Protocol` interface minus `get_result` method
             // keep everything single-threaded for now
             // TODO switch to multi-threaded?
-            let mut keygen = keygen::new_protocol(&init.party_uids, my_id_index, threshold);
+            let mut keygen = keygen::new_protocol(&msg_init.party_uids, my_id_index, threshold);
             while !keygen.done() {
                 // send outgoing messages
                 // TODO we send lots of messages before receiving any---is that bad?

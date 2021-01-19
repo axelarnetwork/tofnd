@@ -5,7 +5,7 @@ use mock::Party;
 // #[test]
 #[tokio::test]
 async fn start_servers() {
-    let transport = mock::TestDeliverer {};
+    let transport = mock::DefaultTransport::new();
     let init = proto::KeygenInit {
         new_key_uid: "test-key".to_string(),
         party_uids: vec!["Gus".to_string()],
