@@ -24,7 +24,7 @@ async fn start_servers() {
     //     ));
     // }
 
-    let mut party = tssd_party::TssdParty::new(&init, &mut transport).await;
+    let mut party = tssd_party::TssdParty::new(&init, &transport).await;
 
     party.execute().await;
 

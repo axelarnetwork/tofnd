@@ -12,7 +12,7 @@ use tonic::Request;
 
 // #[derive(Debug)]
 pub struct TssdParty<'a> {
-    transport: &'a mut dyn Deliverer,
+    transport: &'a dyn Deliverer,
     // shutdown_sender: tokio::sync::oneshot::Sender<()>,
     // server_handle: JoinHandle<Result<(), tonic::transport::Error>>,
     server: Option<(
@@ -27,7 +27,7 @@ pub struct TssdParty<'a> {
 }
 
 impl<'a> TssdParty<'a> {
-    pub async fn new(init: &proto::KeygenInit, transport: &'a mut impl Deliverer) -> TssdParty<'a> {
+    pub async fn new(init: &proto::KeygenInit, transport: &'a impl Deliverer) -> TssdParty<'a> {
         let (my_id_index, threshold) = gg20::keygen_check_args(&init).unwrap();
 
         // start server
