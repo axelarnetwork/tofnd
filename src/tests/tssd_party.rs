@@ -1,26 +1,33 @@
 use super::{
     gg20,
-    mock::{self, Party, WeakPartyMap},
+    mock::{self, Party, PartyMap},
     proto,
 };
 use std::net::SocketAddr;
-use std::sync::Weak;
-use tokio::{sync::mpsc::Sender, task::JoinHandle};
+use std::sync::Arc;
+use tokio::{
+    sync::mpsc::{Receiver, Sender},
+    task::JoinHandle,
+};
 use tonic::Request;
+
+// TODO temporary to satisfy clippy
+type ServerPair = (
+    JoinHandle<Result<(), tonic::transport::Error>>,
+    tokio::sync::oneshot::Sender<()>,
+);
 
 // #[derive(Debug)]
 pub struct TssdParty {
-    party_map: WeakPartyMap,
+    party_map: Option<PartyMap>,
     // shutdown_sender: tokio::sync::oneshot::Sender<()>,
     // server_handle: JoinHandle<Result<(), tonic::transport::Error>>,
-    server: Option<(
-        JoinHandle<Result<(), tonic::transport::Error>>,
-        tokio::sync::oneshot::Sender<()>,
-    )>, // (server_handle, shutdown_sender)
+    server: Option<ServerPair>, // (server_handle, shutdown_sender)
     server_addr: SocketAddr,
     keygen_init: proto::KeygenInit,
     my_id_index: usize, // sanitized from keygen_init
-    to_server: Option<Sender<proto::MessageIn>>,
+    tx: Sender<proto::MessageIn>,
+    rx: Option<Receiver<proto::MessageIn>>,
 }
 
 impl TssdParty {
@@ -47,19 +54,25 @@ impl TssdParty {
                 .await
         });
 
+        let (tx, rx) = tokio::sync::mpsc::channel(4);
+
         // TODO get the server to notify us after it's started, or perhaps just "yield" here
-        println!("TODO wait for server to start...");
+        println!(
+            "party [{}] TODO sleep waiting for server to start...",
+            init.party_uids[my_id_index]
+        );
         tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
 
         Self {
-            party_map: Weak::new(),
+            party_map: None,
             server: Some((server_handle, shutdown_sender)),
             // shutdown_sender,
             // server_handle,
             server_addr,
             keygen_init: init.clone(),
             my_id_index,
-            to_server: None,
+            tx,
+            rx: Some(rx),
         }
     }
 }
@@ -69,48 +82,30 @@ impl Party for TssdParty {
     fn get_id(&self) -> &str {
         &self.keygen_init.party_uids[self.my_id_index]
     }
-
-    fn set_party_map(&mut self, party_map: WeakPartyMap) {
-        self.party_map = party_map;
+    fn get_tx(&self) -> Sender<proto::MessageIn> {
+        self.tx.clone()
+    }
+    fn set_party_map(&mut self, party_map: PartyMap) {
+        self.party_map = Some(party_map);
     }
 
     async fn execute(&mut self) {
+        assert!(self.party_map.is_some());
+        assert!(self.rx.is_some());
+        println!("party [{}] connect to server...", self.get_id());
         let mut client =
             proto::gg20_client::Gg20Client::connect(format!("http://{}", self.server_addr))
                 .await
                 .unwrap();
 
-        // test call to get_key
-        let get_key_response = client
-            .get_key(tonic::Request::new(proto::Uid {
-                uid: "test-call-to-get-key".to_string(),
-            }))
+        let mut from_server = client
+            .keygen(Request::new(self.rx.take().unwrap()))
             .await
-            .unwrap();
-        println!("get_key response: {:?}", get_key_response);
-
-        // let outbound = async_stream::try_stream! {
-        //     yield proto::MessageIn {
-        //         data: Some(proto::message_in::Data::KeygenInit(
-        //             self.keygen_init.clone(), // TODO clone
-        //         )),
-        //     };
-        // };
-
-        let (to_server, rx) = tokio::sync::mpsc::channel(4);
-        // to_server.clone();
-        self.to_server = Some(to_server);
-        // let transport = self.transport.take().as_ref().unwrap();
-        // let my_id = self.get_id().to_string();
-        println!("calling keygen...");
-        // let execution_handle = tokio::spawn(async move {
-        let mut from_server = client.keygen(Request::new(rx)).await.unwrap().into_inner();
-        println!("keygen returned! sending keygen init msg...");
+            .unwrap()
+            .into_inner();
 
         // the first outbound message is keygen init info
-        self.to_server
-            .as_mut()
-            .unwrap()
+        self.tx
             .send(proto::MessageIn {
                 data: Some(proto::message_in::Data::KeygenInit(
                     self.keygen_init.clone(), // TODO clone
@@ -118,29 +113,27 @@ impl Party for TssdParty {
             })
             .await
             .unwrap();
-        println!("init msg returned! entering message loop...");
 
         while let Some(msg) = from_server.message().await.unwrap() {
-            // println!("outgoing msg: {:?}", msg);
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
                 proto::message_out::Data::Traffic(_) => {
                     mock::deliver(
-                        Weak::clone(&self.party_map),
+                        Arc::clone(&self.party_map.as_ref().unwrap()),
                         &msg,
                         &self.get_id().to_string(), // TODO clone
                     )
                     .await;
                 }
                 proto::message_out::Data::KeygenResult(_) => {
-                    println!("received keygen result from server!  breaking from message loop...");
+                    println!("party [{}] keygen finished!", self.get_id());
                     break;
                 }
                 _ => panic!("bad outgoing message type"),
             };
         }
-        println!("keygen finished!");
+        println!("party [{}] execution complete", self.get_id());
     }
 
     async fn msg_in(&mut self, msg: &proto::MessageIn) {
@@ -152,18 +145,13 @@ impl Party for TssdParty {
                 _ => panic!("all incoming messages must be traffic in"),
             };
             println!(
-                "incoming msg from [{}] to me [{}] broadcast?? [{}]",
+                "incoming msg from [{}] to me [{}] broadcast? [{}]",
                 msg.from_party_uid,
                 self.get_id(),
                 msg.is_broadcast
             );
         }
-        self.to_server
-            .as_mut()
-            .expect("party is not executing")
-            .send(msg.clone())
-            .await
-            .unwrap();
+        self.tx.send(msg.clone()).await.unwrap();
     }
 
     async fn close(&mut self) {

@@ -1,19 +1,19 @@
 //! Traits for mock tests
 use std::collections::HashMap;
-use std::sync::{Arc, Weak};
-use tokio::sync::Mutex;
+use std::sync::Arc;
+use tokio::sync::mpsc::Sender;
 
 use super::proto;
 
-pub type MutexPartyMap = HashMap<String, Arc<Mutex<dyn Party>>>;
-pub type WeakPartyMap = Weak<MutexPartyMap>;
+pub type MutexPartyMap = HashMap<String, Sender<proto::MessageIn>>;
 pub type PartyMap = Arc<MutexPartyMap>;
 
 #[tonic::async_trait]
 pub trait Party: Sync + Send {
     // pub trait Party {
     fn get_id(&self) -> &str;
-    fn set_party_map(&mut self, party_map: WeakPartyMap);
+    fn get_tx(&self) -> Sender<proto::MessageIn>;
+    fn set_party_map(&mut self, party_map: PartyMap);
     async fn execute(&mut self);
     async fn msg_in(&mut self, msg: &proto::MessageIn);
     async fn close(&mut self);
@@ -25,29 +25,7 @@ pub trait Deliverer: Sync + Send {
     async fn deliver(&self, msg: &proto::MessageOut, from: &str);
 }
 
-pub async fn execute_all(party_map: PartyMap) {
-    // TODO does each execution need to be started before any await???
-    // let mut join_handles = Vec::<_>::with_capacity(party_map.len());
-    // for (_id, party) in party_map.iter() {
-    //     let handle = async move { party.lock().await.execute().await };
-    //     join_handles.push(handle);
-    // }
-    // for h in join_handles {
-    //     h.await;
-    // }
-    for (_id, party) in party_map.iter() {
-        party.lock().await.execute().await;
-    }
-}
-
-pub async fn close_all(party_map: PartyMap) {
-    for (_id, party) in party_map.iter() {
-        party.lock().await.close().await;
-    }
-}
-
-pub async fn deliver(party_map: WeakPartyMap, msg: &proto::MessageOut, from: &str) {
-    let party_map = party_map.upgrade().unwrap();
+pub async fn deliver(party_map: PartyMap, msg: &proto::MessageOut, from: &str) {
     let msg = msg.data.as_ref().expect("missing data");
     let msg = match msg {
         proto::message_out::Data::Traffic(t) => t,
@@ -74,10 +52,10 @@ pub async fn deliver(party_map: WeakPartyMap, msg: &proto::MessageOut, from: &st
         party_map
             .get(&msg.to_party_uid)
             .unwrap()
-            .lock()
+            .clone()
+            .send(msg_in)
             .await
-            .msg_in(&msg_in)
-            .await;
+            .unwrap();
         return;
     }
 
@@ -86,6 +64,6 @@ pub async fn deliver(party_map: WeakPartyMap, msg: &proto::MessageOut, from: &st
         if id == from {
             continue; // don't broadcast to myself
         }
-        recipient.lock().await.msg_in(&msg_in).await;
+        recipient.clone().send(msg_in.clone()).await.unwrap();
     }
 }
