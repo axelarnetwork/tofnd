@@ -12,7 +12,7 @@ use tonic::Request;
 
 // #[derive(Debug)]
 pub struct TssdParty<'a> {
-    transport: &'a dyn Deliverer,
+    transport: &'a mut dyn Deliverer,
     // shutdown_sender: tokio::sync::oneshot::Sender<()>,
     // server_handle: JoinHandle<Result<(), tonic::transport::Error>>,
     server: Option<(
@@ -27,7 +27,7 @@ pub struct TssdParty<'a> {
 }
 
 impl<'a> TssdParty<'a> {
-    pub async fn new(init: &proto::KeygenInit, transport: &'a impl Deliverer) -> TssdParty<'a> {
+    pub async fn new(init: &proto::KeygenInit, transport: &'a mut impl Deliverer) -> TssdParty<'a> {
         let (my_id_index, threshold) = gg20::keygen_check_args(&init).unwrap();
 
         // start server
@@ -55,7 +55,7 @@ impl<'a> TssdParty<'a> {
         tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
 
         Self {
-            transport: transport,
+            transport,
             server: Some((server_handle, shutdown_sender)),
             // shutdown_sender,
             // server_handle,
@@ -123,8 +123,13 @@ impl Party for TssdParty<'_> {
         while let Some(msg) = from_server.message().await.unwrap() {
             // println!("outgoing msg: {:?}", msg);
             let msg_type = msg.data.as_ref().expect("missing data");
+
             match msg_type {
-                proto::message_out::Data::Traffic(_) => self.transport.deliver(&msg, self.get_id()),
+                proto::message_out::Data::Traffic(_) => {
+                    self.transport
+                        .deliver(&msg, &self.get_id().to_string())
+                        .await;
+                } // TODO clone
                 proto::message_out::Data::KeygenResult(_) => {
                     println!("received keygen result from server!  breaking from message loop...");
                     break;
