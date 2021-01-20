@@ -1,18 +1,16 @@
 use super::{
     gg20,
-    mock::{Deliverer, Party},
+    mock::{self, Party, WeakPartyMap},
     proto,
 };
-use std::{net::SocketAddr, print, thread};
-
-// use futures::channel::oneshot::Sender;
-use futures_util::{future::Future, FutureExt};
+use std::net::SocketAddr;
+use std::sync::Weak;
 use tokio::{sync::mpsc::Sender, task::JoinHandle};
 use tonic::Request;
 
 // #[derive(Debug)]
-pub struct TssdParty<'a> {
-    transport: &'a dyn Deliverer,
+pub struct TssdParty {
+    party_map: WeakPartyMap,
     // shutdown_sender: tokio::sync::oneshot::Sender<()>,
     // server_handle: JoinHandle<Result<(), tonic::transport::Error>>,
     server: Option<(
@@ -22,13 +20,12 @@ pub struct TssdParty<'a> {
     server_addr: SocketAddr,
     keygen_init: proto::KeygenInit,
     my_id_index: usize, // sanitized from keygen_init
-    threshold: usize,   // sanitized from keygen_init
     to_server: Option<Sender<proto::MessageIn>>,
 }
 
-impl<'a> TssdParty<'a> {
-    pub async fn new(init: &proto::KeygenInit, transport: &'a impl Deliverer) -> TssdParty<'a> {
-        let (my_id_index, threshold) = gg20::keygen_check_args(&init).unwrap();
+impl TssdParty {
+    pub async fn new(init: &proto::KeygenInit) -> TssdParty {
+        let (my_id_index, _threshold) = gg20::keygen_check_args(&init).unwrap();
 
         // start server
         let (shutdown_sender, shutdown_receiver) = tokio::sync::oneshot::channel::<()>();
@@ -55,23 +52,26 @@ impl<'a> TssdParty<'a> {
         tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
 
         Self {
-            transport,
+            party_map: Weak::new(),
             server: Some((server_handle, shutdown_sender)),
             // shutdown_sender,
             // server_handle,
             server_addr,
             keygen_init: init.clone(),
             my_id_index,
-            threshold,
             to_server: None,
         }
     }
 }
 
 #[tonic::async_trait]
-impl Party for TssdParty<'_> {
+impl Party for TssdParty {
     fn get_id(&self) -> &str {
         &self.keygen_init.party_uids[self.my_id_index]
+    }
+
+    fn set_party_map(&mut self, party_map: WeakPartyMap) {
+        self.party_map = party_map;
     }
 
     async fn execute(&mut self) {
@@ -97,7 +97,7 @@ impl Party for TssdParty<'_> {
         //     };
         // };
 
-        let (mut to_server, rx) = tokio::sync::mpsc::channel(4);
+        let (to_server, rx) = tokio::sync::mpsc::channel(4);
         // to_server.clone();
         self.to_server = Some(to_server);
         // let transport = self.transport.take().as_ref().unwrap();
@@ -126,10 +126,13 @@ impl Party for TssdParty<'_> {
 
             match msg_type {
                 proto::message_out::Data::Traffic(_) => {
-                    self.transport
-                        .deliver(&msg, &self.get_id().to_string())
-                        .await;
-                } // TODO clone
+                    mock::deliver(
+                        Weak::clone(&self.party_map),
+                        &msg,
+                        &self.get_id().to_string(), // TODO clone
+                    )
+                    .await;
+                }
                 proto::message_out::Data::KeygenResult(_) => {
                     println!("received keygen result from server!  breaking from message loop...");
                     break;
