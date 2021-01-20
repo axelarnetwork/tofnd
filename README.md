@@ -1,6 +1,6 @@
 # rust-tssd -- Rust Threshold Signature Scheme Daemon
 
-A gRPC server wrapper for the [ZenGo-X/multi-party-ecdsa](https://github.com/ZenGo-X/multi-party-ecdsa) library.
+A gRPC server wrapper for the [tofn](https://github.com/axelarnetwork/tofn) library.
 
 ## Status
 

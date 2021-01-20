@@ -11,7 +11,7 @@ use tonic::{Request, Response, Status};
 // use std::pin::Pin;
 // use futures_core::Stream;
 use std::convert::TryFrom;
-use thrush::protocol::gg20::keygen;
+use tofn::protocol::gg20::keygen;
 
 #[derive(Debug)]
 pub struct GG20Service;

@@ -1178,17 +1178,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "thrush"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "curv 0.2.6",
- "paillier",
- "serde",
- "zk-paillier",
-]
-
-[[package]]
 name = "time"
 version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1197,6 +1186,17 @@ dependencies = [
  "libc",
  "wasi 0.10.0+wasi-snapshot-preview1",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "tofn"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "curv 0.2.6",
+ "paillier",
+ "serde",
+ "zk-paillier",
 ]
 
 [[package]]
@@ -1517,7 +1517,7 @@ dependencies = [
  "bincode",
  "futures-util",
  "prost",
- "thrush",
+ "tofn",
  "tokio",
  "tonic",
  "tonic-build",
