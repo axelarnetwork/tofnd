@@ -32,7 +32,8 @@ pub struct TssdParty {
 
 impl TssdParty {
     pub async fn new(init: &proto::KeygenInit) -> TssdParty {
-        let (my_id_index, _threshold) = gg20::keygen_check_args(&init).unwrap();
+        use std::convert::TryFrom;
+        let my_id_index = usize::try_from(init.my_party_index).unwrap();
 
         // start server
         let (shutdown_sender, shutdown_receiver) = tokio::sync::oneshot::channel::<()>();
@@ -136,23 +137,23 @@ impl Party for TssdParty {
         println!("party [{}] execution complete", self.get_id());
     }
 
-    async fn msg_in(&mut self, msg: &proto::MessageIn) {
-        // sanity checks and debug info
-        {
-            let msg = msg.data.as_ref().expect("missing data");
-            let msg = match msg {
-                proto::message_in::Data::Traffic(t) => t,
-                _ => panic!("all incoming messages must be traffic in"),
-            };
-            println!(
-                "incoming msg from [{}] to me [{}] broadcast? [{}]",
-                msg.from_party_uid,
-                self.get_id(),
-                msg.is_broadcast
-            );
-        }
-        self.tx.send(msg.clone()).await.unwrap();
-    }
+    // async fn msg_in(&mut self, msg: &proto::MessageIn) {
+    //     // sanity checks and debug info
+    //     {
+    //         let msg = msg.data.as_ref().expect("missing data");
+    //         let msg = match msg {
+    //             proto::message_in::Data::Traffic(t) => t,
+    //             _ => panic!("all incoming messages must be traffic in"),
+    //         };
+    //         println!(
+    //             "incoming msg from [{}] to me [{}] broadcast? [{}]",
+    //             msg.from_party_uid,
+    //             self.get_id(),
+    //             msg.is_broadcast
+    //         );
+    //     }
+    //     self.tx.send(msg.clone()).await.unwrap();
+    // }
 
     async fn close(&mut self) {
         let my_id = self.get_id().to_string(); // fighting the borrow checker

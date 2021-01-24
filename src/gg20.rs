@@ -10,8 +10,7 @@ use tokio::sync::mpsc;
 use tonic::{Request, Response, Status};
 // use std::pin::Pin;
 // use futures_core::Stream;
-use std::convert::TryFrom;
-use tofn::protocol::gg20::keygen;
+use tofn::protocol::{gg20::keygen::Keygen, Protocol};
 
 #[derive(Debug)]
 pub struct GG20Service;
@@ -50,13 +49,11 @@ impl proto::gg20_server::Gg20 for GG20Service {
         let mut stream = request.into_inner();
         let (mut tx, rx) = mpsc::channel(4);
 
-        // TODO we can only return errors outside of tokio::spawn---for consistency, perhaps we should never return an error?
-
-        // rust complains if I don't send messages inside a tokio::spawn
         // can't return an error from a spawned thread
         tokio::spawn(async move {
             // the first message in the stream contains init data
-            // block on this message; we can't proceed without it
+
+            // TODO ugly error handling. put this all in a function returning Result and just use a single println! statement
             let msg_init = stream.next().await;
             if msg_init.is_none() {
                 println!("stream closed by client before protocol has completed");
@@ -79,28 +76,41 @@ impl proto::gg20_server::Gg20 for GG20Service {
                     return;
                 }
             };
-            println!("received keygen init {:?}", msg_init);
-            let (my_id_index, threshold) = match keygen_check_args(&msg_init) {
+            println!("server received keygen init {:?}", msg_init);
+            let (party_uids, my_party_index, threshold) = match keygen_check_args(msg_init) {
                 Ok(v) => v,
                 Err(e) => {
-                    println!("{}", e);
+                    println!("{:?}", e);
                     return;
                 }
             };
 
             // TODO this is generic protocol code---refactor it!  Need a `Protocol` interface minus `get_result` method
-            // keep everything single-threaded for now
-            // TODO switch to multi-threaded?
-            let mut keygen = keygen::new_protocol(&msg_init.party_uids, my_id_index, threshold);
+            let mut keygen = Keygen::new(party_uids.len(), threshold, my_party_index);
             while !keygen.done() {
+                // TODO bad error handling
+                if let Err(e) = keygen.next() {
+                    println!("next() failure: {:?}", e);
+                    return;
+                }
+
+                // TODO this is horrible
+                if keygen.done() {
+                    break;
+                }
                 // send outgoing messages
-                // TODO we send lots of messages before receiving any---is that bad?
-                let (bcast, p2ps) = keygen.get_messages_out();
+                let bcast = keygen.get_bcast_out();
                 if let Some(bcast) = bcast {
                     tx.send(Ok(wrap_bcast(bcast))).await.unwrap(); // TODO panic
                 }
-                for (receiver_id, p2p) in p2ps {
-                    tx.send(Ok(wrap_p2p(receiver_id, p2p))).await.unwrap(); // TODO panic
+                let p2ps = keygen.get_p2p_out();
+                if let Some(p2ps) = p2ps {
+                    for (i, p2p) in p2ps.iter().enumerate() {
+                        if let Some(p2p) = p2p {
+                            tx.send(Ok(wrap_p2p(&party_uids[i], p2p))).await.unwrap();
+                            // TODO panic
+                        }
+                    }
                 }
 
                 // collect incoming messages
@@ -128,16 +138,14 @@ impl proto::gg20_server::Gg20 for GG20Service {
                         }
                     };
 
-                    // TODO add_message_in does not yet return an error
-                    // TODO add_message_in does not yet accept a `is_broadcast` arg
-                    keygen.add_message_in(&msg_in.from_party_uid, &msg_in.payload);
+                    keygen
+                        .set_msg_in(&msg_in.payload)
+                        .expect("failure to set_msg_in"); // TODO panic
                 }
-                keygen.next();
             }
 
             // send final result, serialized
-            let result = keygen.get_result().unwrap(); // TODO panic
-            let result = bincode::serialize(&result).unwrap(); // TODO panic
+            let result = keygen.get_result().as_ref().unwrap(); // TODO panic
             tx.send(Ok(wrap_result(result))).await.unwrap(); // TODO panic
         });
 
@@ -154,48 +162,68 @@ impl proto::gg20_server::Gg20 for GG20Service {
 }
 
 // TODO move me somewhere better
-pub fn keygen_check_args(args: &proto::KeygenInit) -> Result<(usize, usize), Status> {
-    let my_index = usize::try_from(args.my_party_index)
-        .map_err(|_| Status::invalid_argument("my_party_index can't convert to usize"))?;
-    let threshold = usize::try_from(args.threshold)
-        .map_err(|_| Status::invalid_argument("threshold can't convert to usize"))?;
+pub fn keygen_check_args(
+    mut args: proto::KeygenInit,
+) -> Result<(Vec<String>, usize, usize), Box<dyn std::error::Error>> {
+    use std::convert::TryFrom;
+    let my_index = usize::try_from(args.my_party_index)?;
+    let threshold = usize::try_from(args.threshold)?;
     if my_index >= args.party_uids.len() {
-        return Err(Status::invalid_argument(format!(
+        return Err(From::from(format!(
             "my_party_index {} out of range for {} parties",
             my_index,
             args.party_uids.len()
         )));
     }
     if threshold >= args.party_uids.len() {
-        return Err(Status::invalid_argument(format!(
+        return Err(From::from(format!(
             "threshold {} out of range for {} parties",
             threshold,
             args.party_uids.len()
         )));
     }
-    Ok((my_index, threshold))
+
+    // sort party ids to get a deterministic ordering
+    // find my_index in the newly sorted list
+    // check for duplicate party ids
+    let old_len = args.party_uids.len();
+    let my_uid = args.party_uids[my_index].clone();
+    args.party_uids.sort_unstable();
+    args.party_uids.dedup();
+    if args.party_uids.len() != old_len {
+        return Err(From::from("duplicate party ids detected"));
+    }
+    let my_index = args
+        .party_uids
+        .iter()
+        .enumerate()
+        .find(|(_index, id)| **id == my_uid)
+        .ok_or("lost my uid after sorting uids")?
+        .0;
+    Ok((args.party_uids, my_index, threshold))
 }
 
-fn wrap_bcast(bcast: Vec<u8>) -> proto::MessageOut {
-    wrap_msg(String::new(), bcast, true)
+// TODO these wrappers are ugly
+fn wrap_bcast(bcast: &[u8]) -> proto::MessageOut {
+    wrap_msg("", bcast, true)
 }
 
-fn wrap_p2p(receiver_id: String, p2p: Vec<u8>) -> proto::MessageOut {
+fn wrap_p2p(receiver_id: &str, p2p: &[u8]) -> proto::MessageOut {
     wrap_msg(receiver_id, p2p, false)
 }
 
-fn wrap_msg(receiver_id: String, msg: Vec<u8>, is_broadcast: bool) -> proto::MessageOut {
+fn wrap_msg(receiver_id: &str, msg: &[u8], is_broadcast: bool) -> proto::MessageOut {
     proto::MessageOut {
         data: Some(proto::message_out::Data::Traffic(proto::TrafficOut {
-            to_party_uid: receiver_id,
-            payload: msg,
+            to_party_uid: receiver_id.to_string(),
+            payload: msg.to_vec(),
             is_broadcast,
         })),
     }
 }
 
-fn wrap_result(result: Vec<u8>) -> proto::MessageOut {
+fn wrap_result(result: &[u8]) -> proto::MessageOut {
     proto::MessageOut {
-        data: Some(proto::message_out::Data::KeygenResult(result)),
+        data: Some(proto::message_out::Data::KeygenResult(result.to_vec())),
     }
 }

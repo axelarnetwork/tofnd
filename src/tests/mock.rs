@@ -15,7 +15,7 @@ pub trait Party: Sync + Send {
     fn get_tx(&self) -> Sender<proto::MessageIn>;
     fn set_party_map(&mut self, party_map: PartyMap);
     async fn execute(&mut self);
-    async fn msg_in(&mut self, msg: &proto::MessageIn);
+    // async fn msg_in(&mut self, msg: &proto::MessageIn);
     async fn close(&mut self);
 }
 
