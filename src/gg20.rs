@@ -94,10 +94,6 @@ impl proto::gg20_server::Gg20 for GG20Service {
                     return;
                 }
 
-                // TODO this is horrible
-                if keygen.done() {
-                    break;
-                }
                 // send outgoing messages
                 let bcast = keygen.get_bcast_out();
                 if let Some(bcast) = bcast {
@@ -114,7 +110,7 @@ impl proto::gg20_server::Gg20 for GG20Service {
                 }
 
                 // collect incoming messages
-                while !keygen.can_proceed() {
+                while keygen.expecting_more_msgs_this_round() {
                     let msg_in = stream.next().await;
                     if msg_in.is_none() {
                         println!("stream closed by client before protocol has completed");
