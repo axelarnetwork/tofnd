@@ -85,9 +85,10 @@ impl proto::gg20_server::Gg20 for GG20Service {
                 }
             };
 
-            // TODO this is generic protocol code---refactor it!  Need a `Protocol` interface minus `get_result` method
             let mut keygen = Keygen::new(party_uids.len(), threshold, my_party_index);
+            // TODO this is generic protocol code---refactor it!  Need a `Protocol` interface minus `get_result` method
             while !keygen.done() {
+                // TODO runs an extra iteration!
                 // TODO bad error handling
                 if let Err(e) = keygen.next() {
                     println!("next() failure: {:?}", e);
@@ -113,12 +114,12 @@ impl proto::gg20_server::Gg20 for GG20Service {
                 while keygen.expecting_more_msgs_this_round() {
                     let msg_in = stream.next().await;
                     if msg_in.is_none() {
-                        println!("stream closed by client before protocol has completed");
+                        println!("abort: stream closed by client before protocol has completed");
                         return;
                     }
                     let msg_in = msg_in.unwrap();
                     if msg_in.is_err() {
-                        println!("stream failure to receive {:?}", msg_in.unwrap_err());
+                        println!("abort: stream failure to receive {:?}", msg_in.unwrap_err());
                         return;
                     }
                     let msg_in = msg_in.unwrap().data;
