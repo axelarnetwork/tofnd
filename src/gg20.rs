@@ -90,7 +90,7 @@ impl proto::gg20_server::Gg20 for GG20Service {
             while !keygen.done() {
                 // TODO runs an extra iteration!
                 // TODO bad error handling
-                if let Err(e) = keygen.next() {
+                if let Err(e) = keygen.next_round() {
                     println!("next() failure: {:?}", e);
                     return;
                 }
