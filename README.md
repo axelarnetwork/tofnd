@@ -1,4 +1,4 @@
-# rust-tssd -- Rust Threshold Signature Scheme Daemon
+# tofnd -- Threshold Signature Scheme Daemon
 
 A gRPC server wrapper for the [tofn](https://github.com/axelarnetwork/tofn) library.
 

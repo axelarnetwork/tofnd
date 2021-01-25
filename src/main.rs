@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => "50051",
     };
     let addr = format!("{}{}", "[::1]:", port).parse()?;
-    println!("rust-tssd listen addr {:?}", addr);
+    println!("tofnd listen addr {:?}", addr);
     let my_service = gg20::GG20Service;
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
