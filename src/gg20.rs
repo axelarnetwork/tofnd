@@ -141,9 +141,10 @@ impl proto::gg20_server::Gg20 for GG20Service {
                 }
             }
 
-            // send final result, serialized
-            let result = keygen.get_result().as_ref().unwrap(); // TODO panic
-            tx.send(Ok(wrap_result(result))).await.unwrap(); // TODO panic
+            // send final result, serialized; DO NOT SEND SECRET DATA
+            let pubkey = keygen.get_result().unwrap().get_ecdsa_public_key(); // TODO panic
+            let pubkey = pubkey.serialize(); // bitcoin-style serialization
+            tx.send(Ok(wrap_result(&pubkey))).await.unwrap(); // TODO panic
         });
 
         Ok(Response::new(rx))
