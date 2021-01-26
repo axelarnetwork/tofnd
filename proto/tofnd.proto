@@ -1,7 +1,7 @@
 // File copied from golang tofnd with minor tweaks
 syntax = "proto3";
 
-option go_package = "tofnd/pb";
+option go_package = "tofnd;tofnd";
 
 package tofnd;
 
