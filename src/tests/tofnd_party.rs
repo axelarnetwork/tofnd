@@ -1,5 +1,5 @@
 use super::{
-    gg20,
+    addr, gg20,
     mock::{self, Party, PartyMap},
     proto,
 };
@@ -37,9 +37,8 @@ impl TofndParty {
 
         // start server
         let (shutdown_sender, shutdown_receiver) = tokio::sync::oneshot::channel::<()>();
-        let server_addr = format!("{}{}", "[::1]:", 50051 + my_id_index) // TODO set port 0 and let the OS decide
-            .parse()
-            .unwrap();
+        // TODO set port 0 and let the OS decide
+        let server_addr = addr(50051 + my_id_index).unwrap();
         println!(
             "party [{}] grpc addr {:?}",
             init.party_uids[my_id_index], server_addr
