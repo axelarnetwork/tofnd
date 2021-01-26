@@ -4,7 +4,7 @@ use mock::Party;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
-use tssd_party::TssdParty;
+use tofnd_party::TofndParty;
 
 // #[test]
 #[tokio::test]
@@ -27,7 +27,7 @@ async fn start_servers() {
     let mut parties = Vec::with_capacity(share_count);
     for i in 0..share_count {
         init.my_party_index = i32::try_from(i).unwrap();
-        let new_party = TssdParty::new(&init).await;
+        let new_party = TofndParty::new(&init).await;
         tx_map.insert(init.party_uids[i].clone(), new_party.get_tx().clone());
         parties.push(new_party);
     }
@@ -50,4 +50,4 @@ async fn start_servers() {
 }
 
 mod mock;
-mod tssd_party;
+mod tofnd_party;

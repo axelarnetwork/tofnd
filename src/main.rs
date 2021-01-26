@@ -3,7 +3,7 @@ use std::env;
 mod gg20;
 
 pub mod proto {
-    tonic::include_proto!("tssd");
+    tonic::include_proto!("tofnd");
 }
 
 #[tokio::main]

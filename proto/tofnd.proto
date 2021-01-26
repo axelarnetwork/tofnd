@@ -1,12 +1,12 @@
-// File copied from golang tssd with minor tweaks
+// File copied from golang tofnd with minor tweaks
 syntax = "proto3";
 
-option go_package = "tssd/pb";
+option go_package = "tofnd/pb";
 
-package tssd;
+package tofnd;
 
-// GG18 is the protocol https://eprint.iacr.org/2019/114
-// rpc definitions intended to wrap the API for this library: https://github.com/binance-chain/tss-lib
+// GG20 is the protocol https://eprint.iacr.org/2020/540
+// rpc definitions intended to wrap the API for this library: https://github.com/axelarnetwork/tofn
 service GG20 {
     rpc Keygen(stream MessageIn) returns (stream MessageOut);
     rpc Sign(stream MessageIn) returns (stream MessageOut);
