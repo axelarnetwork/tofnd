@@ -1191,6 +1191,7 @@ dependencies = [
 [[package]]
 name = "tofn"
 version = "0.1.0"
+source = "git+https://github.com/axelarnetwork/tofn?branch=refactor#733a0d00d2346ccf4b91467005d09381d944ba10"
 dependencies = [
  "bincode",
  "curv 0.2.6",
