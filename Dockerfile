@@ -3,16 +3,15 @@
 FROM rust:1.49 as builder
 
 RUN set -ex \
-  && apt-get update \
-  && apt-get install -qq --no-install-recommends ca-certificates openssh-client git make
+    && apt-get update \
+    && apt-get install -qq --no-install-recommends ca-certificates openssh-client git make
 
 WORKDIR /tofnd
 
 COPY ./Cargo.toml .
 COPY ./Cargo.lock .
-# COPY ./.cargo ./.cargo
 
-# RUN git config --global url."git@github.com:axelarnetwork".insteadOf https://github.com/axelarnetwork
+# pacify ssh: add github.com to known_hosts
 RUN mkdir -p -m 0600 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # build dependencies separately
