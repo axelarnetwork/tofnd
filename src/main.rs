@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn addr(port: usize) -> Result<SocketAddr, Box<dyn std::error::Error>> {
     // Ok(format!("[::1]:{}", port).parse()?) // ipv6
-    Ok(format!("127.0.0.1:{}", port).parse()?) // ipv4
+    Ok(format!("0.0.0.0:{}", port).parse()?) // ipv4
 }
 
 // https://hyper.rs/guides/server/graceful-shutdown/

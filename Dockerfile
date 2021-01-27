@@ -35,4 +35,4 @@ COPY --from=builder /tofnd/target/release/tofnd /
 COPY ./entrypoint.sh /
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["/tofnd"]
+# CMD ["/tofnd"]
