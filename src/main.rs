@@ -1,20 +1,20 @@
-use std::env;
+use std::{env, net::SocketAddr};
 
 mod gg20;
 
 pub mod proto {
-    tonic::include_proto!("tssd");
+    tonic::include_proto!("tofnd");
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     let port = match args.len() {
-        2 => &args[1],
-        _ => "50051",
+        2 => args[1].parse()?,
+        _ => 50051,
     };
-    let addr = format!("{}{}", "[::1]:", port).parse()?;
-    println!("rust-tssd listen addr {:?}", addr);
+    let addr = addr(port)?;
+    println!("tofnd listen addr {:?}", addr);
     let my_service = gg20::GG20Service;
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
@@ -25,6 +25,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     Ok(())
+}
+
+fn addr(port: usize) -> Result<SocketAddr, Box<dyn std::error::Error>> {
+    // Ok(format!("[::1]:{}", port).parse()?) // ipv6
+    Ok(format!("0.0.0.0:{}", port).parse()?) // ipv4
 }
 
 // https://hyper.rs/guides/server/graceful-shutdown/

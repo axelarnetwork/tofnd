@@ -1,14 +1,14 @@
-# rust-tssd -- Rust Threshold Signature Scheme Daemon
+# tofnd -- A threshold signature scheme daemon
 
 A gRPC server wrapper for the [tofn](https://github.com/axelarnetwork/tofn) library.
 
 ## Status
 
-This project is suspended.
+Under active development.
 
 ## Setup
 
-`tssd` uses the [hyperium/tonic](https://github.com/hyperium/tonic) Rust gRPC implementation, which requires:
+`tofnd` uses the [hyperium/tonic](https://github.com/hyperium/tonic) Rust gRPC implementation, which requires:
 * Rust `1.39` or greater for the `async_await` feature
     ```
     $ rustup update
@@ -23,21 +23,29 @@ This project is suspended.
 ```
 $ cargo run
 ```
+or specify listen port:
+```
+$ cargo run -- 50051
+```
 Terminate the server with `ctrl+C`.
 
 The gRPC service is called `GG20`.
 
-## Talk to the server using grpcurl
+## Run the tests
+
+```
+$ cargo test
+```
+View terminal output for the `start_servers` test:
+```
+$ cargo test --package tofnd --bin tofnd -- tests::start_servers --exact --nocapture
+```
+
+## [FIX ME] Talk to the server using grpcurl
 
 Install [grpcurl](https://github.com/fullstorydev/grpcurl) if you haven't already.
 
-While `tssd` is running, in a separate terminal:
+While `tofnd` is running, in a separate terminal:
 ```
-$ grpcurl -plaintext -import-path ./proto -proto tssd.proto -d '{"name": "Rick and Morty"}' [::]:50051 tssd.GG20/SayHello
+$ grpcurl -plaintext -import-path ./proto -proto tofnd.proto -d '{"name": "Rick and Morty"}' [::]:50051 tofnd.GG20/SayHello
 ```
-
-## Initial commit: hello world
-
-`tssd` doesn't do much yet.  The `GG20` service has only one gRPC method: `SayHello`.
-
-Current code is based on [tonic helloworld tutorial](https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md).
