@@ -10,7 +10,10 @@ use tokio::sync::mpsc;
 use tonic::{Request, Response, Status};
 // use std::pin::Pin;
 // use futures_core::Stream;
-use tofn::protocol::{gg20::keygen::Keygen, Protocol};
+use tofn::protocol::{
+    gg20::{keygen::Keygen, validate_params},
+    Protocol,
+};
 
 #[derive(Debug)]
 pub struct GG20Service;
@@ -166,20 +169,7 @@ pub fn keygen_check_args(
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
-    if my_index >= args.party_uids.len() {
-        return Err(From::from(format!(
-            "my_party_index {} out of range for {} parties",
-            my_index,
-            args.party_uids.len()
-        )));
-    }
-    if threshold >= args.party_uids.len() {
-        return Err(From::from(format!(
-            "threshold {} out of range for {} parties",
-            threshold,
-            args.party_uids.len()
-        )));
-    }
+    validate_params(args.party_uids.len(), threshold, my_index)?;
 
     // sort party ids to get a deterministic ordering
     // find my_index in the newly sorted list
