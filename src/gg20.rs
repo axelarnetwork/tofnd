@@ -1,3 +1,5 @@
+use std::{error::Error, fmt::Debug};
+
 // use crate::proto::{self, MessageOut};
 // use super::proto::gg20_server::{Gg20, Gg20Server};
 // use super::proto::{self, MessageOut};
@@ -6,6 +8,7 @@ use super::proto;
 
 // tonic cruft
 use futures_util::StreamExt;
+use mpsc::Sender;
 use tokio::sync::mpsc;
 use tonic::{Request, Response, Status};
 // use std::pin::Pin;
@@ -61,68 +64,15 @@ impl proto::gg20_server::Gg20 for GG20Service {
                     return;
                 }
             };
-
-            // TODO this is generic protocol code---refactor it!  Need a `Protocol` interface minus `get_result` method
-            while !keygen.done() {
-                // TODO runs an extra iteration!
-                // TODO bad error handling
-                if let Err(e) = keygen.next_round() {
-                    println!("next() failure: {:?}", e);
-                    return;
-                }
-
-                // send outgoing messages
-                let bcast = keygen.get_bcast_out();
-                if let Some(bcast) = bcast {
-                    tx.send(Ok(wrap_bcast(bcast))).await.unwrap(); // TODO panic
-                }
-                let p2ps = keygen.get_p2p_out();
-                if let Some(p2ps) = p2ps {
-                    for (i, p2p) in p2ps.iter().enumerate() {
-                        if let Some(p2p) = p2p {
-                            tx.send(Ok(wrap_p2p(&party_uids[i], p2p))).await.unwrap();
-                            // TODO panic
-                        }
-                    }
-                }
-
-                // collect incoming messages
-                while keygen.expecting_more_msgs_this_round() {
-                    let msg_in = stream.next().await;
-                    if msg_in.is_none() {
-                        println!("abort: stream closed by client before protocol has completed");
-                        return;
-                    }
-                    let msg_in = msg_in.unwrap();
-                    if msg_in.is_err() {
-                        println!("abort: stream failure to receive {:?}", msg_in.unwrap_err());
-                        return;
-                    }
-                    let msg_in = msg_in.unwrap().data;
-                    if msg_in.is_none() {
-                        println!("missing data in client message");
-                        continue;
-                    }
-                    let msg_in = match msg_in.unwrap() {
-                        proto::message_in::Data::Traffic(t) => t,
-                        _ => {
-                            println!("all messages after the first must be traffic in");
-                            continue;
-                        }
-                    };
-
-                    keygen
-                        .set_msg_in(&msg_in.payload)
-                        .expect("failure to set_msg_in"); // TODO panic
-                }
+            if let Err(e) = execute_protocol(&mut keygen, &mut stream, &mut tx, &party_uids).await {
+                println!("failure to execute keygen: {:?}", e);
+                return;
             }
-
-            // send final result, serialized; DO NOT SEND SECRET DATA
-            let pubkey = keygen.get_result().unwrap().ecdsa_public_key.get_element(); // TODO panic
-            let pubkey = pubkey.serialize(); // bitcoin-style serialization
-            tx.send(Ok(wrap_result(&pubkey))).await.unwrap(); // TODO panic
+            if let Err(e) = keygen_output(&keygen, &mut tx).await {
+                println!("failure to send keygen output: {:?}", e);
+                return;
+            }
         });
-
         Ok(Response::new(rx))
     }
 
@@ -135,9 +85,72 @@ impl proto::gg20_server::Gg20 for GG20Service {
     }
 }
 
+async fn execute_protocol(
+    protocol: &mut impl Protocol,
+    stream: &mut tonic::Streaming<proto::MessageIn>,
+    tx: &mut Sender<Result<proto::MessageOut, tonic::Status>>,
+    party_uids: &[String],
+) -> Result<(), Box<dyn Error>> {
+    // TODO runs an extra iteration!
+    while !protocol.done() {
+        protocol.next_round()?;
+
+        // send outgoing messages
+        let bcast = protocol.get_bcast_out();
+        if let Some(bcast) = bcast {
+            tx.send(Ok(wrap_bcast(bcast))).await?;
+        }
+        let p2ps = protocol.get_p2p_out();
+        if let Some(p2ps) = p2ps {
+            for (i, p2p) in p2ps.iter().enumerate() {
+                if let Some(p2p) = p2p {
+                    tx.send(Ok(wrap_p2p(&party_uids[i], p2p))).await?;
+                }
+            }
+        }
+
+        // collect incoming messages
+        while protocol.expecting_more_msgs_this_round() {
+            let msg_data = stream
+                .next()
+                .await
+                .ok_or("stream closed by client before protocol has completed")??
+                .data;
+            // I wish I could do `if !let` https://github.com/rust-lang/rfcs/pull/1303
+            if msg_data.is_none() {
+                println!("WARN: ignore client message: missing `data` field");
+                continue;
+            }
+            let traffic = match msg_data.unwrap() {
+                proto::message_in::Data::Traffic(t) => t,
+                _ => {
+                    println!("WARN: ignore client message: expected `data` to be TrafficIn type");
+                    continue;
+                }
+            };
+            protocol.set_msg_in(&traffic.payload)?;
+        }
+    }
+    Ok(())
+}
+
+async fn keygen_output(
+    keygen: &Keygen,
+    tx: &mut Sender<Result<proto::MessageOut, tonic::Status>>,
+) -> Result<(), Box<dyn Error>> {
+    let pubkey = keygen
+        .get_result()
+        .ok_or("keygen output is `None`")?
+        .ecdsa_public_key
+        .get_element();
+    let pubkey = pubkey.serialize(); // bitcoin-style serialization
+    tx.send(Ok(wrap_result(&pubkey))).await?;
+    Ok(())
+}
+
 fn keygen_init(
     stream_msg: Option<Result<proto::MessageIn, Status>>,
-) -> Result<(Vec<String>, Keygen), Box<dyn std::error::Error>> {
+) -> Result<(Vec<String>, Keygen), Box<dyn Error>> {
     let msg_type = stream_msg
         .ok_or("stream closed by client without sending a message")??
         .data
@@ -156,7 +169,7 @@ fn keygen_init(
 
 fn keygen_check_args(
     mut args: proto::KeygenInit,
-) -> Result<(Vec<String>, usize, usize), Box<dyn std::error::Error>> {
+) -> Result<(Vec<String>, usize, usize), Box<dyn Error>> {
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
