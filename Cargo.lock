@@ -123,6 +123,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bulletproof"
+version = "0.2.5"
+source = "git+https://github.com/KZen-networks/bulletproofs?tag=v0.2.5#00be0db58159c4c6acda964531ea617c03f6947e"
+dependencies = [
+ "curv 0.2.6",
+ "itertools 0.7.11",
+ "serde",
+ "serde_derive",
+]
+
+[[package]]
 name = "byte-tools"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -151,6 +162,18 @@ name = "cc"
 version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8dae9c4b8fedcae85592ba623c4fd08cfdab3e3b72d6df780c6ead964a69bfff"
+
+[[package]]
+name = "centipede"
+version = "0.2.6"
+source = "git+https://github.com/KZen-networks/centipede?tag=v0.2.6#0e2c4a27f7affd1abe7958c6a8b7d9486c099825"
+dependencies = [
+ "bulletproof",
+ "curv 0.2.6",
+ "rayon",
+ "serde",
+ "serde_derive",
+]
 
 [[package]]
 name = "cfg-if"
@@ -232,13 +255,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "crunchy"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
+
+[[package]]
 name = "crypto-mac"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4434400df11d95d556bac068ddfedd482915eb18fe8bea89bc80b6e4b1c179e5"
 dependencies = [
  "generic-array",
- "subtle",
+ "subtle 1.0.0",
 ]
 
 [[package]]
@@ -484,6 +513,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hmac-drbg"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6e570451493f10f6581b48cdd530413b63ea9e780f544bfd3bdcaa0d89d1a7b"
+dependencies = [
+ "digest",
+ "generic-array",
+ "hmac",
+]
+
+[[package]]
 name = "http"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -561,6 +601,15 @@ dependencies = [
 
 [[package]]
 name = "itertools"
+version = "0.7.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d47946d458e94a1b7bcabbf6521ea7c037062c81f534615abcad76e84d4970d"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f56a2d0bc861f9165be4eb3442afd3c236d8a98afd426f65d92324ae1091a484"
@@ -601,6 +650,22 @@ name = "libc"
 version = "0.2.84"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1cca32fa0182e8c0989459524dc356b8f2b5c10f1b9eb521b7d182c03cf8c5ff"
+
+[[package]]
+name = "libsecp256k1"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fc1e2c808481a63dc6da2074752fdd4336a3c8fcc68b83db6f1fd5224ae7962"
+dependencies = [
+ "arrayref",
+ "crunchy",
+ "digest",
+ "hmac-drbg",
+ "rand 0.7.3",
+ "sha2",
+ "subtle 2.4.0",
+ "typenum",
+]
 
 [[package]]
 name = "log"
@@ -655,6 +720,21 @@ dependencies = [
  "net2",
  "winapi 0.2.8",
  "ws2_32-sys",
+]
+
+[[package]]
+name = "multi-party-ecdsa"
+version = "0.4.2"
+source = "git+https://github.com/ZenGo-X/multi-party-ecdsa?tag=v0.4.3#76239a905e6c56827eb8b3db71728c24768a6a61"
+dependencies = [
+ "centipede",
+ "curv 0.2.6",
+ "libsecp256k1",
+ "paillier",
+ "serde",
+ "subtle 2.4.0",
+ "zeroize",
+ "zk-paillier",
 ]
 
 [[package]]
@@ -834,7 +914,7 @@ checksum = "02b10678c913ecbd69350e8535c3aef91a8676c0773fc1d7b95cdd196d7f2f26"
 dependencies = [
  "bytes 0.5.6",
  "heck",
- "itertools",
+ "itertools 0.8.2",
  "log",
  "multimap",
  "petgraph",
@@ -851,7 +931,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "537aa19b95acde10a12fec4301466386f757403de4cd4e5b4fa78fb5ecb18f72"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.8.2",
  "proc-macro2",
  "quote",
  "syn",
@@ -1240,6 +1320,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d67a5a62ba6e01cb2192ff309324cb4875d0c451d55fe2319433abe7a05a8ee"
 
 [[package]]
+name = "subtle"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e81da0851ada1f3e9d4312c704aa4f8806f0f9d69faaf8df2f3464b4a9437c2"
+
+[[package]]
 name = "syn"
 version = "1.0.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1267,10 +1353,10 @@ dependencies = [
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+ssh://git@github.com/axelarnetwork/tofn.git#db0137ea41318a9f83ca58232979ed77c41328ea"
 dependencies = [
  "bincode",
  "curv 0.2.6",
+ "multi-party-ecdsa",
  "paillier",
  "serde",
  "zk-paillier",

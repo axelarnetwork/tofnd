@@ -11,7 +11,7 @@ use tonic::{Request, Response, Status};
 // use std::pin::Pin;
 // use futures_core::Stream;
 use tofn::protocol::{
-    gg20::{keygen::Keygen, validate_params},
+    gg20::keygen::{validate_params, ECPoint, Keygen},
     Protocol,
 };
 
@@ -54,41 +54,14 @@ impl proto::gg20_server::Gg20 for GG20Service {
 
         // can't return an error from a spawned thread
         tokio::spawn(async move {
-            // the first message in the stream contains init data
-
-            // TODO ugly error handling. put this all in a function returning Result and just use a single println! statement
-            let msg_init = stream.next().await;
-            if msg_init.is_none() {
-                println!("stream closed by client before protocol has completed");
-                return;
-            }
-            let msg_init = msg_init.unwrap();
-            if msg_init.is_err() {
-                println!("stream failure to receive {:?}", msg_init.unwrap_err());
-                return;
-            }
-            let msg_init = msg_init.unwrap().data;
-            if msg_init.is_none() {
-                println!("missing data in client message");
-                return;
-            }
-            let msg_init = match msg_init.unwrap() {
-                proto::message_in::Data::KeygenInit(k) => k,
-                _ => {
-                    println!("first message must be keygen init");
-                    return;
-                }
-            };
-            println!("server received keygen init {:?}", msg_init);
-            let (party_uids, my_party_index, threshold) = match keygen_check_args(msg_init) {
-                Ok(v) => v,
+            let (party_uids, mut keygen) = match keygen_init(stream.next().await) {
+                Ok(k) => k,
                 Err(e) => {
-                    println!("{:?}", e);
+                    println!("failure to initialize keygen: {:?}", e);
                     return;
                 }
             };
 
-            let mut keygen = Keygen::new(party_uids.len(), threshold, my_party_index);
             // TODO this is generic protocol code---refactor it!  Need a `Protocol` interface minus `get_result` method
             while !keygen.done() {
                 // TODO runs an extra iteration!
@@ -145,7 +118,7 @@ impl proto::gg20_server::Gg20 for GG20Service {
             }
 
             // send final result, serialized; DO NOT SEND SECRET DATA
-            let pubkey = keygen.get_result().unwrap().get_ecdsa_public_key(); // TODO panic
+            let pubkey = keygen.get_result().unwrap().ecdsa_public_key.get_element(); // TODO panic
             let pubkey = pubkey.serialize(); // bitcoin-style serialization
             tx.send(Ok(wrap_result(&pubkey))).await.unwrap(); // TODO panic
         });
@@ -162,8 +135,26 @@ impl proto::gg20_server::Gg20 for GG20Service {
     }
 }
 
-// TODO move me somewhere better
-pub fn keygen_check_args(
+fn keygen_init(
+    stream_msg: Option<Result<proto::MessageIn, Status>>,
+) -> Result<(Vec<String>, Keygen), Box<dyn std::error::Error>> {
+    let msg_type = stream_msg
+        .ok_or("stream closed by client without sending a message")??
+        .data
+        .ok_or("missing `data` field in client message")?;
+    let keygen_init = match msg_type {
+        proto::message_in::Data::KeygenInit(k) => k,
+        _ => {
+            return Err(From::from("first client message must be keygen init"));
+        }
+    };
+    // println!("server received keygen init {:?}", keygen_init);
+    let (party_uids, my_index, threshold) = keygen_check_args(keygen_init)?;
+    let share_count = party_uids.len();
+    Ok((party_uids, Keygen::new(share_count, threshold, my_index)?))
+}
+
+fn keygen_check_args(
     mut args: proto::KeygenInit,
 ) -> Result<(Vec<String>, usize, usize), Box<dyn std::error::Error>> {
     use std::convert::TryFrom;

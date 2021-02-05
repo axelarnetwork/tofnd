@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 tonic = "0.3"
-tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
-# tofn = { path = "../tofn" }
+# tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
+tofn = { path = "../tofn" }
 bincode = "1.2.1"
 
 # tonic dependencies
