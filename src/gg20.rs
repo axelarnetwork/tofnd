@@ -98,13 +98,14 @@ async fn execute_protocol(
         // send outgoing messages
         let bcast = protocol.get_bcast_out();
         if let Some(bcast) = bcast {
-            tx.send(Ok(wrap_bcast(bcast))).await?;
+            tx.send(Ok(proto::MessageOut::new_bcast(bcast))).await?;
         }
         let p2ps = protocol.get_p2p_out();
         if let Some(p2ps) = p2ps {
             for (i, p2p) in p2ps.iter().enumerate() {
                 if let Some(p2p) = p2p {
-                    tx.send(Ok(wrap_p2p(&party_uids[i], p2p))).await?;
+                    tx.send(Ok(proto::MessageOut::new_p2p(&party_uids[i], p2p)))
+                        .await?;
                 }
             }
         }
@@ -144,7 +145,7 @@ async fn keygen_output(
         .ecdsa_public_key
         .get_element();
     let pubkey = pubkey.serialize(); // bitcoin-style serialization
-    tx.send(Ok(wrap_result(&pubkey))).await?;
+    tx.send(Ok(proto::MessageOut::new_result(&pubkey))).await?;
     Ok(())
 }
 
@@ -195,27 +196,26 @@ fn keygen_check_args(
     Ok((args.party_uids, my_index, threshold))
 }
 
-// TODO these wrappers are ugly
-fn wrap_bcast(bcast: &[u8]) -> proto::MessageOut {
-    wrap_msg("", bcast, true)
-}
-
-fn wrap_p2p(receiver_id: &str, p2p: &[u8]) -> proto::MessageOut {
-    wrap_msg(receiver_id, p2p, false)
-}
-
-fn wrap_msg(receiver_id: &str, msg: &[u8], is_broadcast: bool) -> proto::MessageOut {
-    proto::MessageOut {
-        data: Some(proto::message_out::Data::Traffic(proto::TrafficOut {
-            to_party_uid: receiver_id.to_string(),
-            payload: msg.to_vec(),
-            is_broadcast,
-        })),
+// convenience constructors
+impl proto::MessageOut {
+    fn new_bcast(bcast: &[u8]) -> Self {
+        Self::new_traffic("", bcast, true)
     }
-}
-
-fn wrap_result(result: &[u8]) -> proto::MessageOut {
-    proto::MessageOut {
-        data: Some(proto::message_out::Data::KeygenResult(result.to_vec())),
+    fn new_p2p(receiver_id: &str, p2p: &[u8]) -> Self {
+        Self::new_traffic(receiver_id, p2p, false)
+    }
+    fn new_traffic(receiver_id: &str, msg: &[u8], is_broadcast: bool) -> Self {
+        proto::MessageOut {
+            data: Some(proto::message_out::Data::Traffic(proto::TrafficOut {
+                to_party_uid: receiver_id.to_string(),
+                payload: msg.to_vec(),
+                is_broadcast,
+            })),
+        }
+    }
+    fn new_result(result: &[u8]) -> Self {
+        proto::MessageOut {
+            data: Some(proto::message_out::Data::KeygenResult(result.to_vec())),
+        }
     }
 }
