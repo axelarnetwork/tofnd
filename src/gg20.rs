@@ -55,21 +55,10 @@ impl proto::gg20_server::Gg20 for GG20Service {
         let mut stream = request.into_inner();
         let (mut tx, rx) = mpsc::channel(4);
 
-        // can't return an error from a spawned thread
         tokio::spawn(async move {
-            let (party_uids, mut keygen) = match keygen_init(stream.next().await) {
-                Ok(k) => k,
-                Err(e) => {
-                    println!("failure to initialize keygen: {:?}", e);
-                    return;
-                }
-            };
-            if let Err(e) = execute_protocol(&mut keygen, &mut stream, &mut tx, &party_uids).await {
-                println!("failure to execute keygen: {:?}", e);
-                return;
-            }
-            if let Err(e) = keygen_output(&keygen, &mut tx).await {
-                println!("failure to send keygen output: {:?}", e);
+            // can't return an error from a spawned thread
+            if let Err(e) = execute_keygen(&mut stream, &mut tx).await {
+                println!("keygen failure: {:?}", e);
                 return;
             }
         });
@@ -135,24 +124,14 @@ async fn execute_protocol(
     Ok(())
 }
 
-async fn keygen_output(
-    keygen: &Keygen,
+async fn execute_keygen(
+    stream: &mut tonic::Streaming<proto::MessageIn>,
     tx: &mut Sender<Result<proto::MessageOut, tonic::Status>>,
 ) -> Result<(), Box<dyn Error>> {
-    let pubkey = keygen
-        .get_result()
-        .ok_or("keygen output is `None`")?
-        .ecdsa_public_key
-        .get_element();
-    let pubkey = pubkey.serialize(); // bitcoin-style serialization
-    tx.send(Ok(proto::MessageOut::new_result(&pubkey))).await?;
-    Ok(())
-}
-
-fn keygen_init(
-    stream_msg: Option<Result<proto::MessageIn, Status>>,
-) -> Result<(Vec<String>, Keygen), Box<dyn Error>> {
-    let msg_type = stream_msg
+    // keygen init
+    let msg_type = stream
+        .next()
+        .await
         .ok_or("stream closed by client without sending a message")??
         .data
         .ok_or("missing `data` field in client message")?;
@@ -164,8 +143,20 @@ fn keygen_init(
     };
     // println!("server received keygen init {:?}", keygen_init);
     let (party_uids, my_index, threshold) = keygen_check_args(keygen_init)?;
-    let share_count = party_uids.len();
-    Ok((party_uids, Keygen::new(share_count, threshold, my_index)?))
+    let mut keygen = Keygen::new(party_uids.len(), threshold, my_index)?;
+
+    // keygen execute
+    execute_protocol(&mut keygen, stream, tx, &party_uids).await?;
+
+    // keygen output
+    let pubkey = keygen
+        .get_result()
+        .ok_or("keygen output is `None`")?
+        .ecdsa_public_key
+        .get_element();
+    let pubkey = pubkey.serialize(); // bitcoin-style serialization
+    tx.send(Ok(proto::MessageOut::new_result(&pubkey))).await?;
+    Ok(())
 }
 
 fn keygen_check_args(
