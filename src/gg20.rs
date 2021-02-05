@@ -8,6 +8,7 @@ use super::proto;
 
 // tonic cruft
 use futures_util::StreamExt;
+use microkv::MicroKV;
 use mpsc::Sender;
 use tokio::sync::mpsc;
 use tonic::{Request, Response, Status};
@@ -18,8 +19,17 @@ use tofn::protocol::{
     Protocol,
 };
 
-#[derive(Debug)]
-pub struct GG20Service;
+pub struct GG20Service {
+    key_store: MicroKV,
+}
+impl GG20Service {
+    pub fn new() -> Self {
+        // TODO secure password
+        GG20Service {
+            key_store: MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string()),
+        }
+    }
+}
 
 #[tonic::async_trait]
 impl proto::gg20_server::Gg20 for GG20Service {
@@ -67,9 +77,18 @@ impl proto::gg20_server::Gg20 for GG20Service {
 
     async fn sign(
         &self,
-        _request: Request<tonic::Streaming<proto::MessageIn>>,
+        request: Request<tonic::Streaming<proto::MessageIn>>,
     ) -> Result<Response<Self::KeygenStream>, Status> {
-        let (mut _tx, rx) = mpsc::channel(4);
+        let mut stream = request.into_inner();
+        let (mut tx, rx) = mpsc::channel(4);
+
+        tokio::spawn(async move {
+            // can't return an error from a spawned thread
+            if let Err(e) = execute_sign(&mut stream, &mut tx).await {
+                println!("sign failure: {:?}", e);
+                return;
+            }
+        });
         Ok(Response::new(rx))
     }
 }
@@ -121,6 +140,13 @@ async fn execute_protocol(
             protocol.set_msg_in(&traffic.payload)?;
         }
     }
+    Ok(())
+}
+
+async fn execute_sign(
+    stream: &mut tonic::Streaming<proto::MessageIn>,
+    tx: &mut Sender<Result<proto::MessageOut, tonic::Status>>,
+) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 

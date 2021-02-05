@@ -43,7 +43,7 @@ impl TofndParty {
             "party [{}] grpc addr {:?}",
             init.party_uids[my_id_index], server_addr
         );
-        let my_service = gg20::GG20Service;
+        let my_service = gg20::GG20Service::new();
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let server_handle = tokio::spawn(async move {
             tonic::transport::Server::builder()
