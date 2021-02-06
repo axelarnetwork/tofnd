@@ -19,16 +19,16 @@ use tofn::protocol::{
     Protocol,
 };
 
-pub struct GG20Service {
-    key_store: MicroKV,
-}
-impl GG20Service {
-    pub fn new() -> Self {
-        // TODO secure password
-        GG20Service {
-            key_store: MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string()),
-        }
-    }
+struct GG20Service;
+pub fn new_service() -> impl proto::gg20_server::Gg20 {
+    // TODO do not hold the key_store in GG20Service struct.
+    // Instead, span a tokio task here and give it ownership of a new key_store.
+    // The tokio task can handle requiests to access to key_store via channels
+    // inspiration: https://draft.ryhl.io/blog/actors-with-tokio/
+
+    // key_store: MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string()),
+
+    GG20Service
 }
 
 #[tonic::async_trait]
@@ -167,19 +167,24 @@ async fn execute_keygen(
             return Err(From::from("first client message must be keygen init"));
         }
     };
+    // if key_store.exists::<i32>(&keygen_init.new_key_uid)? {
+    //     // ::<i32> due to superfluous type parameter https://github.com/ex0dus-0x/microkv/issues/6
+    //     return Err(From::from(format!(
+    //         "new_key_uid `{}` already exists",
+    //         keygen_init.new_key_uid
+    //     )));
+    // }
     // println!("server received keygen init {:?}", keygen_init);
-    let (party_uids, my_index, threshold) = keygen_check_args(keygen_init)?;
+    let (new_key_uid, party_uids, my_index, threshold) = keygen_check_args(keygen_init)?;
     let mut keygen = Keygen::new(party_uids.len(), threshold, my_index)?;
 
     // keygen execute
     execute_protocol(&mut keygen, stream, tx, &party_uids).await?;
 
     // keygen output
-    let pubkey = keygen
-        .get_result()
-        .ok_or("keygen output is `None`")?
-        .ecdsa_public_key
-        .get_element();
+    let secret_key_share = keygen.get_result().ok_or("keygen output is `None`")?;
+    // key_store.put(&new_key_uid, secret_key_share)?;
+    let pubkey = secret_key_share.ecdsa_public_key.get_element();
     let pubkey = pubkey.serialize(); // bitcoin-style serialization
     tx.send(Ok(proto::MessageOut::new_result(&pubkey))).await?;
     Ok(())
@@ -187,7 +192,7 @@ async fn execute_keygen(
 
 fn keygen_check_args(
     mut args: proto::KeygenInit,
-) -> Result<(Vec<String>, usize, usize), Box<dyn Error>> {
+) -> Result<(String, Vec<String>, usize, usize), Box<dyn Error>> {
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
@@ -210,7 +215,7 @@ fn keygen_check_args(
         .find(|(_index, id)| **id == my_uid)
         .ok_or("lost my uid after sorting uids")?
         .0;
-    Ok((args.party_uids, my_index, threshold))
+    Ok((args.new_key_uid, args.party_uids, my_index, threshold))
 }
 
 // convenience constructors

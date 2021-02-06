@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let addr = addr(port)?;
     println!("tofnd listen addr {:?}", addr);
-    let my_service = gg20::GG20Service::new();
+    let my_service = gg20::new_service();
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
     tonic::transport::Server::builder()
