@@ -1,5 +1,5 @@
 use tofn::protocol::{
-    gg20::keygen::{validate_params, ECPoint, Keygen},
+    gg20::keygen::{validate_params, ECPoint, Keygen, SecretKeyShare},
     Protocol,
 };
 
@@ -177,21 +177,11 @@ async fn execute_keygen(
         keygen_init.my_index,
     )?;
     // unreserve new_key_uid on failure
-    // too bad try blocks are not yet in stable Rust: https://doc.rust-lang.org/nightly/unstable-book/language-features/try-blocks.html
-    // alternatives:
-    // * closure: https://stackoverflow.com/questions/55755552/what-is-the-rust-equivalent-to-a-try-catch-statement/55756926#55756926
-    //   * however async closures are not yet in stable Rust: https://github.com/rust-lang/rust/issues/62290
-    // * `and_then` but that's unreadable: https://doc.rust-lang.org/std/result/enum.Result.html#method.and_then
-    // * another async fn to wrap these to lines: execute_protocol, keygen.get_result
-    // it's only two lines, so I'll just desugar the ? operator
-    let ok = execute_protocol(&mut keygen, stream, msg_sender, &keygen_init.party_uids).await;
-    if let Err(e) = ok {
-        kv.unreserve_key(key_uid_reservation).await;
-        return Err(e);
-    }
-    let secret_key_share = keygen
-        .get_result()
-        .ok_or_else(|| From::from("keygen output is `None`"));
+    // too bad try blocks are not yet stable in Rust: https://doc.rust-lang.org/nightly/unstable-book/language-features/try-blocks.html
+    // instead I need to wrap two lines inside `execute_keygen_unreserve_on_err`
+    let secret_key_share =
+        execute_keygen_unreserve_on_err(&mut keygen, stream, msg_sender, &keygen_init.party_uids)
+            .await;
     if let Err(e) = secret_key_share {
         kv.unreserve_key(key_uid_reservation).await;
         return Err(e);
@@ -209,13 +199,20 @@ async fn execute_keygen(
     Ok(())
 }
 
-async fn execute_keygen_unreserve_on_err(
-    protocol: &mut impl Protocol,
+async fn execute_keygen_unreserve_on_err<'a>(
+    keygen: &'a mut Keygen,
     stream: &mut tonic::Streaming<proto::MessageIn>,
     msg_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
-) -> Result<(), TofndError> {
-    Ok(())
+) -> Result<&'a SecretKeyShare, TofndError> {
+    // too bad try blocks are not yet in stable Rust: https://doc.rust-lang.org/nightly/unstable-book/language-features/try-blocks.html
+    // alternatives:
+    // * closure: https://stackoverflow.com/questions/55755552/what-is-the-rust-equivalent-to-a-try-catch-statement/55756926#55756926
+    //   * however async closures are not yet in stable Rust: https://github.com/rust-lang/rust/issues/62290
+    // * `and_then` but that's unreadable: https://doc.rust-lang.org/std/result/enum.Result.html#method.and_then
+    // * another async fn to wrap these to lines: execute_protocol, keygen.get_result
+    execute_protocol(keygen, stream, msg_sender, party_uids).await?;
+    Ok(keygen.get_result().ok_or("keygen output is `None`")?)
 }
 
 struct KeygenInitSanitized {
