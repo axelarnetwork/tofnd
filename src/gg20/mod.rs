@@ -1,5 +1,7 @@
 use std::error::Error;
 
+use crate::kv_manager;
+
 // use crate::proto::{self, MessageOut};
 // use super::proto::gg20_server::{Gg20, Gg20Server};
 // use super::proto::{self, MessageOut};
@@ -17,23 +19,16 @@ use tofn::protocol::{
     Protocol,
 };
 
-struct GG20Service;
+struct GG20Service {
+    kv_sender: mpsc::Sender<kv_manager::Command>,
+}
+
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
-    // TODO do not hold the key_store in GG20Service struct.
-    // Instead, span a tokio task here and give it ownership of a new key_store.
-    // The tokio task can handle requiests to access to key_store via channels
-    // inspiration: https://draft.ryhl.io/blog/actors-with-tokio/
+    // design pattern: https://tokio.rs/tokio/tutorial/channels
+    let (kv_sender, rx) = mpsc::channel(4);
+    tokio::spawn(kv_manager::run(rx));
 
-    // let (tx, rx) = mpsc::channel(4);
-
-    // let kv_manager = tokio::spawn(async move {
-    //     let kv = MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string());
-    //     while let Some(cmd) = rx.recv().await {
-    //         match cmd {}
-    //     }
-    // });
-
-    GG20Service
+    GG20Service { kv_sender }
 }
 
 #[tonic::async_trait]
@@ -172,16 +167,9 @@ async fn execute_keygen(
             return Err(From::from("first client message must be keygen init"));
         }
     };
-    // if key_store.exists::<i32>(&keygen_init.new_key_uid)? {
-    //     // ::<i32> due to superfluous type parameter https://github.com/ex0dus-0x/microkv/issues/6
-    //     return Err(From::from(format!(
-    //         "new_key_uid `{}` already exists",
-    //         keygen_init.new_key_uid
-    //     )));
-    // }
     // println!("server received keygen init {:?}", keygen_init);
-    // let (new_key_uid, party_uids, my_index, threshold) = keygen_check_args(keygen_init)?;
     let keygen_init = keygen_check_args(keygen_init)?;
+
     let mut keygen = Keygen::new(
         keygen_init.party_uids.len(),
         keygen_init.threshold,

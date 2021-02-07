@@ -6,9 +6,9 @@ use tokio::{
     time::delay_queue::Key,
 };
 
-/// Provided by the requester and used by the manager task to send the command
-/// response back to the requester.
-type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error>>>;
+// Provided by the requester and used by the manager task to send the command response back to the requester.
+// TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
+type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 
 /// Instantible only by acquiring a key lock
 // do not derive Clone, Copy
@@ -24,7 +24,7 @@ pub enum Command {
 }
 use Command::*;
 
-pub async fn run_kv_manager(mut rx: mpsc::Receiver<Command>) {
+pub async fn run(mut rx: mpsc::Receiver<Command>) {
     let kv = MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string());
     while let Some(cmd) = rx.recv().await {
         match cmd {
@@ -60,4 +60,5 @@ pub async fn run_kv_manager(mut rx: mpsc::Receiver<Command>) {
             }
         }
     }
+    println!("kv_manager stop");
 }
