@@ -125,6 +125,24 @@ where
                 value,
                 resp,
             } => {
+                // key should exist with value ""
+                let reserve_val = kv.get::<String>(&reservation.key);
+                if reserve_val.is_err() {
+                    println!(
+                        "WARN: kv_manager failure to get reserved key [{}]",
+                        &reservation.key
+                    );
+                } else {
+                    let reserve_val = reserve_val.unwrap();
+                    if !reserve_val.is_empty() {
+                        println!(
+                            "WARN: kv_manager overwriting nonempty value [{}] for reserved key [{}]",
+                            reserve_val,
+                            &reservation.key
+                        );
+                    }
+                }
+
                 let _ = resp.send(kv.put(&reservation.key, value).map_err(From::from));
             }
         }
