@@ -4,7 +4,7 @@ use tofn::protocol::{
 };
 
 use super::proto;
-use crate::{kv_manager, TofndError};
+use crate::{kv_manager::KV, TofndError};
 
 // tonic cruft
 use futures_util::StreamExt;
@@ -14,13 +14,11 @@ use tonic::{Request, Response, Status};
 // use futures_core::Stream;
 
 struct GG20Service {
-    kv: kv_manager::KV,
+    kv: KV<SecretKeyShare>,
 }
 
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
-    GG20Service {
-        kv: kv_manager::KV::new(),
-    }
+    GG20Service { kv: KV::new() }
 }
 
 #[tonic::async_trait]
@@ -149,7 +147,7 @@ async fn execute_sign(
 async fn execute_keygen(
     stream: &mut tonic::Streaming<proto::MessageIn>,
     msg_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-    kv: &mut kv_manager::KV,
+    kv: &mut KV<SecretKeyShare>,
 ) -> Result<(), TofndError> {
     // keygen init
     let msg_type = stream

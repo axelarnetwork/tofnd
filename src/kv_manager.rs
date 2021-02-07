@@ -1,7 +1,10 @@
 use std::error::Error;
+use std::fmt::Debug;
 
 use microkv::MicroKV;
 use tokio::sync::{mpsc, oneshot};
+
+// TODO don't use microkv---it's too new and we don't need the concurrency safety because we're taking care of that ourselves
 
 // Provided by the requester and used by the manager task to send the command response back to the requester.
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
@@ -11,10 +14,13 @@ type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 // KV is the "handle"
 // see also     // https://tokio.rs/tokio/tutorial/channels
 #[derive(Clone)]
-pub struct KV {
-    sender: mpsc::Sender<Command>,
+pub struct KV<V> {
+    sender: mpsc::Sender<Command<V>>,
 }
-impl KV {
+impl<V: 'static> KV<V>
+where
+    V: Debug + Send + Sync,
+{
     pub fn new() -> Self {
         let (sender, receiver) = mpsc::channel(4);
         tokio::spawn(run(receiver));
@@ -31,6 +37,13 @@ impl KV {
     pub async fn unreserve_key(&mut self, reservation: KeyReservation) {
         let _ = self.sender.send(UnreserveKey { reservation }).await;
     }
+    pub async fn put(
+        &mut self,
+        reservation: KeyReservation,
+        value: V,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        Ok(())
+    }
 }
 
 /// Returned from a successful `ReserveKey` command
@@ -40,7 +53,7 @@ pub struct KeyReservation {
 }
 
 #[derive(Debug)]
-enum Command {
+enum Command<V> {
     ReserveKey {
         key: String,
         resp: Responder<KeyReservation>,
@@ -48,10 +61,15 @@ enum Command {
     UnreserveKey {
         reservation: KeyReservation,
     },
+    Put {
+        reservation: KeyReservation,
+        value: V,
+        resp: Responder<()>,
+    },
 }
 use Command::*;
 
-async fn run(mut rx: mpsc::Receiver<Command>) {
+async fn run<V>(mut rx: mpsc::Receiver<Command<V>>) {
     let kv = MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string());
     while let Some(cmd) = rx.recv().await {
         match cmd {
@@ -91,6 +109,11 @@ async fn run(mut rx: mpsc::Receiver<Command>) {
             UnreserveKey { reservation } => {
                 let _ = kv.delete(&reservation.key);
             }
+            Put {
+                reservation,
+                value,
+                resp,
+            } => {}
         }
     }
     println!("kv_manager stop");
