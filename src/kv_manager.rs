@@ -11,11 +11,12 @@ use tokio::{
 type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 
 /// Instantible only by acquiring a key lock
-// do not derive Clone, Copy
+#[derive(Debug)] // do not derive Clone, Copy
 pub struct KeyReservation {
     key: String,
 }
 
+#[derive(Debug)]
 pub enum Command {
     ReserveKey {
         key: String,
@@ -30,6 +31,9 @@ pub async fn run(mut rx: mpsc::Receiver<Command>) {
         match cmd {
             ReserveKey { key, resp } => {
                 let exists = kv.exists::<()>(&key); // need ::<()> due to https://github.com/ex0dus-0x/microkv/issues/6
+
+                // we don't care if resp.send() fails when we're sending an Error
+                // ignore send errors via `let _` in failure paths
                 if exists.is_err() {
                     let _ = resp.send(Err(From::from(exists.unwrap_err())));
                     continue;
@@ -52,7 +56,7 @@ pub async fn run(mut rx: mpsc::Receiver<Command>) {
                     // unreserve the key---no one was listening to our response
                     let key = success.unwrap_err().unwrap().key;
                     println!(
-                        "WARN: kv_manager fail to respond to ReserveKey, unreserving key [{}]",
+                        "WARN: kv_manager fail to respond to ReserveKey, unreserving key [{}] (is no one listening for my response?)",
                         key
                     );
                     let _ = kv.delete(&key);

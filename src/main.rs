@@ -7,8 +7,11 @@ pub mod proto {
     tonic::include_proto!("tofnd");
 }
 
+// TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
+type TofndError = Box<dyn std::error::Error + Send + Sync>;
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), TofndError> {
     let args: Vec<String> = env::args().collect();
     let port = match args.len() {
         2 => args[1].parse()?,
@@ -28,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn addr(port: usize) -> Result<SocketAddr, Box<dyn std::error::Error>> {
+fn addr(port: usize) -> Result<SocketAddr, TofndError> {
     // Ok(format!("[::1]:{}", port).parse()?) // ipv6
     Ok(format!("0.0.0.0:{}", port).parse()?) // ipv4
 }

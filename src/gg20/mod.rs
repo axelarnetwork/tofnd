@@ -1,30 +1,26 @@
-use std::error::Error;
-
-use crate::kv_manager;
-
-// use crate::proto::{self, MessageOut};
-// use super::proto::gg20_server::{Gg20, Gg20Server};
-// use super::proto::{self, MessageOut};
-use super::proto;
-// use proto::message_out::Data;
-
-// tonic cruft
-use futures_util::StreamExt;
-use tokio::sync::mpsc;
-use tonic::{Request, Response, Status};
-// use std::pin::Pin;
-// use futures_core::Stream;
 use tofn::protocol::{
     gg20::keygen::{validate_params, ECPoint, Keygen},
     Protocol,
 };
+
+use super::proto;
+use crate::{kv_manager, TofndError};
+
+// tonic cruft
+use futures_util::StreamExt;
+use tokio::sync::{mpsc, oneshot};
+use tonic::{Request, Response, Status};
+// use std::pin::Pin;
+// use futures_core::Stream;
 
 struct GG20Service {
     kv_sender: mpsc::Sender<kv_manager::Command>,
 }
 
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
-    // design pattern: https://tokio.rs/tokio/tutorial/channels
+    // design pattern:
+    // https://tokio.rs/tokio/tutorial/channels
+    // https://draft.ryhl.io/blog/actors-with-tokio/
     let (kv_sender, rx) = mpsc::channel(4);
     tokio::spawn(kv_manager::run(rx));
 
@@ -63,11 +59,12 @@ impl proto::gg20_server::Gg20 for GG20Service {
         request: Request<tonic::Streaming<proto::MessageIn>>,
     ) -> Result<Response<Self::KeygenStream>, Status> {
         let mut stream = request.into_inner();
-        let (mut tx, rx) = mpsc::channel(4);
+        let (mut msg_sender, rx) = mpsc::channel(4);
+        let mut kv_sender = self.kv_sender.clone();
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = execute_keygen(&mut stream, &mut tx).await {
+            if let Err(e) = execute_keygen(&mut stream, &mut msg_sender, &mut kv_sender).await {
                 println!("keygen failure: {:?}", e);
                 return;
             }
@@ -96,9 +93,9 @@ impl proto::gg20_server::Gg20 for GG20Service {
 async fn execute_protocol(
     protocol: &mut impl Protocol,
     stream: &mut tonic::Streaming<proto::MessageIn>,
-    tx: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    msg_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), TofndError> {
     // TODO runs an extra iteration!
     while !protocol.done() {
         protocol.next_round()?;
@@ -106,13 +103,16 @@ async fn execute_protocol(
         // send outgoing messages
         let bcast = protocol.get_bcast_out();
         if let Some(bcast) = bcast {
-            tx.send(Ok(proto::MessageOut::new_bcast(bcast))).await?;
+            msg_sender
+                .send(Ok(proto::MessageOut::new_bcast(bcast)))
+                .await?;
         }
         let p2ps = protocol.get_p2p_out();
         if let Some(p2ps) = p2ps {
             for (i, p2p) in p2ps.iter().enumerate() {
                 if let Some(p2p) = p2p {
-                    tx.send(Ok(proto::MessageOut::new_p2p(&party_uids[i], p2p)))
+                    msg_sender
+                        .send(Ok(proto::MessageOut::new_p2p(&party_uids[i], p2p)))
                         .await?;
                 }
             }
@@ -146,14 +146,15 @@ async fn execute_protocol(
 async fn execute_sign(
     stream: &mut tonic::Streaming<proto::MessageIn>,
     tx: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<TofndError>> {
     Ok(())
 }
 
 async fn execute_keygen(
     stream: &mut tonic::Streaming<proto::MessageIn>,
-    tx: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-) -> Result<(), Box<dyn Error>> {
+    msg_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    kv_sender: &mut mpsc::Sender<kv_manager::Command>,
+) -> Result<(), TofndError> {
     // keygen init
     let msg_type = stream
         .next()
@@ -167,8 +168,19 @@ async fn execute_keygen(
             return Err(From::from("first client message must be keygen init"));
         }
     };
+    let keygen_init = keygen_sanitize_args(keygen_init)?;
     // println!("server received keygen init {:?}", keygen_init);
-    let keygen_init = keygen_check_args(keygen_init)?;
+
+    // reserve new_key_uid in the KV store
+    // design pattern: https://tokio.rs/tokio/tutorial/channels
+    let (resp_tx, resp_rx) = oneshot::channel();
+    kv_sender
+        .send(kv_manager::Command::ReserveKey {
+            key: keygen_init.new_key_uid,
+            resp: resp_tx,
+        })
+        .await?;
+    let _key_uid_reservation = resp_rx.await??;
 
     let mut keygen = Keygen::new(
         keygen_init.party_uids.len(),
@@ -177,14 +189,16 @@ async fn execute_keygen(
     )?;
 
     // keygen execute
-    execute_protocol(&mut keygen, stream, tx, &keygen_init.party_uids).await?;
+    execute_protocol(&mut keygen, stream, msg_sender, &keygen_init.party_uids).await?;
 
     // keygen output
     let secret_key_share = keygen.get_result().ok_or("keygen output is `None`")?;
     // key_store.put(&new_key_uid, secret_key_share)?;
     let pubkey = secret_key_share.ecdsa_public_key.get_element();
     let pubkey = pubkey.serialize(); // bitcoin-style serialization
-    tx.send(Ok(proto::MessageOut::new_result(&pubkey))).await?;
+    msg_sender
+        .send(Ok(proto::MessageOut::new_result(&pubkey)))
+        .await?;
     Ok(())
 }
 
@@ -195,7 +209,7 @@ struct KeygenInitSanitized {
     threshold: usize,
 }
 
-fn keygen_check_args(mut args: proto::KeygenInit) -> Result<KeygenInitSanitized, Box<dyn Error>> {
+fn keygen_sanitize_args(mut args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
