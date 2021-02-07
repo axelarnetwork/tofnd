@@ -26,7 +26,14 @@ pub fn new_service() -> impl proto::gg20_server::Gg20 {
     // The tokio task can handle requiests to access to key_store via channels
     // inspiration: https://draft.ryhl.io/blog/actors-with-tokio/
 
-    // key_store: MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string()),
+    // let (tx, rx) = mpsc::channel(4);
+
+    // let kv_manager = tokio::spawn(async move {
+    //     let kv = MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string());
+    //     while let Some(cmd) = rx.recv().await {
+    //         match cmd {}
+    //     }
+    // });
 
     GG20Service
 }
