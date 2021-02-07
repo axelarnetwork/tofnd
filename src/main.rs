@@ -1,6 +1,7 @@
 use std::{env, net::SocketAddr};
 
 mod gg20;
+mod kv_manager;
 
 pub mod proto {
     tonic::include_proto!("tofnd");

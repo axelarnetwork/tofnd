@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Debug};
+use std::error::Error;
 
 // use crate::proto::{self, MessageOut};
 // use super::proto::gg20_server::{Gg20, Gg20Server};
@@ -8,8 +8,6 @@ use super::proto;
 
 // tonic cruft
 use futures_util::StreamExt;
-use microkv::MicroKV;
-use mpsc::Sender;
 use tokio::sync::mpsc;
 use tonic::{Request, Response, Status};
 // use std::pin::Pin;
@@ -103,7 +101,7 @@ impl proto::gg20_server::Gg20 for GG20Service {
 async fn execute_protocol(
     protocol: &mut impl Protocol,
     stream: &mut tonic::Streaming<proto::MessageIn>,
-    tx: &mut Sender<Result<proto::MessageOut, tonic::Status>>,
+    tx: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
 ) -> Result<(), Box<dyn Error>> {
     // TODO runs an extra iteration!
@@ -152,14 +150,14 @@ async fn execute_protocol(
 
 async fn execute_sign(
     stream: &mut tonic::Streaming<proto::MessageIn>,
-    tx: &mut Sender<Result<proto::MessageOut, tonic::Status>>,
+    tx: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
 ) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
 async fn execute_keygen(
     stream: &mut tonic::Streaming<proto::MessageIn>,
-    tx: &mut Sender<Result<proto::MessageOut, tonic::Status>>,
+    tx: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
 ) -> Result<(), Box<dyn Error>> {
     // keygen init
     let msg_type = stream
@@ -182,11 +180,16 @@ async fn execute_keygen(
     //     )));
     // }
     // println!("server received keygen init {:?}", keygen_init);
-    let (new_key_uid, party_uids, my_index, threshold) = keygen_check_args(keygen_init)?;
-    let mut keygen = Keygen::new(party_uids.len(), threshold, my_index)?;
+    // let (new_key_uid, party_uids, my_index, threshold) = keygen_check_args(keygen_init)?;
+    let keygen_init = keygen_check_args(keygen_init)?;
+    let mut keygen = Keygen::new(
+        keygen_init.party_uids.len(),
+        keygen_init.threshold,
+        keygen_init.my_index,
+    )?;
 
     // keygen execute
-    execute_protocol(&mut keygen, stream, tx, &party_uids).await?;
+    execute_protocol(&mut keygen, stream, tx, &keygen_init.party_uids).await?;
 
     // keygen output
     let secret_key_share = keygen.get_result().ok_or("keygen output is `None`")?;
@@ -197,9 +200,14 @@ async fn execute_keygen(
     Ok(())
 }
 
-fn keygen_check_args(
-    mut args: proto::KeygenInit,
-) -> Result<(String, Vec<String>, usize, usize), Box<dyn Error>> {
+struct KeygenInitSanitized {
+    new_key_uid: String,
+    party_uids: Vec<String>,
+    my_index: usize,
+    threshold: usize,
+}
+
+fn keygen_check_args(mut args: proto::KeygenInit) -> Result<KeygenInitSanitized, Box<dyn Error>> {
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
@@ -222,7 +230,12 @@ fn keygen_check_args(
         .find(|(_index, id)| **id == my_uid)
         .ok_or("lost my uid after sorting uids")?
         .0;
-    Ok((args.new_key_uid, args.party_uids, my_index, threshold))
+    Ok(KeygenInitSanitized {
+        new_key_uid: args.new_key_uid,
+        party_uids: args.party_uids,
+        my_index,
+        threshold,
+    })
 }
 
 // convenience constructors
