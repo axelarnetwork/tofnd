@@ -186,8 +186,8 @@ async fn execute_keygen(
     }
     let secret_key_share = secret_key_share.unwrap();
 
-    // save output in the KV store
-    // key_store.put(&new_key_uid, secret_key_share)?;
+    kv.put(key_uid_reservation, secret_key_share.clone())
+        .await?;
 
     let pubkey = secret_key_share.ecdsa_public_key.get_element();
     let pubkey = pubkey.serialize(); // bitcoin-style serialization

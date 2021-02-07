@@ -13,7 +13,7 @@ type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 
 // "actor" pattern: https://draft.ryhl.io/blog/actors-with-tokio/
 // KV is the "handle"
-// see also     // https://tokio.rs/tokio/tutorial/channels
+// see also https://tokio.rs/tokio/tutorial/channels
 #[derive(Clone)]
 pub struct KV<V> {
     sender: mpsc::Sender<Command<V>>,
