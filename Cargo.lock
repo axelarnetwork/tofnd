@@ -1422,6 +1422,7 @@ dependencies = [
  "futures-util",
  "microkv",
  "prost",
+ "serde",
  "tofn",
  "tokio",
  "tonic",

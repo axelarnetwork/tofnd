@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fmt::Debug;
 
 use microkv::MicroKV;
+use serde::Serialize;
 use tokio::sync::{mpsc, oneshot};
 
 // TODO don't use microkv---it's too new and we don't need the concurrency safety because we're taking care of that ourselves
@@ -19,7 +20,7 @@ pub struct KV<V> {
 }
 impl<V: 'static> KV<V>
 where
-    V: Debug + Send + Sync,
+    V: Debug + Send + Sync + Serialize,
 {
     pub fn new() -> Self {
         let (sender, receiver) = mpsc::channel(4);
@@ -42,7 +43,15 @@ where
         reservation: KeyReservation,
         value: V,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        Ok(())
+        let (resp_tx, resp_rx) = oneshot::channel();
+        self.sender
+            .send(Put {
+                reservation,
+                value,
+                resp: resp_tx,
+            })
+            .await?;
+        resp_rx.await?
     }
 }
 
@@ -69,15 +78,17 @@ enum Command<V> {
 }
 use Command::*;
 
-async fn run<V>(mut rx: mpsc::Receiver<Command<V>>) {
+async fn run<V>(mut rx: mpsc::Receiver<Command<V>>)
+where
+    V: Serialize,
+{
     let kv = MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string());
     while let Some(cmd) = rx.recv().await {
         match cmd {
             ReserveKey { key, resp } => {
                 let exists = kv.exists::<()>(&key); // need ::<()> due to https://github.com/ex0dus-0x/microkv/issues/6
 
-                // we don't care if resp.send() fails when we're sending an Error
-                // ignore send errors via `let _` in failure paths
+                // we only care about resp.send failure after a successful kv.put
                 if exists.is_err() {
                     let _ = resp.send(Err(From::from(exists.unwrap_err())));
                     continue;
@@ -113,7 +124,9 @@ async fn run<V>(mut rx: mpsc::Receiver<Command<V>>) {
                 reservation,
                 value,
                 resp,
-            } => {}
+            } => {
+                let _ = resp.send(kv.put(&reservation.key, value).map_err(From::from));
+            }
         }
     }
     println!("kv_manager stop");
