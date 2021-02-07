@@ -14,17 +14,13 @@ use tonic::{Request, Response, Status};
 // use futures_core::Stream;
 
 struct GG20Service {
-    kv_sender: mpsc::Sender<kv_manager::Command>,
+    kv: kv_manager::KV,
 }
 
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
-    // design pattern:
-    // https://tokio.rs/tokio/tutorial/channels
-    // https://draft.ryhl.io/blog/actors-with-tokio/
-    let (kv_sender, rx) = mpsc::channel(4);
-    tokio::spawn(kv_manager::run(rx));
-
-    GG20Service { kv_sender }
+    GG20Service {
+        kv: kv_manager::KV::new(),
+    }
 }
 
 #[tonic::async_trait]
@@ -60,11 +56,11 @@ impl proto::gg20_server::Gg20 for GG20Service {
     ) -> Result<Response<Self::KeygenStream>, Status> {
         let mut stream = request.into_inner();
         let (mut msg_sender, rx) = mpsc::channel(4);
-        let mut kv_sender = self.kv_sender.clone();
+        let mut kv = self.kv.clone();
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = execute_keygen(&mut stream, &mut msg_sender, &mut kv_sender).await {
+            if let Err(e) = execute_keygen(&mut stream, &mut msg_sender, &mut kv).await {
                 println!("keygen failure: {:?}", e);
                 return;
             }
@@ -153,7 +149,7 @@ async fn execute_sign(
 async fn execute_keygen(
     stream: &mut tonic::Streaming<proto::MessageIn>,
     msg_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-    kv_sender: &mut mpsc::Sender<kv_manager::Command>,
+    kv: &mut kv_manager::KV,
 ) -> Result<(), TofndError> {
     // keygen init
     let msg_type = stream
@@ -172,33 +168,53 @@ async fn execute_keygen(
     // println!("server received keygen init {:?}", keygen_init);
 
     // reserve new_key_uid in the KV store
-    // design pattern: https://tokio.rs/tokio/tutorial/channels
-    let (resp_tx, resp_rx) = oneshot::channel();
-    kv_sender
-        .send(kv_manager::Command::ReserveKey {
-            key: keygen_init.new_key_uid,
-            resp: resp_tx,
-        })
-        .await?;
-    let _key_uid_reservation = resp_rx.await??;
+    let key_uid_reservation = kv.reserve_key(keygen_init.new_key_uid).await?;
 
+    // keygen execute
     let mut keygen = Keygen::new(
         keygen_init.party_uids.len(),
         keygen_init.threshold,
         keygen_init.my_index,
     )?;
+    // unreserve new_key_uid on failure
+    // too bad try blocks are not yet in stable Rust: https://doc.rust-lang.org/nightly/unstable-book/language-features/try-blocks.html
+    // alternatives:
+    // * closure: https://stackoverflow.com/questions/55755552/what-is-the-rust-equivalent-to-a-try-catch-statement/55756926#55756926
+    //   * however async closures are not yet in stable Rust: https://github.com/rust-lang/rust/issues/62290
+    // * `and_then` but that's unreadable: https://doc.rust-lang.org/std/result/enum.Result.html#method.and_then
+    // * another async fn to wrap these to lines: execute_protocol, keygen.get_result
+    // it's only two lines, so I'll just desugar the ? operator
+    let ok = execute_protocol(&mut keygen, stream, msg_sender, &keygen_init.party_uids).await;
+    if let Err(e) = ok {
+        kv.unreserve_key(key_uid_reservation).await;
+        return Err(e);
+    }
+    let secret_key_share = keygen
+        .get_result()
+        .ok_or_else(|| From::from("keygen output is `None`"));
+    if let Err(e) = secret_key_share {
+        kv.unreserve_key(key_uid_reservation).await;
+        return Err(e);
+    }
+    let secret_key_share = secret_key_share.unwrap();
 
-    // keygen execute
-    execute_protocol(&mut keygen, stream, msg_sender, &keygen_init.party_uids).await?;
-
-    // keygen output
-    let secret_key_share = keygen.get_result().ok_or("keygen output is `None`")?;
+    // save output in the KV store
     // key_store.put(&new_key_uid, secret_key_share)?;
+
     let pubkey = secret_key_share.ecdsa_public_key.get_element();
     let pubkey = pubkey.serialize(); // bitcoin-style serialization
     msg_sender
         .send(Ok(proto::MessageOut::new_result(&pubkey)))
         .await?;
+    Ok(())
+}
+
+async fn execute_keygen_unreserve_on_err(
+    protocol: &mut impl Protocol,
+    stream: &mut tonic::Streaming<proto::MessageIn>,
+    msg_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    party_uids: &[String],
+) -> Result<(), TofndError> {
     Ok(())
 }
 

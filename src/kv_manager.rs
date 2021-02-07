@@ -1,31 +1,57 @@
-use std::{error::Error, print};
+use std::error::Error;
 
 use microkv::MicroKV;
-use tokio::{
-    sync::{mpsc, oneshot},
-    time::delay_queue::Key,
-};
+use tokio::sync::{mpsc, oneshot};
 
 // Provided by the requester and used by the manager task to send the command response back to the requester.
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 
-/// Instantible only by acquiring a key lock
+// "actor" pattern: https://draft.ryhl.io/blog/actors-with-tokio/
+// KV is the "handle"
+// see also     // https://tokio.rs/tokio/tutorial/channels
+#[derive(Clone)]
+pub struct KV {
+    sender: mpsc::Sender<Command>,
+}
+impl KV {
+    pub fn new() -> Self {
+        let (sender, receiver) = mpsc::channel(4);
+        tokio::spawn(run(receiver));
+        Self { sender }
+    }
+    pub async fn reserve_key(
+        &mut self,
+        key: String,
+    ) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        self.sender.send(ReserveKey { key, resp: resp_tx }).await?;
+        resp_rx.await?
+    }
+    pub async fn unreserve_key(&mut self, reservation: KeyReservation) {
+        let _ = self.sender.send(UnreserveKey { reservation }).await;
+    }
+}
+
+/// Returned from a successful `ReserveKey` command
 #[derive(Debug)] // do not derive Clone, Copy
 pub struct KeyReservation {
     key: String,
 }
 
 #[derive(Debug)]
-pub enum Command {
+enum Command {
     ReserveKey {
         key: String,
         resp: Responder<KeyReservation>,
     },
+    UnreserveKey {
+        reservation: KeyReservation,
+    },
 }
 use Command::*;
 
-pub async fn run(mut rx: mpsc::Receiver<Command>) {
+async fn run(mut rx: mpsc::Receiver<Command>) {
     let kv = MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string());
     while let Some(cmd) = rx.recv().await {
         match cmd {
@@ -56,11 +82,14 @@ pub async fn run(mut rx: mpsc::Receiver<Command>) {
                     // unreserve the key---no one was listening to our response
                     let key = success.unwrap_err().unwrap().key;
                     println!(
-                        "WARN: kv_manager fail to respond to ReserveKey, unreserving key [{}] (is no one listening for my response?)",
+                        "WARN: kv_manager unreserving key [{}], fail to respond to ReserveKey (is no one listening for my response?)",
                         key
                     );
                     let _ = kv.delete(&key);
                 }
+            }
+            UnreserveKey { reservation } => {
+                let _ = kv.delete(&reservation.key);
             }
         }
     }
