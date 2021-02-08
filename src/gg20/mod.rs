@@ -58,7 +58,7 @@ impl proto::gg20_server::Gg20 for GG20Service {
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = execute_keygen(&mut stream, &mut msg_sender, &mut kv).await {
+            if let Err(e) = execute_keygen(&mut stream, msg_sender, kv).await {
                 println!("keygen failure: {:?}", e);
                 return;
             }
@@ -72,10 +72,11 @@ impl proto::gg20_server::Gg20 for GG20Service {
     ) -> Result<Response<Self::KeygenStream>, Status> {
         let mut stream = request.into_inner();
         let (mut tx, rx) = mpsc::channel(4);
+        let kv = self.kv.clone();
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = execute_sign(&mut stream, &mut tx).await {
+            if let Err(e) = execute_sign(&mut stream, &mut tx, &kv).await {
                 println!("sign failure: {:?}", e);
                 return;
             }
@@ -87,7 +88,7 @@ impl proto::gg20_server::Gg20 for GG20Service {
 async fn execute_protocol(
     protocol: &mut impl Protocol,
     stream: &mut tonic::Streaming<proto::MessageIn>,
-    msg_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
 ) -> Result<(), TofndError> {
     // TODO runs an extra iteration!
@@ -140,6 +141,7 @@ async fn execute_protocol(
 async fn execute_sign(
     stream: &mut tonic::Streaming<proto::MessageIn>,
     tx: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    kv: &KV<(SecretKeyShare, Vec<String>)>,
 ) -> Result<(), TofndError> {
     // sign init
     let msg_type = stream
@@ -158,10 +160,22 @@ async fn execute_sign(
     todo!()
 }
 
+struct SignInitSanitized {
+    new_sig_uid: String,
+    key_uid: String,
+    participant_uids: Vec<String>,
+    participant_indices: Vec<usize>,
+    message_to_sign: Vec<u8>,
+}
+
+fn sign_sanitize_args(mut args: proto::SignInit) -> Result<SignInitSanitized, TofndError> {
+    todo!()
+}
+
 async fn execute_keygen(
     stream: &mut tonic::Streaming<proto::MessageIn>,
-    msg_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-    kv: &mut KV<(SecretKeyShare, Vec<String>)>,
+    mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    mut kv: KV<(SecretKeyShare, Vec<String>)>,
 ) -> Result<(), TofndError> {
     // keygen init
     let msg_type = stream
@@ -191,9 +205,13 @@ async fn execute_keygen(
     // unreserve new_key_uid on failure
     // too bad try blocks are not yet stable in Rust: https://doc.rust-lang.org/nightly/unstable-book/language-features/try-blocks.html
     // instead I need to wrap two lines inside `execute_keygen_unreserve_on_err`
-    let secret_key_share =
-        execute_keygen_unreserve_on_err(&mut keygen, stream, msg_sender, &keygen_init.party_uids)
-            .await;
+    let secret_key_share = execute_keygen_unreserve_on_err(
+        &mut keygen,
+        stream,
+        msg_sender.clone(),
+        &keygen_init.party_uids,
+    )
+    .await;
     if let Err(e) = secret_key_share {
         kv.unreserve_key(key_uid_reservation).await;
         return Err(e);
@@ -216,7 +234,7 @@ async fn execute_keygen(
 async fn execute_keygen_unreserve_on_err<'a>(
     keygen: &'a mut Keygen,
     stream: &mut tonic::Streaming<proto::MessageIn>,
-    msg_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
 ) -> Result<&'a SecretKeyShare, TofndError> {
     // too bad try blocks are not yet in stable Rust: https://doc.rust-lang.org/nightly/unstable-book/language-features/try-blocks.html
