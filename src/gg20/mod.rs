@@ -1,5 +1,8 @@
 use tofn::protocol::{
-    gg20::keygen::{validate_params, ECPoint, Keygen, SecretKeyShare},
+    gg20::{
+        keygen::{self, ECPoint, Keygen, SecretKeyShare},
+        sign::Sign,
+    },
     Protocol,
 };
 
@@ -53,8 +56,8 @@ impl proto::gg20_server::Gg20 for GG20Service {
         request: Request<tonic::Streaming<proto::MessageIn>>,
     ) -> Result<Response<Self::KeygenStream>, Status> {
         let mut stream = request.into_inner();
-        let (mut msg_sender, rx) = mpsc::channel(4);
-        let mut kv = self.kv.clone();
+        let (msg_sender, rx) = mpsc::channel(4);
+        let kv = self.kv.clone();
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
@@ -71,12 +74,12 @@ impl proto::gg20_server::Gg20 for GG20Service {
         request: Request<tonic::Streaming<proto::MessageIn>>,
     ) -> Result<Response<Self::KeygenStream>, Status> {
         let mut stream = request.into_inner();
-        let (mut tx, rx) = mpsc::channel(4);
+        let (msg_sender, rx) = mpsc::channel(4);
         let kv = self.kv.clone();
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = execute_sign(&mut stream, &mut tx, &kv).await {
+            if let Err(e) = execute_sign(&mut stream, msg_sender, kv).await {
                 println!("sign failure: {:?}", e);
                 return;
             }
@@ -140,8 +143,8 @@ async fn execute_protocol(
 
 async fn execute_sign(
     stream: &mut tonic::Streaming<proto::MessageIn>,
-    tx: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-    kv: &KV<(SecretKeyShare, Vec<String>)>,
+    mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    mut kv: KV<(SecretKeyShare, Vec<String>)>,
 ) -> Result<(), TofndError> {
     // sign init
     let msg_type = stream
@@ -156,8 +159,33 @@ async fn execute_sign(
             return Err(From::from("first client message must be sign init"));
         }
     };
+    let (secret_key_share, all_party_uids) = kv.get(&sign_init.key_uid).await?;
+    let sign_init = sign_sanitize_args(sign_init, &secret_key_share, &all_party_uids)?;
 
-    todo!()
+    // sign execute
+    let mut sign = Sign::new(
+        &secret_key_share,
+        &sign_init.participant_indices,
+        &sign_init.message_to_sign,
+    )?;
+    execute_protocol(
+        &mut sign,
+        stream,
+        msg_sender.clone(),
+        &sign_init.participant_uids,
+    )
+    .await?;
+    let signature = sign.get_result().ok_or("sign output is `None`")?;
+
+    // serialize generated signature and send to client
+    // TODO how do I serialize in proper bitcoin format?
+    let serialized_signature = vec![0];
+    msg_sender
+        .send(Ok(proto::MessageOut::new_sign_result(
+            &serialized_signature,
+        )))
+        .await?;
+    Ok(())
 }
 
 struct SignInitSanitized {
@@ -168,8 +196,28 @@ struct SignInitSanitized {
     message_to_sign: Vec<u8>,
 }
 
-fn sign_sanitize_args(mut args: proto::SignInit) -> Result<SignInitSanitized, TofndError> {
-    todo!()
+fn sign_sanitize_args(
+    args: proto::SignInit,
+    secret_key_share: &SecretKeyShare,
+    all_party_uids: &[String],
+) -> Result<SignInitSanitized, TofndError> {
+    // TODO add support for custom party list
+    if !args.party_uids.is_empty() {
+        return Err(From::from("not implemented: support for custom party list"));
+    }
+    // if no party list is provided then select the first threshold+1 parties
+    let participant_indices: Vec<usize> = (0..=secret_key_share.threshold).collect();
+    let participant_uids = all_party_uids[..=secret_key_share.threshold].to_vec();
+    // sign::validate_params(secret_key_share, &participant_indices)?;
+    // assume message_to_sign is already raw bytes of a field element
+
+    Ok(SignInitSanitized {
+        new_sig_uid: args.new_sig_uid,
+        key_uid: args.key_uid,
+        participant_uids,
+        participant_indices,
+        message_to_sign: args.message_to_sign,
+    })
 }
 
 async fn execute_keygen(
@@ -226,7 +274,7 @@ async fn execute_keygen(
     let pubkey = secret_key_share.ecdsa_public_key.get_element();
     let pubkey = pubkey.serialize(); // bitcoin-style serialization
     msg_sender
-        .send(Ok(proto::MessageOut::new_result(&pubkey)))
+        .send(Ok(proto::MessageOut::new_keygen_result(&pubkey)))
         .await?;
     Ok(())
 }
@@ -258,7 +306,7 @@ fn keygen_sanitize_args(mut args: proto::KeygenInit) -> Result<KeygenInitSanitiz
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
-    validate_params(args.party_uids.len(), threshold, my_index)?;
+    keygen::validate_params(args.party_uids.len(), threshold, my_index)?;
 
     // sort party ids to get a deterministic ordering
     // find my_index in the newly sorted list
@@ -302,9 +350,14 @@ impl proto::MessageOut {
             })),
         }
     }
-    fn new_result(result: &[u8]) -> Self {
+    fn new_keygen_result(result: &[u8]) -> Self {
         proto::MessageOut {
             data: Some(proto::message_out::Data::KeygenResult(result.to_vec())),
+        }
+    }
+    fn new_sign_result(result: &[u8]) -> Self {
+        proto::MessageOut {
+            data: Some(proto::message_out::Data::SignResult(result.to_vec())),
         }
     }
 }

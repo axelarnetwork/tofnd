@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::Debug;
 
 use microkv::MicroKV;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
 // TODO don't use microkv---it's too new and we don't need the concurrency safety because we're taking care of that ourselves
@@ -20,7 +20,7 @@ pub struct KV<V> {
 }
 impl<V: 'static> KV<V>
 where
-    V: Debug + Send + Sync + Serialize,
+    V: Debug + Send + Sync + Serialize + DeserializeOwned,
 {
     pub fn new() -> Self {
         let (sender, receiver) = mpsc::channel(4);
@@ -53,6 +53,16 @@ where
             .await?;
         resp_rx.await?
     }
+    pub async fn get(&mut self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        self.sender
+            .send(Get {
+                key: key.to_string(),
+                resp: resp_tx,
+            })
+            .await?;
+        resp_rx.await?
+    }
 }
 
 /// Returned from a successful `ReserveKey` command
@@ -75,12 +85,16 @@ enum Command<V> {
         value: V,
         resp: Responder<()>,
     },
+    Get {
+        key: String, // TODO should be &str except lifetimes...
+        resp: Responder<V>,
+    },
 }
 use Command::*;
 
-async fn run<V>(mut rx: mpsc::Receiver<Command<V>>)
+async fn run<V: 'static>(mut rx: mpsc::Receiver<Command<V>>)
 where
-    V: Serialize,
+    V: Serialize + DeserializeOwned,
 {
     let kv = MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string());
     while let Some(cmd) = rx.recv().await {
@@ -144,6 +158,9 @@ where
                 }
 
                 let _ = resp.send(kv.put(&reservation.key, value).map_err(From::from));
+            }
+            Get { key, resp } => {
+                let _ = resp.send(kv.get(&key).map_err(From::from));
             }
         }
     }
