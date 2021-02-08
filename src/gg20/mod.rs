@@ -14,7 +14,7 @@ use tonic::{Request, Response, Status};
 // use futures_core::Stream;
 
 struct GG20Service {
-    kv: KV<SecretKeyShare>,
+    kv: KV<(SecretKeyShare, Vec<String>)>, // TODO don't store party_uids in this daemon!
 }
 
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
@@ -140,14 +140,28 @@ async fn execute_protocol(
 async fn execute_sign(
     stream: &mut tonic::Streaming<proto::MessageIn>,
     tx: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-) -> Result<(), Box<TofndError>> {
-    Ok(())
+) -> Result<(), TofndError> {
+    // sign init
+    let msg_type = stream
+        .next()
+        .await
+        .ok_or("stream closed by client without sending a message")??
+        .data
+        .ok_or("missing `data` field in client messge")?;
+    let sign_init = match msg_type {
+        proto::message_in::Data::SignInit(s) => s,
+        _ => {
+            return Err(From::from("first client message must be sign init"));
+        }
+    };
+
+    todo!()
 }
 
 async fn execute_keygen(
     stream: &mut tonic::Streaming<proto::MessageIn>,
     msg_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-    kv: &mut KV<SecretKeyShare>,
+    kv: &mut KV<(SecretKeyShare, Vec<String>)>,
 ) -> Result<(), TofndError> {
     // keygen init
     let msg_type = stream
@@ -186,9 +200,11 @@ async fn execute_keygen(
     }
     let secret_key_share = secret_key_share.unwrap();
 
-    kv.put(key_uid_reservation, secret_key_share.clone())
-        .await?;
+    // store output in KV store
+    let kv_data: (SecretKeyShare, Vec<String>) = (secret_key_share.clone(), keygen_init.party_uids);
+    kv.put(key_uid_reservation, kv_data).await?;
 
+    // serialize generated public key and send to client
     let pubkey = secret_key_share.ecdsa_public_key.get_element();
     let pubkey = pubkey.serialize(); // bitcoin-style serialization
     msg_sender
