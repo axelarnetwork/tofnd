@@ -12,7 +12,7 @@ trait Party: Sync + Send {
         &mut self,
         init: proto::KeygenInit,
         channels: SenderReceiver,
-        deliverer: Deliverer,
+        delivery: Deliverer,
     );
     async fn close(mut self);
 }
@@ -87,31 +87,42 @@ impl Deliverer {
 async fn start_servers() {
     let (share_count, threshold) = (5, 2);
 
-    // init keygen deliverer
+    // init parties
+    let mut parties = Vec::with_capacity(share_count);
+    for _ in 0..share_count {
+        parties.push(tofnd_party::new().await);
+    }
+
+    // init party uids
     let party_uids: Vec<String> = (0..share_count)
         .map(|i| format!("{}", (b'A' + i as u8) as char))
         .collect();
-    let (deliverer, channels) = Deliverer::with_party_ids(&party_uids);
 
     // run keygen protocol
     let new_key_uid = "Gus-test-key".to_string();
-    let mut join_handles = Vec::with_capacity(share_count);
-    for (i, party_channels) in channels.into_iter().enumerate() {
+    let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
+    let mut keygen_join_handles = Vec::with_capacity(share_count);
+    for (i, (mut party, channel_pair)) in parties
+        .into_iter()
+        .zip(keygen_channel_pairs.into_iter())
+        .enumerate()
+    {
         let init = proto::KeygenInit {
             new_key_uid: new_key_uid.clone(),
             party_uids: party_uids.clone(),
             my_party_index: i32::try_from(i).unwrap(),
             threshold,
         };
-        let deliverer = deliverer.clone();
+        let delivery = keygen_delivery.clone();
         let handle = tokio::spawn(async move {
-            let mut party = tofnd_party::new().await;
-            party.execute_keygen(init, party_channels, deliverer).await;
-            party.close().await;
+            party.execute_keygen(init, channel_pair, delivery).await;
+            party
         });
-        join_handles.push(handle);
+        keygen_join_handles.push(handle);
     }
-    for h in join_handles {
-        h.await.unwrap();
+
+    // shut down servers
+    for h in keygen_join_handles {
+        h.await.unwrap().close().await;
     }
 }

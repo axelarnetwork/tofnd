@@ -62,7 +62,7 @@ impl Party for TofndParty {
         &mut self,
         init: proto::KeygenInit,
         channels: SenderReceiver,
-        mut deliverer: Deliverer,
+        mut delivery: Deliverer,
     ) {
         let my_uid = init.party_uids[usize::try_from(init.my_party_index).unwrap()].clone();
         let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
@@ -87,7 +87,7 @@ impl Party for TofndParty {
 
             match msg_type {
                 proto::message_out::Data::Traffic(_) => {
-                    deliverer.deliver(&msg, &my_uid).await;
+                    delivery.deliver(&msg, &my_uid).await;
                 }
                 proto::message_out::Data::KeygenResult(_) => {
                     println!("party [{}] keygen finished!", my_display_name);
