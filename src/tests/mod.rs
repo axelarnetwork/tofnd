@@ -2,14 +2,9 @@ use super::*;
 
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::sync::Arc;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
-pub type MutexPartyMap = HashMap<String, Sender<proto::MessageIn>>;
-pub type PartyMap = Arc<MutexPartyMap>;
-
 mod keygen_party;
-// mod mock;
 
 #[tonic::async_trait]
 trait Party: Sync + Send {
@@ -19,8 +14,7 @@ trait Party: Sync + Send {
         channels: SenderReceiver,
         deliverer: Deliverer,
     );
-    // async fn msg_in(&mut self, msg: &proto::MessageIn);
-    async fn close(&mut self);
+    async fn close(mut self);
 }
 
 type SenderReceiver = (Sender<proto::MessageIn>, Receiver<proto::MessageIn>);
@@ -93,25 +87,15 @@ impl Deliverer {
 async fn start_servers() {
     let (share_count, threshold) = (5, 2);
 
-    // init parties
-    // let mut parties = Vec::with_capacity(share_count);
-    // for _ in 0..share_count {
-    //     parties.push(TofndParty::new().await);
-    // }
-    // let mut parties: Vec<&mut dyn Party> =
-    //     parties.iter_mut().map(|p| p as &mut dyn Party).collect();
-
     // init keygen deliverer
     let party_uids: Vec<String> = (0..share_count)
         .map(|i| format!("{}", (b'A' + i as u8) as char))
         .collect();
     let (deliverer, channels) = Deliverer::with_party_ids(&party_uids);
 
-    // init keygen protocol
+    // run keygen protocol
     let new_key_uid = "Gus-test-key".to_string();
     let mut join_handles = Vec::with_capacity(share_count);
-    // for (i, (mut party, party_channels)) in
-    //     parties.into_iter().zip(channels.into_iter()).enumerate()
     for (i, party_channels) in channels.into_iter().enumerate() {
         let init = proto::KeygenInit {
             new_key_uid: new_key_uid.clone(),
@@ -131,5 +115,3 @@ async fn start_servers() {
         h.await.unwrap();
     }
 }
-
-// async fn execute_parties(parties: &mut [&mut dyn Party]) {}
