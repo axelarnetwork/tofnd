@@ -6,6 +6,7 @@ use super::{
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::{
+    net::TcpListener,
     sync::mpsc::{Receiver, Sender},
     task::JoinHandle,
 };
@@ -37,20 +38,23 @@ impl KeygenParty {
 
         // start server
         let (shutdown_sender, shutdown_receiver) = tokio::sync::oneshot::channel::<()>();
-        // TODO set port 0 and let the OS decide
-        let server_addr = addr(50051 + my_id_index).unwrap();
+        let my_service = gg20::new_service();
+        let proto_service = proto::gg20_server::Gg20Server::new(my_service);
+        let incoming = TcpListener::bind(addr(0).unwrap()).await.unwrap(); // use port 0 and let the OS decide
+        let server_addr = incoming.local_addr().unwrap();
         println!(
             "party [{}] grpc addr {:?}",
             init.party_uids[my_id_index], server_addr
         );
-        let my_service = gg20::new_service();
-        let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let server_handle = tokio::spawn(async move {
             tonic::transport::Server::builder()
                 .add_service(proto_service)
-                .serve_with_shutdown(server_addr, async {
+                .serve_with_incoming_shutdown(incoming, async {
                     shutdown_receiver.await.ok();
                 })
+                // .serve_with_shutdown(server_addr, async {
+                //     shutdown_receiver.await.ok();
+                // })
                 .await
         });
 
