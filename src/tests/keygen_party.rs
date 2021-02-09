@@ -13,10 +13,7 @@ use tokio::{
 use tonic::Request;
 
 // TODO temporary to satisfy clippy
-type ServerPair = (
-    JoinHandle<Result<(), tonic::transport::Error>>,
-    tokio::sync::oneshot::Sender<()>,
-);
+type ServerPair = (JoinHandle<()>, tokio::sync::oneshot::Sender<()>);
 
 // #[derive(Debug)]
 pub struct KeygenParty {
@@ -46,26 +43,28 @@ impl KeygenParty {
             "party [{}] grpc addr {:?}",
             init.party_uids[my_id_index], server_addr
         );
+        // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();
         let server_handle = tokio::spawn(async move {
             tonic::transport::Server::builder()
                 .add_service(proto_service)
                 .serve_with_incoming_shutdown(incoming, async {
-                    shutdown_receiver.await.ok();
+                    shutdown_receiver.await.unwrap();
                 })
-                // .serve_with_shutdown(server_addr, async {
-                //     shutdown_receiver.await.ok();
-                // })
                 .await
+                .unwrap();
+            // startup_sender.send(()).unwrap();
         });
 
         let (tx, rx) = tokio::sync::mpsc::channel(4);
 
         // TODO get the server to notify us after it's started, or perhaps just "yield" here
-        println!(
-            "party [{}] TODO sleep waiting for server to start...",
-            init.party_uids[my_id_index]
-        );
-        tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+        // println!(
+        //     "party [{}] TODO sleep waiting for server to start...",
+        //     init.party_uids[my_id_index]
+        // );
+        // tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+        // startup_receiver.await.unwrap();
+        // println!("party [{}] server started!", init.party_uids[my_id_index]);
 
         Self {
             party_map: None,
@@ -162,7 +161,7 @@ impl Party for KeygenParty {
         let my_id = self.get_id().to_string(); // fighting the borrow checker
         let (server_handle, shutdown_sender) = self.server.take().expect("missing server");
         shutdown_sender.send(()).unwrap(); // tell the server to shut down
-        server_handle.await.unwrap().unwrap(); // wait for server to shut down
+        server_handle.await.unwrap(); // wait for server to shut down
         println!("party [{}] shutdown success", my_id);
     }
 }
