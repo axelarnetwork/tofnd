@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
-mod keygen_party;
+mod tofnd_party;
 
 #[tonic::async_trait]
 trait Party: Sync + Send {
@@ -105,7 +105,7 @@ async fn start_servers() {
         };
         let deliverer = deliverer.clone();
         let handle = tokio::spawn(async move {
-            let mut party = keygen_party::new().await;
+            let mut party = tofnd_party::new().await;
             party.execute_keygen(init, party_channels, deliverer).await;
             party.close().await;
         });
