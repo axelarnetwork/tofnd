@@ -18,7 +18,7 @@ type ServerPair = (
 );
 
 // #[derive(Debug)]
-pub struct TofndParty {
+pub struct KeygenParty {
     party_map: Option<PartyMap>,
     // shutdown_sender: tokio::sync::oneshot::Sender<()>,
     // server_handle: JoinHandle<Result<(), tonic::transport::Error>>,
@@ -30,8 +30,8 @@ pub struct TofndParty {
     rx: Option<Receiver<proto::MessageIn>>,
 }
 
-impl TofndParty {
-    pub async fn new(init: &proto::KeygenInit) -> TofndParty {
+impl KeygenParty {
+    pub async fn new(init: &proto::KeygenInit) -> KeygenParty {
         use std::convert::TryFrom;
         let my_id_index = usize::try_from(init.my_party_index).unwrap();
 
@@ -78,7 +78,7 @@ impl TofndParty {
 }
 
 #[tonic::async_trait]
-impl Party for TofndParty {
+impl Party for KeygenParty {
     fn get_id(&self) -> &str {
         &self.keygen_init.party_uids[self.my_id_index]
     }
