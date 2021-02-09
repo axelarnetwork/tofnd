@@ -20,6 +20,7 @@ pub struct KeygenParty {
     party_map: Option<PartyMap>,
     // shutdown_sender: tokio::sync::oneshot::Sender<()>,
     // server_handle: JoinHandle<Result<(), tonic::transport::Error>>,
+    client: proto::gg20_client::Gg20Client<tonic::transport::Channel>,
     server: Option<ServerPair>, // (server_handle, shutdown_sender)
     server_addr: SocketAddr,
     keygen_init: proto::KeygenInit,
@@ -58,16 +59,25 @@ impl KeygenParty {
         let (tx, rx) = tokio::sync::mpsc::channel(4);
 
         // TODO get the server to notify us after it's started, or perhaps just "yield" here
-        // println!(
-        //     "party [{}] TODO sleep waiting for server to start...",
-        //     init.party_uids[my_id_index]
-        // );
-        // tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+        println!(
+            "party [{}] TODO sleep waiting for server to start...",
+            init.party_uids[my_id_index]
+        );
+        tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
         // startup_receiver.await.unwrap();
         // println!("party [{}] server started!", init.party_uids[my_id_index]);
 
+        println!(
+            "party [{}] connect to server...",
+            init.party_uids[my_id_index]
+        );
+        let client = proto::gg20_client::Gg20Client::connect(format!("http://{}", server_addr))
+            .await
+            .unwrap();
+
         Self {
             party_map: None,
+            client,
             server: Some((server_handle, shutdown_sender)),
             // shutdown_sender,
             // server_handle,
@@ -95,13 +105,9 @@ impl Party for KeygenParty {
     async fn execute(&mut self) {
         assert!(self.party_map.is_some());
         assert!(self.rx.is_some());
-        println!("party [{}] connect to server...", self.get_id());
-        let mut client =
-            proto::gg20_client::Gg20Client::connect(format!("http://{}", self.server_addr))
-                .await
-                .unwrap();
 
-        let mut from_server = client
+        let mut from_server = self
+            .client
             .keygen(Request::new(self.rx.take().unwrap()))
             .await
             .unwrap()
