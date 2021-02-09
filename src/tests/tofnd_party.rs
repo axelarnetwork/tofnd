@@ -99,6 +99,15 @@ impl Party for TofndParty {
         println!("party [{}] execution complete", my_display_name);
     }
 
+    async fn execute_sign(
+        &mut self,
+        init: proto::SignInit,
+        channels: SenderReceiver,
+        delivery: Deliverer,
+    ) {
+        todo!()
+    }
+
     async fn close(mut self) {
         self.server_shutdown_sender.send(()).unwrap(); // tell the server to shut down
         self.server_handle.await.unwrap(); // wait for server to shut down

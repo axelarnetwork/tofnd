@@ -14,6 +14,12 @@ trait Party: Sync + Send {
         channels: SenderReceiver,
         delivery: Deliverer,
     );
+    async fn execute_sign(
+        &mut self,
+        init: proto::SignInit,
+        channels: SenderReceiver,
+        delivery: Deliverer,
+    );
     async fn close(mut self);
 }
 
@@ -84,10 +90,11 @@ impl Deliverer {
 
 // #[test]
 #[tokio::test]
-async fn start_servers() {
+async fn keygen_and_sign() {
     let (share_count, threshold) = (5, 2);
 
     // init parties
+    // use a for loop because async closures are unstable: https://github.com/rust-lang/rust/issues/62290
     let mut parties = Vec::with_capacity(share_count);
     for _ in 0..share_count {
         parties.push(tofnd_party::new().await);
@@ -120,9 +127,18 @@ async fn start_servers() {
         });
         keygen_join_handles.push(handle);
     }
+    let mut parties = Vec::with_capacity(share_count); // async closures are unstable: https://github.com/rust-lang/rust/issues/62290
+    for h in keygen_join_handles {
+        parties.push(h.await.unwrap());
+    }
+
+    // run sign protocol
+    // let new_sig_uid = "Gus-test-sig".to_string();
+    // let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&party_uids);
+    // let mut sign_join_handles = Vec::with_capacity(share_count);
 
     // shut down servers
-    for h in keygen_join_handles {
-        h.await.unwrap().close().await;
+    for p in parties {
+        p.close().await;
     }
 }
