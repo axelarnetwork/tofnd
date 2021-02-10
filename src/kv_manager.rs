@@ -100,7 +100,7 @@ where
     while let Some(cmd) = rx.recv().await {
         match cmd {
             ReserveKey { key, resp } => {
-                let exists = kv.exists::<()>(&key); // need ::<()> due to https://github.com/ex0dus-0x/microkv/issues/6
+                let exists = kv.exists(&key);
 
                 // we only care about resp.send failure after a successful kv.put
                 if exists.is_err() {
@@ -115,7 +115,7 @@ where
                     ))));
                     continue;
                 }
-                let success = kv.put(&key, ""); // "" value marks key as reserved
+                let success = kv.put(&key, &""); // "" value marks key as reserved
                 if success.is_err() {
                     let _ = resp.send(Err(From::from(success.unwrap_err())));
                     continue;
@@ -157,7 +157,7 @@ where
                     }
                 }
 
-                let _ = resp.send(kv.put(&reservation.key, value).map_err(From::from));
+                let _ = resp.send(kv.put(&reservation.key, &value).map_err(From::from));
             }
             Get { key, resp } => {
                 let _ = resp.send(kv.get(&key).map_err(From::from));

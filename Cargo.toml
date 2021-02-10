@@ -10,7 +10,7 @@ tonic = "0.3"
 tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "sign"}
 # tofn = { path = "../tofn" }
 bincode = "1.2.1"
-microkv = "0.2.5"
+microkv = "0.2.6"
 
 # microkv dependency
 serde = { version = "1.0", features = ["derive"] }

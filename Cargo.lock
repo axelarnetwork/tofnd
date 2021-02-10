@@ -705,9 +705,9 @@ dependencies = [
 
 [[package]]
 name = "microkv"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6df87b59783ae88197b24a5d3bc69295814f9b0ad7c5e339cbde011ed647b3c3"
+checksum = "13e78344bfca3416deea6ea97b438731b27e8cc9c84b88a0dc60332085c01242"
 dependencies = [
  "bincode",
  "indexmap",
