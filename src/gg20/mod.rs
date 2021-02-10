@@ -162,6 +162,20 @@ async fn execute_sign(
     let (secret_key_share, all_party_uids) = kv.get(&sign_init.key_uid).await?;
     let sign_init = sign_sanitize_args(sign_init, &secret_key_share, &all_party_uids)?;
 
+    // quit now if I'm not a participant
+    if sign_init
+        .participant_indices
+        .iter()
+        .find(|&&i| i == secret_key_share.my_index)
+        .is_none()
+    {
+        println!(
+            "party [{}] is not a sign participant",
+            all_party_uids[secret_key_share.my_index]
+        );
+        return Ok(());
+    }
+
     // sign execute
     let mut sign = Sign::new(
         &secret_key_share,
@@ -208,8 +222,8 @@ fn sign_sanitize_args(
     // if no party list is provided then select the first threshold+1 parties
     let participant_indices: Vec<usize> = (0..=secret_key_share.threshold).collect();
     let participant_uids = all_party_uids[..=secret_key_share.threshold].to_vec();
-    // sign::validate_params(secret_key_share, &participant_indices)?;
-    // assume message_to_sign is already raw bytes of a field element
+
+    // TODO assume message_to_sign is already raw bytes of a field element
 
     Ok(SignInitSanitized {
         new_sig_uid: args.new_sig_uid,

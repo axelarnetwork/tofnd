@@ -19,6 +19,7 @@ trait Party: Sync + Send {
         init: proto::SignInit,
         channels: SenderReceiver,
         delivery: Deliverer,
+        my_uid: &str,
     );
     async fn close(mut self);
 }
@@ -94,7 +95,7 @@ async fn keygen_and_sign() {
     let (share_count, threshold) = (5, 2);
 
     // init parties
-    // use a for loop because async closures are unstable: https://github.com/rust-lang/rust/issues/62290
+    // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     let mut parties = Vec::with_capacity(share_count);
     for _ in 0..share_count {
         parties.push(tofnd_party::new().await);
@@ -106,36 +107,68 @@ async fn keygen_and_sign() {
         .collect();
 
     // run keygen protocol
-    let new_key_uid = "Gus-test-key".to_string();
-    let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
-    let mut keygen_join_handles = Vec::with_capacity(share_count);
-    for (i, (mut party, channel_pair)) in parties
-        .into_iter()
-        .zip(keygen_channel_pairs.into_iter())
-        .enumerate()
-    {
-        let init = proto::KeygenInit {
-            new_key_uid: new_key_uid.clone(),
-            party_uids: party_uids.clone(),
-            my_party_index: i32::try_from(i).unwrap(),
-            threshold,
-        };
-        let delivery = keygen_delivery.clone();
-        let handle = tokio::spawn(async move {
-            party.execute_keygen(init, channel_pair, delivery).await;
-            party
-        });
-        keygen_join_handles.push(handle);
-    }
-    let mut parties = Vec::with_capacity(share_count); // async closures are unstable: https://github.com/rust-lang/rust/issues/62290
-    for h in keygen_join_handles {
-        parties.push(h.await.unwrap());
-    }
+    let new_key_uid = "Gus-test-key";
+    let parties = {
+        let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
+        let mut keygen_join_handles = Vec::with_capacity(share_count);
+        for (i, (mut party, channel_pair)) in parties
+            .into_iter()
+            .zip(keygen_channel_pairs.into_iter())
+            .enumerate()
+        {
+            let init = proto::KeygenInit {
+                new_key_uid: new_key_uid.to_string(),
+                party_uids: party_uids.clone(),
+                my_party_index: i32::try_from(i).unwrap(),
+                threshold,
+            };
+            let delivery = keygen_delivery.clone();
+            let handle = tokio::spawn(async move {
+                party.execute_keygen(init, channel_pair, delivery).await;
+                party
+            });
+            keygen_join_handles.push(handle);
+        }
+        let mut parties = Vec::with_capacity(share_count); // async closures are unstable https://github.com/rust-lang/rust/issues/62290
+        for h in keygen_join_handles {
+            parties.push(h.await.unwrap());
+        }
+        parties
+    };
 
     // run sign protocol
-    // let new_sig_uid = "Gus-test-sig".to_string();
-    // let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&party_uids);
-    // let mut sign_join_handles = Vec::with_capacity(share_count);
+    let new_sig_uid = "Gus-test-sig";
+    let message_to_sign: [u8; 1] = [42];
+    let parties = {
+        let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&party_uids);
+        let mut sign_join_handles = Vec::with_capacity(share_count);
+        for (i, (mut party, channel_pair)) in parties
+            .into_iter()
+            .zip(sign_channel_pairs.into_iter())
+            .enumerate()
+        {
+            let init = proto::SignInit {
+                new_sig_uid: new_sig_uid.to_string(),
+                key_uid: new_key_uid.to_string(),
+                party_uids: Vec::new(),
+                message_to_sign: message_to_sign.to_vec(),
+            };
+            let delivery = sign_delivery.clone();
+            let party_uid = party_uids[i].clone();
+            let handle = tokio::spawn(async move {
+                party
+                    .execute_sign(init, channel_pair, delivery, &party_uid)
+                    .await;
+                party
+            });
+            sign_join_handles.push(handle);
+        }
+        let mut parties = Vec::with_capacity(share_count); // async closures are unstable https://github.com/rust-lang/rust/issues/62290
+        for h in sign_join_handles {
+            parties.push(h.await.unwrap());
+        }
+        parties
+    };
 
     // shut down servers
     for p in parties {

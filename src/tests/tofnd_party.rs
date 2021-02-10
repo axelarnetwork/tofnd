@@ -104,8 +104,9 @@ impl Party for TofndParty {
         init: proto::SignInit,
         channels: SenderReceiver,
         delivery: Deliverer,
+        my_uid: &str,
     ) {
-        todo!()
+        // todo!()
     }
 
     async fn close(mut self) {
