@@ -93,20 +93,57 @@ impl Party for TofndParty {
                     println!("party [{}] keygen finished!", my_display_name);
                     break;
                 }
-                _ => panic!("bad outgoing message type"),
+                _ => panic!(
+                    "party [{}] keygen errpr: bad outgoing message type",
+                    my_display_name
+                ),
             };
         }
-        println!("party [{}] execution complete", my_display_name);
+        println!("party [{}] keygen execution complete", my_display_name);
     }
 
     async fn execute_sign(
         &mut self,
         init: proto::SignInit,
         channels: SenderReceiver,
-        delivery: Deliverer,
+        mut delivery: Deliverer,
         my_uid: &str,
     ) {
-        // todo!()
+        let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
+        let (mut sign_server_incoming, rx) = channels;
+        let mut sign_server_outgoing = self
+            .client
+            .sign(Request::new(rx))
+            .await
+            .unwrap()
+            .into_inner();
+
+        // the first outbound message is keygen init info
+        sign_server_incoming
+            .send(proto::MessageIn {
+                data: Some(proto::message_in::Data::SignInit(init)),
+            })
+            .await
+            .unwrap();
+
+        while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
+            let msg_type = msg.data.as_ref().expect("missing data");
+
+            match msg_type {
+                proto::message_out::Data::Traffic(_) => {
+                    delivery.deliver(&msg, &my_uid).await;
+                }
+                proto::message_out::Data::SignResult(_) => {
+                    println!("party [{}] sign finished!", my_display_name);
+                    break;
+                }
+                _ => panic!(
+                    "party [{}] sign error: bad outgoing message type",
+                    my_display_name
+                ),
+            };
+        }
+        println!("party [{}] sign execution complete", my_display_name);
     }
 
     async fn close(mut self) {

@@ -92,7 +92,7 @@ impl Deliverer {
 // #[test]
 #[tokio::test]
 async fn keygen_and_sign() {
-    let (share_count, threshold) = (5, 2);
+    let (share_count, threshold): (usize, usize) = (5, 2);
 
     // init parties
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
@@ -108,7 +108,7 @@ async fn keygen_and_sign() {
 
     // run keygen protocol
     let new_key_uid = "Gus-test-key";
-    let parties = {
+    let mut parties = {
         let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
         let mut keygen_join_handles = Vec::with_capacity(share_count);
         for (i, (mut party, channel_pair)) in parties
@@ -120,7 +120,7 @@ async fn keygen_and_sign() {
                 new_key_uid: new_key_uid.to_string(),
                 party_uids: party_uids.clone(),
                 my_party_index: i32::try_from(i).unwrap(),
-                threshold,
+                threshold: i32::try_from(threshold).unwrap(),
             };
             let delivery = keygen_delivery.clone();
             let handle = tokio::spawn(async move {
@@ -140,8 +140,12 @@ async fn keygen_and_sign() {
     let new_sig_uid = "Gus-test-sig";
     let message_to_sign: [u8; 1] = [42];
     let parties = {
-        let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&party_uids);
-        let mut sign_join_handles = Vec::with_capacity(share_count);
+        // party_uids is not set in proto::SignInit, so only the first threshold+1 parties participate
+        let (sign_delivery, sign_channel_pairs) =
+            Deliverer::with_party_ids(&party_uids[..=threshold]);
+        let non_participants = parties.split_off(threshold + 1);
+
+        let mut sign_join_handles = Vec::with_capacity(threshold + 1);
         for (i, (mut party, channel_pair)) in parties
             .into_iter()
             .zip(sign_channel_pairs.into_iter())
@@ -167,6 +171,7 @@ async fn keygen_and_sign() {
         for h in sign_join_handles {
             parties.push(h.await.unwrap());
         }
+        parties.extend(non_participants);
         parties
     };
 
