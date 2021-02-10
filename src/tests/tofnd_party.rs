@@ -32,14 +32,12 @@ pub(super) async fn new() -> impl Party {
         // startup_sender.send(()).unwrap();
     });
 
-    // let (tx, rx) = tokio::sync::mpsc::channel(4);
-
     // TODO get the server to notify us after it's started, or perhaps just "yield" here
-    println!(
-        "new party [{}] TODO sleep waiting for server to start...",
-        server_port
-    );
-    tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+    // println!(
+    //     "new party [{}] TODO sleep waiting for server to start...",
+    //     server_port
+    // );
+    // tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
     // startup_receiver.await.unwrap();
     // println!("party [{}] server started!", init.party_uids[my_id_index]);
 
