@@ -21,7 +21,7 @@ trait Party: Sync + Send {
         delivery: Deliverer,
         my_uid: &str,
     );
-    async fn close(mut self);
+    async fn shutdown(mut self);
 }
 
 type SenderReceiver = (Sender<proto::MessageIn>, Receiver<proto::MessageIn>);
@@ -177,6 +177,6 @@ async fn keygen_and_sign() {
 
     // shut down servers
     for p in parties {
-        p.close().await;
+        p.shutdown().await;
     }
 }

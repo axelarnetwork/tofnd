@@ -144,7 +144,7 @@ impl Party for TofndParty {
         println!("party [{}] sign execution complete", my_display_name);
     }
 
-    async fn close(mut self) {
+    async fn shutdown(mut self) {
         self.server_shutdown_sender.send(()).unwrap(); // tell the server to shut down
         self.server_handle.await.unwrap(); // wait for server to shut down
         println!("party [{}] shutdown success", self.server_port);
