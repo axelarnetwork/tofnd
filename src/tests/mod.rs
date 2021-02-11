@@ -93,6 +93,7 @@ impl Deliverer {
 #[tokio::test]
 async fn keygen_and_sign() {
     let (share_count, threshold): (usize, usize) = (5, 2);
+    let sign_participant_indices = vec![1, 4, 2, 3];
 
     // init parties
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
@@ -108,7 +109,7 @@ async fn keygen_and_sign() {
 
     // run keygen protocol
     let new_key_uid = "Gus-test-key";
-    let mut parties = {
+    let parties = {
         let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
         let mut keygen_join_handles = Vec::with_capacity(share_count);
         for (i, (mut party, channel_pair)) in parties
@@ -140,42 +141,50 @@ async fn keygen_and_sign() {
     let new_sig_uid = "Gus-test-sig";
     let message_to_sign: [u8; 1] = [42];
     let parties = {
-        // party_uids is not set in proto::SignInit, so only the first threshold+1 parties participate
-        let (sign_delivery, sign_channel_pairs) =
-            Deliverer::with_party_ids(&party_uids[..=threshold]);
-        let non_participants = parties.split_off(threshold + 1);
+        let participant_uids: Vec<String> = sign_participant_indices
+            .iter()
+            .map(|&i| party_uids[i].clone())
+            .collect();
+        let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&participant_uids);
 
-        let mut sign_join_handles = Vec::with_capacity(threshold + 1);
-        for (i, (mut party, channel_pair)) in parties
-            .into_iter()
-            .zip(sign_channel_pairs.into_iter())
-            .enumerate()
-        {
+        // use Option to temporarily transfer ownership of individual parties to a spawn
+        let mut party_options: Vec<Option<_>> = parties.into_iter().map(|p| Some(p)).collect();
+
+        let mut sign_join_handles = Vec::with_capacity(sign_participant_indices.len());
+        for (i, channel_pair) in sign_channel_pairs.into_iter().enumerate() {
+            let participant_index = sign_participant_indices[i];
+
+            // clone everything needed in spawn
             let init = proto::SignInit {
                 new_sig_uid: new_sig_uid.to_string(),
                 key_uid: new_key_uid.to_string(),
-                party_uids: Vec::new(),
+                party_uids: participant_uids.clone(),
                 message_to_sign: message_to_sign.to_vec(),
             };
             let delivery = sign_delivery.clone();
-            let party_uid = party_uids[i].clone();
+            let participant_uid = participant_uids[i].clone();
+            let mut party = party_options[participant_index].take().unwrap();
+
+            // execute the protocol in a spawn
             let handle = tokio::spawn(async move {
                 party
-                    .execute_sign(init, channel_pair, delivery, &party_uid)
+                    .execute_sign(init, channel_pair, delivery, &participant_uid)
                     .await;
                 party
             });
-            sign_join_handles.push(handle);
+            sign_join_handles.push((participant_index, handle));
         }
-        let mut parties = Vec::with_capacity(share_count); // async closures are unstable https://github.com/rust-lang/rust/issues/62290
-        for h in sign_join_handles {
-            parties.push(h.await.unwrap());
+
+        // move participants back into party_options
+        for (i, h) in sign_join_handles {
+            party_options[i] = Some(h.await.unwrap());
         }
-        parties.extend(non_participants);
-        parties
+        party_options
+            .into_iter()
+            .map(|o| o.unwrap())
+            .collect::<Vec<_>>()
     };
 
-    // shut down servers
     for p in parties {
         p.shutdown().await;
     }

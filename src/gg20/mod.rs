@@ -211,26 +211,33 @@ struct SignInitSanitized {
 }
 
 fn sign_sanitize_args(
-    args: proto::SignInit,
-    secret_key_share: &SecretKeyShare,
+    sign_init: proto::SignInit,
+    _secret_key_share: &SecretKeyShare,
     all_party_uids: &[String],
 ) -> Result<SignInitSanitized, TofndError> {
-    // TODO add support for custom party list
-    if !args.party_uids.is_empty() {
-        return Err(From::from("not implemented: support for custom party list"));
-    }
-    // if no party list is provided then select the first threshold+1 parties
-    let participant_indices: Vec<usize> = (0..=secret_key_share.threshold).collect();
-    let participant_uids = all_party_uids[..=secret_key_share.threshold].to_vec();
+    let participant_indices = sign_init
+        .party_uids
+        .iter()
+        .map(|s| {
+            all_party_uids.iter().position(|k| k == s).ok_or(format!(
+                "participant [{}] not found in key [{}]",
+                s, sign_init.key_uid
+            ))
+        })
+        .collect::<Result<Vec<usize>, _>>()?;
+    let participant_uids: Vec<String> = participant_indices
+        .iter()
+        .map(|&i| all_party_uids[i].clone())
+        .collect();
 
     // TODO assume message_to_sign is already raw bytes of a field element
 
     Ok(SignInitSanitized {
-        new_sig_uid: args.new_sig_uid,
-        key_uid: args.key_uid,
+        new_sig_uid: sign_init.new_sig_uid,
+        key_uid: sign_init.key_uid,
         participant_uids,
         participant_indices,
-        message_to_sign: args.message_to_sign,
+        message_to_sign: sign_init.message_to_sign,
     })
 }
 
