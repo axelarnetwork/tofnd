@@ -89,12 +89,35 @@ impl Deliverer {
     }
 }
 
+lazy_static::lazy_static! {
+    static ref MSG_TO_SIGN: Vec<u8> = vec![42];
+    static ref TEST_CASES: Vec<(usize, usize, Vec<usize>)> = vec![ // (share_count, threshold, participant_indices)
+        (5, 2, vec![1,4,2,3]),
+        (1,0,vec![0]),
+    ];
+    // TODO add TEST_CASES_INVALID
+}
+
 // #[test]
 #[tokio::test]
 async fn keygen_and_sign() {
-    let (share_count, threshold): (usize, usize) = (5, 2);
-    let sign_participant_indices = vec![1, 4, 2, 3];
+    for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
+        execute_keygen_and_sign(
+            *share_count,
+            *threshold,
+            sign_participant_indices,
+            &MSG_TO_SIGN,
+        )
+        .await;
+    }
+}
 
+async fn execute_keygen_and_sign(
+    share_count: usize,
+    threshold: usize,
+    sign_participant_indices: &[usize],
+    msg_to_sign: &[u8],
+) {
     // init parties
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     let mut parties = Vec::with_capacity(share_count);
@@ -139,7 +162,6 @@ async fn keygen_and_sign() {
 
     // run sign protocol
     let new_sig_uid = "Gus-test-sig";
-    let message_to_sign: [u8; 1] = [42];
     let parties = {
         let participant_uids: Vec<String> = sign_participant_indices
             .iter()
@@ -148,7 +170,7 @@ async fn keygen_and_sign() {
         let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&participant_uids);
 
         // use Option to temporarily transfer ownership of individual parties to a spawn
-        let mut party_options: Vec<Option<_>> = parties.into_iter().map(|p| Some(p)).collect();
+        let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
 
         let mut sign_join_handles = Vec::with_capacity(sign_participant_indices.len());
         for (i, channel_pair) in sign_channel_pairs.into_iter().enumerate() {
@@ -159,7 +181,7 @@ async fn keygen_and_sign() {
                 new_sig_uid: new_sig_uid.to_string(),
                 key_uid: new_key_uid.to_string(),
                 party_uids: participant_uids.clone(),
-                message_to_sign: message_to_sign.to_vec(),
+                message_to_sign: msg_to_sign.to_vec(),
             };
             let delivery = sign_delivery.clone();
             let participant_uid = participant_uids[i].clone();
