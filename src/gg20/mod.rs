@@ -193,11 +193,8 @@ async fn execute_sign(
 
     // serialize generated signature and send to client
     // TODO how do I serialize in proper bitcoin format?
-    let serialized_signature = vec![0];
     msg_sender
-        .send(Ok(proto::MessageOut::new_sign_result(
-            &serialized_signature,
-        )))
+        .send(Ok(proto::MessageOut::new_sign_result(signature.as_bytes())))
         .await?;
     Ok(())
 }
