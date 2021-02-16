@@ -118,6 +118,11 @@ async fn execute_keygen_and_sign(
     sign_participant_indices: &[usize],
     msg_to_sign: &[u8],
 ) {
+    println!(
+        "keygen and sign test: share_count: {}, threshold: {}, sign_participants {:?}",
+        share_count, threshold, sign_participant_indices
+    );
+
     // init parties
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     let mut parties = Vec::with_capacity(share_count);
