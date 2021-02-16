@@ -11,8 +11,7 @@ use tokio::sync::{mpsc, oneshot};
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 
-// "actor" pattern: https://draft.ryhl.io/blog/actors-with-tokio/
-// KV is the "handle"
+// "actor" pattern (KV is the "handle"): https://draft.ryhl.io/blog/actors-with-tokio/
 // see also https://tokio.rs/tokio/tutorial/channels
 #[derive(Clone)]
 pub struct KV<V> {
@@ -23,7 +22,7 @@ where
     V: Debug + Send + Sync + Serialize + DeserializeOwned,
 {
     pub fn new() -> Self {
-        let (sender, receiver) = mpsc::channel(4);
+        let (sender, receiver) = mpsc::channel(4); // TODO buffer size?
         tokio::spawn(run(receiver));
         Self { sender }
     }

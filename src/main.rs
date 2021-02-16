@@ -3,6 +3,7 @@ use std::{env, net::SocketAddr};
 mod gg20;
 mod kv_manager;
 
+// protocol buffers via tonic: https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md#writing-our-server
 pub mod proto {
     tonic::include_proto!("tofnd");
 }
@@ -36,6 +37,7 @@ fn addr(port: usize) -> Result<SocketAddr, TofndError> {
     Ok(format!("0.0.0.0:{}", port).parse()?) // ipv4
 }
 
+// TODO graceful shutdown
 // https://hyper.rs/guides/server/graceful-shutdown/
 // async fn shutdown_signal() {
 //     // Wait for the CTRL+C signal
