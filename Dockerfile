@@ -30,7 +30,7 @@ RUN --mount=type=ssh cargo install --path .
 
 FROM debian:buster-slim as runner
 
-COPY --from=builder /tofnd/target/release/tofnd /
+COPY --from=builder /tofnd/target/release/tofnd /usr/local/bin
 
 COPY ./entrypoint.sh /
 
