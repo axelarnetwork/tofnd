@@ -6,6 +6,15 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 mod tofnd_party;
 
+lazy_static::lazy_static! {
+    static ref MSG_TO_SIGN: Vec<u8> = vec![42];
+    static ref TEST_CASES: Vec<(usize, usize, Vec<usize>)> = vec![ // (share_count, threshold, participant_indices)
+        (5, 2, vec![1,4,2,3]),
+        (1,0,vec![0]),
+    ];
+    // TODO add TEST_CASES_INVALID
+}
+
 #[tonic::async_trait]
 trait Party: Sync + Send {
     async fn execute_keygen(
@@ -87,15 +96,6 @@ impl Deliverer {
             sender.send(msg_in.clone()).await.unwrap();
         }
     }
-}
-
-lazy_static::lazy_static! {
-    static ref MSG_TO_SIGN: Vec<u8> = vec![42];
-    static ref TEST_CASES: Vec<(usize, usize, Vec<usize>)> = vec![ // (share_count, threshold, participant_indices)
-        (5, 2, vec![1,4,2,3]),
-        (1,0,vec![0]),
-    ];
-    // TODO add TEST_CASES_INVALID
 }
 
 // #[test]
