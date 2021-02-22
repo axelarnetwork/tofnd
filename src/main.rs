@@ -1,4 +1,5 @@
 use std::{env, net::SocketAddr};
+use tokio::net::TcpListener;
 
 mod gg20;
 mod kv_manager;
@@ -14,27 +15,29 @@ type TofndError = Box<dyn std::error::Error + Send + Sync>;
 #[tokio::main]
 async fn main() -> Result<(), TofndError> {
     let args: Vec<String> = env::args().collect();
-    let port = match args.len() {
+    let port: u16 = match args.len() {
         2 => args[1].parse()?,
-        _ => 50051,
+        _ => 50051, // default listen port
     };
-    let addr = addr(port)?;
-    println!("tofnd listen addr {:?}", addr);
+    let incoming = TcpListener::bind(addr(port)).await?;
+    println!("tofnd listen addr {:?}", incoming.local_addr()?);
     let my_service = gg20::new_service();
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
     tonic::transport::Server::builder()
         .add_service(proto_service)
         // .serve_with_shutdown(addr, shutdown_signal())
-        .serve(addr)
+        // .serve(addr)
+        .serve_with_incoming(incoming)
         .await?;
 
     Ok(())
 }
 
-fn addr(port: usize) -> Result<SocketAddr, TofndError> {
+fn addr(port: u16) -> SocketAddr {
     // Ok(format!("[::1]:{}", port).parse()?) // ipv6
-    Ok(format!("0.0.0.0:{}", port).parse()?) // ipv4
+    // Ok(format!("0.0.0.0:{}", port).parse()?) // ipv4
+    SocketAddr::from(([0, 0, 0, 0], port))
 }
 
 // TODO graceful shutdown

@@ -16,7 +16,7 @@ pub(super) async fn new() -> impl Party {
     let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
     let my_service = gg20::new_service();
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
-    let incoming = TcpListener::bind(addr(0).unwrap()).await.unwrap(); // use port 0 and let the OS decide
+    let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
     let server_addr = incoming.local_addr().unwrap();
     let server_port = server_addr.port();
     println!("new party bound to port [{:?}]", server_port);
