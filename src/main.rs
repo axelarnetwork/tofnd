@@ -20,34 +20,33 @@ async fn main() -> Result<(), TofndError> {
         _ => 50051, // default listen port
     };
     let incoming = TcpListener::bind(addr(port)).await?;
-    println!("tofnd listen addr {:?}", incoming.local_addr()?);
+    println!(
+        "tofnd listen addr {:?}, use ctrl+c to shutdown",
+        incoming.local_addr()?
+    );
     let my_service = gg20::new_service();
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
     tonic::transport::Server::builder()
         .add_service(proto_service)
-        // .serve_with_shutdown(addr, shutdown_signal())
-        // .serve(addr)
-        .serve_with_incoming(incoming)
+        .serve_with_incoming_shutdown(incoming, shutdown_signal())
         .await?;
 
     Ok(())
 }
 
 fn addr(port: u16) -> SocketAddr {
-    // Ok(format!("[::1]:{}", port).parse()?) // ipv6
-    // Ok(format!("0.0.0.0:{}", port).parse()?) // ipv4
-    SocketAddr::from(([0, 0, 0, 0], port))
+    SocketAddr::from(([0, 0, 0, 0], port)) // ipv4
 }
 
-// TODO graceful shutdown
-// https://hyper.rs/guides/server/graceful-shutdown/
-// async fn shutdown_signal() {
-//     // Wait for the CTRL+C signal
-//     tokio1::signal::ctrl_c()
-//         .await
-//         .expect("failed to install CTRL+C signal handler");
-// }
+// graceful shutdown https://hyper.rs/guides/server/graceful-shutdown/
+async fn shutdown_signal() {
+    // Wait for the CTRL+C signal
+    tokio::signal::ctrl_c()
+        .await
+        .expect("failed to install CTRL+C signal handler");
+    println!("tofnd shutdown signal received")
+}
 
 #[cfg(test)]
 mod tests;
