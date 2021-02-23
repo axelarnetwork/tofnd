@@ -147,6 +147,59 @@ async fn execute_keygen(
     parties
 }
 
+// need to take ownership of parties `parties` and return it on completion
+async fn execute_sign(
+    parties: Vec<impl Party + 'static>,
+    party_uids: &[String],
+    sign_participant_indices: &[usize],
+    key_uid: &str,
+    new_sig_uid: &str,
+    msg_to_sign: &[u8],
+) -> Vec<impl Party> {
+    let participant_uids: Vec<String> = sign_participant_indices
+        .iter()
+        .map(|&i| party_uids[i].clone())
+        .collect();
+    let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&participant_uids);
+
+    // use Option to temporarily transfer ownership of individual parties to a spawn
+    let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
+
+    let mut sign_join_handles = Vec::with_capacity(sign_participant_indices.len());
+    for (i, channel_pair) in sign_channel_pairs.into_iter().enumerate() {
+        let participant_index = sign_participant_indices[i];
+
+        // clone everything needed in spawn
+        let init = proto::SignInit {
+            new_sig_uid: new_sig_uid.to_string(),
+            key_uid: key_uid.to_string(),
+            party_uids: participant_uids.clone(),
+            message_to_sign: msg_to_sign.to_vec(),
+        };
+        let delivery = sign_delivery.clone();
+        let participant_uid = participant_uids[i].clone();
+        let mut party = party_options[participant_index].take().unwrap();
+
+        // execute the protocol in a spawn
+        let handle = tokio::spawn(async move {
+            party
+                .execute_sign(init, channel_pair, delivery, &participant_uid)
+                .await;
+            party
+        });
+        sign_join_handles.push((participant_index, handle));
+    }
+
+    // move participants back into party_options
+    for (i, h) in sign_join_handles {
+        party_options[i] = Some(h.await.unwrap());
+    }
+    party_options
+        .into_iter()
+        .map(|o| o.unwrap())
+        .collect::<Vec<_>>()
+}
+
 async fn execute_keygen_and_sign(
     share_count: usize,
     threshold: usize,
@@ -176,50 +229,15 @@ async fn execute_keygen_and_sign(
 
     // run sign protocol
     let new_sig_uid = "Gus-test-sig";
-    let parties = {
-        let participant_uids: Vec<String> = sign_participant_indices
-            .iter()
-            .map(|&i| party_uids[i].clone())
-            .collect();
-        let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&participant_uids);
-
-        // use Option to temporarily transfer ownership of individual parties to a spawn
-        let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
-
-        let mut sign_join_handles = Vec::with_capacity(sign_participant_indices.len());
-        for (i, channel_pair) in sign_channel_pairs.into_iter().enumerate() {
-            let participant_index = sign_participant_indices[i];
-
-            // clone everything needed in spawn
-            let init = proto::SignInit {
-                new_sig_uid: new_sig_uid.to_string(),
-                key_uid: new_key_uid.to_string(),
-                party_uids: participant_uids.clone(),
-                message_to_sign: msg_to_sign.to_vec(),
-            };
-            let delivery = sign_delivery.clone();
-            let participant_uid = participant_uids[i].clone();
-            let mut party = party_options[participant_index].take().unwrap();
-
-            // execute the protocol in a spawn
-            let handle = tokio::spawn(async move {
-                party
-                    .execute_sign(init, channel_pair, delivery, &participant_uid)
-                    .await;
-                party
-            });
-            sign_join_handles.push((participant_index, handle));
-        }
-
-        // move participants back into party_options
-        for (i, h) in sign_join_handles {
-            party_options[i] = Some(h.await.unwrap());
-        }
-        party_options
-            .into_iter()
-            .map(|o| o.unwrap())
-            .collect::<Vec<_>>()
-    };
+    let parties = execute_sign(
+        parties,
+        &party_uids,
+        sign_participant_indices,
+        new_key_uid,
+        new_sig_uid,
+        msg_to_sign,
+    )
+    .await;
 
     for p in parties {
         p.shutdown().await;
