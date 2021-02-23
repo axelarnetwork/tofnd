@@ -112,6 +112,26 @@ async fn keygen_and_sign() {
     }
 }
 
+async fn init_parties(share_count: usize) -> (Vec<impl Party>, Vec<String>) {
+    let mut parties = Vec::with_capacity(share_count);
+
+    // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
+    for _ in 0..share_count {
+        parties.push(tofnd_party::new().await);
+    }
+
+    let party_uids: Vec<String> = (0..share_count)
+        .map(|i| format!("{}", (b'A' + i as u8) as char))
+        .collect();
+    (parties, party_uids)
+}
+
+async fn shutdown_parties(parties: Vec<impl Party>) {
+    for p in parties {
+        p.shutdown().await;
+    }
+}
+
 // need to take ownership of parties `parties` and return it on completion
 async fn execute_keygen(
     parties: Vec<impl Party + 'static>,
@@ -211,17 +231,7 @@ async fn execute_keygen_and_sign(
         share_count, threshold, sign_participant_indices
     );
 
-    // init parties
-    // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
-    let mut parties = Vec::with_capacity(share_count);
-    for _ in 0..share_count {
-        parties.push(tofnd_party::new().await);
-    }
-
-    // init party uids
-    let party_uids: Vec<String> = (0..share_count)
-        .map(|i| format!("{}", (b'A' + i as u8) as char))
-        .collect();
+    let (parties, party_uids) = init_parties(share_count).await;
 
     // run keygen protocol
     let new_key_uid = "Gus-test-key";
@@ -239,7 +249,5 @@ async fn execute_keygen_and_sign(
     )
     .await;
 
-    for p in parties {
-        p.shutdown().await;
-    }
+    shutdown_parties(parties).await;
 }
