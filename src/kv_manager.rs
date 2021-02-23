@@ -96,6 +96,10 @@ where
     V: Serialize + DeserializeOwned,
 {
     let kv = MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string());
+    println!(
+        "kv path: {}",
+        MicroKV::get_db_path("keys").to_str().unwrap()
+    );
     while let Some(cmd) = rx.recv().await {
         match cmd {
             ReserveKey { key, resp } => {
@@ -104,7 +108,7 @@ where
                 // we only care about resp.send failure after a successful kv.put
                 if exists.is_err() {
                     let _ = resp.send(Err(From::from(exists.unwrap_err())));
-                    continue;
+                    continue; // TODO handle each cmd in a separate fn, return here instead of continue
                 }
                 let exists = exists.unwrap();
                 if exists {
@@ -114,15 +118,15 @@ where
                     ))));
                     continue;
                 }
-                let success = kv.put(&key, &""); // "" value marks key as reserved
-                if success.is_err() {
-                    let _ = resp.send(Err(From::from(success.unwrap_err())));
+                let reserve_attempt = kv.put(&key, &""); // "" value marks key as reserved
+                if reserve_attempt.is_err() {
+                    let _ = resp.send(Err(From::from(reserve_attempt.unwrap_err())));
                     continue;
                 }
-                let success = resp.send(Ok(KeyReservation { key }));
-                if success.is_err() {
+                let resp_attempt = resp.send(Ok(KeyReservation { key }));
+                if resp_attempt.is_err() {
                     // unreserve the key---no one was listening to our response
-                    let key = success.unwrap_err().unwrap().key;
+                    let key = resp_attempt.unwrap_err().unwrap().key;
                     println!(
                         "WARN: kv_manager unreserving key [{}], fail to respond to ReserveKey (is no one listening for my response?)",
                         key
@@ -138,7 +142,8 @@ where
                 value,
                 resp,
             } => {
-                // key should exist with value ""
+                // key should exist with value ""; that's how we reserve keys
+                // warn but do not abort if this check fails
                 let reserve_val = kv.get::<String>(&reservation.key);
                 if reserve_val.is_err() {
                     println!(
@@ -156,7 +161,21 @@ where
                     }
                 }
 
-                let _ = resp.send(kv.put(&reservation.key, &value).map_err(From::from));
+                // attempt to add result to the kv store
+                let put_attempt = kv.put(&reservation.key, &value);
+                if put_attempt.is_err() {
+                    let _ = resp.send(Err(From::from(put_attempt.unwrap_err())));
+                    continue;
+                }
+
+                // attempt to persist the kv store to disk
+                let persist_attempt = kv.commit();
+                if persist_attempt.is_err() {
+                    let _ = resp.send(Err(From::from(persist_attempt.unwrap_err())));
+                    continue;
+                }
+
+                let _ = resp.send(Ok(()));
             }
             Get { key, resp } => {
                 let _ = resp.send(kv.get(&key).map_err(From::from));
