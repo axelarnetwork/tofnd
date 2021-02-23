@@ -112,6 +112,41 @@ async fn keygen_and_sign() {
     }
 }
 
+// need to take ownership of parties `parties` and return it on completion
+async fn execute_keygen(
+    parties: Vec<impl Party + 'static>,
+    party_uids: &[String],
+    new_key_uid: &str,
+    threshold: usize,
+) -> Vec<impl Party> {
+    let share_count = parties.len();
+    let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
+    let mut keygen_join_handles = Vec::with_capacity(share_count);
+    for (i, (mut party, channel_pair)) in parties
+        .into_iter()
+        .zip(keygen_channel_pairs.into_iter())
+        .enumerate()
+    {
+        let init = proto::KeygenInit {
+            new_key_uid: new_key_uid.to_string(),
+            party_uids: party_uids.to_owned(),
+            my_party_index: i32::try_from(i).unwrap(),
+            threshold: i32::try_from(threshold).unwrap(),
+        };
+        let delivery = keygen_delivery.clone();
+        let handle = tokio::spawn(async move {
+            party.execute_keygen(init, channel_pair, delivery).await;
+            party
+        });
+        keygen_join_handles.push(handle);
+    }
+    let mut parties = Vec::with_capacity(share_count); // async closures are unstable https://github.com/rust-lang/rust/issues/62290
+    for h in keygen_join_handles {
+        parties.push(h.await.unwrap());
+    }
+    parties
+}
+
 async fn execute_keygen_and_sign(
     share_count: usize,
     threshold: usize,
@@ -137,33 +172,7 @@ async fn execute_keygen_and_sign(
 
     // run keygen protocol
     let new_key_uid = "Gus-test-key";
-    let parties = {
-        let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
-        let mut keygen_join_handles = Vec::with_capacity(share_count);
-        for (i, (mut party, channel_pair)) in parties
-            .into_iter()
-            .zip(keygen_channel_pairs.into_iter())
-            .enumerate()
-        {
-            let init = proto::KeygenInit {
-                new_key_uid: new_key_uid.to_string(),
-                party_uids: party_uids.clone(),
-                my_party_index: i32::try_from(i).unwrap(),
-                threshold: i32::try_from(threshold).unwrap(),
-            };
-            let delivery = keygen_delivery.clone();
-            let handle = tokio::spawn(async move {
-                party.execute_keygen(init, channel_pair, delivery).await;
-                party
-            });
-            keygen_join_handles.push(handle);
-        }
-        let mut parties = Vec::with_capacity(share_count); // async closures are unstable https://github.com/rust-lang/rust/issues/62290
-        for h in keygen_join_handles {
-            parties.push(h.await.unwrap());
-        }
-        parties
-    };
+    let parties = execute_keygen(parties, &party_uids, new_key_uid, threshold).await;
 
     // run sign protocol
     let new_sig_uid = "Gus-test-sig";
