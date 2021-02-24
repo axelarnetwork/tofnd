@@ -103,7 +103,20 @@ async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::Receiver<Command<V>>, db_name:
 where
     V: Serialize + DeserializeOwned,
 {
-    let kv = MicroKV::new(&db_name).with_pwd_clear("unsafe_pwd".to_string());
+    let kv = {
+        let kv = MicroKV::open(&db_name);
+        if kv.is_err() {
+            println!(
+                "kv_manager cannot open existing db [{}]. creating new db",
+                db_name
+            );
+            MicroKV::new(&db_name)
+        } else {
+            println!("kv_manager found existing db [{}]", db_name);
+            kv.unwrap()
+        }
+    };
+    let kv = kv.with_pwd_clear("unsafe_pwd".to_string());
     while let Some(cmd) = rx.recv().await {
         match cmd {
             ReserveKey { key, resp } => {

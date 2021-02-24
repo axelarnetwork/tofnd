@@ -45,46 +45,46 @@ async fn basic_keygen_and_sign() {
     }
 }
 
-// #[tokio::test]
-// async fn restart_one_party() {
-//     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
-//         let (parties, party_uids) = init_parties(*share_count).await;
+#[tokio::test]
+async fn restart_one_party() {
+    for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
+        let (parties, party_uids) = init_parties(*share_count).await;
 
-//         println!(
-//             "keygen: share_count:{}, threshold: {}",
-//             share_count, threshold
-//         );
-//         let new_key_uid = "Gus-test-key";
-//         let parties = execute_keygen(parties, &party_uids, new_key_uid, *threshold).await;
+        println!(
+            "keygen: share_count:{}, threshold: {}",
+            share_count, threshold
+        );
+        let new_key_uid = "Gus-test-key";
+        let parties = execute_keygen(parties, &party_uids, new_key_uid, *threshold).await;
 
-//         let shutdown_index = sign_participant_indices[0];
-//         println!("restart party {}", shutdown_index);
-//         // use Option to temporarily transfer ownership of individual parties to a spawn
-//         let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
-//         let shutdown_party = party_options[shutdown_index].take().unwrap();
-//         shutdown_party.shutdown().await;
-//         party_options[shutdown_index] = Some(TofndParty::new(shutdown_index).await);
-//         let parties = party_options
-//             .into_iter()
-//             .map(|o| o.unwrap())
-//             .collect::<Vec<_>>();
+        let shutdown_index = sign_participant_indices[0];
+        println!("restart party {}", shutdown_index);
+        // use Option to temporarily transfer ownership of individual parties to a spawn
+        let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
+        let shutdown_party = party_options[shutdown_index].take().unwrap();
+        shutdown_party.shutdown().await;
+        party_options[shutdown_index] = Some(TofndParty::new(shutdown_index).await);
+        let parties = party_options
+            .into_iter()
+            .map(|o| o.unwrap())
+            .collect::<Vec<_>>();
 
-//         println!("sign: participants {:?}", sign_participant_indices);
-//         let new_sig_uid = "Gus-test-sig";
-//         let parties = execute_sign(
-//             parties,
-//             &party_uids,
-//             sign_participant_indices,
-//             new_key_uid,
-//             new_sig_uid,
-//             &MSG_TO_SIGN,
-//         )
-//         .await;
+        println!("sign: participants {:?}", sign_participant_indices);
+        let new_sig_uid = "Gus-test-sig";
+        let parties = execute_sign(
+            parties,
+            &party_uids,
+            sign_participant_indices,
+            new_key_uid,
+            new_sig_uid,
+            &MSG_TO_SIGN,
+        )
+        .await;
 
-//         delete_dbs(&parties);
-//         shutdown_parties(parties).await;
-//     }
-// }
+        delete_dbs(&parties);
+        shutdown_parties(parties).await;
+    }
+}
 
 async fn init_parties(share_count: usize) -> (Vec<TofndParty>, Vec<String>) {
     let mut parties = Vec::with_capacity(share_count);
