@@ -5,6 +5,7 @@ mod tofnd_party;
 
 use crate::proto;
 use mock::{Deliverer, Party};
+use tofnd_party::TofndParty;
 
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
@@ -44,12 +45,53 @@ async fn basic_keygen_and_sign() {
     }
 }
 
-async fn init_parties(share_count: usize) -> (Vec<impl Party>, Vec<String>) {
+// #[tokio::test]
+// async fn restart_one_party() {
+//     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
+//         let (parties, party_uids) = init_parties(*share_count).await;
+
+//         println!(
+//             "keygen: share_count:{}, threshold: {}",
+//             share_count, threshold
+//         );
+//         let new_key_uid = "Gus-test-key";
+//         let parties = execute_keygen(parties, &party_uids, new_key_uid, *threshold).await;
+
+//         let shutdown_index = sign_participant_indices[0];
+//         println!("restart party {}", shutdown_index);
+//         // use Option to temporarily transfer ownership of individual parties to a spawn
+//         let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
+//         let shutdown_party = party_options[shutdown_index].take().unwrap();
+//         shutdown_party.shutdown().await;
+//         party_options[shutdown_index] = Some(TofndParty::new(shutdown_index).await);
+//         let parties = party_options
+//             .into_iter()
+//             .map(|o| o.unwrap())
+//             .collect::<Vec<_>>();
+
+//         println!("sign: participants {:?}", sign_participant_indices);
+//         let new_sig_uid = "Gus-test-sig";
+//         let parties = execute_sign(
+//             parties,
+//             &party_uids,
+//             sign_participant_indices,
+//             new_key_uid,
+//             new_sig_uid,
+//             &MSG_TO_SIGN,
+//         )
+//         .await;
+
+//         delete_dbs(&parties);
+//         shutdown_parties(parties).await;
+//     }
+// }
+
+async fn init_parties(share_count: usize) -> (Vec<TofndParty>, Vec<String>) {
     let mut parties = Vec::with_capacity(share_count);
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     for i in 0..share_count {
-        parties.push(tofnd_party::new(i).await);
+        parties.push(TofndParty::new(i).await);
     }
 
     let party_uids: Vec<String> = (0..share_count)
@@ -72,11 +114,11 @@ fn delete_dbs(parties: &[impl Party]) {
 
 // need to take ownership of parties `parties` and return it on completion
 async fn execute_keygen(
-    parties: Vec<impl Party + 'static>,
+    parties: Vec<TofndParty>,
     party_uids: &[String],
     new_key_uid: &str,
     threshold: usize,
-) -> Vec<impl Party> {
+) -> Vec<TofndParty> {
     let share_count = parties.len();
     let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
     let mut keygen_join_handles = Vec::with_capacity(share_count);

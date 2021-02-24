@@ -4,8 +4,9 @@ use std::convert::TryFrom;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
-// #[derive(Debug)]
-struct TofndParty {
+// I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
+// I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
+pub(super) struct TofndParty {
     db_name: String,
     client: proto::gg20_client::Gg20Client<tonic::transport::Channel>,
     server_handle: JoinHandle<()>,
@@ -13,49 +14,51 @@ struct TofndParty {
     server_port: u16,
 }
 
-pub(super) async fn new(index: usize) -> impl Party {
-    let db_name = format!("test-key-{:02}", index);
+impl TofndParty {
+    pub(super) async fn new(index: usize) -> Self {
+        let db_name = format!("test-key-{:02}", index);
 
-    // start server
-    let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
-    let my_service = gg20::with_db_name(&db_name);
-    let proto_service = proto::gg20_server::Gg20Server::new(my_service);
-    let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
-    let server_addr = incoming.local_addr().unwrap();
-    let server_port = server_addr.port();
-    println!("new party bound to port [{:?}]", server_port);
-    // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();
-    let server_handle = tokio::spawn(async move {
-        tonic::transport::Server::builder()
-            .add_service(proto_service)
-            .serve_with_incoming_shutdown(incoming, async {
-                shutdown_receiver.await.unwrap();
-            })
+        // start server
+        let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
+        let my_service = gg20::with_db_name(&db_name);
+        let proto_service = proto::gg20_server::Gg20Server::new(my_service);
+        let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
+        let server_addr = incoming.local_addr().unwrap();
+        let server_port = server_addr.port();
+        println!("new party bound to port [{:?}]", server_port);
+        // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();
+        let server_handle = tokio::spawn(async move {
+            tonic::transport::Server::builder()
+                .add_service(proto_service)
+                .serve_with_incoming_shutdown(incoming, async {
+                    shutdown_receiver.await.unwrap();
+                })
+                .await
+                .unwrap();
+            // startup_sender.send(()).unwrap();
+        });
+
+        // TODO get the server to notify us after it's started, or perhaps just "yield" here
+        // println!(
+        //     "new party [{}] TODO sleep waiting for server to start...",
+        //     server_port
+        // );
+        // tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+        // startup_receiver.await.unwrap();
+        // println!("party [{}] server started!", init.party_uids[my_id_index]);
+
+        println!("new party [{}] connect to server...", server_port);
+        let client = proto::gg20_client::Gg20Client::connect(format!("http://{}", server_addr))
             .await
             .unwrap();
-        // startup_sender.send(()).unwrap();
-    });
 
-    // TODO get the server to notify us after it's started, or perhaps just "yield" here
-    // println!(
-    //     "new party [{}] TODO sleep waiting for server to start...",
-    //     server_port
-    // );
-    // tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
-    // startup_receiver.await.unwrap();
-    // println!("party [{}] server started!", init.party_uids[my_id_index]);
-
-    println!("new party [{}] connect to server...", server_port);
-    let client = proto::gg20_client::Gg20Client::connect(format!("http://{}", server_addr))
-        .await
-        .unwrap();
-
-    TofndParty {
-        db_name,
-        client,
-        server_handle,
-        server_shutdown_sender,
-        server_port,
+        TofndParty {
+            db_name,
+            client,
+            server_handle,
+            server_shutdown_sender,
+            server_port,
+        }
     }
 }
 
