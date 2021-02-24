@@ -104,10 +104,6 @@ where
     V: Serialize + DeserializeOwned,
 {
     let kv = MicroKV::new(&db_name).with_pwd_clear("unsafe_pwd".to_string());
-    println!(
-        "kv path: {}",
-        MicroKV::get_db_path("keys").to_str().unwrap()
-    );
     while let Some(cmd) = rx.recv().await {
         match cmd {
             ReserveKey { key, resp } => {

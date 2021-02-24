@@ -1,4 +1,5 @@
-use super::{addr, gg20, proto, Deliverer, Party, SenderReceiver};
+use super::{mock::SenderReceiver, Deliverer, Party};
+use crate::{addr, gg20, proto};
 use std::convert::TryFrom;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
