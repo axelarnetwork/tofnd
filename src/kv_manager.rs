@@ -22,8 +22,11 @@ where
     V: Debug + Send + Sync + Serialize + DeserializeOwned,
 {
     pub fn new() -> Self {
-        let (sender, receiver) = mpsc::channel(4); // TODO buffer size?
-        tokio::spawn(run(receiver));
+        Self::with_db_name("keys")
+    }
+    pub fn with_db_name(db_name: &str) -> Self {
+        let (sender, rx) = mpsc::channel(4); // TODO buffer size?
+        tokio::spawn(kv_cmd_handler(rx, db_name.to_string()));
         Self { sender }
     }
     pub async fn reserve_key(
@@ -62,6 +65,11 @@ where
             .await?;
         resp_rx.await?
     }
+
+    #[cfg(test)]
+    pub fn get_db_path(name: &str) -> std::path::PathBuf {
+        MicroKV::get_db_path(name)
+    }
 }
 
 /// Returned from a successful `ReserveKey` command
@@ -91,11 +99,11 @@ enum Command<V> {
 }
 use Command::*;
 
-async fn run<V: 'static>(mut rx: mpsc::Receiver<Command<V>>)
+async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::Receiver<Command<V>>, db_name: String)
 where
     V: Serialize + DeserializeOwned,
 {
-    let kv = MicroKV::new("keys").with_pwd_clear("unsafe_pwd".to_string());
+    let kv = MicroKV::new(&db_name).with_pwd_clear("unsafe_pwd".to_string());
     println!(
         "kv path: {}",
         MicroKV::get_db_path("keys").to_str().unwrap()

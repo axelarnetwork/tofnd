@@ -31,6 +31,7 @@ trait Party: Sync + Send {
         my_uid: &str,
     );
     async fn shutdown(mut self);
+    fn get_db_path(&self) -> std::path::PathBuf;
 }
 
 type SenderReceiver = (Sender<proto::MessageIn>, Receiver<proto::MessageIn>);
@@ -98,7 +99,6 @@ impl Deliverer {
     }
 }
 
-// #[test]
 #[tokio::test]
 async fn keygen_and_sign() {
     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
@@ -116,8 +116,8 @@ async fn init_parties(share_count: usize) -> (Vec<impl Party>, Vec<String>) {
     let mut parties = Vec::with_capacity(share_count);
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
-    for _ in 0..share_count {
-        parties.push(tofnd_party::new().await);
+    for i in 0..share_count {
+        parties.push(tofnd_party::new(i).await);
     }
 
     let party_uids: Vec<String> = (0..share_count)
@@ -129,6 +129,12 @@ async fn init_parties(share_count: usize) -> (Vec<impl Party>, Vec<String>) {
 async fn shutdown_parties(parties: Vec<impl Party>) {
     for p in parties {
         p.shutdown().await;
+    }
+}
+
+fn delete_dbs(parties: &[impl Party]) {
+    for p in parties {
+        std::fs::remove_file(p.get_db_path()).unwrap();
     }
 }
 
@@ -220,6 +226,7 @@ async fn execute_sign(
         .collect::<Vec<_>>()
 }
 
+// TODO no need for a separate function here
 async fn execute_keygen_and_sign(
     share_count: usize,
     threshold: usize,
@@ -249,5 +256,6 @@ async fn execute_keygen_and_sign(
     )
     .await;
 
+    delete_dbs(&parties);
     shutdown_parties(parties).await;
 }

@@ -5,16 +5,19 @@ use tonic::Request;
 
 // #[derive(Debug)]
 struct TofndParty {
+    db_name: String,
     client: proto::gg20_client::Gg20Client<tonic::transport::Channel>,
     server_handle: JoinHandle<()>,
     server_shutdown_sender: oneshot::Sender<()>,
     server_port: u16,
 }
 
-pub(super) async fn new() -> impl Party {
+pub(super) async fn new(index: usize) -> impl Party {
+    let db_name = format!("test-key-{:02}", index);
+
     // start server
     let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
-    let my_service = gg20::new_service();
+    let my_service = gg20::with_db_name(&db_name);
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
     let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
     let server_addr = incoming.local_addr().unwrap();
@@ -47,6 +50,7 @@ pub(super) async fn new() -> impl Party {
         .unwrap();
 
     TofndParty {
+        db_name,
         client,
         server_handle,
         server_shutdown_sender,
@@ -148,5 +152,9 @@ impl Party for TofndParty {
         self.server_shutdown_sender.send(()).unwrap(); // tell the server to shut down
         self.server_handle.await.unwrap(); // wait for server to shut down
         println!("party [{}] shutdown success", self.server_port);
+    }
+
+    fn get_db_path(&self) -> std::path::PathBuf {
+        gg20::get_db_path(&self.db_name)
     }
 }
