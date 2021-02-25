@@ -16,7 +16,7 @@ lazy_static::lazy_static! {
     // TODO add TEST_CASES_INVALID
 }
 
-#[tokio::test]
+// #[tokio::test]
 async fn basic_keygen_and_sign() {
     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
         let (parties, party_uids) = init_parties(*share_count).await;
