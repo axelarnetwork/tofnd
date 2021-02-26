@@ -36,16 +36,3 @@ The gRPC service is called `GG20`.
 ```
 $ cargo test
 ```
-View terminal output for the `start_servers` test:
-```
-$ cargo test --package tofnd --bin tofnd -- tests::start_servers --exact --nocapture
-```
-
-## [FIX ME] Talk to the server using grpcurl
-
-Install [grpcurl](https://github.com/fullstorydev/grpcurl) if you haven't already.
-
-While `tofnd` is running, in a separate terminal:
-```
-$ grpcurl -plaintext -import-path ./proto -proto tofnd.proto -d '{"name": "Rick and Morty"}' [::]:50051 tofnd.GG20/SayHello
-```
