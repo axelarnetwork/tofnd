@@ -1,164 +1,164 @@
-use super::{
-    addr, gg20,
-    mock::{self, Party, PartyMap},
-    proto,
-};
-use std::net::SocketAddr;
-use std::sync::Arc;
-use tokio::{
-    sync::mpsc::{Receiver, Sender},
-    task::JoinHandle,
-};
+use super::{mock::SenderReceiver, Deliverer, Party};
+use crate::{addr, gg20, proto};
+use std::convert::TryFrom;
+use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
-// TODO temporary to satisfy clippy
-type ServerPair = (
-    JoinHandle<Result<(), tonic::transport::Error>>,
-    tokio::sync::oneshot::Sender<()>,
-);
-
-// #[derive(Debug)]
-pub struct TofndParty {
-    party_map: Option<PartyMap>,
-    // shutdown_sender: tokio::sync::oneshot::Sender<()>,
-    // server_handle: JoinHandle<Result<(), tonic::transport::Error>>,
-    server: Option<ServerPair>, // (server_handle, shutdown_sender)
-    server_addr: SocketAddr,
-    keygen_init: proto::KeygenInit,
-    my_id_index: usize, // sanitized from keygen_init
-    tx: Sender<proto::MessageIn>,
-    rx: Option<Receiver<proto::MessageIn>>,
+// I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
+// I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
+pub(super) struct TofndParty {
+    db_name: String,
+    client: proto::gg20_client::Gg20Client<tonic::transport::Channel>,
+    server_handle: JoinHandle<()>,
+    server_shutdown_sender: oneshot::Sender<()>,
+    server_port: u16,
 }
 
 impl TofndParty {
-    pub async fn new(init: &proto::KeygenInit) -> TofndParty {
-        use std::convert::TryFrom;
-        let my_id_index = usize::try_from(init.my_party_index).unwrap();
+    pub(super) async fn new(index: usize) -> Self {
+        let db_name = format!("test-key-{:02}", index);
 
         // start server
-        let (shutdown_sender, shutdown_receiver) = tokio::sync::oneshot::channel::<()>();
-        // TODO set port 0 and let the OS decide
-        let server_addr = addr(50051 + my_id_index).unwrap();
-        println!(
-            "party [{}] grpc addr {:?}",
-            init.party_uids[my_id_index], server_addr
-        );
-        let my_service = gg20::GG20Service;
+        let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
+        let my_service = gg20::with_db_name(&db_name);
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
+        let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
+        let server_addr = incoming.local_addr().unwrap();
+        let server_port = server_addr.port();
+        println!("new party bound to port [{:?}]", server_port);
+        // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();
         let server_handle = tokio::spawn(async move {
             tonic::transport::Server::builder()
                 .add_service(proto_service)
-                .serve_with_shutdown(server_addr, async {
-                    shutdown_receiver.await.ok();
+                .serve_with_incoming_shutdown(incoming, async {
+                    shutdown_receiver.await.unwrap();
                 })
                 .await
+                .unwrap();
+            // startup_sender.send(()).unwrap();
         });
 
-        let (tx, rx) = tokio::sync::mpsc::channel(4);
-
         // TODO get the server to notify us after it's started, or perhaps just "yield" here
-        println!(
-            "party [{}] TODO sleep waiting for server to start...",
-            init.party_uids[my_id_index]
-        );
-        tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+        // println!(
+        //     "new party [{}] TODO sleep waiting for server to start...",
+        //     server_port
+        // );
+        // tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+        // startup_receiver.await.unwrap();
+        // println!("party [{}] server started!", init.party_uids[my_id_index]);
 
-        Self {
-            party_map: None,
-            server: Some((server_handle, shutdown_sender)),
-            // shutdown_sender,
-            // server_handle,
-            server_addr,
-            keygen_init: init.clone(),
-            my_id_index,
-            tx,
-            rx: Some(rx),
+        println!("new party [{}] connect to server...", server_port);
+        let client = proto::gg20_client::Gg20Client::connect(format!("http://{}", server_addr))
+            .await
+            .unwrap();
+
+        TofndParty {
+            db_name,
+            client,
+            server_handle,
+            server_shutdown_sender,
+            server_port,
         }
     }
 }
 
 #[tonic::async_trait]
 impl Party for TofndParty {
-    fn get_id(&self) -> &str {
-        &self.keygen_init.party_uids[self.my_id_index]
-    }
-    fn get_tx(&self) -> Sender<proto::MessageIn> {
-        self.tx.clone()
-    }
-    fn set_party_map(&mut self, party_map: PartyMap) {
-        self.party_map = Some(party_map);
-    }
-
-    async fn execute(&mut self) {
-        assert!(self.party_map.is_some());
-        assert!(self.rx.is_some());
-        println!("party [{}] connect to server...", self.get_id());
-        let mut client =
-            proto::gg20_client::Gg20Client::connect(format!("http://{}", self.server_addr))
-                .await
-                .unwrap();
-
-        let mut from_server = client
-            .keygen(Request::new(self.rx.take().unwrap()))
+    async fn execute_keygen(
+        &mut self,
+        init: proto::KeygenInit,
+        channels: SenderReceiver,
+        mut delivery: Deliverer,
+    ) {
+        let my_uid = init.party_uids[usize::try_from(init.my_party_index).unwrap()].clone();
+        let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
+        let (mut keygen_server_incoming, rx) = channels;
+        let mut keygen_server_outgoing = self
+            .client
+            .keygen(Request::new(rx))
             .await
             .unwrap()
             .into_inner();
 
         // the first outbound message is keygen init info
-        self.tx
+        keygen_server_incoming
             .send(proto::MessageIn {
-                data: Some(proto::message_in::Data::KeygenInit(
-                    self.keygen_init.clone(), // TODO clone
-                )),
+                data: Some(proto::message_in::Data::KeygenInit(init)),
             })
             .await
             .unwrap();
 
-        while let Some(msg) = from_server.message().await.unwrap() {
+        while let Some(msg) = keygen_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
                 proto::message_out::Data::Traffic(_) => {
-                    mock::deliver(
-                        Arc::clone(&self.party_map.as_ref().unwrap()),
-                        &msg,
-                        &self.get_id().to_string(), // TODO clone
-                    )
-                    .await;
+                    delivery.deliver(&msg, &my_uid).await;
                 }
                 proto::message_out::Data::KeygenResult(_) => {
-                    println!("party [{}] keygen finished!", self.get_id());
+                    println!("party [{}] keygen finished!", my_display_name);
                     break;
                 }
-                _ => panic!("bad outgoing message type"),
+                _ => panic!(
+                    "party [{}] keygen errpr: bad outgoing message type",
+                    my_display_name
+                ),
             };
         }
-        println!("party [{}] execution complete", self.get_id());
+        println!("party [{}] keygen execution complete", my_display_name);
     }
 
-    // async fn msg_in(&mut self, msg: &proto::MessageIn) {
-    //     // sanity checks and debug info
-    //     {
-    //         let msg = msg.data.as_ref().expect("missing data");
-    //         let msg = match msg {
-    //             proto::message_in::Data::Traffic(t) => t,
-    //             _ => panic!("all incoming messages must be traffic in"),
-    //         };
-    //         println!(
-    //             "incoming msg from [{}] to me [{}] broadcast? [{}]",
-    //             msg.from_party_uid,
-    //             self.get_id(),
-    //             msg.is_broadcast
-    //         );
-    //     }
-    //     self.tx.send(msg.clone()).await.unwrap();
-    // }
+    async fn execute_sign(
+        &mut self,
+        init: proto::SignInit,
+        channels: SenderReceiver,
+        mut delivery: Deliverer,
+        my_uid: &str,
+    ) {
+        let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
+        let (mut sign_server_incoming, rx) = channels;
+        let mut sign_server_outgoing = self
+            .client
+            .sign(Request::new(rx))
+            .await
+            .unwrap()
+            .into_inner();
 
-    async fn close(&mut self) {
-        let my_id = self.get_id().to_string(); // fighting the borrow checker
-        let (server_handle, shutdown_sender) = self.server.take().expect("missing server");
-        shutdown_sender.send(()).unwrap(); // tell the server to shut down
-        server_handle.await.unwrap().unwrap(); // wait for server to shut down
-        println!("party [{}] shutdown success", my_id);
+        // the first outbound message is keygen init info
+        sign_server_incoming
+            .send(proto::MessageIn {
+                data: Some(proto::message_in::Data::SignInit(init)),
+            })
+            .await
+            .unwrap();
+
+        while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
+            let msg_type = msg.data.as_ref().expect("missing data");
+
+            match msg_type {
+                proto::message_out::Data::Traffic(_) => {
+                    delivery.deliver(&msg, &my_uid).await;
+                }
+                proto::message_out::Data::SignResult(_) => {
+                    println!("party [{}] sign finished!", my_display_name);
+                    break;
+                }
+                _ => panic!(
+                    "party [{}] sign error: bad outgoing message type",
+                    my_display_name
+                ),
+            };
+        }
+        println!("party [{}] sign execution complete", my_display_name);
+    }
+
+    async fn shutdown(mut self) {
+        self.server_shutdown_sender.send(()).unwrap(); // tell the server to shut down
+        self.server_handle.await.unwrap(); // wait for server to shut down
+        println!("party [{}] shutdown success", self.server_port);
+    }
+
+    fn get_db_path(&self) -> std::path::PathBuf {
+        gg20::get_db_path(&self.db_name)
     }
 }

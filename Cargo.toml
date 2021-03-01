@@ -6,14 +6,23 @@ edition = "2018"
 
 [dependencies]
 tonic = "0.3"
-tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
+# tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
+tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "sign"}
 # tofn = { path = "../tofn" }
 bincode = "1.2.1"
+microkv = "0.2.6"
+funty = "=1.1.0" # zengo baggage
+
+# microkv dependency
+serde = { version = "1.0", features = ["derive"] }
 
 # tonic dependencies
 prost = "0.6"
-tokio = { version = "0.2", features = ["macros"] }
+tokio = { version = "0.2", features = ["macros", "signal"] }
 futures-util = "0.3"
 
 [build-dependencies]
 tonic-build = "0.3"
+
+[dev-dependencies]
+lazy_static = "1.4"
