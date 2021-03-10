@@ -1,15 +1,12 @@
-name: Build and push docker image
+name: Build and push latest docker image
 
 on:
   push:
     branches:
       - master
-  pull_request:
-    branches:
-      - master
 
 jobs:
-  build-and-push-docker-image:
+  build-and-push-latest-docker-image:
     strategy:
       matrix:
         os:
@@ -27,7 +24,6 @@ jobs:
       - name: Build docker image
         run: |
           make docker-image
-#          make docker-image-debug
 
       - name: Push to ECR (latest)
         uses: jwalton/gh-ecr-push@v1
@@ -37,12 +33,3 @@ jobs:
           region: us-east-2
           local-image: axelar/tofnd
           image: tofnd:latest
-
-      # - name: Push to ECR (latest-debug)
-      #   uses: jwalton/gh-ecr-push@v1
-      #   with:
-      #     access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     region: us-east-2
-      #     local-image: axelar/core-debug
-      #     image: axelar-core:latest-debug
