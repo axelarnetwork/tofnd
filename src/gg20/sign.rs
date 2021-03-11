@@ -16,17 +16,30 @@ pub(super) async fn execute_sign(
     let msg_type = stream
         .next()
         .await
-        .ok_or("stream closed by client without sending a message")??
+        .ok_or("sign: stream closed by client without sending a message")??
         .data
-        .ok_or("missing `data` field in client messge")?;
+        .ok_or("sign: missing `data` field in client messge")?;
     let sign_init = match msg_type {
         proto::message_in::Data::SignInit(s) => s,
         _ => {
-            return Err(From::from("first client message must be sign init"));
+            return Err(From::from("sign: first client message must be sign init"));
         }
     };
     let (secret_key_share, all_party_uids) = kv.get(&sign_init.key_uid).await?;
     let sign_init = sign_sanitize_args(sign_init, &secret_key_share, &all_party_uids)?;
+
+    // TODO better logging
+    let log_prefix = format!(
+        "sign [{}] party [{}]",
+        sign_init.new_sig_uid, all_party_uids[secret_key_share.my_index]
+    );
+    println!(
+        "begin {} with (t,n)=({},{}), participant indices: {:?}",
+        log_prefix,
+        secret_key_share.threshold,
+        secret_key_share.share_count,
+        sign_init.participant_indices
+    );
 
     // quit now if I'm not a participant
     if sign_init
@@ -35,10 +48,7 @@ pub(super) async fn execute_sign(
         .find(|&&i| i == secret_key_share.my_index)
         .is_none()
     {
-        println!(
-            "party [{}] is not a sign participant",
-            all_party_uids[secret_key_share.my_index]
-        );
+        println!("abort {} i'm not a participant", log_prefix,);
         return Ok(());
     }
 
@@ -53,6 +63,7 @@ pub(super) async fn execute_sign(
         stream,
         &mut msg_sender,
         &sign_init.participant_uids,
+        &log_prefix,
     )
     .await?;
     let signature = sign.get_result().ok_or("sign output is `None`")?;
@@ -66,7 +77,7 @@ pub(super) async fn execute_sign(
 }
 
 struct SignInitSanitized {
-    // new_sig_uid: String,
+    new_sig_uid: String,
     // key_uid: String,
     participant_uids: Vec<String>,
     participant_indices: Vec<usize>,
@@ -96,7 +107,7 @@ fn sign_sanitize_args(
     // TODO assume message_to_sign is already raw bytes of a field element
 
     Ok(SignInitSanitized {
-        // new_sig_uid: sign_init.new_sig_uid,
+        new_sig_uid: sign_init.new_sig_uid,
         // key_uid: sign_init.key_uid,
         participant_uids,
         participant_indices,

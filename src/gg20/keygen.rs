@@ -16,17 +16,30 @@ pub(super) async fn execute_keygen(
     let msg_type = stream
         .next()
         .await
-        .ok_or("stream closed by client without sending a message")??
+        .ok_or("keygen: stream closed by client without sending a message")??
         .data
-        .ok_or("missing `data` field in client message")?;
+        .ok_or("keygen: missing `data` field in client message")?;
     let keygen_init = match msg_type {
         proto::message_in::Data::KeygenInit(k) => k,
         _ => {
-            return Err(From::from("first client message must be keygen init"));
+            return Err(From::from(
+                "keygen: first client message must be keygen init",
+            ));
         }
     };
     let keygen_init = keygen_sanitize_args(keygen_init)?;
-    // println!("server received keygen init {:?}", keygen_init);
+
+    // TODO better logging
+    let log_prefix = format!(
+        "keygen [{}] party [{}]",
+        keygen_init.new_key_uid, keygen_init.party_uids[keygen_init.my_index],
+    );
+    println!(
+        "begin {} with (t,n)=({},{})",
+        log_prefix,
+        keygen_init.threshold,
+        keygen_init.party_uids.len(),
+    );
 
     // reserve new_key_uid in the KV store
     let key_uid_reservation = kv.reserve_key(keygen_init.new_key_uid).await?;
@@ -45,6 +58,7 @@ pub(super) async fn execute_keygen(
         stream,
         &mut msg_sender,
         &keygen_init.party_uids,
+        &log_prefix,
     )
     .await
     .and_then(|_| {
