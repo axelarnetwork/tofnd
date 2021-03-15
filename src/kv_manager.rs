@@ -1,7 +1,9 @@
 use std::error::Error;
 use std::fmt::Debug;
 
-use microkv::MicroKV;
+// use sled;
+// use microkv::MicroKV;
+// use sled::Db;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
@@ -69,6 +71,7 @@ where
     #[cfg(test)]
     pub fn get_db_path(name: &str) -> std::path::PathBuf {
         MicroKV::get_db_path(name)
+        // sled::open(name)
     }
 }
 
@@ -99,29 +102,37 @@ enum Command<V> {
 }
 use Command::*;
 
+// Returns the db with name `db_name`, or creates a new if such DB does not exist
+// Default path DB path is the executable's directory; The caller can specify a 
+// full path followed by the name of the DB
+// Usage:
+//  let my_db = get_kv_store(&"my_current_dir_db").unwrap();
+//  let my_db = get_kv_store(&"/tmp/my_tmp_bd").unwrap();
+fn get_kv_store(db_name: String) -> sled::Db {
+
+    // create/open DB
+    let kv = sled::open(&db_name).unwrap();
+
+    // print whether the DB was newly created or not
+    if kv.was_recovered() {
+        println!("kv_manager found existing db [{}]", db_name);
+    } else {
+        println!(
+            "kv_manager cannot open existing db [{}]. creating new db", db_name
+        );
+    }
+    kv
+}
+
 async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::Receiver<Command<V>>, db_name: String)
 where
     V: Serialize + DeserializeOwned,
 {
-    let kv = {
-        let kv = MicroKV::open(&db_name);
-        if kv.is_err() {
-            println!(
-                "kv_manager cannot open existing db [{}]. creating new db",
-                db_name
-            );
-            MicroKV::new(&db_name)
-        } else {
-            println!("kv_manager found existing db [{}]", db_name);
-            kv.unwrap()
-        }
-    };
-    let kv = kv.with_pwd_clear("unsafe_pwd".to_string());
+    let kv = get_kv_store(db_name);
     while let Some(cmd) = rx.recv().await {
         match cmd {
             ReserveKey { key, resp } => {
-                let exists = kv.exists(&key);
-
+                let exists = kv.contains_key(&key);
                 // we only care about resp.send failure after a successful kv.put
                 if exists.is_err() {
                     let _ = resp.send(Err(From::from(exists.unwrap_err())));
@@ -135,7 +146,7 @@ where
                     ))));
                     continue;
                 }
-                let reserve_attempt = kv.put(&key, &""); // "" value marks key as reserved
+                let reserve_attempt = kv.insert(&key, ""); // "" value marks key as reserved
                 if reserve_attempt.is_err() {
                     let _ = resp.send(Err(From::from(reserve_attempt.unwrap_err())));
                     continue;
@@ -148,11 +159,11 @@ where
                         "WARN: kv_manager unreserving key [{}], fail to respond to ReserveKey (is no one listening for my response?)",
                         key
                     );
-                    let _ = kv.delete(&key);
+                    let _ = kv.remove(&key);
                 }
             }
             UnreserveKey { reservation } => {
-                let _ = kv.delete(&reservation.key);
+                let _ = kv.remove(&reservation.key);
             }
             Put {
                 reservation,
@@ -161,41 +172,58 @@ where
             } => {
                 // key should exist with value ""; that's how we reserve keys
                 // warn but do not abort if this check fails
-                let reserve_val = kv.get::<String>(&reservation.key);
-                if reserve_val.is_err() {
-                    println!(
-                        "WARN: kv_manager failure to get reserved key [{}]",
-                        &reservation.key
-                    );
-                } else {
-                    let reserve_val = reserve_val.unwrap();
-                    if !reserve_val.is_empty() {
+
+                let bytes = bincode::serialize(&value).unwrap();
+                match kv.insert(&reservation.key, bytes) {
+                    Ok(reserved_val) => {
+                        if reserved_val != Some(sled::IVec::from("")) {
+                            let reserved_val = sled::IVec::from(&reserved_val.unwrap());
+                            let reserved_val = std::str::from_utf8(&reserved_val).unwrap();
+                            println!(
+                                "WARN: kv_manager overwriting nonempty value [{}] for reserved key [{}]",
+                                reserved_val,
+                                &reservation.key
+                            );
+                        }
+                        let _ = resp.send(Ok(()));
+                    },
+                    Err(_) => {
                         println!(
-                            "WARN: kv_manager overwriting nonempty value [{}] for reserved key [{}]",
-                            reserve_val,
+                            "WARN: kv_manager failure to get reserved key [{}]",
                             &reservation.key
                         );
                     }
                 }
-
-                // attempt to add result to the kv store
-                let put_attempt = kv.put(&reservation.key, &value);
-                if put_attempt.is_err() {
-                    let _ = resp.send(Err(From::from(put_attempt.unwrap_err())));
-                    continue;
-                }
-
-                // attempt to persist the kv store to disk
-                let persist_attempt = kv.commit();
-                if persist_attempt.is_err() {
-                    let _ = resp.send(Err(From::from(persist_attempt.unwrap_err())));
-                    continue;
-                }
-
-                let _ = resp.send(Ok(()));
+                // let reserved_val = kv.insert(&reservation.key, bytes.unwrap());
+                // if reserved_val.is_err() {
+                //     println!(
+                //         "WARN: kv_manager failure to add value to reserved key [{}]",
+                //         &reservation.key
+                //     );
+                // } else {
+                //     let reserved_val = reserved_val.unwrap();
+                //     if reserved_val != Some(sled::IVec::from("")) {
+                //         let reserved_val = sled::IVec::from(&reserved_val.unwrap());
+                //         let reserved_val = std::str::from_utf8(&reserved_val).unwrap();
+                //         println!(
+                //             "WARN: kv_manager overwriting nonempty value [{}] for reserved key [{}]",
+                //             reserved_val,
+                //             &reservation.key
+                //         );
+                //     }
+                // }
+                // let _ = resp.send(Ok(()));
             }
             Get { key, resp } => {
-                let _ = resp.send(kv.get(&key).map_err(From::from));
+                match kv.get(&key) {
+                    Ok(bytes) => {
+                        let v = bincode::deserialize(&bytes.unwrap()).unwrap();
+                        let _ = resp.send(Ok(v));
+                    },
+                    Err(err) => {
+                        let _ = resp.send(Err(From::from(err)));
+                    },
+                }
             }
         }
     }

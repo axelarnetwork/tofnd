@@ -11,6 +11,7 @@ tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
 # tofn = { path = "../tofn" }
 bincode = "1.2.1"
 microkv = "0.2.6"
+sled = "0.34"
 funty = "=1.1.0" # zengo baggage
 
 # microkv dependency
