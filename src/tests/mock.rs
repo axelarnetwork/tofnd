@@ -51,10 +51,10 @@ impl Deliverer {
                 panic!("msg must be traffic out");
             }
         };
-        println!(
-            "deliver from [{}] to [{}] broadcast? [{}]",
-            from, msg.to_party_uid, msg.is_broadcast,
-        );
+        // println!(
+        //     "deliver from [{}] to [{}] broadcast? [{}]",
+        //     from, msg.to_party_uid, msg.is_broadcast,
+        // );
 
         // simulate wire transmission: translate proto::MessageOut to proto::MessageIn
         let msg_in = proto::MessageIn {

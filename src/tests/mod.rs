@@ -21,14 +21,14 @@ async fn basic_keygen_and_sign() {
     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
         let (parties, party_uids) = init_parties(*share_count).await;
 
-        println!(
-            "keygen: share_count:{}, threshold: {}",
-            share_count, threshold
-        );
+        // println!(
+        //     "keygen: share_count:{}, threshold: {}",
+        //     share_count, threshold
+        // );
         let new_key_uid = "Gus-test-key";
         let parties = execute_keygen(parties, &party_uids, new_key_uid, *threshold).await;
 
-        println!("sign: participants {:?}", sign_participant_indices);
+        // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
         let parties = execute_sign(
             parties,
@@ -50,10 +50,10 @@ async fn restart_one_party() {
     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
         let (parties, party_uids) = init_parties(*share_count).await;
 
-        println!(
-            "keygen: share_count:{}, threshold: {}",
-            share_count, threshold
-        );
+        // println!(
+        //     "keygen: share_count:{}, threshold: {}",
+        //     share_count, threshold
+        // );
         let new_key_uid = "Gus-test-key";
         let parties = execute_keygen(parties, &party_uids, new_key_uid, *threshold).await;
 
@@ -69,7 +69,7 @@ async fn restart_one_party() {
             .map(|o| o.unwrap())
             .collect::<Vec<_>>();
 
-        println!("sign: participants {:?}", sign_participant_indices);
+        // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
         let parties = execute_sign(
             parties,
