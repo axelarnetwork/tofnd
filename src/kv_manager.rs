@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::fmt::Debug;
 
+use std::path::PathBuf;
+
 // use sled;
 // use microkv::MicroKV;
 // use sled::Db;
@@ -70,8 +72,13 @@ where
 
     #[cfg(test)]
     pub fn get_db_path(name: &str) -> std::path::PathBuf {
-        MicroKV::get_db_path(name)
-        // sled::open(name)
+        // TODO: fix db path
+        let mut path = PathBuf::new();
+        let mut p: String = "/Users/steliosdaveas/Projects/axelar/tofnd/".to_owned();
+        p.push_str(name);
+        path.push(p.clone());
+        println!("Trying to delete {:?}", p);
+        path
     }
 }
 
