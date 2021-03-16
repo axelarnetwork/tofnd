@@ -179,8 +179,14 @@ where
             } => {
                 // key should exist with value ""; that's how we reserve keys
                 // warn but do not abort if this check fails
+                let bytes = bincode::serialize(&value);
+                if bytes.is_ok() {
+                    println!("  Bytes ok");
+                } else {
+                    println!("  Bytes NOT ok");
+                }
+                let bytes = bytes.unwrap();
 
-                let bytes = bincode::serialize(&value).unwrap();
                 match kv.insert(&reservation.key, bytes) {
                     Ok(reserved_val) => {
                         if reserved_val != Some(sled::IVec::from("")) {
