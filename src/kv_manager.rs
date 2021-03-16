@@ -198,6 +198,14 @@ where
                                 &reservation.key
                             );
                         }
+                        match kv.flush() {
+                            Ok(_) => {
+                                println!("Flshed successfully");
+                            }
+                            Err(err) => {
+                                println!("WARN: Flush failed: {}", err);
+                            }
+                        }
                         let _ = resp.send(Ok(()));
                     },
                     Err(_) => {
