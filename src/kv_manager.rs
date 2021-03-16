@@ -236,14 +236,22 @@ where
                 // let _ = resp.send(Ok(()));
             }
             Get { key, resp } => {
-                match kv.get(&key) {
-                    Ok(bytes) => {
-                        let v = bincode::deserialize(&bytes.unwrap()).unwrap();
-                        let _ = resp.send(Ok(v));
-                    },
-                    Err(err) => {
-                        let _ = resp.send(Err(From::from(err)));
-                    },
+                let value = kv.get(&key);
+                if value.is_ok() {
+                    println!("Value was OK");
+                    let value = value.unwrap();
+                    if value.is_none() {
+                        println!("Value was None");
+                    } else {
+                        println!("Value was Some");
+                    }
+                    let value = value.unwrap();
+
+                    let codec = bincode::config();
+                    let res = codec.deserialize(&value).unwrap();
+                    let _ = resp.send(Ok(res));
+                } else {
+                    println!("Value was not OK");
                 }
             }
         }
