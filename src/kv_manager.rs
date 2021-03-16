@@ -3,13 +3,8 @@ use std::fmt::Debug;
 
 use std::path::PathBuf;
 
-// use sled;
-// use microkv::MicroKV;
-// use sled::Db;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{mpsc, oneshot};
-
-// TODO don't use microkv---it's too new and we don't need the concurrency safety because we're taking care of that ourselves
 
 // Provided by the requester and used by the manager task to send the command response back to the requester.
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
@@ -72,12 +67,8 @@ where
 
     #[cfg(test)]
     pub fn get_db_path(name: &str) -> std::path::PathBuf {
-        // TODO: fix db path
         let mut path = PathBuf::new();
-        let mut p: String = "/Users/steliosdaveas/Projects/axelar/tofnd/".to_owned();
-        p.push_str(name);
-        path.push(p.clone());
-        println!("Trying to delete {:?}", p);
+        path.push(name);
         path
     }
 }
@@ -139,28 +130,14 @@ where
     while let Some(cmd) = rx.recv().await {
         match cmd {
             ReserveKey { key, resp } => {
-                let exists = kv.contains_key(&key);
-                // we only care about resp.send failure after a successful kv.put
-                if exists.is_err() {
-                    let _ = resp.send(Err(From::from(exists.unwrap_err())));
-                    continue; // TODO handle each cmd in a separate fn, return here instead of continue
-                }
-                let exists = exists.unwrap();
-                if exists {
-                    let _ = resp.send(Err(From::from(format!(
-                        "kv_manager key {} already reserved",
-                        key
-                    ))));
-                    continue;
-                }
-                let reserve_attempt = kv.insert(&key, ""); // "" value marks key as reserved
-                if reserve_attempt.is_err() {
-                    let _ = resp.send(Err(From::from(reserve_attempt.unwrap_err())));
-                    continue;
-                }
-                let resp_attempt = resp.send(Ok(KeyReservation { key }));
+                // make reserve actions
+                let res = handle_reserve(&kv, key);
+
+                // Question: Is this needed? And, if yes, should we check responses for the other commands as well?
+                // send and check response
+                let resp_attempt = resp.send(res);
                 if resp_attempt.is_err() {
-                    // unreserve the key---no one was listening to our response
+                    // unreserve the key --- no one was listening to our response
                     let key = resp_attempt.unwrap_err().unwrap().key;
                     println!(
                         "WARN: kv_manager unreserving key [{}], fail to respond to ReserveKey (is no one listening for my response?)",
@@ -177,84 +154,122 @@ where
                 value,
                 resp,
             } => {
-                // key should exist with value ""; that's how we reserve keys
-                // warn but do not abort if this check fails
-                let bytes = bincode::serialize(&value);
-                if bytes.is_ok() {
-                    println!("  Bytes ok");
-                } else {
-                    println!("  Bytes NOT ok");
-                }
-                let bytes = bytes.unwrap();
-
-                match kv.insert(&reservation.key, bytes) {
-                    Ok(reserved_val) => {
-                        if reserved_val != Some(sled::IVec::from("")) {
-                            let reserved_val = sled::IVec::from(&reserved_val.unwrap());
-                            let reserved_val = std::str::from_utf8(&reserved_val).unwrap();
-                            println!(
-                                "WARN: kv_manager overwriting nonempty value [{}] for reserved key [{}]",
-                                reserved_val,
-                                &reservation.key
-                            );
-                        }
-                        match kv.flush() {
-                            Ok(_) => {
-                                println!("Flshed successfully");
-                            }
-                            Err(err) => {
-                                println!("WARN: Flush failed: {}", err);
-                            }
-                        }
-                        let _ = resp.send(Ok(()));
-                    },
-                    Err(_) => {
-                        println!(
-                            "WARN: kv_manager failure to get reserved key [{}]",
-                            &reservation.key
-                        );
-                    }
-                }
-                // let reserved_val = kv.insert(&reservation.key, bytes.unwrap());
-                // if reserved_val.is_err() {
-                //     println!(
-                //         "WARN: kv_manager failure to add value to reserved key [{}]",
-                //         &reservation.key
-                //     );
-                // } else {
-                //     let reserved_val = reserved_val.unwrap();
-                //     if reserved_val != Some(sled::IVec::from("")) {
-                //         let reserved_val = sled::IVec::from(&reserved_val.unwrap());
-                //         let reserved_val = std::str::from_utf8(&reserved_val).unwrap();
-                //         println!(
-                //             "WARN: kv_manager overwriting nonempty value [{}] for reserved key [{}]",
-                //             reserved_val,
-                //             &reservation.key
-                //         );
-                //     }
-                // }
-                // let _ = resp.send(Ok(()));
+                let res = handle_put(&kv, reservation, value);
+                let _ = resp.send(res);
             }
             Get { key, resp } => {
-                let value = kv.get(&key);
-                if value.is_ok() {
-                    println!("Value was OK");
-                    let value = value.unwrap();
-                    if value.is_none() {
-                        println!("Value was None");
-                    } else {
-                        println!("Value was Some");
-                    }
-                    let value = value.unwrap();
-
-                    let codec = bincode::config();
-                    let res = codec.deserialize(&value).unwrap();
-                    let _ = resp.send(Ok(res));
-                } else {
-                    println!("Value was not OK");
-                }
+                let res = handle_get(&kv, key);
+                let _ = resp.send(res);
             }
         }
     }
     println!("kv_manager stop");
+}
+
+fn handle_reserve(kv: &sled::Db, key: String) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
+    // insert ('key', "") and get previous value of 'key'
+    match kv.insert(&key, "") {
+        // if insertion was successful, check previous value of 'key'
+        Ok(previous_value) => {
+            // if previous value is None it means that we had no 
+            // reservations for this key. that's the happy path 
+            if previous_value.is_none() {
+                Ok(KeyReservation { key })
+            } else {
+                // if some value was already reserved for that key, 
+                // return an error 
+                Err(From::from(format!(
+                    "kv_manager key {} already reserved",
+                    key
+                )))
+            }
+        },
+        // if inseriton was unsuccessful, we have a problem
+        Err(reserve_attempt_err) => {
+            Err(From::from(reserve_attempt_err))
+        }
+    }
+}
+
+fn handle_put<V>(kv: &sled::Db, reservation: KeyReservation, value: V) -> Result<(), Box<dyn Error + Send + Sync>> 
+where
+    V: Serialize,
+{
+    // convert value into bytes
+    let bytes = bincode::serialize(&value);
+    // check if serialization failed
+    if bytes.is_err() {
+        return Err(From::from(format!(
+            "Serialization of value failed"
+        )))
+    }
+    let bytes = bytes.unwrap();
+
+    match kv.insert(&reservation.key, bytes) {
+        // insertion succeeded
+        Ok(reserved_val) => {
+            // key should exist with value ""; that's how we reserve keys
+            // warn but do not abort if this check fails
+            if reserved_val != Some(sled::IVec::from("")) {
+                let reserved_val = sled::IVec::from(&reserved_val.unwrap());
+                let reserved_val = std::str::from_utf8(&reserved_val).unwrap();
+                println!(
+                    "WARN: kv_manager overwriting nonempty value [{}] for reserved key [{}]",
+                    reserved_val,
+                    &reservation.key
+                );
+            }
+            // try to flash and print a warning in failed
+            match kv.flush() {
+                Err(err) => {
+                    println!("WARN: Flush failed: {}", err);
+                },
+                _ => ()
+            }
+        },
+        // insertion failed
+        Err(err) => {
+            return Err(From::from(format!(
+                "Could not insert value: {}", err
+            )))
+        }
+    }
+    Ok(())
+}
+
+fn handle_get<V>(kv: &sled::Db, key: String) -> Result<V, Box<dyn Error + Send + Sync>> 
+where
+    V: DeserializeOwned,
+{
+    // try to get value of 'key'
+    match kv.get(&key) {
+        // if get was successful
+        Ok(bytes) => {
+            // if key did not have a value, return error
+            if bytes.is_none() {
+                return Err(From::from(format!(
+                        "key {} did not have a value", key
+                       )))
+            } 
+            // try to convert bytes to V
+            let bytes = bytes.unwrap();
+            // let codec = bincode::config();
+            let res = bincode::deserialize(&bytes);
+            // if deserialization failed, return error
+            if res.is_err() {
+                return Err(From::from(format!(
+                        "value cannot be deserialized" 
+                    )))
+            } 
+            // return value
+            let value = res.unwrap();
+            Ok(value)
+        },
+        // if get failed, return an error
+        Err(err) => {
+            Err(From::from(format!(
+                    "cannot rerieve value for key {} : {}", key, err 
+            )))
+        }
+    }
 }
