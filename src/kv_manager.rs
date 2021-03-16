@@ -107,10 +107,8 @@ use Command::*;
 //  let my_db = get_kv_store(&"my_current_dir_db").unwrap();
 //  let my_db = get_kv_store(&"/tmp/my_tmp_bd").unwrap();
 fn get_kv_store(db_name: String) -> sled::Db {
-
     // create/open DB
     let kv = sled::open(&db_name).unwrap();
-
     // print whether the DB was newly created or not
     if kv.was_recovered() {
         println!("kv_manager found existing db [{}]", db_name);
@@ -166,6 +164,7 @@ where
     println!("kv_manager stop");
 }
 
+// helper function to make actions regarding reserve key
 fn handle_reserve(kv: &sled::Db, key: String) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
     // insert ('key', "") and get previous value of 'key'
     match kv.insert(&key, "") {
@@ -191,6 +190,7 @@ fn handle_reserve(kv: &sled::Db, key: String) -> Result<KeyReservation, Box<dyn 
     }
 }
 
+// helper function to make actions regarding value insertion
 fn handle_put<V>(kv: &sled::Db, reservation: KeyReservation, value: V) -> Result<(), Box<dyn Error + Send + Sync>> 
 where
     V: Serialize,
@@ -237,6 +237,7 @@ where
     Ok(())
 }
 
+// helper function to make actions regarding value retrieve
 fn handle_get<V>(kv: &sled::Db, key: String) -> Result<V, Box<dyn Error + Send + Sync>> 
 where
     V: DeserializeOwned,
