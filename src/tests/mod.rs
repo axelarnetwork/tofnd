@@ -108,7 +108,7 @@ async fn shutdown_parties(parties: Vec<impl Party>) {
 
 fn delete_dbs(parties: &[impl Party]) {
     for p in parties {
-        std::fs::remove_file(p.get_db_path()).unwrap();
+        std::fs::remove_dir_all(p.get_db_path()).unwrap();
     }
 }
 
