@@ -201,6 +201,9 @@ where
     V: Serialize,
 {
     // check if key holds the default reserve value. If not, send an error.
+    // Explanation of code ugliness: that's the standard way to compare a 
+    // sled retrieved value with a local value: 
+    // https://docs.rs/sled/0.34.6/sled/struct.Tree.html#examples-4
     if kv.get(&reservation.key)? != Some(sled::IVec::from(DEFAULT_RESERV)) {
         return Err(From::from(format!(
             "Serialization of value failed"
@@ -214,6 +217,8 @@ where
     kv.insert(&reservation.key, bytes)?;
 
     // try to flash and print a warning if failed
+    // Note: The sole purpose of flushing is to facititate tests :( 
+    // see documentation in tests/mods.rs for more info
     if let Err(_) = kv.flush() {
         println!("WARN: flush failed");
     }

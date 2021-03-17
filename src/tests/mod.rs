@@ -1,3 +1,21 @@
+// Notes:
+// # Helper functions:
+// Since we are using tokio, we need to make use of async function. That comes
+// with the unfortunate necessity to declare some extra functions in order to
+// facilitate the tests. These functions are:
+// 1. src/kv_manager::KV::get_db_paths
+// 2. src/gg20/mods::get_db_paths
+// 3. src/gg20/mods::with_db_name
+// 
+// # Flushing after every insert:
+// We want clean-up for each test; this means that when tests finish, 
+// databases need to be deleted. Because database deletion can interfere with 
+// pending transactions to the database causing errors at tests, we choose to 
+// flush after every time we insert a value. This is a temporary solution and 
+// should be handled accordingly by having tests using their own sub-space.
+// Happens at: 
+// 1. src/kv_manager::handle_put()
+
 use std::convert::TryFrom;
 
 mod mock;
@@ -108,6 +126,7 @@ async fn shutdown_parties(parties: Vec<impl Party>) {
 
 fn delete_dbs(parties: &[impl Party]) {
     for p in parties {
+        // Sled creates a directory for the database and its configuration
         std::fs::remove_dir_all(p.get_db_path()).unwrap();
     }
 }
