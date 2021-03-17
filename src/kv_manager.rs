@@ -210,7 +210,7 @@ where
     kv.insert(&reservation.key, bytes)?;
 
     // try to flash and print a warning if failed
-    // Note: The sole purpose of flushing is to facititate tests :( 
+    // TODO: The sole purpose of flushing is to facititate tests :( 
     // see documentation in tests/mods.rs for more info
     if let Err(_) = kv.flush() {
         println!("WARN: flush failed");
