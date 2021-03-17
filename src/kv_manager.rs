@@ -10,7 +10,7 @@ use tokio::sync::{mpsc, oneshot};
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 
-// default value for reserved key 
+// default value for reserved key
 const DEFAULT_RESERV: &str = "";
 
 // "actor" pattern (KV is the "handle"): https://ryhl.io/blog/actors-with-tokio/
@@ -104,7 +104,7 @@ enum Command<V> {
 use Command::*;
 
 // Returns the db with name `db_name`, or creates a new if such DB does not exist
-// Default path DB path is the executable's directory; The caller can specify a 
+// Default path DB path is the executable's directory; The caller can specify a
 // full path followed by the name of the DB
 // Usage:
 //  let my_db = get_kv_store(&"my_current_dir_db").unwrap();
@@ -117,31 +117,27 @@ fn get_kv_store(db_name: String) -> sled::Db {
         println!("kv_manager found existing db [{}]", db_name);
     } else {
         println!(
-            "kv_manager cannot open existing db [{}]. creating new db", db_name
+            "kv_manager cannot open existing db [{}]. creating new db",
+            db_name
         );
     }
     kv
 }
 
-// kv_cmd_handler is called from _within_ tofnd to return results of a Command.
-// Because we are are using the async tokio lib (and the "actor" patern) which 
-// is build on async calls, this handler also needs to be an async function. 
-// Notice the pattern: `let _ = resp.send(res);`. Here, we deliberately choose 
-// to ignore the response of resp.send(). After discusion, we came to the 
-// conclusion that we should treat `kv_cmd_handler` as a conventional Rust fn
-// to avoid complexity in the code. See discusion here:
-// https://github.com/axelarnetwork/tofnd/pull/15/files#r595303423
+// private handler function to process commands as per the "actor" pattern (see above)
 async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::Receiver<Command<V>>, db_name: String)
 where
     V: Serialize + DeserializeOwned,
 {
+    // if resp.send() fails then log a warning and continue
+    // see discussion https://github.com/axelarnetwork/tofnd/pull/15#discussion_r595426775
     let kv = get_kv_store(db_name);
     while let Some(cmd) = rx.recv().await {
+        // TODO better error handling and logging: we should log when `handle_*` fails
+        // TODO refactor repeated code
         match cmd {
             ReserveKey { key, resp } => {
-                // make reserve actions
-                let res = handle_reserve(&kv, key);
-                if let Err(_) = resp.send(res) {
+                if resp.send(handle_reserve(&kv, key)).is_err() {
                     println!("WARN: the receiver dropped");
                 }
             }
@@ -153,14 +149,12 @@ where
                 value,
                 resp,
             } => {
-                let res = handle_put(&kv, reservation, value);
-                if let Err(_) = resp.send(res) {
+                if resp.send(handle_put(&kv, reservation, value)).is_err() {
                     println!("WARN: the receiver dropped");
                 }
             }
             Get { key, resp } => {
-                let res = handle_get(&kv, key);
-                if let Err(_) = resp.send(res) {
+                if resp.send(handle_get(&kv, key)).is_err() {
                     println!("WARN: the receiver dropped");
                 }
             }
@@ -170,15 +164,17 @@ where
 }
 
 // helper function to make actions regarding reserve key
-fn handle_reserve(kv: &sled::Db, key: String) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
-
-    // search key in kv store. 
+fn handle_reserve(
+    kv: &sled::Db,
+    key: String,
+) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
+    // search key in kv store.
     // If reserve key already exists inside our database, return an error
     if kv.contains_key(&key)? {
         return Err(From::from(format!(
             "kv_manager key {} already reserved",
             key
-        )))
+        )));
     }
 
     // try to insert the new key with default value
@@ -189,18 +185,20 @@ fn handle_reserve(kv: &sled::Db, key: String) -> Result<KeyReservation, Box<dyn 
 }
 
 // helper function to make actions regarding value insertion
-fn handle_put<V>(kv: &sled::Db, reservation: KeyReservation, value: V) -> Result<(), Box<dyn Error + Send + Sync>> 
+fn handle_put<V>(
+    kv: &sled::Db,
+    reservation: KeyReservation,
+    value: V,
+) -> Result<(), Box<dyn Error + Send + Sync>>
 where
     V: Serialize,
 {
     // check if key holds the default reserve value. If not, send an error.
-    // Explanation of code ugliness: that's the standard way to compare a 
-    // sled retrieved value with a local value: 
+    // Explanation of code ugliness: that's the standard way to compare a
+    // sled retrieved value with a local value:
     // https://docs.rs/sled/0.34.6/sled/struct.Tree.html#examples-4
     if kv.get(&reservation.key)? != Some(sled::IVec::from(DEFAULT_RESERV)) {
-        return Err(From::from(format!(
-            "Serialization of value failed"
-        )))
+        return Err(From::from(format!("Serialization of value failed")));
     }
 
     // convert value into bytes
@@ -210,11 +208,11 @@ where
     kv.insert(&reservation.key, bytes)?;
 
     // try to flash and print a warning if failed
-    // TODO: The sole purpose of flushing is to facititate tests :( 
-    // We want clean-up for each test; this means that when tests finish, 
-    // databases need to be deleted. Because database deletion can interfere with 
-    // pending transactions to the database causing errors at tests, we choose to 
-    // flush after every time we insert a value. This is a temporary solution and 
+    // TODO: The sole purpose of flushing is to facititate tests :(
+    // We want clean-up for each test; this means that when tests finish,
+    // databases need to be deleted. Because database deletion can interfere with
+    // pending transactions to the database causing errors at tests, we choose to
+    // flush after every time we insert a value. This is a temporary solution and
     // should be handled accordingly by having tests using their own sub-space.
     if let Err(_) = kv.flush() {
         println!("WARN: flush failed");
@@ -223,7 +221,7 @@ where
 }
 
 // helper function to make actions regarding value retrieve
-fn handle_get<V>(kv: &sled::Db, key: String) -> Result<V, Box<dyn Error + Send + Sync>> 
+fn handle_get<V>(kv: &sled::Db, key: String) -> Result<V, Box<dyn Error + Send + Sync>>
 where
     V: DeserializeOwned,
 {
@@ -232,10 +230,8 @@ where
 
     // check if key is valid
     if bytes.is_none() {
-        return Err(From::from(format!(
-                "key {} did not have a value", key
-                )))
-    } 
+        return Err(From::from(format!("key {} did not have a value", key)));
+    }
 
     // try to convert bytes to V
     let value = bincode::deserialize(&bytes.unwrap())?;
@@ -265,7 +261,10 @@ mod tests {
         let kv = sled::open(kv_name).unwrap();
 
         let key: String = "key".to_string();
-        assert_eq!(handle_reserve(&kv, key.clone()).unwrap(), KeyReservation{key: key.clone()});
+        assert_eq!(
+            handle_reserve(&kv, key.clone()).unwrap(),
+            KeyReservation { key: key.clone() }
+        );
 
         // check if default value was stored
         // get bytes
@@ -298,7 +297,7 @@ mod tests {
         handle_reserve(&kv, key.clone()).unwrap();
 
         let value: String = "value".to_string();
-        assert!(handle_put(&kv, KeyReservation{key}, value).is_ok());
+        assert!(handle_put(&kv, KeyReservation { key }, value).is_ok());
 
         clean_up(kv_name, kv);
     }
@@ -312,7 +311,7 @@ mod tests {
 
         let value: String = "value".to_string();
         // try to add put a key without reservation and get an error
-        assert!(handle_put(&kv, KeyReservation{key: key.clone()}, value).is_err());
+        assert!(handle_put(&kv, KeyReservation { key: key.clone() }, value).is_err());
         // check if key was inserted
         assert!(!kv.contains_key(&key).unwrap());
 
@@ -329,17 +328,17 @@ mod tests {
         let value2 = "value2";
 
         handle_reserve(&kv, key.clone()).unwrap();
-        handle_put(&kv, KeyReservation{key: key.clone()}, value).unwrap();
+        handle_put(&kv, KeyReservation { key: key.clone() }, value).unwrap();
 
-        assert!(handle_put(&kv, KeyReservation{key: key.clone()}, value2).is_err());
+        assert!(handle_put(&kv, KeyReservation { key: key.clone() }, value2).is_err());
 
         // check if value was changed
         // get bytes
         let bytes = kv.get(&key).unwrap().unwrap();
         // convert to value type
         let v: &str = bincode::deserialize(&bytes).unwrap();
-        // check current value with first assigned value 
-        assert!( v == value);
+        // check current value with first assigned value
+        assert!(v == value);
 
         clean_up(kv_name, kv);
     }
@@ -352,7 +351,7 @@ mod tests {
         let key: String = "key".to_string();
         let value = "value";
         handle_reserve(&kv, key.clone()).unwrap();
-        handle_put(&kv, KeyReservation{key: key.clone()}, value).unwrap();
+        handle_put(&kv, KeyReservation { key: key.clone() }, value).unwrap();
         let res = handle_get::<String>(&kv, key);
         assert!(res.is_ok());
         let res = res.unwrap();
