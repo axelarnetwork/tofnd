@@ -13,7 +13,7 @@ type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 // default value for reserved key 
 const DEFAULT_RESERV: &str = "";
 
-// "actor" pattern (KV is the "handle"): https://draft.ryhl.io/blog/actors-with-tokio/
+// "actor" pattern (KV is the "handle"): https://ryhl.io/blog/actors-with-tokio/
 // see also https://tokio.rs/tokio/tutorial/channels
 #[derive(Clone)]
 pub struct KV<V> {
