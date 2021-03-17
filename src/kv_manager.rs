@@ -10,6 +10,9 @@ use tokio::sync::{mpsc, oneshot};
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 
+// default value for reserved key 
+const DEFAULT_RESERV: &str = "";
+
 // "actor" pattern (KV is the "handle"): https://draft.ryhl.io/blog/actors-with-tokio/
 // see also https://tokio.rs/tokio/tutorial/channels
 #[derive(Clone)]
@@ -167,7 +170,7 @@ where
 // helper function to make actions regarding reserve key
 fn handle_reserve(kv: &sled::Db, key: String) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
     // insert ('key', "") and get previous value of 'key'
-    match kv.insert(&key, "") {
+    match kv.insert(&key, DEFAULT_RESERV) {
         // if insertion was successful, check previous value of 'key'
         Ok(previous_value) => {
             // if previous value is None it means that we had no 
@@ -199,6 +202,8 @@ where
     let bytes = bincode::serialize(&value);
     // check if serialization failed
     if bytes.is_err() {
+    // check if key holds the default reserve value. If not, send an error.
+    if kv.get(&reservation.key)? != Some(sled::IVec::from(DEFAULT_RESERV)) {
         return Err(From::from(format!(
             "Serialization of value failed"
         )))
