@@ -20,7 +20,7 @@ impl TofndParty {
 
         // start server
         let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
-        let my_service = gg20::with_db_name(&db_name);
+        let my_service = gg20::tests::with_db_name(&db_name);
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
         let server_addr = incoming.local_addr().unwrap();
@@ -159,6 +159,6 @@ impl Party for TofndParty {
     }
 
     fn get_db_path(&self) -> std::path::PathBuf {
-        gg20::get_db_path(&self.db_name)
+        gg20::tests::get_db_path(&self.db_name)
     }
 }

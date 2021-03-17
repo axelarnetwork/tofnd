@@ -1,3 +1,12 @@
+// Notes:
+// # Helper functions:
+// Since we are using tokio, we need to make use of async function. That comes
+// with the unfortunate necessity to declare some extra functions in order to
+// facilitate the tests. These functions are:
+// 1. src/kv_manager::KV::get_db_paths
+// 2. src/gg20/mod::get_db_paths
+// 3. src/gg20/mod::with_db_name
+
 use std::convert::TryFrom;
 
 mod mock;
@@ -108,7 +117,8 @@ async fn shutdown_parties(parties: Vec<impl Party>) {
 
 fn delete_dbs(parties: &[impl Party]) {
     for p in parties {
-        std::fs::remove_file(p.get_db_path()).unwrap();
+        // Sled creates a directory for the database and its configuration
+        std::fs::remove_dir_all(p.get_db_path()).unwrap();
     }
 }
 

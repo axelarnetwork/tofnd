@@ -121,13 +121,19 @@ impl proto::MessageOut {
 }
 
 #[cfg(test)]
-pub fn with_db_name(db_name: &str) -> impl proto::gg20_server::Gg20 {
-    GG20Service {
-        kv: KeySharesKV::with_db_name(db_name),
-    }
-}
+pub(super) mod tests {
+    use super::{GG20Service, KeySharesKV};
+    use crate::proto;
 
-#[cfg(test)]
-pub fn get_db_path(name: &str) -> std::path::PathBuf {
-    KeySharesKV::get_db_path(name)
+    #[cfg(test)]
+    pub fn with_db_name(db_name: &str) -> impl proto::gg20_server::Gg20 {
+        GG20Service {
+            kv: KeySharesKV::with_db_name(db_name),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn get_db_path(name: &str) -> std::path::PathBuf {
+        KeySharesKV::get_db_path(name)
+    }
 }
