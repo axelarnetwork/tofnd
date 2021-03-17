@@ -261,7 +261,14 @@ mod tests {
         let kv = sled::open(kv_name).unwrap();
 
         let key: String = "key".to_string();
+        let key2 = key.clone();
         assert_eq!(handle_reserve(&kv, key.clone()).unwrap(), KeyReservation{key});
+
+        // check if default value was stored
+        // get bytes
+        let default_reserv = kv.get(&key2).unwrap().unwrap();
+        // convert to value type
+        assert!(default_reserv == DEFAULT_RESERV);
 
         clean_up(kv_name, kv);
     }
