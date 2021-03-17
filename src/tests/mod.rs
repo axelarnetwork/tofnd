@@ -6,7 +6,7 @@
 // 1. src/kv_manager::KV::get_db_paths
 // 2. src/gg20/mod::get_db_paths
 // 3. src/gg20/mod::with_db_name
- 
+
 use std::convert::TryFrom;
 
 mod mock;
