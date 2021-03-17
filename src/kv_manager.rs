@@ -24,7 +24,7 @@ where
     V: Debug + Send + Sync + Serialize + DeserializeOwned,
 {
     pub fn new() -> Self {
-        Self::with_db_name("keys")
+        Self::with_db_name(".kvstore")
     }
     pub fn with_db_name(db_name: &str) -> Self {
         let (sender, rx) = mpsc::channel(4); // TODO buffer size?
