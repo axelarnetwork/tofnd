@@ -314,7 +314,7 @@ mod tests {
         // try to add put a key without reservation and get an error
         assert!(handle_put(&kv, KeyReservation{key: key.clone()}, value).is_err());
         // check if key was inserted
-        assert!(!kv.contains_key(key).unwrap());
+        assert!(!kv.contains_key(&key).unwrap());
 
         clean_up(kv_name, kv);
     }
