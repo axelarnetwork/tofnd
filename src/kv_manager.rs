@@ -171,28 +171,21 @@ where
 
 // helper function to make actions regarding reserve key
 fn handle_reserve(kv: &sled::Db, key: String) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
-    // insert ('key', "") and get previous value of 'key'
-    match kv.insert(&key, DEFAULT_RESERV) {
-        // if insertion was successful, check previous value of 'key'
-        Ok(previous_value) => {
-            // if previous value is None it means that we had no 
-            // reservations for this key. that's the happy path 
-            if previous_value.is_none() {
-                Ok(KeyReservation { key })
-            } else {
-                // if some value was already reserved for that key, 
-                // return an error 
-                Err(From::from(format!(
-                    "kv_manager key {} already reserved",
-                    key
-                )))
-            }
-        },
-        // if inseriton was unsuccessful, we have a problem
-        Err(reserve_attempt_err) => {
-            Err(From::from(reserve_attempt_err))
-        }
+
+    // search key in kv store. 
+    // If reserve key already exists inside our database, return an error
+    if kv.contains_key(&key)? {
+        return Err(From::from(format!(
+            "kv_manager key {} already reserved",
+            key
+        )))
     }
+
+    // try to insert the new key with default value
+    kv.insert(&key, DEFAULT_RESERV)?;
+
+    // return key reservation
+    Ok(KeyReservation { key })
 }
 
 // helper function to make actions regarding value insertion
@@ -231,34 +224,18 @@ where
     V: DeserializeOwned,
 {
     // try to get value of 'key'
-    match kv.get(&key) {
-        // if get was successful
-        Ok(bytes) => {
-            // if key did not have a value, return error
-            if bytes.is_none() {
-                return Err(From::from(format!(
-                        "key {} did not have a value", key
-                       )))
-            } 
-            // try to convert bytes to V
-            let bytes = bytes.unwrap();
-            // let codec = bincode::config();
-            let res = bincode::deserialize(&bytes);
-            // if deserialization failed, return error
-            if res.is_err() {
-                return Err(From::from(format!(
-                        "value cannot be deserialized" 
-                    )))
-            } 
-            // return value
-            let value = res.unwrap();
-            Ok(value)
-        },
-        // if get failed, return an error
-        Err(err) => {
-            Err(From::from(format!(
-                    "cannot rerieve value for key {} : {}", key, err 
-            )))
-        }
-    }
+    let bytes = kv.get(&key)?;
+
+    // check if key is valid
+    if bytes.is_none() {
+        return Err(From::from(format!(
+                "key {} did not have a value", key
+                )))
+    } 
+
+    // try to convert bytes to V
+    let value = bincode::deserialize(&bytes.unwrap())?;
+
+    // return value
+    Ok(value)
 }
