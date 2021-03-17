@@ -1,8 +1,6 @@
 use std::error::Error;
 use std::fmt::Debug;
 
-use std::path::PathBuf;
-
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
@@ -70,7 +68,7 @@ where
 
     #[cfg(test)]
     pub fn get_db_path(name: &str) -> std::path::PathBuf {
-        let mut path = PathBuf::new();
+        let mut path = std::path::PathBuf::new();
         path.push(name);
         path
     }
@@ -198,7 +196,7 @@ where
     // sled retrieved value with a local value:
     // https://docs.rs/sled/0.34.6/sled/struct.Tree.html#examples-4
     if kv.get(&reservation.key)? != Some(sled::IVec::from(DEFAULT_RESERV)) {
-        return Err(From::from(format!("Serialization of value failed")));
+        return Err(From::from("Serialization of value failed"));
     }
 
     // convert value into bytes
@@ -214,7 +212,7 @@ where
     // pending transactions to the database causing errors at tests, we choose to
     // flush after every time we insert a value. This is a temporary solution and
     // should be handled accordingly by having tests using their own sub-space.
-    if let Err(_) = kv.flush() {
+    if kv.flush().is_err() {
         println!("WARN: flush failed");
     }
     Ok(())
@@ -283,7 +281,7 @@ mod tests {
         let key: String = "key".to_string();
         handle_reserve(&kv, key.clone()).unwrap();
         // try reserving twice
-        assert!(handle_reserve(&kv, key.clone()).is_err());
+        assert!(handle_reserve(&kv, key).is_err());
 
         clean_up(kv_name, kv);
     }
