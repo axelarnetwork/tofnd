@@ -239,3 +239,99 @@ where
     // return value
     Ok(value)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn clean_up(kv_name: &str, kv: sled::Db) {
+        assert!(kv.flush().is_ok());
+        std::fs::remove_dir_all(kv_name).unwrap();
+    }
+
+    impl PartialEq for KeyReservation {
+        fn eq(&self, other: &Self) -> bool {
+            self.key == other.key
+        }
+    }
+
+    #[test]
+    fn reserve_success() {
+        let kv_name = "test_reserve_success";
+        let kv = sled::open(kv_name).unwrap();
+
+        let key: String = "key".to_string();
+        assert_eq!(handle_reserve(&kv, key.clone()).unwrap(), KeyReservation{key});
+
+        clean_up(kv_name, kv);
+    }
+
+    #[test]
+    fn reserve_failure() {
+        let kv_name = "test_reserve_failure";
+        let kv = sled::open(kv_name).unwrap();
+
+        let key: String = "key".to_string();
+        handle_reserve(&kv, key.clone()).unwrap();
+        // try reserving twice
+        assert!(handle_reserve(&kv, key.clone()).is_err());
+
+        clean_up(kv_name, kv);
+    }
+
+    #[test]
+    fn put_success() {
+        let kv_name = "test_put_success";
+        let kv = sled::open(kv_name).unwrap();
+
+        let key: String = "key".to_string();
+        handle_reserve(&kv, key.clone()).unwrap();
+
+        let value: String = "value".to_string();
+        assert!(handle_put(&kv, KeyReservation{key}, value).is_ok());
+
+        clean_up(kv_name, kv);
+    }
+
+    #[test]
+    fn put_failure_no_reservation() {
+        let kv_name = "test_put_failure_no_reserv";
+        let kv = sled::open(kv_name).unwrap();
+
+        let key: String = "key".to_string();
+        let key2: String = "key".to_string();
+
+        let value: String = "value".to_string();
+        // try to add put a key without reservation and get an error
+        assert!(handle_put(&kv, KeyReservation{key}, value).is_err());
+        // check if key was inserted
+        assert!(!kv.contains_key(key2).unwrap());
+
+        clean_up(kv_name, kv);
+    }
+
+    #[test]
+    fn put_failure_put_twice() {
+        let kv_name = "test_put_faulure_put_twice";
+        let kv = sled::open(kv_name).unwrap();
+
+        let key: String = "key".to_string();
+        let value = "value";
+        let value2 = "value2";
+
+        handle_reserve(&kv, key.clone()).unwrap();
+        handle_put(&kv, KeyReservation{key: key.clone()}, value).unwrap();
+
+        assert!(handle_put(&kv, KeyReservation{key: key.clone()}, value2).is_err());
+
+        // check if value was changed
+        // get bytes
+        let bytes = kv.get(&key).unwrap().unwrap();
+        // convert to value type
+        let v: &str = bincode::deserialize(&bytes).unwrap();
+        // check current value with first assigned value 
+        assert!( v == value);
+
+        clean_up(kv_name, kv);
+    }
+}
