@@ -4,17 +4,9 @@
 // with the unfortunate necessity to declare some extra functions in order to
 // facilitate the tests. These functions are:
 // 1. src/kv_manager::KV::get_db_paths
-// 
-// # Flushing after every insert:
-// We want clean-up for each test; this means that when tests finish, 
-// databases need to be deleted. Because database deletion can interfere with 
-// pending transactions to the database causing errors at tests, we choose to 
-// flush after every time we insert a value. This is a temporary solution and 
-// should be handled accordingly by having tests using their own sub-space.
-// Happens at: 
-// 1. src/kv_manager::handle_put()
 // 2. src/gg20/mod::get_db_paths
 // 3. src/gg20/mod::with_db_name
+ 
 use std::convert::TryFrom;
 
 mod mock;

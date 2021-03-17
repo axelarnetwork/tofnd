@@ -211,7 +211,11 @@ where
 
     // try to flash and print a warning if failed
     // TODO: The sole purpose of flushing is to facititate tests :( 
-    // see documentation in tests/mods.rs for more info
+    // We want clean-up for each test; this means that when tests finish, 
+    // databases need to be deleted. Because database deletion can interfere with 
+    // pending transactions to the database causing errors at tests, we choose to 
+    // flush after every time we insert a value. This is a temporary solution and 
+    // should be handled accordingly by having tests using their own sub-space.
     if let Err(_) = kv.flush() {
         println!("WARN: flush failed");
     }
