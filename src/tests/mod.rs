@@ -4,8 +4,6 @@
 // with the unfortunate necessity to declare some extra functions in order to
 // facilitate the tests. These functions are:
 // 1. src/kv_manager::KV::get_db_paths
-// 2. src/gg20/mods::get_db_paths
-// 3. src/gg20/mods::with_db_name
 // 
 // # Flushing after every insert:
 // We want clean-up for each test; this means that when tests finish, 
@@ -15,7 +13,8 @@
 // should be handled accordingly by having tests using their own sub-space.
 // Happens at: 
 // 1. src/kv_manager::handle_put()
-
+// 2. src/gg20/mod::get_db_paths
+// 3. src/gg20/mod::with_db_name
 use std::convert::TryFrom;
 
 mod mock;
