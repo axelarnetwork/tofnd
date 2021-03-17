@@ -123,6 +123,14 @@ fn get_kv_store(db_name: String) -> sled::Db {
     kv
 }
 
+// kv_cmd_handler is called from _within_ tofnd to return results of a Command.
+// Because we are are using the async tokio lib (and the "actor" patern) which 
+// is build on async calls, this handler also needs to be an async function. 
+// Notice the pattern: `let _ = resp.send(res);`. Here, we deliberately choose 
+// to ignore the response of resp.send(). After discusion, we came to the 
+// conclusion that we should treat `kv_cmd_handler` as a conventional Rust fn
+// to avoid complexity in the code. See discusion here:
+// https://github.com/axelarnetwork/tofnd/pull/15/files#r595303423
 async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::Receiver<Command<V>>, db_name: String)
 where
     V: Serialize + DeserializeOwned,
@@ -133,18 +141,8 @@ where
             ReserveKey { key, resp } => {
                 // make reserve actions
                 let res = handle_reserve(&kv, key);
-
-                // Question: Is this needed? And, if yes, should we check responses for the other commands as well?
-                // send and check response
-                let resp_attempt = resp.send(res);
-                if resp_attempt.is_err() {
-                    // unreserve the key --- no one was listening to our response
-                    let key = resp_attempt.unwrap_err().unwrap().key;
-                    println!(
-                        "WARN: kv_manager unreserving key [{}], fail to respond to ReserveKey (is no one listening for my response?)",
-                        key
-                    );
-                    let _ = kv.remove(&key);
+                if let Err(_) = resp.send(res) {
+                    println!("WARN: the receiver dropped");
                 }
             }
             UnreserveKey { reservation } => {
@@ -156,11 +154,15 @@ where
                 resp,
             } => {
                 let res = handle_put(&kv, reservation, value);
-                let _ = resp.send(res);
+                if let Err(_) = resp.send(res) {
+                    println!("WARN: the receiver dropped");
+                }
             }
             Get { key, resp } => {
                 let res = handle_get(&kv, key);
-                let _ = resp.send(res);
+                if let Err(_) = resp.send(res) {
+                    println!("WARN: the receiver dropped");
+                }
             }
         }
     }
