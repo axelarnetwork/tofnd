@@ -200,46 +200,22 @@ fn handle_put<V>(kv: &sled::Db, reservation: KeyReservation, value: V) -> Result
 where
     V: Serialize,
 {
-    // convert value into bytes
-    let bytes = bincode::serialize(&value);
-    // check if serialization failed
-    if bytes.is_err() {
     // check if key holds the default reserve value. If not, send an error.
     if kv.get(&reservation.key)? != Some(sled::IVec::from(DEFAULT_RESERV)) {
         return Err(From::from(format!(
             "Serialization of value failed"
         )))
     }
-    let bytes = bytes.unwrap();
 
-    match kv.insert(&reservation.key, bytes) {
-        // insertion succeeded
-        Ok(reserved_val) => {
-            // key should exist with value ""; that's how we reserve keys
-            // warn but do not abort if this check fails
-            if reserved_val != Some(sled::IVec::from("")) {
-                let reserved_val = sled::IVec::from(&reserved_val.unwrap());
-                let reserved_val = std::str::from_utf8(&reserved_val).unwrap();
-                println!(
-                    "WARN: kv_manager overwriting nonempty value [{}] for reserved key [{}]",
-                    reserved_val,
-                    &reservation.key
-                );
-            }
-            // try to flash and print a warning in failed
-            match kv.flush() {
-                Err(err) => {
-                    println!("WARN: Flush failed: {}", err);
-                },
-                _ => ()
-            }
-        },
-        // insertion failed
-        Err(err) => {
-            return Err(From::from(format!(
-                "Could not insert value: {}", err
-            )))
-        }
+    // convert value into bytes
+    let bytes = bincode::serialize(&value)?;
+
+    // insert new value
+    kv.insert(&reservation.key, bytes)?;
+
+    // try to flash and print a warning if failed
+    if let Err(_) = kv.flush() {
+        println!("WARN: flush failed");
     }
     Ok(())
 }
