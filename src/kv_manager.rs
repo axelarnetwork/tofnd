@@ -334,4 +334,34 @@ mod tests {
 
         clean_up(kv_name, kv);
     }
+
+    #[test]
+    fn get_success() {
+        let kv_name = "test_get_success";
+        let kv = sled::open(kv_name).unwrap();
+
+        let key: String = "key".to_string();
+        let key2 = key.clone();
+        let value = "value";
+        handle_reserve(&kv, key.clone()).unwrap();
+        handle_put(&kv, KeyReservation{key}, value).unwrap();
+        let res = handle_get::<String>(&kv, key2);
+        assert!(res.is_ok());
+        let res = res.unwrap();
+        assert_eq!(res, value);
+
+        clean_up(kv_name, kv);
+    }
+
+    #[test]
+    fn get_failure() {
+        let kv_name = "test_get_failure";
+        let kv = sled::open(kv_name).unwrap();
+
+        let key: String = "key".to_string();
+        let res = handle_get::<String>(&kv, key);
+        assert!(res.is_err());
+
+        clean_up(kv_name, kv);
+    }
 }
