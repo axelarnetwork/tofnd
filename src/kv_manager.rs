@@ -261,12 +261,11 @@ mod tests {
         let kv = sled::open(kv_name).unwrap();
 
         let key: String = "key".to_string();
-        let key2 = key.clone();
-        assert_eq!(handle_reserve(&kv, key.clone()).unwrap(), KeyReservation{key});
+        assert_eq!(handle_reserve(&kv, key.clone()).unwrap(), KeyReservation{key: key.clone()});
 
         // check if default value was stored
         // get bytes
-        let default_reserv = kv.get(&key2).unwrap().unwrap();
+        let default_reserv = kv.get(&key).unwrap().unwrap();
         // convert to value type
         assert!(default_reserv == DEFAULT_RESERV);
 
@@ -306,13 +305,12 @@ mod tests {
         let kv = sled::open(kv_name).unwrap();
 
         let key: String = "key".to_string();
-        let key2: String = "key".to_string();
 
         let value: String = "value".to_string();
         // try to add put a key without reservation and get an error
-        assert!(handle_put(&kv, KeyReservation{key}, value).is_err());
+        assert!(handle_put(&kv, KeyReservation{key: key.clone()}, value).is_err());
         // check if key was inserted
-        assert!(!kv.contains_key(key2).unwrap());
+        assert!(!kv.contains_key(key).unwrap());
 
         clean_up(kv_name, kv);
     }
@@ -348,11 +346,10 @@ mod tests {
         let kv = sled::open(kv_name).unwrap();
 
         let key: String = "key".to_string();
-        let key2 = key.clone();
         let value = "value";
         handle_reserve(&kv, key.clone()).unwrap();
-        handle_put(&kv, KeyReservation{key}, value).unwrap();
-        let res = handle_get::<String>(&kv, key2);
+        handle_put(&kv, KeyReservation{key: key.clone()}, value).unwrap();
+        let res = handle_get::<String>(&kv, key);
         assert!(res.is_ok());
         let res = res.unwrap();
         assert_eq!(res, value);
