@@ -12,6 +12,7 @@ tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
 bincode = "1.2.1"
 sled = "0.34"
 funty = "=1.1.0" # zengo baggage
+testdir = "0.4.0"
 
 # sled dependency
 serde = { version = "1.0", features = ["derive"] }

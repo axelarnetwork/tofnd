@@ -16,6 +16,9 @@ use crate::proto;
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
+use testdir::testdir;
+use std::path::PathBuf;
+
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
     static ref TEST_CASES: Vec<(usize, usize, Vec<usize>)> = vec![ // (share_count, threshold, participant_indices)
@@ -25,10 +28,13 @@ lazy_static::lazy_static! {
     // TODO add TEST_CASES_INVALID
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn basic_keygen_and_sign() {
+
+    let dir: PathBuf = testdir!();
+
     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
-        let (parties, party_uids) = init_parties(*share_count).await;
+        let (parties, party_uids) = init_parties(*share_count, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
@@ -56,8 +62,9 @@ async fn basic_keygen_and_sign() {
 
 #[tokio::test]
 async fn restart_one_party() {
+    let dir = testdir!();
     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
-        let (parties, party_uids) = init_parties(*share_count).await;
+        let (parties, party_uids) = init_parties(*share_count, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
@@ -72,7 +79,8 @@ async fn restart_one_party() {
         let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
         let shutdown_party = party_options[shutdown_index].take().unwrap();
         shutdown_party.shutdown().await;
-        party_options[shutdown_index] = Some(TofndParty::new(shutdown_index).await);
+
+        party_options[shutdown_index] = Some(TofndParty::new(shutdown_index, &dir).await);
         let parties = party_options
             .into_iter()
             .map(|o| o.unwrap())
@@ -95,12 +103,12 @@ async fn restart_one_party() {
     }
 }
 
-async fn init_parties(share_count: usize) -> (Vec<TofndParty>, Vec<String>) {
+async fn init_parties(share_count: usize, testdir: &PathBuf) -> (Vec<TofndParty>, Vec<String>) {
     let mut parties = Vec::with_capacity(share_count);
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     for i in 0..share_count {
-        parties.push(TofndParty::new(i).await);
+        parties.push(TofndParty::new(i, testdir).await);
     }
 
     let party_uids: Vec<String> = (0..share_count)
