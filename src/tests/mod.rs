@@ -16,8 +16,8 @@ use crate::proto;
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
-use testdir::testdir;
 use std::path::PathBuf;
+use testdir::testdir;
 
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
@@ -30,7 +30,6 @@ lazy_static::lazy_static! {
 
 #[tokio::test]
 async fn basic_keygen_and_sign() {
-
     let dir: PathBuf = testdir!();
 
     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {

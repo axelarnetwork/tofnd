@@ -1,9 +1,9 @@
 use super::{mock::SenderReceiver, Deliverer, Party};
 use crate::{addr, gg20, proto};
 use std::convert::TryFrom;
+use std::path::PathBuf;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
-use std::path::PathBuf;
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -56,7 +56,7 @@ impl TofndParty {
             .unwrap();
 
         TofndParty {
-            db_name : db_path.to_owned(),
+            db_name: db_path.to_owned(),
             client,
             server_handle,
             server_shutdown_sender,

@@ -4,9 +4,6 @@ use std::fmt::Debug;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
-use testdir::testdir;
-use std::path::PathBuf;
-
 // Provided by the requester and used by the manager task to send the command response back to the requester.
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
@@ -244,6 +241,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+    use testdir::testdir;
 
     fn clean_up(kv_name: &str, kv: sled::Db) {
         assert!(kv.flush().is_ok());
