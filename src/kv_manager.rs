@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn reserve_success() {
         let kv_name = testdir!();
-        let kv = sled::open(kv_name.clone()).unwrap();
+        let kv = sled::open(&kv_name).unwrap();
 
         let key: String = "key".to_string();
         assert_eq!(
@@ -278,7 +278,7 @@ mod tests {
     #[test]
     fn reserve_failure() {
         let kv_name = testdir!();
-        let kv = sled::open(kv_name.clone()).unwrap();
+        let kv = sled::open(&kv_name).unwrap();
 
         let key: String = "key".to_string();
         handle_reserve(&kv, key.clone()).unwrap();
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn put_success() {
         let kv_name = testdir!();
-        let kv = sled::open(kv_name.clone()).unwrap();
+        let kv = sled::open(&kv_name).unwrap();
 
         let key: String = "key".to_string();
         handle_reserve(&kv, key.clone()).unwrap();
@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn put_failure_no_reservation() {
         let kv_name = testdir!();
-        let kv = sled::open(kv_name.clone()).unwrap();
+        let kv = sled::open(&kv_name).unwrap();
 
         let key: String = "key".to_string();
 
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn put_failure_put_twice() {
         let kv_name = testdir!();
-        let kv = sled::open(kv_name.clone()).unwrap();
+        let kv = sled::open(&kv_name).unwrap();
 
         let key: String = "key".to_string();
         let value = "value";
@@ -346,7 +346,7 @@ mod tests {
     #[test]
     fn get_success() {
         let kv_name = testdir!();
-        let kv = sled::open(kv_name.clone()).unwrap();
+        let kv = sled::open(&kv_name).unwrap();
 
         let key: String = "key".to_string();
         let value = "value";
@@ -363,7 +363,7 @@ mod tests {
     #[test]
     fn get_failure() {
         let kv_name = testdir!();
-        let kv = sled::open(kv_name.clone()).unwrap();
+        let kv = sled::open(&kv_name).unwrap();
 
         let key: String = "key".to_string();
         let res = handle_get::<String>(&kv, key);
