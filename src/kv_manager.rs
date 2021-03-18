@@ -4,6 +4,9 @@ use std::fmt::Debug;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
+use testdir::testdir;
+use std::path::PathBuf;
+
 // Provided by the requester and used by the manager task to send the command response back to the requester.
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
@@ -255,8 +258,8 @@ mod tests {
 
     #[test]
     fn reserve_success() {
-        let kv_name = "test_reserve_success";
-        let kv = sled::open(kv_name).unwrap();
+        let kv_name = testdir!();
+        let kv = sled::open(kv_name.clone()).unwrap();
 
         let key: String = "key".to_string();
         assert_eq!(
@@ -270,26 +273,26 @@ mod tests {
         // convert to value type
         assert!(default_reserv == DEFAULT_RESERV);
 
-        clean_up(kv_name, kv);
+        clean_up(kv_name.to_str().unwrap(), kv);
     }
 
     #[test]
     fn reserve_failure() {
-        let kv_name = "test_reserve_failure";
-        let kv = sled::open(kv_name).unwrap();
+        let kv_name = testdir!();
+        let kv = sled::open(kv_name.clone()).unwrap();
 
         let key: String = "key".to_string();
         handle_reserve(&kv, key.clone()).unwrap();
         // try reserving twice
         assert!(handle_reserve(&kv, key).is_err());
 
-        clean_up(kv_name, kv);
+        clean_up(kv_name.to_str().unwrap(), kv);
     }
 
     #[test]
     fn put_success() {
-        let kv_name = "test_put_success";
-        let kv = sled::open(kv_name).unwrap();
+        let kv_name = testdir!();
+        let kv = sled::open(kv_name.clone()).unwrap();
 
         let key: String = "key".to_string();
         handle_reserve(&kv, key.clone()).unwrap();
@@ -297,13 +300,13 @@ mod tests {
         let value: String = "value".to_string();
         assert!(handle_put(&kv, KeyReservation { key }, value).is_ok());
 
-        clean_up(kv_name, kv);
+        clean_up(kv_name.to_str().unwrap(), kv);
     }
 
     #[test]
     fn put_failure_no_reservation() {
-        let kv_name = "test_put_failure_no_reserv";
-        let kv = sled::open(kv_name).unwrap();
+        let kv_name = testdir!();
+        let kv = sled::open(kv_name.clone()).unwrap();
 
         let key: String = "key".to_string();
 
@@ -313,13 +316,13 @@ mod tests {
         // check if key was inserted
         assert!(!kv.contains_key(&key).unwrap());
 
-        clean_up(kv_name, kv);
+        clean_up(kv_name.to_str().unwrap(), kv);
     }
 
     #[test]
     fn put_failure_put_twice() {
-        let kv_name = "test_put_faulure_put_twice";
-        let kv = sled::open(kv_name).unwrap();
+        let kv_name = testdir!();
+        let kv = sled::open(kv_name.clone()).unwrap();
 
         let key: String = "key".to_string();
         let value = "value";
@@ -338,13 +341,13 @@ mod tests {
         // check current value with first assigned value
         assert!(v == value);
 
-        clean_up(kv_name, kv);
+        clean_up(kv_name.to_str().unwrap(), kv);
     }
 
     #[test]
     fn get_success() {
-        let kv_name = "test_get_success";
-        let kv = sled::open(kv_name).unwrap();
+        let kv_name = testdir!();
+        let kv = sled::open(kv_name.clone()).unwrap();
 
         let key: String = "key".to_string();
         let value = "value";
@@ -355,18 +358,18 @@ mod tests {
         let res = res.unwrap();
         assert_eq!(res, value);
 
-        clean_up(kv_name, kv);
+        clean_up(kv_name.to_str().unwrap(), kv);
     }
 
     #[test]
     fn get_failure() {
-        let kv_name = "test_get_failure";
-        let kv = sled::open(kv_name).unwrap();
+        let kv_name = testdir!();
+        let kv = sled::open(kv_name.clone()).unwrap();
 
         let key: String = "key".to_string();
         let res = handle_get::<String>(&kv, key);
         assert!(res.is_err());
 
-        clean_up(kv_name, kv);
+        clean_up(kv_name.to_str().unwrap(), kv);
     }
 }
