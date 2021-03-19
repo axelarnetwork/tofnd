@@ -1,6 +1,7 @@
 use super::{mock::SenderReceiver, Deliverer, Party};
 use crate::{addr, gg20, proto};
 use std::convert::TryFrom;
+use std::path::PathBuf;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
@@ -15,12 +16,14 @@ pub(super) struct TofndParty {
 }
 
 impl TofndParty {
-    pub(super) async fn new(index: usize) -> Self {
+    pub(super) async fn new(index: usize, testdir: &PathBuf) -> Self {
         let db_name = format!("test-key-{:02}", index);
+        let db_path = testdir.join(db_name);
+        let db_path = db_path.to_str().unwrap();
 
         // start server
         let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
-        let my_service = gg20::tests::with_db_name(&db_name);
+        let my_service = gg20::tests::with_db_name(&db_path);
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
         let server_addr = incoming.local_addr().unwrap();
@@ -53,7 +56,7 @@ impl TofndParty {
             .unwrap();
 
         TofndParty {
-            db_name,
+            db_name: db_path.to_owned(),
             client,
             server_handle,
             server_shutdown_sender,
