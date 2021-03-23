@@ -58,7 +58,8 @@ pub(super) async fn execute_sign(
         &sign_init.participant_indices,
         &sign_init.message_to_sign,
     )?;
-    protocol::execute_protocol(
+
+    protocol::execute_protocol_sign(
         &mut sign,
         stream,
         &mut msg_sender,

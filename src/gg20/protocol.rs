@@ -8,7 +8,7 @@ use crate::TofndError;
 use futures_util::StreamExt;
 use tokio::sync::mpsc;
 
-pub(super) async fn execute_protocol(
+pub(super) async fn execute_protocol_sign(
     protocol: &mut impl Protocol,
     in_stream: &mut tonic::Streaming<proto::MessageIn>,
     out_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
