@@ -4,42 +4,15 @@ use super::{proto, protocol, KeySharesKv};
 use crate::TofndError;
 
 // tonic cruft
-use futures_util::StreamExt;
 use tokio::sync::mpsc;
 
 pub(super) async fn execute_keygen(
-    stream: &mut tonic::Streaming<proto::MessageIn>,
+    channel: mpsc::Receiver<Option<proto::TrafficIn>>,
     mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-    mut kv: KeySharesKv,
+    keygen_init: KeygenInitSanitized,
+    mut kv: KeySharesKV,
+    log_prefix: String,
 ) -> Result<(), TofndError> {
-    // keygen init
-    let msg_type = stream
-        .next()
-        .await
-        .ok_or("keygen: stream closed by client without sending a message")??
-        .data
-        .ok_or("keygen: missing `data` field in client message")?;
-    let keygen_init = match msg_type {
-        proto::message_in::Data::KeygenInit(k) => k,
-        _ => {
-            return Err(From::from(
-                "keygen: first client message must be keygen init",
-            ));
-        }
-    };
-    let keygen_init = keygen_sanitize_args(keygen_init)?;
-
-    // TODO better logging
-    let log_prefix = format!(
-        "keygen [{}] party [{}]",
-        keygen_init.new_key_uid, keygen_init.party_uids[keygen_init.my_index],
-    );
-    println!(
-        "begin {} with (t,n)=({},{})",
-        log_prefix,
-        keygen_init.threshold,
-        keygen_init.party_uids.len(),
-    );
 
     // reserve new_key_uid in the KV store
     let key_uid_reservation = kv.reserve_key(keygen_init.new_key_uid).await?;
@@ -55,7 +28,7 @@ pub(super) async fn execute_keygen(
     // instead I'll use the less-readable `and_then` https://doc.rust-lang.org/std/result/enum.Result.html#method.and_then
     let secret_key_share = protocol::execute_protocol(
         &mut keygen,
-        stream,
+        channel,
         &mut msg_sender,
         &keygen_init.party_uids,
         &log_prefix,

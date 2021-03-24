@@ -20,6 +20,23 @@ struct Gg20Service {
     kv: KeySharesKv,
 }
 
+// // TODO: these are duplicates of tofn's private structs; need to make them public
+// use serde::{Deserialize, Serialize};
+// pub type MsgBytes = Vec<u8>;
+// #[derive(Serialize, Deserialize)]
+// enum MsgType {
+//     R1Bcast,
+//     R2Bcast,
+//     R2P2p,
+//     R3Bcast,
+// }
+// #[derive(Serialize, Deserialize)]
+// struct MsgMeta {
+//     msg_type: MsgType,
+//     from: usize,
+//     payload: MsgBytes,
+// }
+
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
     Gg20Service {
         kv: KeySharesKv::new(),
@@ -62,102 +79,119 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 
         let kv = self.kv.clone();
 
-        tokio::spawn( async move {
-
-        // get KeygenInit message from stream
-        // the first message of the stream is expected to be a KeygenInit message
-        // get the message, check if it is of the expected type, and sanitize its data
-        let msg_type = external_in_stream
-            .next()
-            .await
-            .ok_or(Status::aborted("keygen: stream closed by client without sending a message")).unwrap().unwrap()
-            .data
-            .ok_or(Status::aborted("keygen: missing `data` field in client message")).unwrap();
-        let keygen_init = match msg_type {
-            proto::message_in::Data::KeygenInit(k) => k,
-            // _ => return Err(Status::aborted("Expected keygen init message"))
-            _ => { println!("Expected keygen init message"); return}
-        };
-        let keygen_init = match keygen::keygen_sanitize_args(keygen_init) {
-            Ok(k) => k,
-            // _ => return Err(Status::aborted("Keygen init failed"))
-            _ => { println!("Keygen init failed"); return}
-        };
-
-        // TODO better logging
-        let log_prefix = format!(
-            "keygen [{}] party [{}]",
-            keygen_init.new_key_uid, keygen_init.party_uids[keygen_init.my_index],
-        );
-        println!(
-            "begin {} with (t,n)=({},{})",
-            log_prefix,
-            keygen_init.threshold,
-            keygen_init.party_uids.len(),
-        );
-
-        // find my shares
-        let my_share_count = keygen_init.my_shares();
-
-        let mut internal_writers = Vec::new();
-        for _ in 0..my_share_count {
-            let (internal_writer, internal_reader) = mpsc::channel(4);
-            internal_writers.push(internal_writer);
-            let external_out_stream_writer_copy= external_out_stream_writer.clone();
-            let keygen_copy= keygen_init.clone();
-            let kv_copy = kv.clone();
-            let log_prefix_copy = log_prefix.clone();
-            tokio::spawn(async move {
-                // can't return an error from a spawned thread
-                if let Err(e) = 
-                    keygen::execute_keygen(internal_reader, external_out_stream_writer_copy, keygen_copy, kv_copy, log_prefix_copy).await 
-                {
-                    println!("keygen failure: {:?}", e);
+        tokio::spawn(async move {
+            // get KeygenInit message from stream
+            // the first message of the stream is expected to be a KeygenInit message
+            // get the message, check if it is of the expected type, and sanitize its data
+            let msg_type = external_in_stream
+                .next()
+                .await
+                .ok_or(Status::aborted(
+                    "keygen: stream closed by client without sending a message",
+                ))
+                .unwrap()
+                .unwrap()
+                .data
+                .ok_or(Status::aborted(
+                    "keygen: missing `data` field in client message",
+                ))
+                .unwrap();
+            let keygen_init = match msg_type {
+                proto::message_in::Data::KeygenInit(k) => k,
+                // _ => return Err(Status::aborted("Expected keygen init message"))
+                _ => {
+                    println!("Expected keygen init message");
                     return;
                 }
-            });
-        }
-    
-        tokio::spawn( async move {
-            let error = false;
-            while !error {
-                let msg_data = external_in_stream
-                    .next()
-                    .await;
-
-                if msg_data.is_none() {
-                    println!("Error at receiving external in stream: None");
-                    break;
+            };
+            let keygen_init = match keygen::keygen_sanitize_args(keygen_init) {
+                Ok(k) => k,
+                // _ => return Err(Status::aborted("Keygen init failed"))
+                _ => {
+                    println!("Keygen init failed");
+                    return;
                 }
+            };
 
-                let msg_data = msg_data.unwrap();
-                if msg_data.is_err() {
-                    println!("Error at receiving external in stream: Error");
-                    break;
-                }
+            // TODO better logging
+            let log_prefix = format!(
+                "keygen [{}] party [{}]",
+                keygen_init.new_key_uid, keygen_init.party_uids[keygen_init.my_index],
+            );
+            println!(
+                "begin {} with (t,n)=({},{})",
+                log_prefix,
+                keygen_init.threshold,
+                keygen_init.party_uids.len(),
+            );
 
-                let msg_data = msg_data.unwrap().data;
-                // I wish I could do `if !let` https://github.com/rust-lang/rfcs/pull/1303
-                if msg_data.is_none() {
-                    println!(
-                        "WARNING: ignore incoming msg: missing `data` field"
-                    );
-                    continue;
-                }
-                let traffic = match msg_data.unwrap() {
-                    proto::message_in::Data::Traffic(t) => t,
-                    _ => { 
-                        println!("WARNING: ignore incoming msg: expect `data` to be TrafficIn type");
+            // find my shares
+            let my_share_count = keygen_init.my_shares();
+
+            // create my_share_count channels, and spawn my_share_count threads
+            // providing the respective channel's reader and the out stream
+            let mut internal_writers = Vec::new();
+            for _ in 0..my_share_count {
+                let (internal_writer, internal_reader) = mpsc::channel(4);
+                internal_writers.push(internal_writer);
+                let external_out_stream_writer_copy = external_out_stream_writer.clone();
+                let keygen_copy = keygen_init.clone();
+                let kv_copy = kv.clone();
+                let log_prefix_copy = log_prefix.clone();
+                tokio::spawn(async move {
+                    // can't return an error from a spawned thread
+                    if let Err(e) = keygen::execute_keygen(
+                        internal_reader,
+                        external_out_stream_writer_copy,
+                        keygen_copy,
+                        kv_copy,
+                        log_prefix_copy,
+                    )
+                    .await
+                    {
+                        println!("keygen failure: {:?}", e);
+                        return;
+                    }
+                });
+            }
+
+            tokio::spawn(async move {
+                let error = false;
+                while !error {
+                    let msg_data = external_in_stream.next().await;
+
+                    if msg_data.is_none() {
+                        println!("Error at receiving external in stream: None");
+                        break;
+                    }
+
+                    let msg_data = msg_data.unwrap();
+                    if msg_data.is_err() {
+                        println!("Error at receiving external in stream: Error");
+                        break;
+                    }
+
+                    let msg_data = msg_data.unwrap().data;
+                    // I wish I could do `if !let` https://github.com/rust-lang/rfcs/pull/1303
+                    if msg_data.is_none() {
+                        println!("WARNING: ignore incoming msg: missing `data` field");
                         continue;
                     }
-                };
-                // TODO: unwrap traffic message and map index to tofn index
-                // let payload: MsgMeta = bincode::deserialize(&traffic.payload).unwrap();
-                let tofn_index: usize = 0;
-                let _ = internal_writers[tofn_index].send(Some(traffic)).await;
-            }
-        });
-
+                    let traffic = match msg_data.unwrap() {
+                        proto::message_in::Data::Traffic(t) => t,
+                        _ => {
+                            println!(
+                                "WARNING: ignore incoming msg: expect `data` to be TrafficIn type"
+                            );
+                            continue;
+                        }
+                    };
+                    // TODO: unwrap traffic message and map index to tofn index
+                    // let payload: MsgMeta = bincode::deserialize(&traffic.payload).unwrap();
+                    let tofn_index: usize = 0;
+                    let _ = internal_writers[tofn_index].send(Some(traffic)).await;
+                }
+            });
         });
 
         Ok(Response::new(external_out_stream_reader))

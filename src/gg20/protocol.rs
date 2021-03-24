@@ -123,7 +123,7 @@ pub(super) async fn execute_protocol(
         // collect incoming messages
         // println!("{}: wait for incoming messages...", log_prefix_round);
         while protocol.expecting_more_msgs_this_round() {
-            let traffic= in_channel
+            let traffic = in_channel
                 .next()
                 .await
                 .ok_or(format!(
@@ -132,8 +132,8 @@ pub(super) async fn execute_protocol(
                 ))?
                 // Question: should we return an error here of just print a warning and continue?
                 .ok_or(format!(
-                        "{}: WARNING: Protocol was expecting a message, but None was reveived",
-                        log_prefix_round
+                    "{}: WARNING: Protocol was expecting a message, but None was reveived",
+                    log_prefix_round
                 ))?;
             println!("{}: incoming msg received", log_prefix_round);
             protocol.set_msg_in(&traffic.payload)?;
