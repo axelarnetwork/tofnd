@@ -186,10 +186,10 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                             continue;
                         }
                     };
-                    // TODO: unwrap traffic message and map index to tofn index
+                    // TODO: find out which one of my shares is addressed in this message and its tofn index
                     // let payload: MsgMeta = bincode::deserialize(&traffic.payload).unwrap();
-                    let tofn_index: usize = 0;
-                    let _ = internal_writers[tofn_index].send(Some(traffic)).await;
+                    let my_share_index: usize = 0;
+                    let _ = internal_writers[my_share_index].send(Some(traffic)).await;
                 }
             });
         });
