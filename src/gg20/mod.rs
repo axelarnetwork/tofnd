@@ -155,20 +155,23 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 });
             }
 
+            // spawn a router thread
             tokio::spawn(async move {
-                let error = false;
+                let mut error = false;
                 while !error {
                     let msg_data = external_in_stream.next().await;
 
                     if msg_data.is_none() {
                         println!("Error at receiving external in stream: None");
-                        break;
+                        error = true;
+                        continue;
                     }
 
                     let msg_data = msg_data.unwrap();
                     if msg_data.is_err() {
                         println!("Error at receiving external in stream: Error");
-                        break;
+                        error = true;
+                        continue;
                     }
 
                     let msg_data = msg_data.unwrap().data;
