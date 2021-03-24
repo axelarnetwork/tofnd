@@ -82,3 +82,64 @@ pub(super) async fn execute_protocol_sign(
     println!("{} protocol: end", log_prefix);
     Ok(())
 }
+
+pub(super) async fn execute_protocol(
+    protocol: &mut impl Protocol,
+    mut in_channel: mpsc::Receiver<Option<proto::TrafficIn>>,
+    out_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    party_uids: &[String],
+    log_prefix: &str,
+) -> Result<(), TofndError> {
+    println!("{} protocol: begin", log_prefix);
+    let mut round = 0;
+
+    // TODO runs an extra iteration!
+    while !protocol.done() {
+        round += 1;
+        let log_prefix_round = format!("{} round {}", log_prefix, round);
+        println!("{}: begin", log_prefix_round);
+        protocol.next_round()?;
+
+        // send outgoing messages
+        let bcast = protocol.get_bcast_out();
+        if let Some(bcast) = bcast {
+            println!("{}: out bcast", log_prefix_round);
+            out_sender
+                .send(Ok(proto::MessageOut::new_bcast(bcast)))
+                .await?;
+        }
+        let p2ps = protocol.get_p2p_out();
+        if let Some(p2ps) = p2ps {
+            for (i, p2p) in p2ps.iter().enumerate() {
+                if let Some(p2p) = p2p {
+                    println!("{}: out p2p to [{}]", log_prefix_round, party_uids[i]);
+                    out_sender
+                        .send(Ok(proto::MessageOut::new_p2p(&party_uids[i], p2p)))
+                        .await?;
+                }
+            }
+        }
+
+        // collect incoming messages
+        // println!("{}: wait for incoming messages...", log_prefix_round);
+        while protocol.expecting_more_msgs_this_round() {
+            let traffic= in_channel
+                .next()
+                .await
+                .ok_or(format!(
+                    "{}: stream closed by client before protocol has completed",
+                    log_prefix_round
+                ))?
+                // Question: should we return an error here of just print a warning and continue?
+                .ok_or(format!(
+                        "{}: WARNING: Protocol was expecting a message, but None was reveived",
+                        log_prefix_round
+                ))?;
+            println!("{}: incoming msg received", log_prefix_round);
+            protocol.set_msg_in(&traffic.payload)?;
+        }
+        println!("{}: end", log_prefix_round);
+    }
+    println!("{} protocol: end", log_prefix);
+    Ok(())
+}
