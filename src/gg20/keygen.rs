@@ -85,14 +85,23 @@ pub(super) async fn execute_keygen(
     Ok(())
 }
 
-struct KeygenInitSanitized {
-    new_key_uid: String,
-    party_uids: Vec<String>,
-    my_index: usize,
-    threshold: usize,
+#[derive(Clone)]
+pub struct KeygenInitSanitized {
+    pub new_key_uid: String,
+    pub party_uids: Vec<String>,
+    pub my_index: usize,
+    pub threshold: usize,
 }
 
-fn keygen_sanitize_args(mut args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
+impl KeygenInitSanitized {
+    // TODO: return actual share here
+    pub fn my_shares(&self) -> usize {
+        // self.party_uids[self.my_index]
+        1
+    }
+}
+
+pub fn keygen_sanitize_args(mut args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
