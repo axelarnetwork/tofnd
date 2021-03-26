@@ -16,7 +16,7 @@ use crate::proto;
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use testdir::testdir;
 
 lazy_static::lazy_static! {
@@ -33,14 +33,21 @@ async fn basic_keygen_and_sign() {
     let dir: PathBuf = testdir!();
 
     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
-        let (parties, party_uids) = init_parties(*share_count, &dir).await;
+        let (parties, party_uids, party_share_counts) = init_parties(*share_count, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
         //     share_count, threshold
         // );
         let new_key_uid = "Gus-test-key";
-        let parties = execute_keygen(parties, &party_uids, new_key_uid, *threshold).await;
+        let parties = execute_keygen(
+            parties,
+            &party_uids,
+            &party_share_counts,
+            new_key_uid,
+            *threshold,
+        )
+        .await;
 
         // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
@@ -63,14 +70,21 @@ async fn basic_keygen_and_sign() {
 async fn restart_one_party() {
     let dir = testdir!();
     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
-        let (parties, party_uids) = init_parties(*share_count, &dir).await;
+        let (parties, party_uids, party_share_counts) = init_parties(*share_count, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
         //     share_count, threshold
         // );
         let new_key_uid = "Gus-test-key";
-        let parties = execute_keygen(parties, &party_uids, new_key_uid, *threshold).await;
+        let parties = execute_keygen(
+            parties,
+            &party_uids,
+            &party_share_counts,
+            new_key_uid,
+            *threshold,
+        )
+        .await;
 
         let shutdown_index = sign_participant_indices[0];
         println!("restart party {}", shutdown_index);
@@ -102,7 +116,10 @@ async fn restart_one_party() {
     }
 }
 
-async fn init_parties(share_count: usize, testdir: &Path) -> (Vec<TofndParty>, Vec<String>) {
+async fn init_parties(
+    share_count: usize,
+    testdir: &PathBuf,
+) -> (Vec<TofndParty>, Vec<String>, Vec<u32>) {
     let mut parties = Vec::with_capacity(share_count);
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
@@ -113,7 +130,10 @@ async fn init_parties(share_count: usize, testdir: &Path) -> (Vec<TofndParty>, V
     let party_uids: Vec<String> = (0..share_count)
         .map(|i| format!("{}", (b'A' + i as u8) as char))
         .collect();
-    (parties, party_uids)
+
+    let party_share_counts = vec![1; share_count];
+
+    (parties, party_uids, party_share_counts)
 }
 
 async fn shutdown_parties(parties: Vec<impl Party>) {
@@ -133,6 +153,7 @@ fn delete_dbs(parties: &[impl Party]) {
 async fn execute_keygen(
     parties: Vec<TofndParty>,
     party_uids: &[String],
+    party_share_counts: &[u32],
     new_key_uid: &str,
     threshold: usize,
 ) -> Vec<TofndParty> {
@@ -147,6 +168,7 @@ async fn execute_keygen(
         let init = proto::KeygenInit {
             new_key_uid: new_key_uid.to_string(),
             party_uids: party_uids.to_owned(),
+            party_share_counts: party_share_counts.to_owned(),
             my_party_index: i32::try_from(i).unwrap(),
             threshold: i32::try_from(threshold).unwrap(),
         };
