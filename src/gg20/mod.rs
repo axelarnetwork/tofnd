@@ -1,6 +1,6 @@
 use tofn::protocol::gg20::keygen::SecretKeyShare;
 
-use self::keygen::route_messages;
+use self::keygen::{get_party_info, route_messages, PartyInfo};
 
 use super::proto;
 use crate::kv_manager::Kv;

@@ -1,28 +1,146 @@
-use tofn::protocol::gg20::keygen::{validate_params, ECPoint, Keygen, SecretKeyShare};
+use tofn::protocol::gg20::keygen::{
+    validate_params, CommonInfo, Keygen, MsgMeta, SecretKeyShare, ShareInfo,
+};
 
-use super::{proto, protocol, KeySharesKv};
+#[derive(Clone)]
+pub struct PartyInfo {
+    common: CommonInfo,
+    shares: Vec<ShareInfo>,
+}
+
+use super::{proto, protocol};
 use crate::TofndError;
 
+use tofn::fillvec::new_vec_none;
 // tonic cruft
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot::Receiver};
+
+use futures_util::StreamExt;
+
+pub(super) fn get_party_info(
+    secret_key_shares: Vec<Option<SecretKeyShare>>,
+) -> Result<PartyInfo, TofndError> {
+    let s = secret_key_shares[0].clone().unwrap();
+    let common = CommonInfo {
+        threshold: s.threshold,
+        ecdsa_public_key: s.ecdsa_public_key,
+        all_ecdsa_public_key_shares: s.all_ecdsa_public_key_shares,
+        all_eks: s.all_eks,
+        all_zkps: s.all_zkps,
+    };
+    let mut shares = Vec::new();
+    for share in secret_key_shares {
+        let s = share.ok_or(format!("A secret key share was None"))?;
+        shares.push(ShareInfo {
+            share_count: s.share_count,
+            my_index: s.my_index,
+            my_dk: s.my_dk,
+            my_ek: s.my_ek,
+            my_zkp: s.my_zkp,
+            my_ecdsa_secret_key_share: s.my_ecdsa_secret_key_share,
+        });
+    }
+    Ok(PartyInfo { common, shares })
+}
+
+pub(super) async fn handle_keygen_init(
+    stream: &mut tonic::Streaming<proto::MessageIn>,
+) -> Result<KeygenInitSanitized, TofndError> {
+    let msg_type = stream
+        .next()
+        .await
+        .ok_or("keygen: stream closed by client without sending a message")??
+        .data
+        .ok_or("keygen: missing `data` field in client message")?;
+
+    let keygen_init = match msg_type {
+        proto::message_in::Data::KeygenInit(k) => k,
+        _ => return Err(From::from("Expected keygen init message")),
+    };
+
+    keygen_sanitize_args(keygen_init)
+}
+
+pub(super) async fn aggregate_secret_key_shares(
+    aggregator_receivers: Vec<Receiver<Result<SecretKeyShare, TofndError>>>,
+    my_share_count: usize,
+) -> Result<Vec<Option<SecretKeyShare>>, TofndError> {
+    let mut secret_key_shares = new_vec_none(my_share_count);
+    for (i, aggregator) in aggregator_receivers.into_iter().enumerate() {
+        let res = aggregator.await??;
+        secret_key_shares.insert(i, Some(res));
+    }
+    Ok(secret_key_shares)
+}
+
+fn map_tofnd_to_tofn_idx(tofnd_index: usize, party_share_counts: Vec<usize>) -> usize {
+    party_share_counts[..=tofnd_index].iter().sum()
+}
+
+pub fn map_tofn_to_tofnd_idx(
+    tofn_index: usize,
+    party_share_counts: Vec<usize>,
+) -> Option<(usize, usize)> {
+    let mut sum: usize = 0;
+    for (tofnd_index, count) in party_share_counts.into_iter().enumerate() {
+        sum += count;
+        if tofn_index < sum {
+            return Some((tofnd_index, tofn_index - (sum - count)));
+        }
+    }
+    None
+}
+
+pub(super) async fn route_messages(
+    in_stream: &mut tonic::Streaming<proto::MessageIn>,
+    mut out_channels: Vec<mpsc::Sender<Option<proto::TrafficIn>>>,
+) -> Result<(), TofndError> {
+    loop {
+        let msg_data = in_stream.next().await;
+
+        if msg_data.is_none() {
+            println!("Stream closed");
+            break;
+        }
+
+        let msg_data = msg_data.unwrap()?.data;
+
+        // I wish I could do `if !let` https://github.com/rust-lang/rfcs/pull/1303
+        if msg_data.is_none() {
+            println!("WARNING: ignore incoming msg: missing `data` field");
+            continue;
+        }
+        let traffic = match msg_data.unwrap() {
+            proto::message_in::Data::Traffic(t) => t,
+            _ => {
+                println!("WARNING: ignore incoming msg: expect `data` to be TrafficIn type");
+                continue;
+            }
+        };
+        // TODO: find out which one of my shares is addressed in this message and its tofn index
+        let payload: MsgMeta = bincode::deserialize(&traffic.payload).unwrap();
+        if traffic.is_broadcast {
+            for i in 0..out_channels.len() {
+                let _ = out_channels[i].send(Some(traffic.clone())).await;
+            }
+        } else {
+            let my_share_index: usize = 0;
+            let _ = out_channels[my_share_index].send(Some(traffic)).await;
+        }
+    }
+    Ok(())
+}
 
 pub(super) async fn execute_keygen(
     channel: mpsc::Receiver<Option<proto::TrafficIn>>,
     mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-    keygen_init: KeygenInitSanitized,
-    mut kv: KeySharesKV,
+    party_uids: &[String],
+    threshold: usize,
+    my_index: usize,
     log_prefix: String,
-) -> Result<(), TofndError> {
-
-    // reserve new_key_uid in the KV store
-    let key_uid_reservation = kv.reserve_key(keygen_init.new_key_uid).await?;
-
+) -> Result<SecretKeyShare, TofndError> {
     // keygen execute
-    let mut keygen = Keygen::new(
-        keygen_init.party_uids.len(),
-        keygen_init.threshold,
-        keygen_init.my_index,
-    )?;
+    let mut keygen = Keygen::new(party_uids.len(), threshold, my_index)?;
     // unreserve new_key_uid on failure
     // too bad try blocks are not yet stable in Rust https://doc.rust-lang.org/nightly/unstable-book/language-features/try-blocks.html
     // instead I'll use the less-readable `and_then` https://doc.rust-lang.org/std/result/enum.Result.html#method.and_then
@@ -30,7 +148,7 @@ pub(super) async fn execute_keygen(
         &mut keygen,
         channel,
         &mut msg_sender,
-        &keygen_init.party_uids,
+        &party_uids,
         &log_prefix,
     )
     .await
@@ -39,38 +157,24 @@ pub(super) async fn execute_keygen(
             .get_result()
             .ok_or_else(|| From::from("keygen output is `None`"))
     });
+
     if let Err(e) = secret_key_share {
-        kv.unreserve_key(key_uid_reservation).await;
         return Err(e);
     }
-    let secret_key_share = secret_key_share.unwrap();
-
-    // store output in KV store
-    let kv_data: (SecretKeyShare, Vec<String>) = (secret_key_share.clone(), keygen_init.party_uids);
-    kv.put(key_uid_reservation, kv_data).await?;
-
-    // serialize generated public key and send to client
-    let pubkey = secret_key_share.ecdsa_public_key.get_element();
-    let pubkey = pubkey.serialize(); // bitcoin-style serialization
-    msg_sender
-        .send(Ok(proto::MessageOut::new_keygen_result(&pubkey)))
-        .await?;
-    Ok(())
+    return Ok(secret_key_share.unwrap().clone());
 }
 
-#[derive(Clone)]
 pub struct KeygenInitSanitized {
     pub new_key_uid: String,
     pub party_uids: Vec<String>,
+    pub party_share_counts: Vec<u32>,
     pub my_index: usize,
     pub threshold: usize,
 }
 
 impl KeygenInitSanitized {
-    // TODO: return actual share here
     pub fn my_shares(&self) -> usize {
-        // self.party_uids[self.my_index]
-        1
+        self.party_share_counts[self.my_index] as usize
     }
 }
 
@@ -102,7 +206,51 @@ pub fn keygen_sanitize_args(
     Ok(KeygenInitSanitized {
         new_key_uid: args.new_key_uid,
         party_uids: args.party_uids,
+        party_share_counts: args.party_share_counts,
         my_index,
         threshold,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn tofn_to_tofnd() {
+        let v = vec![1, 2, 3];
+        let test_cases = vec![
+            (0, Some((0, 0))),
+            (1, Some((1, 0))),
+            (2, Some((1, 1))),
+            (3, Some((2, 0))),
+            (4, Some((2, 1))),
+            (5, Some((2, 2))),
+            (6, None),
+        ];
+        let v2 = vec![3, 2, 1];
+        let test_cases_2 = vec![
+            (0, Some((0, 1))),
+            (1, Some((0, 2))),
+            (2, Some((0, 3))),
+            (3, Some((1, 1))),
+            (4, Some((1, 2))),
+            (5, Some((2, 1))),
+            (6, None),
+        ];
+        for t in test_cases {
+            assert_eq!(map_tofn_to_tofnd_idx(t.0, v.to_owned()), t.1);
+        }
+        for t in test_cases_2 {
+            assert_eq!(map_tofn_to_tofnd_idx(t.0, v2.to_owned()), t.1);
+        }
+    }
+
+    #[test]
+    fn tofnd_to_tofn() {
+        let v = vec![1, 2, 3, 4, 5, 6];
+        let test_cases = vec![(0, 1), (1, 3), (2, 6), (3, 10), (4, 15), (5, 21)];
+        for t in test_cases {
+            assert_eq!(map_tofnd_to_tofn_idx(t.0, v.to_owned()), t.1);
+        }
+    }
 }
