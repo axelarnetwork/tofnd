@@ -132,7 +132,7 @@ pub(super) async fn execute_protocol(
                 ))?
                 // Question: should we return an error here of just print a warning and continue?
                 .ok_or(format!(
-                    "{}: WARNING: Protocol was expecting a message, but None was reveived",
+                    "{}: protocol was expecting a message, but None was reveived",
                     log_prefix_round
                 ))?;
             println!("{}: incoming msg received", log_prefix_round);

@@ -74,7 +74,9 @@ impl KeygenInitSanitized {
     }
 }
 
-pub fn keygen_sanitize_args(mut args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
+pub fn keygen_sanitize_args(
+    mut args: proto::KeygenInit,
+) -> Result<KeygenInitSanitized, TofndError> {
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;

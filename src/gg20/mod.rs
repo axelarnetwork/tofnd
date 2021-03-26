@@ -1,17 +1,16 @@
-use std::sync::mpsc::channel;
-
 use tofn::protocol::gg20::keygen::SecretKeyShare;
+
+use self::keygen::route_messages;
 
 use super::proto;
 use crate::kv_manager::Kv;
 
 // tonic cruft
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tonic::{Request, Response, Status};
 // use std::pin::Pin;
 // use futures_core::Stream;
 // use futures_util::StreamExt;
-use futures_util::StreamExt;
 
 // TODO don't store party_uids in this daemon!
 type KeySharesKv = Kv<(SecretKeyShare, Vec<String>)>; // (secret_key_share, all_party_uids)
@@ -20,22 +19,7 @@ struct Gg20Service {
     kv: KeySharesKv,
 }
 
-// // TODO: these are duplicates of tofn's private structs; need to make them public
-// use serde::{Deserialize, Serialize};
-// pub type MsgBytes = Vec<u8>;
-// #[derive(Serialize, Deserialize)]
-// enum MsgType {
-//     R1Bcast,
-//     R2Bcast,
-//     R2P2p,
-//     R3Bcast,
-// }
-// #[derive(Serialize, Deserialize)]
-// struct MsgMeta {
-//     msg_type: MsgType,
-//     from: usize,
-//     payload: MsgBytes,
-// }
+use tofn::protocol::gg20::keygen::ECPoint;
 
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
     Gg20Service {
@@ -74,130 +58,116 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,
     ) -> Result<Response<Self::KeygenStream>, Status> {
-        let mut external_in_stream = request.into_inner();
-        let (external_out_stream_writer, external_out_stream_reader) = mpsc::channel(4);
+        let mut stream_in = request.into_inner();
+        let (mut stream_out_sender, stream_out_reader) = mpsc::channel(4);
 
-        let kv = self.kv.clone();
+        let mut kv = self.kv.clone();
 
+        // spawn a master thread to immediately return from gRPC
         tokio::spawn(async move {
             // get KeygenInit message from stream
-            // the first message of the stream is expected to be a KeygenInit message
-            // get the message, check if it is of the expected type, and sanitize its data
-            let msg_type = external_in_stream
-                .next()
-                .await
-                .ok_or(Status::aborted(
-                    "keygen: stream closed by client without sending a message",
-                ))
-                .unwrap()
-                .unwrap()
-                .data
-                .ok_or(Status::aborted(
-                    "keygen: missing `data` field in client message",
-                ))
-                .unwrap();
-            let keygen_init = match msg_type {
-                proto::message_in::Data::KeygenInit(k) => k,
-                // _ => return Err(Status::aborted("Expected keygen init message"))
-                _ => {
-                    println!("Expected keygen init message");
-                    return;
-                }
-            };
-            let keygen_init = match keygen::keygen_sanitize_args(keygen_init) {
+            let keygen_init = match keygen::handle_keygen_init(&mut stream_in).await {
                 Ok(k) => k,
-                // _ => return Err(Status::aborted("Keygen init failed"))
-                _ => {
-                    println!("Keygen init failed");
+                Err(e) => {
+                    println!("Keygen: Init: {:?}", e);
                     return;
                 }
             };
 
-            // TODO better logging
-            let log_prefix = format!(
-                "keygen [{}] party [{}]",
-                keygen_init.new_key_uid, keygen_init.party_uids[keygen_init.my_index],
-            );
-            println!(
-                "begin {} with (t,n)=({},{})",
-                log_prefix,
-                keygen_init.threshold,
-                keygen_init.party_uids.len(),
-            );
+            // reserve key
+            let key_uid_reservation = kv
+                .reserve_key(keygen_init.new_key_uid.clone())
+                .await
+                .unwrap();
 
-            // find my shares
+            // find my share count
             let my_share_count = keygen_init.my_shares();
 
-            // create my_share_count channels, and spawn my_share_count threads
-            // providing the respective channel's reader and the out stream
-            let mut internal_writers = Vec::new();
+            // create in and out channels for each share, and spawn as many threads
+            let mut keygen_senders = Vec::new();
+            let mut aggregator_receivers = Vec::new();
+
             for _ in 0..my_share_count {
-                let (internal_writer, internal_reader) = mpsc::channel(4);
-                internal_writers.push(internal_writer);
-                let external_out_stream_writer_copy = external_out_stream_writer.clone();
-                let keygen_copy = keygen_init.clone();
-                let kv_copy = kv.clone();
-                let log_prefix_copy = log_prefix.clone();
+                let (keygen_sender, keygen_receiver) = mpsc::channel(4);
+                let (aggregator_sender, aggregator_receiver) = oneshot::channel();
+                keygen_senders.push(keygen_sender);
+                aggregator_receivers.push(aggregator_receiver);
+
+                // make copies to pass to execute keygen thread
+                let stream_out = stream_out_sender.clone();
+                let uids = keygen_init.party_uids.clone();
+                let threshold = keygen_init.threshold;
+                let my_index = keygen_init.my_index;
                 tokio::spawn(async move {
-                    // can't return an error from a spawned thread
-                    if let Err(e) = keygen::execute_keygen(
-                        internal_reader,
-                        external_out_stream_writer_copy,
-                        keygen_copy,
-                        kv_copy,
-                        log_prefix_copy,
+                    // get result of keygen
+                    let secret_key_share = keygen::execute_keygen(
+                        keygen_receiver,
+                        stream_out,
+                        &uids,
+                        threshold,
+                        my_index,
+                        "log:".to_owned(),
                     )
-                    .await
-                    {
-                        println!("keygen failure: {:?}", e);
-                        return;
-                    }
+                    .await;
+                    let _ = aggregator_sender.send(secret_key_share);
+                    return;
                 });
             }
 
             // spawn a router thread
             tokio::spawn(async move {
-                let mut error = false;
-                while !error {
-                    let msg_data = external_in_stream.next().await;
-
-                    if msg_data.is_none() {
-                        println!("Error at receiving external in stream: None");
-                        error = true;
-                        continue;
+                match route_messages(&mut stream_in, keygen_senders).await {
+                    Err(e) => {
+                        println!("Error at Keygen message router: {}", e);
                     }
-
-                    let msg_data = msg_data.unwrap();
-                    if msg_data.is_err() {
-                        println!("Error at receiving external in stream: Error");
-                        error = true;
-                        continue;
-                    }
-
-                    let msg_data = msg_data.unwrap().data;
-                    // I wish I could do `if !let` https://github.com/rust-lang/rfcs/pull/1303
-                    if msg_data.is_none() {
-                        println!("WARNING: ignore incoming msg: missing `data` field");
-                        continue;
-                    }
-                    let traffic = match msg_data.unwrap() {
-                        proto::message_in::Data::Traffic(t) => t,
-                        _ => {
-                            println!(
-                                "WARNING: ignore incoming msg: expect `data` to be TrafficIn type"
-                            );
-                            continue;
-                        }
-                    };
-                    // TODO: find out which one of my shares is addressed in this message and its tofn index
-                    // let payload: MsgMeta = bincode::deserialize(&traffic.payload).unwrap();
-                    let my_share_index: usize = 0;
-                    let _ = internal_writers[my_share_index].send(Some(traffic)).await;
+                    _ => {}
                 }
+                return;
             });
+
+            //  wait all keygen threads and aggregare secret key shares
+            let secret_key_shares =
+                match keygen::aggregate_secret_key_shares(aggregator_receivers, my_share_count)
+                    .await
+                {
+                    Err(e) => {
+                        println!(
+                            "Error at Keygen secret key aggregation. Unreserving key: {:?}",
+                            e
+                        );
+                        kv.unreserve_key(key_uid_reservation).await;
+                        return;
+                    }
+                    Ok(secret_key_shares) => secret_key_shares,
+                };
+            // TODO: gather all secret key shares and add to kv store
+            // for secret_key_share in secret_key_shares {
+            let secret_key_share = secret_key_shares[0].clone().unwrap();
+            let pubkey = secret_key_share.ecdsa_public_key.get_element().serialize(); // bitcoin-style serialization
+            let kv_data: (SecretKeyShare, Vec<String>) =
+                (secret_key_share, keygen_init.party_uids.clone());
+            match kv.put(key_uid_reservation, kv_data).await {
+                Err(e) => {
+                    println!("Error at inserting secret key in KV: {}", e);
+                    return;
+                }
+                _ => {}
+            }
+            // serialize generated public key and send to client
+            match stream_out_sender
+                .send(Ok(proto::MessageOut::new_keygen_result(&pubkey)))
+                .await
+            {
+                Err(e) => {
+                    println!("Error at sending Public Key to stream: {}", e);
+                    return;
+                }
+                _ => {}
+            }
+            return;
         });
 
-        Ok(Response::new(external_out_stream_reader))
+        Ok(Response::new(stream_out_reader))
     }
 
     async fn sign(
