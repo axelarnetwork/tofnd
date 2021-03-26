@@ -8,6 +8,7 @@ use crate::TofndError;
 use futures_util::StreamExt;
 use tokio::sync::mpsc;
 
+// TODO: use the same execute_keygen for sign. We keep this not to break sign.
 pub(super) async fn execute_protocol_sign(
     protocol: &mut impl Protocol,
     in_stream: &mut tonic::Streaming<proto::MessageIn>,
