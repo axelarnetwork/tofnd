@@ -2,7 +2,7 @@ use super::*;
 
 // testdir creates a test directory at $TMPDIR.
 // Mac: /var/folders/v4/x_j3jj7d6ql4gjdf7b7jvjhm0000gn/T/testdir-of-$(USER)
-// Linux: /tmp 
+// Linux: /tmp
 // Windows: /data/local/tmp
 // https://doc.rust-lang.org/std/env/fn.temp_dir.html#unix
 use testdir::testdir;

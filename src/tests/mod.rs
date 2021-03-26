@@ -16,7 +16,7 @@ use crate::proto;
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use testdir::testdir;
 
 lazy_static::lazy_static! {
@@ -102,7 +102,7 @@ async fn restart_one_party() {
     }
 }
 
-async fn init_parties(share_count: usize, testdir: &PathBuf) -> (Vec<TofndParty>, Vec<String>) {
+async fn init_parties(share_count: usize, testdir: &Path) -> (Vec<TofndParty>, Vec<String>) {
     let mut parties = Vec::with_capacity(share_count);
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290

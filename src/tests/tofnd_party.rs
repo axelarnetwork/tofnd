@@ -1,7 +1,7 @@
 use super::{mock::SenderReceiver, Deliverer, Party};
 use crate::{addr, gg20, proto};
 use std::convert::TryFrom;
-use std::path::PathBuf;
+use std::path::Path;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
@@ -16,7 +16,7 @@ pub(super) struct TofndParty {
 }
 
 impl TofndParty {
-    pub(super) async fn new(index: usize, testdir: &PathBuf) -> Self {
+    pub(super) async fn new(index: usize, testdir: &Path) -> Self {
         let db_name = format!("test-key-{:02}", index);
         let db_path = testdir.join(db_name);
         let db_path = db_path.to_str().unwrap();
