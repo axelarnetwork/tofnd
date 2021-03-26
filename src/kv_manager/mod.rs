@@ -14,10 +14,10 @@ const DEFAULT_RESERV: &str = "";
 // "actor" pattern (KV is the "handle"): https://ryhl.io/blog/actors-with-tokio/
 // see also https://tokio.rs/tokio/tutorial/channels
 #[derive(Clone)]
-pub struct KV<V> {
+pub struct Kv<V> {
     sender: mpsc::Sender<Command<V>>,
 }
-impl<V: 'static> KV<V>
+impl<V: 'static> Kv<V>
 where
     V: Debug + Send + Sync + Serialize + DeserializeOwned,
 {

@@ -1,7 +1,7 @@
 use tofn::protocol::gg20::keygen::SecretKeyShare;
 
 use super::proto;
-use crate::kv_manager::KV;
+use crate::kv_manager::Kv;
 
 // tonic cruft
 use tokio::sync::mpsc;
@@ -11,20 +11,20 @@ use tonic::{Request, Response, Status};
 // use futures_util::StreamExt;
 
 // TODO don't store party_uids in this daemon!
-type KeySharesKV = KV<(SecretKeyShare, Vec<String>)>; // (secret_key_share, all_party_uids)
+type KeySharesKv = Kv<(SecretKeyShare, Vec<String>)>; // (secret_key_share, all_party_uids)
 
-struct GG20Service {
-    kv: KeySharesKV,
+struct Gg20Service {
+    kv: KeySharesKv,
 }
 
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
-    GG20Service {
-        kv: KeySharesKV::new(),
+    Gg20Service {
+        kv: KeySharesKv::new(),
     }
 }
 
 #[tonic::async_trait]
-impl proto::gg20_server::Gg20 for GG20Service {
+impl proto::gg20_server::Gg20 for Gg20Service {
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
     type KeygenStream = mpsc::Receiver<Result<proto::MessageOut, Status>>;
     type SignStream = Self::KeygenStream;
@@ -122,18 +122,18 @@ impl proto::MessageOut {
 
 #[cfg(test)]
 pub(super) mod tests {
-    use super::{GG20Service, KeySharesKV};
+    use super::{Gg20Service, KeySharesKv};
     use crate::proto;
 
     #[cfg(test)]
     pub fn with_db_name(db_name: &str) -> impl proto::gg20_server::Gg20 {
-        GG20Service {
-            kv: KeySharesKV::with_db_name(db_name),
+        Gg20Service {
+            kv: KeySharesKv::with_db_name(db_name),
         }
     }
 
     #[cfg(test)]
     pub fn get_db_path(name: &str) -> std::path::PathBuf {
-        KeySharesKV::get_db_path(name)
+        KeySharesKv::get_db_path(name)
     }
 }

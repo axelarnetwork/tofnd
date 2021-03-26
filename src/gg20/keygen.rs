@@ -1,6 +1,6 @@
 use tofn::protocol::gg20::keygen::{validate_params, ECPoint, Keygen, SecretKeyShare};
 
-use super::{proto, protocol, KeySharesKV};
+use super::{proto, protocol, KeySharesKv};
 use crate::TofndError;
 
 // tonic cruft
@@ -10,7 +10,7 @@ use tokio::sync::mpsc;
 pub(super) async fn execute_keygen(
     stream: &mut tonic::Streaming<proto::MessageIn>,
     mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-    mut kv: KeySharesKV,
+    mut kv: KeySharesKv,
 ) -> Result<(), TofndError> {
     // keygen init
     let msg_type = stream
