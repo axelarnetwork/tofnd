@@ -26,7 +26,9 @@ RUN rustup component add rustfmt
 
 # build tofnd
 RUN cargo build --release
-RUN --mount=type=ssh cargo install --path .
+
+# use --locked for CI builds: https://doc.rust-lang.org/cargo/commands/cargo-install.html#manifest-options
+RUN --mount=type=ssh cargo install --locked --path .
 
 FROM debian:buster-slim as runner
 
