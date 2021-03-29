@@ -1,5 +1,5 @@
 use tofn::protocol::gg20::keygen::{
-    validate_params, CommonInfo, Keygen, MsgMeta, SecretKeyShare, ShareInfo,
+    validate_params, CommonInfo, Keygen, SecretKeyShare, ShareInfo,
 };
 
 use protocol::TofndP2pMsg;
