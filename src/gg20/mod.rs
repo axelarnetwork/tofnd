@@ -96,6 +96,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 // make copies to pass to execute keygen thread
                 let stream_out = stream_out_sender.clone();
                 let uids = keygen_init.party_uids.clone();
+                let shares = keygen_init.party_share_counts.clone();
                 let threshold = keygen_init.threshold;
                 let my_index = keygen_init.my_index;
                 tokio::spawn(async move {
@@ -104,6 +105,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                         keygen_receiver,
                         stream_out,
                         &uids,
+                        &shares,
                         threshold,
                         my_index,
                         "log:".to_owned(),

@@ -117,6 +117,7 @@ pub(super) async fn execute_keygen(
     channel: mpsc::Receiver<Option<proto::TrafficIn>>,
     mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
+    party_share_counts: &[u32],
     threshold: usize,
     my_index: usize,
     log_prefix: String,
@@ -131,6 +132,7 @@ pub(super) async fn execute_keygen(
         channel,
         &mut msg_sender,
         &party_uids,
+        &party_share_counts,
         &log_prefix,
     )
     .await

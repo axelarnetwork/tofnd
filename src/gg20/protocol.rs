@@ -105,6 +105,7 @@ pub(super) async fn execute_protocol(
     mut in_channel: mpsc::Receiver<Option<proto::TrafficIn>>,
     out_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
+    party_share_counts: &[u32],
     log_prefix: &str,
 ) -> Result<(), TofndError> {
     println!("{} protocol: begin", log_prefix);
