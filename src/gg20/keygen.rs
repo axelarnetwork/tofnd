@@ -2,6 +2,8 @@ use tofn::protocol::gg20::keygen::{
     validate_params, CommonInfo, Keygen, MsgMeta, SecretKeyShare, ShareInfo,
 };
 
+use protocol::TofndP2pMsg;
+
 #[derive(Clone)]
 pub struct PartyInfo {
     common: CommonInfo,
@@ -99,14 +101,13 @@ pub(super) async fn route_messages(
                 continue;
             }
         };
-        // TODO: find out which one of my shares is addressed in this message and its tofn index
-        let payload: MsgMeta = bincode::deserialize(&traffic.payload).unwrap();
         if traffic.is_broadcast {
             for i in 0..out_channels.len() {
                 let _ = out_channels[i].send(Some(traffic.clone())).await;
             }
         } else {
-            let my_share_index: usize = 0;
+            let tofnd_msg: TofndP2pMsg = bincode::deserialize(&traffic.payload)?;
+            let my_share_index: usize = tofnd_msg.subindex;
             let _ = out_channels[my_share_index].send(Some(traffic)).await;
         }
     }
