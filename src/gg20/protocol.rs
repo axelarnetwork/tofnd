@@ -8,6 +8,15 @@ use crate::TofndError;
 use futures_util::StreamExt;
 use tokio::sync::mpsc;
 
+use serde::{Deserialize, Serialize};
+
+// final output of keygen
+#[derive(Serialize, Deserialize)]
+pub struct TofndP2pMsg {
+    // TODO: &`a[u8]
+    pub payload: Vec<u8>,
+    pub subindex: usize,
+}
 
 fn map_tofnd_to_tofn_idx(tofnd_index: usize, party_share_counts: &[u32]) -> u32 {
     party_share_counts[..=tofnd_index].iter().sum()
