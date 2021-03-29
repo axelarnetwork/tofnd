@@ -8,6 +8,22 @@ use crate::TofndError;
 use futures_util::StreamExt;
 use tokio::sync::mpsc;
 
+
+fn map_tofnd_to_tofn_idx(tofnd_index: usize, party_share_counts: &[u32]) -> u32 {
+    party_share_counts[..=tofnd_index].iter().sum()
+}
+
+fn map_tofn_to_tofnd_idx(tofn_index: usize, party_share_counts: &[u32]) -> Option<(usize, usize)> {
+    let mut sum: u32 = 0;
+    for (tofnd_index, count) in party_share_counts.into_iter().enumerate() {
+        sum += count;
+        if tofn_index < sum as usize {
+            return Some((tofnd_index, tofn_index - (sum - count) as usize));
+        }
+    }
+    None
+}
+
 // TODO: use the same execute_keygen for sign. We keep this not to break sign.
 pub(super) async fn execute_protocol_sign(
     protocol: &mut impl Protocol,
@@ -143,4 +159,47 @@ pub(super) async fn execute_protocol(
     }
     println!("{} protocol: end", log_prefix);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn tofn_to_tofnd() {
+        let v = vec![1, 2, 3];
+        let test_cases = vec![
+            (0, Some((0, 0))),
+            (1, Some((1, 0))),
+            (2, Some((1, 1))),
+            (3, Some((2, 0))),
+            (4, Some((2, 1))),
+            (5, Some((2, 2))),
+            (6, None),
+        ];
+        let v2 = vec![3, 2, 1];
+        let test_cases_2 = vec![
+            (0, Some((0, 0))),
+            (1, Some((0, 1))),
+            (2, Some((0, 2))),
+            (3, Some((1, 0))),
+            (4, Some((1, 1))),
+            (5, Some((2, 0))),
+            (6, None),
+        ];
+        for t in test_cases {
+            assert_eq!(map_tofn_to_tofnd_idx(t.0, &v), t.1);
+        }
+        for t in test_cases_2 {
+            assert_eq!(map_tofn_to_tofnd_idx(t.0, &v2), t.1);
+        }
+    }
+
+    #[test]
+    fn tofnd_to_tofn() {
+        let v = vec![1, 2, 3, 4, 5, 6];
+        let test_cases = vec![(0, 1), (1, 3), (2, 6), (3, 10), (4, 15), (5, 21)];
+        for t in test_cases {
+            assert_eq!(map_tofnd_to_tofn_idx(t.0, &v), t.1);
+        }
+    }
 }

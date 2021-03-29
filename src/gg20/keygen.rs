@@ -73,24 +73,6 @@ pub(super) async fn aggregate_secret_key_shares(
     Ok(secret_key_shares)
 }
 
-fn map_tofnd_to_tofn_idx(tofnd_index: usize, party_share_counts: Vec<usize>) -> usize {
-    party_share_counts[..=tofnd_index].iter().sum()
-}
-
-pub fn map_tofn_to_tofnd_idx(
-    tofn_index: usize,
-    party_share_counts: Vec<usize>,
-) -> Option<(usize, usize)> {
-    let mut sum: usize = 0;
-    for (tofnd_index, count) in party_share_counts.into_iter().enumerate() {
-        sum += count;
-        if tofn_index < sum {
-            return Some((tofnd_index, tofn_index - (sum - count)));
-        }
-    }
-    None
-}
-
 pub(super) async fn route_messages(
     in_stream: &mut tonic::Streaming<proto::MessageIn>,
     mut out_channels: Vec<mpsc::Sender<Option<proto::TrafficIn>>>,
@@ -210,47 +192,4 @@ pub fn keygen_sanitize_args(
         my_index,
         threshold,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn tofn_to_tofnd() {
-        let v = vec![1, 2, 3];
-        let test_cases = vec![
-            (0, Some((0, 0))),
-            (1, Some((1, 0))),
-            (2, Some((1, 1))),
-            (3, Some((2, 0))),
-            (4, Some((2, 1))),
-            (5, Some((2, 2))),
-            (6, None),
-        ];
-        let v2 = vec![3, 2, 1];
-        let test_cases_2 = vec![
-            (0, Some((0, 1))),
-            (1, Some((0, 2))),
-            (2, Some((0, 3))),
-            (3, Some((1, 1))),
-            (4, Some((1, 2))),
-            (5, Some((2, 1))),
-            (6, None),
-        ];
-        for t in test_cases {
-            assert_eq!(map_tofn_to_tofnd_idx(t.0, v.to_owned()), t.1);
-        }
-        for t in test_cases_2 {
-            assert_eq!(map_tofn_to_tofnd_idx(t.0, v2.to_owned()), t.1);
-        }
-    }
-
-    #[test]
-    fn tofnd_to_tofn() {
-        let v = vec![1, 2, 3, 4, 5, 6];
-        let test_cases = vec![(0, 1), (1, 3), (2, 6), (3, 10), (4, 15), (5, 21)];
-        for t in test_cases {
-            assert_eq!(map_tofnd_to_tofn_idx(t.0, v.to_owned()), t.1);
-        }
-    }
 }
