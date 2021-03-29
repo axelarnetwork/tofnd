@@ -185,31 +185,54 @@ mod tests {
     use super::*;
     #[test]
     fn tofn_to_tofnd() {
-        let v = vec![1, 2, 3];
-        let test_cases = vec![
-            (0, Some((0, 0))),
-            (1, Some((1, 0))),
-            (2, Some((1, 1))),
-            (3, Some((2, 0))),
-            (4, Some((2, 1))),
-            (5, Some((2, 2))),
-            (6, None),
+        struct Test {
+            v: Vec<u32>,
+            test_cases: Vec<(usize, Option<(usize, usize)>)>,
+        };
+
+        let tests = vec![
+            Test {
+                v: vec![1, 2, 3],
+                test_cases: vec![
+                    (0, Some((0, 0))),
+                    (1, Some((1, 0))),
+                    (2, Some((1, 1))),
+                    (3, Some((2, 0))),
+                    (4, Some((2, 1))),
+                    (5, Some((2, 2))),
+                    (6, None),
+                ],
+            },
+            Test {
+                v: vec![3, 2, 1],
+                test_cases: vec![
+                    (0, Some((0, 0))),
+                    (1, Some((0, 1))),
+                    (2, Some((0, 2))),
+                    (3, Some((1, 0))),
+                    (4, Some((1, 1))),
+                    (5, Some((2, 0))),
+                    (6, None),
+                ],
+            },
+            Test {
+                v: vec![1, 1, 1, 1, 1, 1],
+                test_cases: vec![
+                    (0, Some((0, 0))),
+                    (1, Some((1, 0))),
+                    (2, Some((2, 0))),
+                    (3, Some((3, 0))),
+                    (4, Some((4, 0))),
+                    (5, Some((5, 0))),
+                    (6, None),
+                ],
+            },
         ];
-        let v2 = vec![3, 2, 1];
-        let test_cases_2 = vec![
-            (0, Some((0, 0))),
-            (1, Some((0, 1))),
-            (2, Some((0, 2))),
-            (3, Some((1, 0))),
-            (4, Some((1, 1))),
-            (5, Some((2, 0))),
-            (6, None),
-        ];
-        for t in test_cases {
-            assert_eq!(map_tofn_to_tofnd_idx(t.0, &v), t.1);
-        }
-        for t in test_cases_2 {
-            assert_eq!(map_tofn_to_tofnd_idx(t.0, &v2), t.1);
+
+        for t in tests {
+            for case in t.test_cases {
+                assert_eq!(map_tofn_to_tofnd_idx(case.0, &t.v), case.1);
+            }
         }
     }
 
