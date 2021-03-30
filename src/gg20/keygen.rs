@@ -188,14 +188,22 @@ pub fn keygen_sanitize_args(
         .find(|(_index, id)| **id == my_uid)
         .ok_or("lost my uid after sorting uids")?
         .0;
+
+    // Because usize::try_from(i) may fail and we want to treat this error, we
+    // use `Iterator::collect()`'s implementation that returns a
+    // Iterator<Result<T,E>> into a Result<Vec<T>,E>.
+    // https://doc.rust-lang.org/stable/rust-by-example/error/iter_result.html#fail-the-entire-operation-with-collect
+    let party_share_counts: Result<Vec<usize>, _> = args
+        .party_share_counts
+        .into_iter()
+        // Question: try_from returns a result but can't be handled inside map()
+        .map(|i| usize::try_from(i))
+        .collect();
+
     Ok(KeygenInitSanitized {
         new_key_uid: args.new_key_uid,
         party_uids: args.party_uids,
-        party_share_counts: args
-            .party_share_counts
-            .iter()
-            .map(|i| *i as usize)
-            .collect(),
+        party_share_counts: party_share_counts?,
         my_index,
         threshold,
     })
