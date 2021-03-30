@@ -154,7 +154,7 @@ pub(super) async fn execute_protocol(
                             i
                         ))?;
                     let p2p = bincode::serialize(&TofndP2pMsg {
-                        payload: p2p.to_vec(),
+                        payload: p2p.clone(),
                         subindex: tofnd_subindex,
                     })?;
                     out_sender
