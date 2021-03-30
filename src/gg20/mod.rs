@@ -81,7 +81,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 .unwrap();
 
             // find my share count
-            let my_share_count = keygen_init.my_shares();
+            let my_share_count = keygen_init.my_shares_count();
 
             // create in and out channels for each share, and spawn as many threads
             let mut keygen_senders = Vec::new();
