@@ -1,11 +1,31 @@
 use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::Sign};
 
-use super::{proto, protocol, KeySharesKv};
+use super::{proto, protocol, KeySharesKv, PartyInfo};
 use crate::TofndError;
 
 // tonic cruft
 use futures_util::StreamExt;
 use tokio::sync::mpsc;
+
+pub(super) fn get_secret_key_share(
+    party_info: PartyInfo,
+    share_index: usize,
+) -> Result<SecretKeyShare, TofndError> {
+    let sks = SecretKeyShare {
+        share_count: party_info.common.share_count,
+        threshold: party_info.common.threshold,
+        my_index: party_info.common.my_index,
+        my_dk: party_info.shares[share_index].my_dk.clone(),
+        my_ek: party_info.shares[share_index].my_ek.clone(),
+        my_zkp: party_info.shares[share_index].my_zkp.clone(),
+        ecdsa_public_key: party_info.common.ecdsa_public_key,
+        my_ecdsa_secret_key_share: party_info.shares[share_index].my_ecdsa_secret_key_share,
+        all_ecdsa_public_key_shares: party_info.common.all_ecdsa_public_key_shares,
+        all_eks: party_info.common.all_eks,
+        all_zkps: party_info.common.all_zkps,
+    };
+    return Ok(sks);
+}
 
 pub(super) async fn execute_sign(
     stream: &mut tonic::Streaming<proto::MessageIn>,
