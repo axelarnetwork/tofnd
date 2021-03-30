@@ -18,7 +18,7 @@ pub struct TofndP2pMsg {
     pub subindex: usize,
 }
 
-fn map_tofnd_to_tofn_idx(
+pub fn map_tofnd_to_tofn_idx(
     tofnd_index: usize,
     tofnd_subindex: usize,
     party_share_counts: &[usize],

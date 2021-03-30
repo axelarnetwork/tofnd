@@ -1,6 +1,7 @@
 use tofn::protocol::gg20::keygen::SecretKeyShare;
 
 use self::keygen::{get_party_info, route_messages, PartyInfo};
+use self::protocol::map_tofnd_to_tofn_idx;
 
 use super::proto;
 use crate::{kv_manager::Kv, TofndError};
@@ -93,8 +94,10 @@ impl proto::gg20_server::Gg20 for Gg20Service {
             // create in and out channels for each share, and spawn as many threads
             let mut keygen_senders = Vec::new();
             let mut aggregator_receivers = Vec::new();
+            let my_starting_tofn_index =
+                map_tofnd_to_tofn_idx(keygen_init.my_index, 0, &keygen_init.party_share_counts);
 
-            for _ in 0..my_share_count {
+            for my_tofnd_subindex in 0..my_share_count {
                 let (keygen_sender, keygen_receiver) = mpsc::channel(4);
                 let (aggregator_sender, aggregator_receiver) = oneshot::channel();
                 keygen_senders.push(keygen_sender);
@@ -105,7 +108,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 let uids = keygen_init.party_uids.clone();
                 let shares = keygen_init.party_share_counts.clone();
                 let threshold = keygen_init.threshold;
-                let my_index = keygen_init.my_index;
+                let my_tofn_index = my_starting_tofn_index + my_tofnd_subindex;
                 tokio::spawn(async move {
                     // get result of keygen
                     let secret_key_share = keygen::execute_keygen(
@@ -114,7 +117,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                         &uids,
                         &shares,
                         threshold,
-                        my_index,
+                        my_tofn_index,
                         "log:".to_owned(),
                     )
                     .await;
