@@ -118,11 +118,8 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 
             // spawn a router thread
             tokio::spawn(async move {
-                match route_messages(&mut stream_in, keygen_senders).await {
-                    Err(e) => {
-                        println!("Error at Keygen message router: {}", e);
-                    }
-                    _ => {}
+                if let Err(e) = route_messages(&mut stream_in, keygen_senders).await {
+                    println!("Error at Keygen message router: {}", e);
                 }
                 return;
             });
@@ -148,23 +145,20 @@ impl proto::gg20_server::Gg20 for Gg20Service {
             let pubkey = secret_key_share.ecdsa_public_key.get_element().serialize(); // bitcoin-style serialization
             let kv_data: (SecretKeyShare, Vec<String>) =
                 (secret_key_share, keygen_init.party_uids.clone());
-            match kv.put(key_uid_reservation, kv_data).await {
-                Err(e) => {
-                    println!("Error at inserting secret key in KV: {}", e);
-                    return;
-                }
-                _ => {}
+
+            // try to put data inside kv store
+            if let Err(e) = kv.put(key_uid_reservation, kv_data).await {
+                println!("Error at inserting secret key in KV: {}", e);
+                return;
             }
+
             // serialize generated public key and send to client
-            match stream_out_sender
+            if let Err(e) = stream_out_sender
                 .send(Ok(proto::MessageOut::new_keygen_result(&pubkey)))
                 .await
             {
-                Err(e) => {
-                    println!("Error at sending Public Key to stream: {}", e);
-                    return;
-                }
-                _ => {}
+                println!("Error at sending Public Key to stream: {}", e);
+                return;
             }
             return;
         });
