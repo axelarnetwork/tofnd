@@ -15,6 +15,7 @@ use futures_util::StreamExt;
 
 pub(super) fn get_party_info(
     secret_key_shares: Vec<Option<SecretKeyShare>>,
+    uids: Vec<String>,
 ) -> Result<PartyInfo, TofndError> {
     let s = secret_key_shares[0].clone().unwrap();
     let common = CommonInfo {
@@ -23,13 +24,14 @@ pub(super) fn get_party_info(
         all_ecdsa_public_key_shares: s.all_ecdsa_public_key_shares,
         all_eks: s.all_eks,
         all_zkps: s.all_zkps,
+        my_index: s.my_index,
+        uids,
+        share_count: s.share_count,
     };
     let mut shares = Vec::new();
     for share in secret_key_shares {
         let s = share.ok_or(format!("A secret key share was None"))?;
         shares.push(ShareInfo {
-            share_count: s.share_count,
-            my_index: s.my_index,
             my_dk: s.my_dk,
             my_ek: s.my_ek,
             my_zkp: s.my_zkp,
