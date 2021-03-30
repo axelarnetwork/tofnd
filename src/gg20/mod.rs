@@ -1,6 +1,6 @@
-use tofn::protocol::gg20::keygen::SecretKeyShare;
+use tofn::protocol::gg20::keygen::{CommonInfo, SecretKeyShare, ShareInfo};
 
-use self::keygen::{get_party_info, route_messages, PartyInfo};
+use self::keygen::{get_party_info, route_messages};
 use self::protocol::map_tofnd_to_tofn_idx;
 
 use super::proto;
@@ -9,6 +9,14 @@ use crate::{kv_manager::Kv, TofndError};
 // tonic cruft
 use tokio::sync::{mpsc, oneshot};
 use tonic::{Request, Response, Status};
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartyInfo {
+    pub common: CommonInfo,
+    pub shares: Vec<ShareInfo>,
+}
 // use std::pin::Pin;
 // use futures_core::Stream;
 // use futures_util::StreamExt;

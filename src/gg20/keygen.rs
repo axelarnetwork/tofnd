@@ -4,13 +4,7 @@ use tofn::protocol::gg20::keygen::{
 
 use protocol::TofndP2pMsg;
 
-#[derive(Clone)]
-pub struct PartyInfo {
-    common: CommonInfo,
-    shares: Vec<ShareInfo>,
-}
-
-use super::{proto, protocol};
+use super::{proto, protocol, PartyInfo};
 use crate::TofndError;
 
 use tofn::fillvec::new_vec_none;
