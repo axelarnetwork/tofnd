@@ -68,7 +68,7 @@ pub(super) async fn aggregate_secret_key_shares(
     let mut secret_key_shares = new_vec_none(my_share_count);
     for (i, aggregator) in aggregator_receivers.into_iter().enumerate() {
         let res = aggregator.await??;
-        secret_key_shares.insert(i, Some(res));
+        secret_key_shares[i] = Some(res);
     }
     Ok(secret_key_shares)
 }
