@@ -18,8 +18,13 @@ pub struct TofndP2pMsg {
     pub subindex: usize,
 }
 
-fn map_tofnd_to_tofn_idx(tofnd_index: usize, party_share_counts: &[u32]) -> u32 {
-    party_share_counts[..=tofnd_index].iter().sum()
+fn map_tofnd_to_tofn_idx(
+    tofnd_index: usize,
+    tofnd_subindex: usize,
+    party_share_counts: &[usize],
+) -> usize {
+    let s: usize = party_share_counts[..tofnd_index].iter().sum();
+    s + tofnd_subindex
 }
 
 fn map_tofn_to_tofnd_idx(
@@ -234,17 +239,31 @@ mod tests {
 
         for t in tests {
             for case in t.test_cases {
-                assert_eq!(map_tofn_to_tofnd_idx(case.0, &t.v), case.1);
+                let tofn = case.0;
+                let tofnd = case.1;
+                assert_eq!(map_tofn_to_tofnd_idx(tofn, &t.v), tofnd);
+                if !tofnd.is_none() {
+                    let tofnd = tofnd.unwrap();
+                    assert_eq!(map_tofnd_to_tofn_idx(tofnd.0, tofnd.1, &t.v), tofn);
+                }
             }
         }
     }
 
     #[test]
     fn tofnd_to_tofn() {
-        let v = vec![1, 2, 3, 4, 5, 6];
-        let test_cases = vec![(0, 1), (1, 3), (2, 6), (3, 10), (4, 15), (5, 21)];
+        let v = vec![1, 2, 3];
+        let test_cases = vec![
+            ((0, 0), 0),
+            ((1, 0), 1),
+            ((1, 1), 2),
+            ((2, 0), 3),
+            ((2, 1), 4),
+            ((2, 2), 5),
+        ];
         for t in test_cases {
-            assert_eq!(map_tofnd_to_tofn_idx(t.0, &v), t.1);
+            assert_eq!(map_tofnd_to_tofn_idx(t.0 .0, t.0 .1, &v), t.1);
+            assert_eq!(map_tofn_to_tofnd_idx(t.1, &v), Some((t.0 .0, t.0 .1)));
         }
     }
 }
