@@ -3,7 +3,7 @@ use tofn::protocol::gg20::keygen::SecretKeyShare;
 use self::keygen::{get_party_info, route_messages, PartyInfo};
 
 use super::proto;
-use crate::kv_manager::Kv;
+use crate::{kv_manager::Kv, TofndError};
 
 // tonic cruft
 use tokio::sync::{mpsc, oneshot};
@@ -64,6 +64,13 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         let mut kv = self.kv.clone();
 
         // spawn a master thread to immediately return from gRPC
+        // Inside this master thread, we do the following:
+        // 1. Receive KeygenInit, open message, sanitize arguments
+        // 2. Reserve the key in kv store
+        // 3. Spawn N keygen threads to execute the protocol in parallel; one of each of our shares to
+        // 4. Spawn 1 router thread to route messages from axelar core to the respective keygen thread
+        // 5. Wait for all keygen threads to finish and aggregate all SecretKeyShares
+        // 6. Create a struct that contains all common and share-spacific information for out party and add it into the KV store
         tokio::spawn(async move {
             // get KeygenInit message from stream
             let keygen_init = match keygen::handle_keygen_init(&mut stream_in).await {
@@ -131,7 +138,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 {
                     Err(e) => {
                         println!(
-                            "Error at Keygen secret key aggregation. Unreserving key: {:?}",
+                            "Error at Keygen secret key aggregation. Unreserving key: {}",
                             e
                         );
                         kv.unreserve_key(key_uid_reservation).await;

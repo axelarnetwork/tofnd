@@ -63,6 +63,8 @@ pub(super) async fn handle_keygen_init(
     keygen_sanitize_args(keygen_init)
 }
 
+// TODO: This is essentially a waiting group. Since what we are doing is trivial
+// for now, we can keep as such but consider using a library in the future.
 pub(super) async fn aggregate_secret_key_shares(
     aggregator_receivers: Vec<Receiver<Result<SecretKeyShare, TofndError>>>,
     my_share_count: usize,
@@ -101,6 +103,10 @@ pub(super) async fn route_messages(
                 continue;
             }
         };
+        // if message is broadcast, send it to all keygen threads.
+        // if it's a p2p message, send it only to the corresponding keygen. In
+        // case of p2p we have to also wrap the share we are refering to, so we
+        // unwrap the message and read the 'subindex' field.
         if traffic.is_broadcast {
             for i in 0..out_channels.len() {
                 let _ = out_channels[i].send(Some(traffic.clone())).await;
