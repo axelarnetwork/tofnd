@@ -130,7 +130,7 @@ pub(super) async fn execute_keygen(
     log_prefix: String,
 ) -> Result<SecretKeyShare, TofndError> {
     // keygen execute
-    let mut keygen = Keygen::new(party_uids.len(), threshold, my_index)?;
+    let mut keygen = Keygen::new(party_share_counts.iter().sum(), threshold, my_index)?;
     // unreserve new_key_uid on failure
     // too bad try blocks are not yet stable in Rust https://doc.rust-lang.org/nightly/unstable-book/language-features/try-blocks.html
     // instead I'll use the less-readable `and_then` https://doc.rust-lang.org/std/result/enum.Result.html#method.and_then
