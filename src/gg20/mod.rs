@@ -22,7 +22,7 @@ pub struct PartyInfo {
 // use futures_util::StreamExt;
 
 // TODO don't store party_uids in this daemon!
-type KeySharesKv = Kv<(SecretKeyShare, Vec<String>)>; // (secret_key_share, all_party_uids)
+type KeySharesKv = Kv<PartyInfo>;
 
 struct Gg20Service {
     kv: KeySharesKv,
@@ -161,8 +161,14 @@ impl proto::gg20_server::Gg20 for Gg20Service {
             // for secret_key_share in secret_key_shares {
             let secret_key_share = secret_key_shares[0].clone().unwrap();
             let pubkey = secret_key_share.ecdsa_public_key.get_element().serialize(); // bitcoin-style serialization
-            let kv_data: (SecretKeyShare, Vec<String>) =
-                (secret_key_share, keygen_init.party_uids.clone());
+
+            // compine all keygen threads responses to a single struct
+            let kv_data = get_party_info(secret_key_shares, keygen_init.party_uids);
+            if kv_data.is_err() {
+                println!("Error at combing kv data: {:?}", kv_data.err());
+                return;
+            }
+            let kv_data = kv_data.unwrap();
 
             // try to put data inside kv store
             if let Err(e) = kv.put(key_uid_reservation, kv_data).await {

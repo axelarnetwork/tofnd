@@ -45,7 +45,13 @@ pub(super) async fn execute_sign(
             return Err(From::from("sign: first client message must be sign init"));
         }
     };
-    let (secret_key_share, all_party_uids) = kv.get(&sign_init.key_uid).await?;
+    // let (secret_key_share, all_party_uids) = kv.get(&sign_init.key_uid).await?;
+    let party_info = kv.get(&sign_init.key_uid).await?.clone();
+    let all_party_uids = party_info.common.uids.clone();
+
+    // TODO: pass and use the correct share index
+    let secret_key_share = get_secret_key_share(party_info, 0)?;
+
     let sign_init = sign_sanitize_args(sign_init, &secret_key_share, &all_party_uids)?;
 
     // TODO better logging
