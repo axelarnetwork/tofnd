@@ -22,12 +22,15 @@ fn map_tofnd_to_tofn_idx(tofnd_index: usize, party_share_counts: &[u32]) -> u32 
     party_share_counts[..=tofnd_index].iter().sum()
 }
 
-fn map_tofn_to_tofnd_idx(tofn_index: usize, party_share_counts: &[u32]) -> Option<(usize, usize)> {
-    let mut sum: u32 = 0;
+fn map_tofn_to_tofnd_idx(
+    tofn_index: usize,
+    party_share_counts: &[usize],
+) -> Option<(usize, usize)> {
+    let mut sum = 0;
     for (tofnd_index, count) in party_share_counts.into_iter().enumerate() {
         sum += count;
-        if tofn_index < sum as usize {
-            return Some((tofnd_index, tofn_index - (sum - count) as usize));
+        if tofn_index < sum {
+            return Some((tofnd_index, tofn_index - (sum - count)));
         }
     }
     None
@@ -114,7 +117,7 @@ pub(super) async fn execute_protocol(
     mut in_channel: mpsc::Receiver<Option<proto::TrafficIn>>,
     out_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
-    party_share_counts: &[u32],
+    party_share_counts: &[usize],
     log_prefix: &str,
 ) -> Result<(), TofndError> {
     println!("{} protocol: begin", log_prefix);
@@ -186,7 +189,7 @@ mod tests {
     #[test]
     fn tofn_to_tofnd() {
         struct Test {
-            v: Vec<u32>,
+            v: Vec<usize>,
             test_cases: Vec<(usize, Option<(usize, usize)>)>,
         };
 

@@ -118,7 +118,7 @@ pub(super) async fn execute_keygen(
     channel: mpsc::Receiver<Option<proto::TrafficIn>>,
     mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
-    party_share_counts: &[u32],
+    party_share_counts: &[usize],
     threshold: usize,
     my_index: usize,
     log_prefix: String,
@@ -152,7 +152,7 @@ pub(super) async fn execute_keygen(
 pub struct KeygenInitSanitized {
     pub new_key_uid: String,
     pub party_uids: Vec<String>,
-    pub party_share_counts: Vec<u32>,
+    pub party_share_counts: Vec<usize>,
     pub my_index: usize,
     pub threshold: usize,
 }
@@ -191,7 +191,11 @@ pub fn keygen_sanitize_args(
     Ok(KeygenInitSanitized {
         new_key_uid: args.new_key_uid,
         party_uids: args.party_uids,
-        party_share_counts: args.party_share_counts,
+        party_share_counts: args
+            .party_share_counts
+            .iter()
+            .map(|i| *i as usize)
+            .collect(),
         my_index,
         threshold,
     })
