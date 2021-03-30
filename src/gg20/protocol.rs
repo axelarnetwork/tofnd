@@ -167,18 +167,18 @@ pub(super) async fn execute_protocol(
         // collect incoming messages
         // println!("{}: wait for incoming messages...", log_prefix_round);
         while protocol.expecting_more_msgs_this_round() {
-            let traffic = in_channel
-                .next()
-                .await
-                .ok_or(format!(
-                    "{}: stream closed by client before protocol has completed",
+            let traffic = in_channel.next().await.ok_or(format!(
+                "{}: stream closed by client before protocol has completed",
+                log_prefix_round
+            ))?;
+            if traffic.is_none() {
+                println!(
+                    "{}: WARNING: ignore incoming msg: missing `data` field",
                     log_prefix_round
-                ))?
-                // Question: should we return an error here of just print a warning and continue?
-                .ok_or(format!(
-                    "{}: protocol was expecting a message, but None was reveived",
-                    log_prefix_round
-                ))?;
+                );
+                continue;
+            }
+            let traffic = traffic.unwrap();
             println!("{}: incoming msg received", log_prefix_round);
             protocol.set_msg_in(&traffic.payload)?;
         }
