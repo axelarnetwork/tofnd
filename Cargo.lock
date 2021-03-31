@@ -2194,6 +2194,7 @@ dependencies = [
 [[package]]
 name = "tofn"
 version = "0.1.0"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=feat/weighted-tss#51b428625297c185cd238a87354cb2617452c04b"
 dependencies = [
  "bincode",
  "curv 0.2.6",

@@ -32,7 +32,7 @@ fn map_tofn_to_tofnd_idx(
     party_share_counts: &[usize],
 ) -> Option<(usize, usize)> {
     let mut sum = 0;
-    for (tofnd_index, count) in party_share_counts.into_iter().enumerate() {
+    for (tofnd_index, count) in party_share_counts.iter().enumerate() {
         sum += count;
         if tofn_index < sum {
             return Some((tofnd_index, tofn_index - (sum - count)));
@@ -196,7 +196,7 @@ mod tests {
         struct Test {
             v: Vec<usize>,
             test_cases: Vec<(usize, Option<(usize, usize)>)>,
-        };
+        }
 
         let tests = vec![
             Test {
@@ -242,8 +242,7 @@ mod tests {
                 let tofn = case.0;
                 let tofnd = case.1;
                 assert_eq!(map_tofn_to_tofnd_idx(tofn, &t.v), tofnd);
-                if !tofnd.is_none() {
-                    let tofnd = tofnd.unwrap();
+                if let Some(tofnd) = tofnd {
                     assert_eq!(map_tofnd_to_tofn_idx(tofnd.0, tofnd.1, &t.v), tofn);
                 }
             }

@@ -1,10 +1,10 @@
-use tofn::protocol::gg20::keygen::{CommonInfo, SecretKeyShare, ShareInfo};
+use tofn::protocol::gg20::keygen::{CommonInfo, ShareInfo};
 
 use self::keygen::{get_party_info, route_messages};
 use self::protocol::map_tofnd_to_tofn_idx;
 
 use super::proto;
-use crate::{kv_manager::Kv, TofndError};
+use crate::kv_manager::Kv;
 
 // tonic cruft
 use tokio::sync::{mpsc, oneshot};
@@ -130,7 +130,6 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                     )
                     .await;
                     let _ = aggregator_sender.send(secret_key_share);
-                    return;
                 });
             }
 
@@ -139,7 +138,6 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 if let Err(e) = route_messages(&mut stream_in, keygen_senders).await {
                     println!("Error at Keygen message router: {}", e);
                 }
-                return;
             });
 
             //  wait all keygen threads and aggregare secret key shares
@@ -184,7 +182,6 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 println!("Error at sending Public Key to stream: {}", e);
                 return;
             }
-            return;
         });
 
         Ok(Response::new(stream_out_reader))

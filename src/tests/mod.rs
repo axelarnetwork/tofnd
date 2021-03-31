@@ -16,7 +16,7 @@ use crate::proto;
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
-use std::path::PathBuf;
+use std::path::Path;
 use testdir::testdir;
 
 lazy_static::lazy_static! {
@@ -30,7 +30,7 @@ lazy_static::lazy_static! {
 
 #[tokio::test]
 async fn basic_keygen_and_sign() {
-    let dir: PathBuf = testdir!();
+    let dir = testdir!();
 
     for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
         let (parties, party_uids, party_share_counts) = init_parties(*share_count, &dir).await;
@@ -118,7 +118,7 @@ async fn restart_one_party() {
 
 async fn init_parties(
     share_count: usize,
-    testdir: &PathBuf,
+    testdir: &Path,
 ) -> (Vec<TofndParty>, Vec<String>, Vec<u32>) {
     let mut parties = Vec::with_capacity(share_count);
 

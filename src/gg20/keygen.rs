@@ -30,7 +30,7 @@ pub(super) fn get_party_info(
     };
     let mut shares = Vec::new();
     for share in secret_key_shares {
-        let s = share.ok_or(format!("A secret key share was None"))?;
+        let s = share.ok_or("A secret key share was None")?;
         shares.push(ShareInfo {
             my_dk: s.my_dk,
             my_ek: s.my_ek,
@@ -104,8 +104,8 @@ pub(super) async fn route_messages(
         // case of p2p we have to also wrap the share we are refering to, so we
         // unwrap the message and read the 'subindex' field.
         if traffic.is_broadcast {
-            for i in 0..out_channels.len() {
-                let _ = out_channels[i].send(Some(traffic.clone())).await;
+            for out_channel in &mut out_channels {
+                let _ = out_channel.send(Some(traffic.clone())).await;
             }
         } else {
             let tofnd_msg: TofndP2pMsg = bincode::deserialize(&traffic.payload)?;
@@ -181,9 +181,9 @@ pub fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitiz
     // https://doc.rust-lang.org/stable/rust-by-example/error/iter_result.html#fail-the-entire-operation-with-collect
     let party_share_counts: Result<Vec<usize>, _> = args
         .party_share_counts
-        .into_iter()
+        .iter()
         // Question: try_from returns a result but can't be handled inside map()
-        .map(|i| usize::try_from(i))
+        .map(|i| usize::try_from(*i))
         .collect();
     let party_share_counts = party_share_counts?;
     let uids_len = args.party_uids.len();
