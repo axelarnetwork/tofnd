@@ -11,7 +11,14 @@ pub(super) fn get_secret_key_share(
     party_info: PartyInfo,
     share_index: usize,
 ) -> Result<SecretKeyShare, TofndError> {
-    let sks = SecretKeyShare {
+    if share_index >= party_info.shares.len() {
+        return Err(From::from(format!(
+            "Requested share {} is out of bounds {}",
+            share_index,
+            party_info.shares.len(),
+        )));
+    }
+    Ok(SecretKeyShare {
         share_count: party_info.common.share_count,
         threshold: party_info.common.threshold,
         my_index: party_info.common.my_index,
@@ -23,8 +30,7 @@ pub(super) fn get_secret_key_share(
         all_ecdsa_public_key_shares: party_info.common.all_ecdsa_public_key_shares,
         all_eks: party_info.common.all_eks,
         all_zkps: party_info.common.all_zkps,
-    };
-    return Ok(sks);
+    })
 }
 
 pub(super) async fn execute_sign(
