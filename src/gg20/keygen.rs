@@ -170,6 +170,26 @@ impl KeygenInitSanitized {
     }
 }
 
+// TODO: can we avoid to clone keys?
+fn aggregate_share_counts(keys: &[String], values: &[usize]) -> (Vec<String>, Vec<usize>) {
+    // create a hashmap to aggreagate all shares counts of all parties
+    let mut hashmap: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (key, value) in keys.iter().zip(values.iter()) {
+        let h = hashmap.entry(key.clone()).or_insert(0);
+        *h += value;
+    }
+
+    // create a sorted vec of pairs out of the hashmap
+    let mut pairs: Vec<(String, usize)> = hashmap
+        .into_iter()
+        .map(|(key, value)| (key, value))
+        .collect();
+    pairs.sort();
+
+    // return individual vectors
+    pairs.into_iter().unzip()
+}
+
 pub fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
@@ -188,36 +208,43 @@ pub fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitiz
         )));
     }
 
+    let (party_uids, party_share_counts) =
+        aggregate_share_counts(&args.party_uids, &party_share_counts);
     validate_params(shares_count, threshold, my_index)?;
-
-    /*
-    // TODO: decide how (and when) to handle potential faulty data.
-    // Commenting out for now
-
-    // sort party ids to get a deterministic ordering
-    // find my_index in the newly sorted list
-    // check for duplicate party ids
-    let old_len = args.party_uids.len();
-    let my_uid = args.party_uids[my_index].clone();
-    args.party_uids.sort_unstable();
-    args.party_uids.dedup();
-    if args.party_uids.len() != old_len {
-        return Err(From::from("duplicate party ids detected"));
-    }
-    let my_index = args
-        .party_uids
-        .iter()
-        .enumerate()
-        .find(|(_index, id)| **id == my_uid)
-        .ok_or("lost my uid after sorting uids")?
-        .0;
-    */
 
     Ok(KeygenInitSanitized {
         new_key_uid: args.new_key_uid,
-        party_uids: args.party_uids,
+        party_uids,
         party_share_counts,
         my_index,
         threshold,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let in_pairs = vec![
+            ("c".to_owned(), 1),
+            ("b".to_owned(), 2),
+            ("a".to_owned(), 3),
+            ("c".to_owned(), 1),
+            ("b".to_owned(), 3),
+            ("a".to_owned(), 2),
+        ];
+        let out_pairs = vec![
+            ("a".to_owned(), 5),
+            ("b".to_owned(), 5),
+            ("c".to_owned(), 2),
+        ];
+
+        let (in_keys, in_values): (Vec<String>, Vec<usize>) = in_pairs.into_iter().unzip();
+        let (out_keys, out_values) = out_pairs.into_iter().unzip();
+
+        let res = aggregate_share_counts(&in_keys, &in_values);
+        assert_eq!((out_keys, out_values), res);
+    }
 }
