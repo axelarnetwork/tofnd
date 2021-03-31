@@ -155,8 +155,8 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                     }
                     Ok(secret_key_shares) => secret_key_shares,
                 };
-            // TODO: gather all secret key shares and add to kv store
-            // for secret_key_share in secret_key_shares {
+
+            // get public key and put all secret key shares inside kv store
             let secret_key_share = secret_key_shares[0].clone().unwrap();
             let pubkey = secret_key_share.ecdsa_public_key.get_element().serialize(); // bitcoin-style serialization
 

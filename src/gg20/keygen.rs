@@ -174,23 +174,21 @@ pub fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitiz
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
-
-    // Because usize::try_from(i) may fail and we want to treat this error, we
-    // use `Iterator::collect()`'s implementation that returns a
-    // Iterator<Result<T,E>> into a Result<Vec<T>,E>.
-    // https://doc.rust-lang.org/stable/rust-by-example/error/iter_result.html#fail-the-entire-operation-with-collect
-    let party_share_counts: Result<Vec<usize>, _> = args
+    let party_share_counts = args
         .party_share_counts
         .iter()
-        // Question: try_from returns a result but can't be handled inside map()
         .map(|i| usize::try_from(*i))
-        .collect();
-    let party_share_counts = party_share_counts?;
-    let uids_len = args.party_uids.len();
-    let shares_len = party_share_counts.len();
+        .collect::<Result<Vec<usize>, _>>()?;
     let shares_count = party_share_counts.iter().sum();
 
-    validate_params(uids_len, shares_len, shares_count, threshold, my_index)?;
+    if args.party_uids.len() != party_share_counts.len() {
+        return Err(From::from(format!(
+            "uid vector and share counts vector not alligned: {:?}, {:?}",
+            args.party_uids, party_share_counts,
+        )));
+    }
+
+    validate_params(shares_count, threshold, my_index)?;
 
     /*
     // TODO: decide how (and when) to handle potential faulty data.
