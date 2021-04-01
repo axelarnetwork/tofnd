@@ -152,24 +152,37 @@ pub(super) async fn execute_keygen(
     return Ok(secret_key_share.unwrap().clone());
 }
 
-// TODO: can we avoid to clone keys?
-fn aggregate_share_counts(keys: &[String], values: &[usize]) -> (Vec<String>, Vec<usize>) {
-    // create a hashmap to aggreagate all shares counts of all parties
-    let mut hashmap: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-    for (key, value) in keys.iter().zip(values.iter()) {
-        let h = hashmap.entry(key.clone()).or_insert(0);
-        *h += value;
-    }
+fn sort_uids_and_shares(
+    my_index: usize,
+    uids: &[String],
+    share_counts: &[usize],
+) -> Result<(usize, Vec<String>, Vec<usize>), TofndError> {
+    // save my uid
+    let my_uid = uids[my_index].clone();
 
-    // create a sorted vec of pairs out of the hashmap
-    let mut pairs: Vec<(String, usize)> = hashmap
-        .into_iter()
-        .map(|(key, value)| (key, value))
+    // create a vec of (uid, share_count) and sort it
+    let mut pairs: Vec<(String, usize)> = uids
+        .iter()
+        .cloned()
+        .zip(share_counts.iter().cloned())
         .collect();
     pairs.sort();
 
-    // return individual vectors
-    pairs.into_iter().unzip()
+    // unzip vec and search for duplicates in uids
+    let (mut sorted_uids, sorted_share_counts): (Vec<_>, Vec<_>) = pairs.iter().cloned().unzip();
+    let old_len = sorted_uids.len();
+    sorted_uids.dedup();
+    if old_len != sorted_uids.len() {
+        return Err(From::from("Error: party_uid vector contained a duplicate"));
+    }
+
+    // find my new index
+    let my_index = sorted_uids
+        .iter()
+        .position(|x| x == &my_uid)
+        .ok_or("Lost my uid after sorting uids")?;
+
+    Ok((my_index, sorted_uids, sorted_share_counts))
 }
 
 pub fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
@@ -181,7 +194,7 @@ pub fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitiz
         .iter()
         .map(|i| usize::try_from(*i))
         .collect::<Result<Vec<usize>, _>>()?;
-    let shares_count = party_share_counts.iter().sum();
+    let total_shares = party_share_counts.iter().sum();
 
     if args.party_uids.len() != party_share_counts.len() {
         return Err(From::from(format!(
@@ -190,15 +203,19 @@ pub fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitiz
         )));
     }
 
-    let (party_uids, party_share_counts) =
-        aggregate_share_counts(&args.party_uids, &party_share_counts);
-    validate_params(shares_count, threshold, my_index)?;
+    // sort uids and share counts
+    // we need to sort uids and shares because the caller (axelar-core) does not
+    // necessarily send the same vectors (in terms of order) to all tofnd instances.
+    let (my_new_index, sorted_uids, sorted_share_counts) =
+        sort_uids_and_shares(my_index, &args.party_uids, &party_share_counts)?;
+
+    validate_params(total_shares, threshold, my_index)?;
 
     Ok(KeygenInitSanitized {
         new_key_uid: args.new_key_uid,
-        party_uids,
-        party_share_counts,
-        my_index,
+        party_uids: sorted_uids,
+        party_share_counts: sorted_share_counts,
+        my_index: my_new_index,
         threshold,
     })
 }
@@ -208,25 +225,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test() {
+    fn test_sort_uids_and_shares() {
         let in_pairs = vec![
             ("c".to_owned(), 1),
             ("b".to_owned(), 2),
             ("a".to_owned(), 3),
-            ("c".to_owned(), 1),
-            ("b".to_owned(), 3),
-            ("a".to_owned(), 2),
         ];
         let out_pairs = vec![
-            ("a".to_owned(), 5),
-            ("b".to_owned(), 5),
-            ("c".to_owned(), 2),
+            ("a".to_owned(), 3),
+            ("b".to_owned(), 2),
+            ("c".to_owned(), 1),
         ];
 
         let (in_keys, in_values): (Vec<String>, Vec<usize>) = in_pairs.into_iter().unzip();
-        let (out_keys, out_values) = out_pairs.into_iter().unzip();
+        let (out_keys, out_values): (Vec<String>, Vec<usize>) = out_pairs.into_iter().unzip();
 
-        let res = aggregate_share_counts(&in_keys, &in_values);
-        assert_eq!((out_keys, out_values), res);
+        let res = sort_uids_and_shares(0, &in_keys, &in_values).unwrap();
+        assert_eq!((2, out_keys.clone(), out_values.clone()), res);
+        let res = sort_uids_and_shares(1, &in_keys, &in_values).unwrap();
+        assert_eq!((1, out_keys.clone(), out_values.clone()), res);
+        let res = sort_uids_and_shares(2, &in_keys, &in_values).unwrap();
+        assert_eq!((0, out_keys, out_values), res);
+
+        let err_pairs = vec![("a".to_owned(), 1), ("a".to_owned(), 2)];
+        let (err_keys, err_values): (Vec<String>, Vec<usize>) = err_pairs.into_iter().unzip();
+        assert!(sort_uids_and_shares(0, &err_keys, &err_values).is_err());
+        assert!(sort_uids_and_shares(1, &err_keys, &err_values).is_err());
     }
 }
