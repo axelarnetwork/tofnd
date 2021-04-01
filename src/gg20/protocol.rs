@@ -30,15 +30,18 @@ pub fn map_tofnd_to_tofn_idx(
 fn map_tofn_to_tofnd_idx(
     tofn_index: usize,
     party_share_counts: &[usize],
-) -> Option<(usize, usize)> {
+) -> Result<(usize, usize), TofndError> {
     let mut sum = 0;
     for (tofnd_index, count) in party_share_counts.iter().enumerate() {
         sum += count;
         if tofn_index < sum {
-            return Some((tofnd_index, tofn_index - (sum - count)));
+            return Ok((tofnd_index, tofn_index - (sum - count)));
         }
     }
-    None
+    Err(From::from(format!(
+        "Tofn index {} does not correspond to a tofnd index",
+        tofn_index
+    )))
 }
 
 // TODO: use the same execute_keygen for sign. We keep this not to break sign.
@@ -147,11 +150,7 @@ pub(super) async fn execute_protocol(
         if let Some(p2ps) = p2ps {
             for (i, p2p) in p2ps.iter().enumerate() {
                 if let Some(p2p) = p2p {
-                    let (tofnd_idx, tofnd_subindex) = map_tofn_to_tofnd_idx(i, party_share_counts)
-                        .ok_or(format!(
-                            "tofn index {} cannot be converted to tofnd [index, subindex]",
-                            i
-                        ))?;
+                    let (tofnd_idx, tofnd_subindex) = map_tofn_to_tofnd_idx(i, party_share_counts)?;
                     println!(
                         "{}: out p2p to [{}]",
                         log_prefix_round, party_uids[tofnd_idx]
@@ -242,9 +241,8 @@ mod tests {
 
         for t in tests {
             for case in t.test_cases {
-                let tofn = case.0;
-                let tofnd = case.1;
-                assert_eq!(map_tofn_to_tofnd_idx(tofn, &t.v), tofnd);
+                let (tofn, tofnd) = case;
+                assert_eq!(map_tofn_to_tofnd_idx(tofn, &t.v).ok(), tofnd);
                 if let Some(tofnd) = tofnd {
                     assert_eq!(map_tofnd_to_tofn_idx(tofnd.0, tofnd.1, &t.v), tofn);
                 }
@@ -265,7 +263,7 @@ mod tests {
         ];
         for t in test_cases {
             assert_eq!(map_tofnd_to_tofn_idx(t.0 .0, t.0 .1, &v), t.1);
-            assert_eq!(map_tofn_to_tofnd_idx(t.1, &v), Some((t.0 .0, t.0 .1)));
+            assert_eq!(map_tofn_to_tofnd_idx(t.1, &v).ok(), Some((t.0 .0, t.0 .1)));
         }
     }
 }
