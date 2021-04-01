@@ -7,17 +7,16 @@ use protocol::TofndP2pMsg;
 use super::{proto, protocol, KeygenInitSanitized, PartyInfo};
 use crate::TofndError;
 
-use tofn::fillvec::new_vec_none;
 // tonic cruft
 use tokio::sync::{mpsc, oneshot::Receiver};
 
 use futures_util::StreamExt;
 
 pub(super) fn get_party_info(
-    secret_key_shares: Vec<Option<SecretKeyShare>>,
+    secret_key_shares: Vec<SecretKeyShare>,
     uids: Vec<String>,
 ) -> Result<PartyInfo, TofndError> {
-    let s = secret_key_shares[0].clone().unwrap();
+    let s = secret_key_shares[0].clone();
     let common = CommonInfo {
         threshold: s.threshold,
         ecdsa_public_key: s.ecdsa_public_key,
@@ -29,12 +28,11 @@ pub(super) fn get_party_info(
     };
     let mut shares = Vec::new();
     for share in secret_key_shares {
-        let s = share.ok_or("A secret key share was None")?;
         shares.push(ShareInfo {
-            my_dk: s.my_dk,
-            my_ek: s.my_ek,
-            my_zkp: s.my_zkp,
-            my_ecdsa_secret_key_share: s.my_ecdsa_secret_key_share,
+            my_dk: share.my_dk,
+            my_ek: share.my_ek,
+            my_zkp: share.my_zkp,
+            my_ecdsa_secret_key_share: share.my_ecdsa_secret_key_share,
         });
     }
     Ok(PartyInfo {
@@ -66,12 +64,12 @@ pub(super) async fn handle_keygen_init(
 // for now, we can keep as such but consider using a library in the future.
 pub(super) async fn aggregate_secret_key_shares(
     aggregator_receivers: Vec<Receiver<Result<SecretKeyShare, TofndError>>>,
-    my_share_count: usize,
-) -> Result<Vec<Option<SecretKeyShare>>, TofndError> {
-    let mut secret_key_shares = new_vec_none(my_share_count);
-    for (i, aggregator) in aggregator_receivers.into_iter().enumerate() {
+) -> Result<Vec<SecretKeyShare>, TofndError> {
+    // let mut secret_key_shares = new_vec_none(my_share_count);
+    let mut secret_key_shares = Vec::with_capacity(aggregator_receivers.len());
+    for aggregator in aggregator_receivers {
         let res = aggregator.await??;
-        secret_key_shares[i] = Some(res);
+        secret_key_shares.push(res);
     }
     Ok(secret_key_shares)
 }

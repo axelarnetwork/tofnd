@@ -157,9 +157,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 
             //  wait all keygen threads and aggregare secret key shares
             let secret_key_shares =
-                match keygen::aggregate_secret_key_shares(aggregator_receivers, my_share_count)
-                    .await
-                {
+                match keygen::aggregate_secret_key_shares(aggregator_receivers).await {
                     Err(e) => {
                         println!(
                             "Error at Keygen secret key aggregation. Unreserving key: {}",
@@ -172,7 +170,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 };
 
             // get public key and put all secret key shares inside kv store
-            let secret_key_share = secret_key_shares[0].clone().unwrap();
+            let secret_key_share = secret_key_shares[0].clone();
             let pubkey = secret_key_share.ecdsa_public_key.get_element().serialize(); // bitcoin-style serialization
 
             // compine all keygen threads responses to a single struct
