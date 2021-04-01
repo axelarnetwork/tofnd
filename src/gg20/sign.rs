@@ -7,6 +7,8 @@ use crate::TofndError;
 use futures_util::StreamExt;
 use tokio::sync::mpsc;
 
+// TODO: Use CommonInfo and ShareInfo instead of SecretKeyShare in tofn.
+// When this is done, we will not have to manually create PartyInfo
 pub(super) fn get_secret_key_share(
     party_info: PartyInfo,
     share_index: usize,
