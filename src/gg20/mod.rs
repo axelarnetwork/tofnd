@@ -36,6 +36,20 @@ pub fn new_service() -> impl proto::gg20_server::Gg20 {
     }
 }
 
+pub struct KeygenInitSanitized {
+    new_key_uid: String,
+    party_uids: Vec<String>,
+    party_share_counts: Vec<usize>,
+    my_index: usize,
+    threshold: usize,
+}
+
+impl KeygenInitSanitized {
+    pub fn my_shares_count(&self) -> usize {
+        self.party_share_counts[self.my_index] as usize
+    }
+}
+
 #[tonic::async_trait]
 impl proto::gg20_server::Gg20 for Gg20Service {
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;

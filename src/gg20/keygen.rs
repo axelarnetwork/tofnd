@@ -4,7 +4,7 @@ use tofn::protocol::gg20::keygen::{
 
 use protocol::TofndP2pMsg;
 
-use super::{proto, protocol, PartyInfo};
+use super::{proto, protocol, KeygenInitSanitized, PartyInfo};
 use crate::TofndError;
 
 use tofn::fillvec::new_vec_none;
@@ -154,20 +154,6 @@ pub(super) async fn execute_keygen(
         return Err(e);
     }
     return Ok(secret_key_share.unwrap().clone());
-}
-
-pub struct KeygenInitSanitized {
-    pub new_key_uid: String,
-    pub party_uids: Vec<String>,
-    pub party_share_counts: Vec<usize>,
-    pub my_index: usize,
-    pub threshold: usize,
-}
-
-impl KeygenInitSanitized {
-    pub fn my_shares_count(&self) -> usize {
-        self.party_share_counts[self.my_index] as usize
-    }
 }
 
 // TODO: can we avoid to clone keys?
