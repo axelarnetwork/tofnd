@@ -53,7 +53,7 @@ pub(super) async fn execute_sign(
     };
     // let (secret_key_share, all_party_uids) = kv.get(&sign_init.key_uid).await?;
     let party_info = kv.get(&sign_init.key_uid).await?.clone();
-    let all_party_uids = party_info.common.uids.clone();
+    let all_party_uids = party_info.uids.clone();
 
     // TODO: pass and use the correct share index
     let secret_key_share = get_secret_key_share(party_info, 0)?;

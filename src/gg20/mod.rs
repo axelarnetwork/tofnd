@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 pub struct PartyInfo {
     pub common: CommonInfo,
     pub shares: Vec<ShareInfo>,
+    pub uids: Vec<String>,
 }
 // use std::pin::Pin;
 // use futures_core::Stream;

@@ -25,7 +25,6 @@ pub(super) fn get_party_info(
         all_eks: s.all_eks,
         all_zkps: s.all_zkps,
         my_index: s.my_index,
-        uids,
         share_count: s.share_count,
     };
     let mut shares = Vec::new();
@@ -38,7 +37,11 @@ pub(super) fn get_party_info(
             my_ecdsa_secret_key_share: s.my_ecdsa_secret_key_share,
         });
     }
-    Ok(PartyInfo { common, shares })
+    Ok(PartyInfo {
+        common,
+        shares,
+        uids,
+    })
 }
 
 pub(super) async fn handle_keygen_init(
