@@ -111,12 +111,7 @@ pub(super) async fn route_messages(
         } else {
             let tofnd_msg: TofndP2pMsg = bincode::deserialize(&traffic.payload)?;
             let my_share_index: usize = tofnd_msg.subindex;
-            let original_msg = proto::TrafficIn {
-                from_party_uid: traffic.from_party_uid,
-                payload: tofnd_msg.payload,
-                is_broadcast: traffic.is_broadcast,
-            };
-            let _ = out_channels[my_share_index].send(Some(original_msg)).await;
+            let _ = out_channels[my_share_index].send(Some(traffic)).await;
         }
     }
     Ok(())

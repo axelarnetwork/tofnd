@@ -181,8 +181,13 @@ pub(super) async fn execute_protocol(
                 continue;
             }
             let traffic = traffic.unwrap();
-            println!("{}: incoming msg received", log_prefix_round);
-            protocol.set_msg_in(&traffic.payload)?;
+            if !traffic.is_broadcast {
+                let tofnd_msg: TofndP2pMsg = bincode::deserialize(&traffic.payload)?;
+                println!("{}: incoming msg received", log_prefix_round);
+                protocol.set_msg_in(&tofnd_msg.payload)?;
+            } else {
+                protocol.set_msg_in(&traffic.payload)?;
+            }
         }
         println!("{}: end", log_prefix_round);
     }
