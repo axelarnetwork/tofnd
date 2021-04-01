@@ -147,12 +147,15 @@ pub(super) async fn execute_protocol(
         if let Some(p2ps) = p2ps {
             for (i, p2p) in p2ps.iter().enumerate() {
                 if let Some(p2p) = p2p {
-                    println!("{}: out p2p to [{}]", log_prefix_round, party_uids[i]);
                     let (tofnd_idx, tofnd_subindex) = map_tofn_to_tofnd_idx(i, party_share_counts)
                         .ok_or(format!(
                             "tofn index {} cannot be converted to tofnd [index, subindex]",
                             i
                         ))?;
+                    println!(
+                        "{}: out p2p to [{}]",
+                        log_prefix_round, party_uids[tofnd_idx]
+                    );
                     let p2p = bincode::serialize(&TofndP2pMsg {
                         payload: p2p.clone(),
                         subindex: tofnd_subindex,
