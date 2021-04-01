@@ -32,7 +32,7 @@ lazy_static::lazy_static! {
 async fn basic_keygen_and_sign() {
     let dir = testdir!();
 
-    for (uid_count, threshold, sign_participant_indices, party_share_counts) in TEST_CASES.iter() {
+    for (uid_count, threshold, _sign_participant_indices, party_share_counts) in TEST_CASES.iter() {
         let (parties, party_uids) = init_parties(*uid_count, &dir).await;
 
         // println!(
@@ -68,7 +68,7 @@ async fn basic_keygen_and_sign() {
 }
 
 // #[tokio::test]
-async fn restart_one_party() {
+async fn _restart_one_party() {
     let dir = testdir!();
     for (uid_count, threshold, sign_participant_indices, party_share_counts) in TEST_CASES.iter() {
         let (parties, party_uids) = init_parties(*uid_count, &dir).await;
@@ -184,7 +184,7 @@ async fn execute_keygen(
 }
 
 // need to take ownership of parties `parties` and return it on completion
-async fn execute_sign(
+async fn _execute_sign(
     parties: Vec<impl Party + 'static>,
     party_uids: &[String],
     sign_participant_indices: &[usize],

@@ -77,7 +77,7 @@ impl Deliverer {
         }
 
         // broadcast message
-        for (id, sender) in self.senders.iter_mut() {
+        for (_id, sender) in self.senders.iter_mut() {
             // if id == from {
             //     continue; // don't broadcast to myself
             // }
