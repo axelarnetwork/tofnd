@@ -224,7 +224,7 @@ pub async fn aggregate_messages(
     key_uid_reservation: KeyReservation,
     keygen_init: KeygenInitSanitized,
 ) -> Result<(), TofndError> {
-    //  wait all keygen threads and aggregare secret key shares
+    //  wait all keygen threads and aggregate secret key shares
     let secret_key_shares = aggregate_secret_key_shares(aggregator_receivers).await;
     if secret_key_shares.is_err() {
         kv.unreserve_key(key_uid_reservation).await;

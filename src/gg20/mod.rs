@@ -107,13 +107,13 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,
     ) -> Result<Response<Self::KeygenStream>, Status> {
-        let mut stream = request.into_inner();
+        let stream = request.into_inner();
         let (msg_sender, rx) = mpsc::channel(4);
         let kv = self.kv.clone();
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = sign::execute_sign(&mut stream, msg_sender, kv).await {
+            if let Err(e) = sign::handle_sign(kv, stream, msg_sender).await {
                 println!("sign failure: {:?}", e);
                 return;
             }
