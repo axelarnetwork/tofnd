@@ -9,6 +9,11 @@ use tonic::{Request, Response, Status};
 
 use serde::{Deserialize, Serialize};
 
+// for routing messages
+use crate::TofndError;
+use futures_util::StreamExt;
+use protocol::TofndP2pMsg;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartyInfo {
     pub common: CommonInfo,
@@ -142,6 +147,49 @@ impl proto::MessageOut {
             data: Some(proto::message_out::Data::SignResult(result.to_vec())),
         }
     }
+}
+
+pub(super) async fn route_messages(
+    in_stream: &mut tonic::Streaming<proto::MessageIn>,
+    mut out_channels: Vec<mpsc::Sender<Option<proto::TrafficIn>>>,
+) -> Result<(), TofndError> {
+    loop {
+        let msg_data = in_stream.next().await;
+
+        if msg_data.is_none() {
+            println!("Stream closed");
+            break;
+        }
+
+        let msg_data = msg_data.unwrap()?.data;
+
+        // I wish I could do `if !let` https://github.com/rust-lang/rfcs/pull/1303
+        if msg_data.is_none() {
+            println!("WARNING: ignore incoming msg: missing `data` field");
+            continue;
+        }
+        let traffic = match msg_data.unwrap() {
+            proto::message_in::Data::Traffic(t) => t,
+            _ => {
+                println!("WARNING: ignore incoming msg: expect `data` to be TrafficIn type");
+                continue;
+            }
+        };
+        // if message is broadcast, send it to all keygen threads.
+        // if it's a p2p message, send it only to the corresponding keygen. In
+        // case of p2p we have to also wrap the share we are refering to, so we
+        // unwrap the message and read the 'subindex' field.
+        if traffic.is_broadcast {
+            for out_channel in &mut out_channels {
+                let _ = out_channel.send(Some(traffic.clone())).await;
+            }
+        } else {
+            let tofnd_msg: TofndP2pMsg = bincode::deserialize(&traffic.payload)?;
+            let my_share_index: usize = tofnd_msg.subindex;
+            let _ = out_channels[my_share_index].send(Some(traffic)).await;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
