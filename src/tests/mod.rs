@@ -23,7 +23,7 @@ lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
     static ref TEST_CASES: Vec<(usize, usize, Vec<usize>, Vec<u32>)> = vec![ // (uid_count, threshold, participant_indices)
         (5, 2, vec![1,4,2,3], vec![1,1,1,1,2]),
-        // (1,0,vec![0], vec![1]),
+        (1,0,vec![0], vec![1]),
     ];
     // TODO add TEST_CASES_INVALID
 }
@@ -49,7 +49,6 @@ async fn basic_keygen_and_sign() {
         )
         .await;
 
-        // TODO: uncomment when sign is ready
         // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
         let parties = execute_sign(
@@ -67,7 +66,7 @@ async fn basic_keygen_and_sign() {
     }
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn _restart_one_party() {
     let dir = testdir!();
     for (uid_count, threshold, sign_participant_indices, party_share_counts) in TEST_CASES.iter() {
@@ -100,18 +99,17 @@ async fn _restart_one_party() {
             .map(|o| o.unwrap())
             .collect::<Vec<_>>();
 
-        // TODO: incomment when sign is ready
-        // // println!("sign: participants {:?}", sign_participant_indices);
-        // let new_sig_uid = "Gus-test-sig";
-        // let parties = execute_sign(
-        //     parties,
-        //     &party_uids,
-        //     sign_participant_indices,
-        //     new_key_uid,
-        //     new_sig_uid,
-        //     &MSG_TO_SIGN,
-        // )
-        // .await;
+        // println!("sign: participants {:?}", sign_participant_indices);
+        let new_sig_uid = "Gus-test-sig";
+        let parties = execute_sign(
+            parties,
+            &party_uids,
+            sign_participant_indices,
+            new_key_uid,
+            new_sig_uid,
+            &MSG_TO_SIGN,
+        )
+        .await;
 
         delete_dbs(&parties);
         shutdown_parties(parties).await;
