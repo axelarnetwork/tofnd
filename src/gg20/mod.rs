@@ -15,11 +15,17 @@ use futures_util::StreamExt;
 use protocol::TofndP2pMsg;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TofndInfo {
+    pub party_uids: Vec<String>,
+    pub share_counts: Vec<usize>,
+    pub index: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartyInfo {
     pub common: CommonInfo,
     pub shares: Vec<ShareInfo>,
-    pub uids: Vec<String>,
-    pub share_counts: Vec<usize>,
+    pub tofnd: TofndInfo,
 }
 // use std::pin::Pin;
 // use futures_core::Stream;

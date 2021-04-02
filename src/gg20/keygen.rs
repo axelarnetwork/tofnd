@@ -5,7 +5,7 @@ use tofn::protocol::gg20::keygen::{
 
 use protocol::map_tofnd_to_tofn_idx;
 
-use super::{proto, protocol, route_messages, KeygenInitSanitized, PartyInfo};
+use super::{proto, protocol, route_messages, KeygenInitSanitized, PartyInfo, TofndInfo};
 use crate::{kv_manager::KeyReservation, kv_manager::Kv, TofndError};
 
 use tokio::sync::oneshot;
@@ -243,6 +243,7 @@ pub async fn aggregate_messages(
         secret_key_shares,
         keygen_init.party_uids,
         keygen_init.party_share_counts,
+        keygen_init.my_index,
     );
 
     // try to put data inside kv store
@@ -274,6 +275,7 @@ pub(super) fn get_party_info(
     secret_key_shares: Vec<SecretKeyShare>,
     uids: Vec<String>,
     share_counts: Vec<usize>,
+    tofnd_index: usize,
 ) -> PartyInfo {
     let s = secret_key_shares[0].clone();
     let common = CommonInfo {
@@ -282,23 +284,27 @@ pub(super) fn get_party_info(
         all_ecdsa_public_key_shares: s.all_ecdsa_public_key_shares,
         all_eks: s.all_eks,
         all_zkps: s.all_zkps,
-        my_index: s.my_index,
         share_count: s.share_count,
     };
     let mut shares = Vec::new();
     for share in secret_key_shares {
         shares.push(ShareInfo {
+            my_index: s.my_index,
             my_dk: share.my_dk,
             my_ek: share.my_ek,
             my_zkp: share.my_zkp,
             my_ecdsa_secret_key_share: share.my_ecdsa_secret_key_share,
         });
     }
+    let tofnd = TofndInfo {
+        party_uids: uids,
+        share_counts,
+        index: tofnd_index,
+    };
     PartyInfo {
         common,
         shares,
-        uids,
-        share_counts,
+        tofnd,
     }
 }
 
