@@ -50,6 +50,7 @@ pub(super) async fn execute_protocol(
     out_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
     party_share_counts: &[usize],
+    party_indices: &[usize],
     log_prefix: &str,
 ) -> Result<(), TofndError> {
     println!("{} protocol: begin", log_prefix);
@@ -74,7 +75,8 @@ pub(super) async fn execute_protocol(
         if let Some(p2ps) = p2ps {
             for (i, p2p) in p2ps.iter().enumerate() {
                 if let Some(p2p) = p2p {
-                    let (tofnd_idx, tofnd_subindex) = map_tofn_to_tofnd_idx(i, party_share_counts)?;
+                    let (tofnd_idx, tofnd_subindex) =
+                        map_tofn_to_tofnd_idx(party_indices[i], party_share_counts)?;
                     println!(
                         "{}: out p2p to [{}]",
                         log_prefix_round, party_uids[tofnd_idx]

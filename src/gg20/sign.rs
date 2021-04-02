@@ -49,7 +49,8 @@ pub async fn handle_sign(
 
         // make copies to pass to execute sign thread
         let stream_out = stream_out_sender.clone();
-        let participant_uids = sign_init.participant_uids.clone();
+        // let participant_uids = sign_init.participant_uids.clone();
+        let all_party_uids = party_info.tofnd.party_uids.clone();
         let all_share_counts = party_info.tofnd.share_counts.clone();
         let participant_tofn_indices: Vec<usize> = get_party_tofn_indices(
             &party_info.tofnd.share_counts,
@@ -64,7 +65,7 @@ pub async fn handle_sign(
             let signature = execute_sign(
                 sign_receiver,
                 stream_out,
-                &participant_uids,
+                &all_party_uids,
                 &all_share_counts,
                 &participant_tofn_indices,
                 secret_key_share,
@@ -172,7 +173,7 @@ pub(super) fn get_secret_key_share(
 pub(super) async fn execute_sign(
     channel: mpsc::Receiver<Option<proto::TrafficIn>>,
     mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
-    participant_uids: &[String],
+    party_uids: &[String],
     party_share_counts: &[usize],
     participant_tofn_indices: &[usize],
     secret_key_share: SecretKeyShare,
@@ -196,8 +197,9 @@ pub(super) async fn execute_sign(
         &mut sign,
         channel,
         &mut msg_sender,
-        &participant_uids,
+        &party_uids,
         &party_share_counts,
+        &participant_tofn_indices,
         "log",
     )
     .await?;

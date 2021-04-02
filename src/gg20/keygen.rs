@@ -52,6 +52,7 @@ pub async fn handle_keygen(
         let stream_out = stream_out_sender.clone();
         let uids = keygen_init.party_uids.clone();
         let shares = keygen_init.party_share_counts.clone();
+        let party_indices: Vec<usize> = (0..shares.iter().sum()).map(|x| x).collect();
         let threshold = keygen_init.threshold;
         let my_tofn_index = my_starting_tofn_index + my_tofnd_subindex;
 
@@ -63,6 +64,7 @@ pub async fn handle_keygen(
                 stream_out,
                 &uids,
                 &shares,
+                &party_indices,
                 threshold,
                 my_tofn_index,
                 "log:".to_owned(),
@@ -187,6 +189,7 @@ pub(super) async fn execute_keygen(
     mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
     party_share_counts: &[usize],
+    party_indices: &[usize],
     threshold: usize,
     my_index: usize,
     log_prefix: String,
@@ -202,6 +205,7 @@ pub(super) async fn execute_keygen(
         &mut msg_sender,
         &party_uids,
         &party_share_counts,
+        &party_indices,
         &log_prefix,
     )
     .await
@@ -289,7 +293,7 @@ pub(super) fn get_party_info(
     let mut shares = Vec::new();
     for share in secret_key_shares {
         shares.push(ShareInfo {
-            my_index: s.my_index,
+            my_index: share.my_index,
             my_dk: share.my_dk,
             my_ek: share.my_ek,
             my_zkp: share.my_zkp,
