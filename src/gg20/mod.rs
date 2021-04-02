@@ -14,6 +14,7 @@ pub struct PartyInfo {
     pub common: CommonInfo,
     pub shares: Vec<ShareInfo>,
     pub uids: Vec<String>,
+    pub share_counts: Vec<usize>,
 }
 // use std::pin::Pin;
 // use futures_core::Stream;

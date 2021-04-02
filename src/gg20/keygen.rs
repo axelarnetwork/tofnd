@@ -282,7 +282,11 @@ pub async fn aggregate_messages(
     let pubkey = secret_key_share.ecdsa_public_key.get_element().serialize(); // bitcoin-style serialization
 
     // compine all keygen threads responses to a single struct
-    let kv_data = get_party_info(secret_key_shares, keygen_init.party_uids);
+    let kv_data = get_party_info(
+        secret_key_shares,
+        keygen_init.party_uids,
+        keygen_init.party_share_counts,
+    );
 
     // try to put data inside kv store
     kv.put(key_uid_reservation, kv_data).await?;
@@ -312,6 +316,7 @@ pub(super) async fn aggregate_secret_key_shares(
 pub(super) fn get_party_info(
     secret_key_shares: Vec<SecretKeyShare>,
     uids: Vec<String>,
+    share_counts: Vec<usize>,
 ) -> PartyInfo {
     let s = secret_key_shares[0].clone();
     let common = CommonInfo {
@@ -336,6 +341,7 @@ pub(super) fn get_party_info(
         common,
         shares,
         uids,
+        share_counts,
     }
 }
 
