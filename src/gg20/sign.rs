@@ -11,6 +11,14 @@ use futures_util::StreamExt;
 use tokio::sync::mpsc;
 use tonic::Status;
 
+struct SignInitSanitized {
+    new_sig_uid: String,
+    // key_uid: String,
+    participant_uids: Vec<String>,
+    participant_indices: Vec<usize>,
+    message_to_sign: Vec<u8>,
+}
+
 pub async fn handle_sign(
     mut kv: Kv<PartyInfo>,
     mut stream_in: tonic::Streaming<proto::MessageIn>,
@@ -144,7 +152,7 @@ fn sign_sanitize_args(
 
 // TODO: Use CommonInfo and ShareInfo instead of SecretKeyShare in tofn.
 // When this is done, we will not have to manually create PartyInfo
-pub(super) fn get_secret_key_share(
+fn get_secret_key_share(
     party_info: &PartyInfo,
     share_index: usize,
 ) -> Result<SecretKeyShare, TofndError> {
@@ -170,7 +178,7 @@ pub(super) fn get_secret_key_share(
     })
 }
 
-pub(super) async fn execute_sign(
+async fn execute_sign(
     channel: mpsc::Receiver<Option<proto::TrafficIn>>,
     mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
@@ -180,13 +188,13 @@ pub(super) async fn execute_sign(
     message_to_sign: Vec<u8>,
 ) -> Result<Vec<u8>, TofndError> {
     // Sign::new() needs 'tofn' information:
-    // if
-    // * from tofnd: party_uids: [a, b, c]
-    // * from tofnd: party_share_counts: [2, 1, 1]
-    // * from tofn:  participant_uids: [a, c]
-    // then
-    // * for tofn: party_uids: [a, a, b, c]
-    // * for tofn: participant_indices: [0, 1, 3]
+    // from
+    // * tofnd: party_uids: [a, b, c]
+    // * tofnd: party_share_counts: [2, 1, 1]
+    // * tofn:  participant_uids: [a, c]
+    // we derive
+    // * tofn: party_uids: [a, a, b, c]
+    // * tofn: participant_indices: [0, 1, 3]
     let mut sign = Sign::new(
         &secret_key_share,
         &participant_tofn_indices,
@@ -210,7 +218,7 @@ pub(super) async fn execute_sign(
     Ok(signature.as_bytes().to_owned())
 }
 
-pub async fn wait_threads_and_send_sign(
+async fn wait_threads_and_send_sign(
     aggregator_receivers: Vec<oneshot::Receiver<Result<Vec<u8>, TofndError>>>,
     stream_out_sender: &mut mpsc::Sender<Result<proto::MessageOut, Status>>,
 ) -> Result<(), TofndError> {
@@ -226,14 +234,6 @@ pub async fn wait_threads_and_send_sign(
         .await?;
 
     Ok(())
-}
-
-struct SignInitSanitized {
-    new_sig_uid: String,
-    // key_uid: String,
-    participant_uids: Vec<String>,
-    participant_indices: Vec<usize>,
-    message_to_sign: Vec<u8>,
 }
 
 fn get_party_tofn_indices(share_counts: &[usize], signing_indices: &[usize]) -> Vec<usize> {

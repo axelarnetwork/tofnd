@@ -94,7 +94,7 @@ pub async fn handle_keygen(
     Ok(())
 }
 
-pub(super) async fn handle_keygen_init(
+async fn handle_keygen_init(
     kv: &mut Kv<PartyInfo>,
     stream: &mut tonic::Streaming<proto::MessageIn>,
 ) -> Result<(KeygenInitSanitized, KeyReservation), TofndError> {
@@ -116,7 +116,7 @@ pub(super) async fn handle_keygen_init(
     Ok((keygen_init, key_uid_reservation))
 }
 
-pub fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
+fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
@@ -184,7 +184,7 @@ fn sort_uids_and_shares(
     Ok((my_index, sorted_uids, sorted_share_counts))
 }
 
-pub(super) async fn execute_keygen(
+async fn execute_keygen(
     channel: mpsc::Receiver<Option<proto::TrafficIn>>,
     mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
@@ -221,7 +221,7 @@ pub(super) async fn execute_keygen(
     return Ok(secret_key_share.unwrap().clone());
 }
 
-pub async fn aggregate_messages(
+async fn aggregate_messages(
     aggregator_receivers: Vec<oneshot::Receiver<Result<SecretKeyShare, TofndError>>>,
     stream_out_sender: &mut mpsc::Sender<Result<proto::MessageOut, Status>>,
     kv: &mut Kv<PartyInfo>,
@@ -263,7 +263,7 @@ pub async fn aggregate_messages(
 
 // TODO: This is essentially a waiting group. Since what we are doing is trivial
 // for now, we can keep as such but consider using a library in the future.
-pub(super) async fn aggregate_secret_key_shares(
+async fn aggregate_secret_key_shares(
     aggregator_receivers: Vec<Receiver<Result<SecretKeyShare, TofndError>>>,
 ) -> Result<Vec<SecretKeyShare>, TofndError> {
     // let mut secret_key_shares = new_vec_none(my_share_count);
@@ -275,7 +275,7 @@ pub(super) async fn aggregate_secret_key_shares(
     Ok(secret_key_shares)
 }
 
-pub(super) fn get_party_info(
+fn get_party_info(
     secret_key_shares: Vec<SecretKeyShare>,
     uids: Vec<String>,
     share_counts: Vec<usize>,
