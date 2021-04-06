@@ -21,9 +21,10 @@ use testdir::testdir;
 
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
-    static ref TEST_CASES: Vec<(usize, usize, Vec<usize>, Vec<u32>)> = vec![ // (uid_count, threshold, participant_indices)
-        (5, 2, vec![1,4,2,3], vec![1,1,1,1,2]),
-        (1,0,vec![0], vec![1]),
+    static ref TEST_CASES: Vec<(usize, Vec<u32>, usize, Vec<usize>)> = vec![ // (number of uids, count of shares per uid, threshold, indices of sign participants)
+        (5, vec![1,1,1,1,1], 3, vec![1,4,2,3]),
+        (5, vec![1,2,1,3,2], 6, vec![1,4,2,3]),
+        (1,vec![1],0,vec![0]),
     ];
     // TODO add TEST_CASES_INVALID
 }
@@ -32,7 +33,7 @@ lazy_static::lazy_static! {
 async fn basic_keygen_and_sign() {
     let dir = testdir!();
 
-    for (uid_count, threshold, sign_participant_indices, party_share_counts) in TEST_CASES.iter() {
+    for (uid_count, party_share_counts, threshold, sign_participant_indices) in TEST_CASES.iter() {
         let (parties, party_uids) = init_parties(*uid_count, &dir).await;
 
         // println!(
@@ -69,7 +70,7 @@ async fn basic_keygen_and_sign() {
 #[tokio::test]
 async fn _restart_one_party() {
     let dir = testdir!();
-    for (uid_count, threshold, sign_participant_indices, party_share_counts) in TEST_CASES.iter() {
+    for (uid_count, party_share_counts, threshold, sign_participant_indices) in TEST_CASES.iter() {
         let (parties, party_uids) = init_parties(*uid_count, &dir).await;
 
         // println!(
