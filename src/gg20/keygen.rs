@@ -36,6 +36,18 @@ pub async fn handle_keygen(
     // get KeygenInit message from stream, sanitize arguments and reserve key
     let (keygen_init, key_uid_reservation) = handle_keygen_init(&mut kv, &mut stream_in).await?;
 
+    // TODO better logging
+    let log_prefix = format!(
+        "keygen [{}] party [{}]",
+        keygen_init.new_key_uid, keygen_init.party_uids[keygen_init.my_index],
+    );
+    println!(
+        "begin {} with (t,n)=({},{})",
+        log_prefix,
+        keygen_init.threshold,
+        keygen_init.party_uids.len(),
+    );
+
     // find my share count
     let my_share_count = keygen_init.my_shares_count();
 
@@ -55,9 +67,10 @@ pub async fn handle_keygen(
         let stream_out = stream_out_sender.clone();
         let uids = keygen_init.party_uids.clone();
         let shares = keygen_init.party_share_counts.clone();
-        let party_indices: Vec<usize> = (0..shares.iter().sum()).map(|x| x).collect();
+        let party_indices: Vec<usize> = (0..shares.iter().sum()).collect();
         let threshold = keygen_init.threshold;
         let my_tofn_index = my_starting_tofn_index + my_tofnd_subindex;
+        let log = log_prefix.to_owned();
 
         // spawn keygen threads
         tokio::spawn(async move {
@@ -72,7 +85,7 @@ pub async fn handle_keygen(
                 &party_indices,
                 threshold,
                 my_tofn_index,
-                "log:".to_owned(),
+                log,
             )
             .await;
             let _ = aggregator_sender.send(secret_key_share);

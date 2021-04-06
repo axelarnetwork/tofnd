@@ -67,6 +67,22 @@ pub async fn handle_sign(
         let secret_key_share = get_secret_key_share(&party_info, my_tofnd_subindex)?;
         let message_to_sign = sign_init.message_to_sign.clone();
 
+        // TODO better logging
+        let log_prefix = format!(
+            "sign [{}] party [uid:{}, share:{}/{}]",
+            sign_init.new_sig_uid,
+            party_info.tofnd.party_uids[party_info.tofnd.index],
+            party_info.shares[my_tofnd_subindex].my_index,
+            party_info.common.share_count
+        );
+        println!(
+            "begin {} with (t,n)=({},{}), participant indices: {:?}",
+            log_prefix,
+            party_info.common.threshold,
+            party_info.common.share_count,
+            sign_init.participant_indices
+        );
+
         // spawn keygen threads
         tokio::spawn(async move {
             // get result of keygen
@@ -80,6 +96,7 @@ pub async fn handle_sign(
                 &participant_tofn_indices,
                 secret_key_share,
                 message_to_sign,
+                log_prefix,
             )
             .await;
             let _ = aggregator_sender.send(signature);
@@ -187,6 +204,7 @@ async fn execute_sign(
     participant_tofn_indices: &[usize],
     secret_key_share: SecretKeyShare,
     message_to_sign: Vec<u8>,
+    log_prefix: String,
 ) -> Result<Vec<u8>, TofndError> {
     // Sign::new() needs 'tofn' information:
     // from
@@ -208,7 +226,7 @@ async fn execute_sign(
         &party_uids,
         &party_share_counts,
         &participant_tofn_indices,
-        "log",
+        &log_prefix,
     )
     .await?;
     let signature = sign.get_result().ok_or("sign output is `None`")?;
