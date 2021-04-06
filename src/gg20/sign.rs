@@ -11,6 +11,7 @@ use futures_util::StreamExt;
 use tokio::sync::mpsc;
 use tonic::Status;
 
+#[allow(dead_code)] // allow dead code because participant_uids is not used
 struct SignInitSanitized {
     new_sig_uid: String, // this is only used for logging
     // key_uid: String,
