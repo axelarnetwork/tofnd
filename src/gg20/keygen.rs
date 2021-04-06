@@ -182,7 +182,7 @@ fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, 
     // we need to sort uids and shares because the caller (axelar-core) does not
     // necessarily send the same vectors (in terms of order) to all tofnd instances.
     let (my_new_index, sorted_uids, sorted_share_counts) =
-        sort_uids_and_shares(my_index, &args.party_uids, &party_share_counts)?;
+        sort_uids_and_shares(my_index, args.party_uids, party_share_counts)?;
 
     // make tofn validation
     validate_params(total_shares, threshold, my_index)?;
@@ -199,22 +199,18 @@ fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, 
 // co-sort uids and shares with respect to uids an find new index
 fn sort_uids_and_shares(
     my_index: usize,
-    uids: &[String],
-    share_counts: &[usize],
+    uids: Vec<String>,
+    share_counts: Vec<usize>,
 ) -> Result<(usize, Vec<String>, Vec<usize>), TofndError> {
     // save my uid
     let my_uid = uids[my_index].clone();
 
     // create a vec of (uid, share_count) and sort it
-    let mut pairs: Vec<(String, usize)> = uids
-        .iter()
-        .cloned()
-        .zip(share_counts.iter().cloned())
-        .collect();
+    let mut pairs: Vec<(String, usize)> = uids.into_iter().zip(share_counts.into_iter()).collect();
     pairs.sort();
 
     // unzip vec and search for duplicates in uids
-    let (mut sorted_uids, sorted_share_counts): (Vec<_>, Vec<_>) = pairs.iter().cloned().unzip();
+    let (mut sorted_uids, sorted_share_counts): (Vec<_>, Vec<_>) = pairs.into_iter().unzip();
     let old_len = sorted_uids.len();
     sorted_uids.dedup();
     if old_len != sorted_uids.len() {
@@ -378,16 +374,16 @@ mod tests {
         let (in_keys, in_values): (Vec<String>, Vec<usize>) = in_pairs.into_iter().unzip();
         let (out_keys, out_values): (Vec<String>, Vec<usize>) = out_pairs.into_iter().unzip();
 
-        let res = sort_uids_and_shares(0, &in_keys, &in_values).unwrap();
+        let res = sort_uids_and_shares(0, in_keys.clone(), in_values.clone()).unwrap();
         assert_eq!((2, out_keys.clone(), out_values.clone()), res);
-        let res = sort_uids_and_shares(1, &in_keys, &in_values).unwrap();
+        let res = sort_uids_and_shares(1, in_keys.clone(), in_values.clone()).unwrap();
         assert_eq!((1, out_keys.clone(), out_values.clone()), res);
-        let res = sort_uids_and_shares(2, &in_keys, &in_values).unwrap();
+        let res = sort_uids_and_shares(2, in_keys, in_values).unwrap();
         assert_eq!((0, out_keys, out_values), res);
 
         let err_pairs = vec![("a".to_owned(), 1), ("a".to_owned(), 2)];
         let (err_keys, err_values): (Vec<String>, Vec<usize>) = err_pairs.into_iter().unzip();
-        assert!(sort_uids_and_shares(0, &err_keys, &err_values).is_err());
-        assert!(sort_uids_and_shares(1, &err_keys, &err_values).is_err());
+        assert!(sort_uids_and_shares(0, err_keys.clone(), err_values.clone()).is_err());
+        assert!(sort_uids_and_shares(1, err_keys, err_values).is_err());
     }
 }
