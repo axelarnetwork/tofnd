@@ -211,11 +211,7 @@ async fn execute_keygen(
     my_index: usize,
     log_prefix: String,
 ) -> Result<SecretKeyShare, TofndError> {
-    // keygen execute
     let mut keygen = Keygen::new(party_share_counts.iter().sum(), threshold, my_index)?;
-    // unreserve new_key_uid on failure
-    // too bad try blocks are not yet stable in Rust https://doc.rust-lang.org/nightly/unstable-book/language-features/try-blocks.html
-    // instead I'll use the less-readable `and_then` https://doc.rust-lang.org/std/result/enum.Result.html#method.and_then
     let secret_key_share = protocol::execute_protocol(
         &mut keygen,
         chan,
@@ -291,6 +287,8 @@ async fn aggregate_secret_key_shares(
     Ok(secret_key_shares)
 }
 
+// TODO: Use CommonInfo and ShareInfo instead of SecretKeyShare in tofn.
+// When this is done, we will not have to manually create PartyInfo.
 fn get_party_info(
     secret_key_shares: Vec<SecretKeyShare>,
     uids: Vec<String>,

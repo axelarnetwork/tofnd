@@ -12,7 +12,7 @@ use tokio::sync::mpsc;
 use tonic::Status;
 
 struct SignInitSanitized {
-    new_sig_uid: String,
+    new_sig_uid: String, // this is only used for logging
     // key_uid: String,
     participant_uids: Vec<String>,
     participant_indices: Vec<usize>,
@@ -57,7 +57,6 @@ pub async fn handle_sign(
 
         // make copies to pass to execute sign thread
         let stream_out = stream_out_sender.clone();
-        // let participant_uids = sign_init.participant_uids.clone();
         let all_party_uids = party_info.tofnd.party_uids.clone();
         let all_share_counts = party_info.tofnd.share_counts.clone();
         let participant_tofn_indices: Vec<usize> = get_party_tofn_indices(
@@ -141,6 +140,7 @@ fn sign_sanitize_args(
     sign_init: proto::SignInit,
     all_party_uids: &[String],
 ) -> Result<SignInitSanitized, TofndError> {
+    // create a vector of the tofnd indices of the participant uids
     let participant_indices = sign_init
         .party_uids
         .iter()
@@ -152,17 +152,10 @@ fn sign_sanitize_args(
         })
         .collect::<Result<Vec<usize>, _>>()?;
 
-    // Question: this only reconstructs sign_init.party_uids; do we need it?
-    let participant_uids: Vec<String> = participant_indices
-        .iter()
-        .map(|&i| all_party_uids[i].clone())
-        .collect();
-
     // TODO assume message_to_sign is already raw bytes of a field element
 
     Ok(SignInitSanitized {
         new_sig_uid: sign_init.new_sig_uid,
-        // key_uid: sign_init.key_uid,
         participant_uids: sign_init.party_uids,
         participant_indices,
         message_to_sign: sign_init.message_to_sign,
@@ -170,7 +163,7 @@ fn sign_sanitize_args(
 }
 
 // TODO: Use CommonInfo and ShareInfo instead of SecretKeyShare in tofn.
-// When this is done, we will not have to manually create PartyInfo
+// When this is done, we will not have to manually create SecretKeyShare.
 fn get_secret_key_share(
     party_info: &PartyInfo,
     share_index: usize,
@@ -213,7 +206,7 @@ async fn execute_sign(
     // * tofn:  participant_uids: [a, c]
     // we derive
     // * tofn: party_uids: [a, a, b, c]
-    // * tofn: participant_indices: [0, 1, 3]
+    // * tofn: participant_tofn_indices: [0, 1, 3]
     let mut sign = Sign::new(
         &secret_key_share,
         &participant_tofn_indices,
