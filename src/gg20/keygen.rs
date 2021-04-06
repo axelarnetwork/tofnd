@@ -138,11 +138,15 @@ fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, 
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
-    let party_share_counts = args
+    let mut party_share_counts = args
         .party_share_counts
         .iter()
         .map(|i| usize::try_from(*i))
         .collect::<Result<Vec<usize>, _>>()?;
+    // keep backwards compatibility with axelar-core that doesn't use multiple shares
+    if party_share_counts.len() == 0 {
+        party_share_counts = vec![1; args.party_uids.len()];
+    }
     let total_shares = party_share_counts.iter().sum();
 
     if args.party_uids.len() != party_share_counts.len() {
