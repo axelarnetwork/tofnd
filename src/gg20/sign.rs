@@ -87,7 +87,7 @@ pub async fn handle_sign(
 
         // spawn keygen threads
         tokio::spawn(async move {
-            // get result of keygen
+            // get result of sign
             let signature = execute_sign(
                 ProtocolCommunication {
                     receiver: sign_receiver,
@@ -107,7 +107,7 @@ pub async fn handle_sign(
     // spawn router thread
     tokio::spawn(async move {
         if let Err(e) = route_messages(&mut stream_in, sign_senders).await {
-            println!("Error at Keygen message router: {}", e);
+            println!("Error at Sign message router: {}", e);
         }
     });
 
@@ -146,9 +146,9 @@ async fn handle_sign_init(
 // input for party 'a':
 //   (from keygen) party_uids = [a, b, c]
 //   (from keygen) party_share_counts = [3, 2, 1]
-//   sign_init.party_uids = [c, a]
+//   proto::SignInit.party_uids = [c, a]
 // output for party 'a':
-//   sign_init.party_uids = [2, 0]  <- index of c, a in party_uids
+//   SignInitSanitized.party_uids = [2, 0]  <- index of c, a in party_uids
 fn sign_sanitize_args(
     sign_init: proto::SignInit,
     all_party_uids: &[String],
@@ -203,7 +203,7 @@ fn get_secret_key_share(
     })
 }
 
-// execute keygen protocol and write the result into the internal channel
+// execute sign protocol and write the result into the internal channel
 async fn execute_sign(
     chan: ProtocolCommunication<Option<proto::TrafficIn>, Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
@@ -214,13 +214,6 @@ async fn execute_sign(
     log_prefix: String,
 ) -> Result<Vec<u8>, TofndError> {
     // Sign::new() needs 'tofn' information:
-    // from
-    // * tofnd: party_uids: [a, b, c]
-    // * tofnd: party_share_counts: [2, 1, 1]
-    // * tofn:  participant_uids: [a, c]
-    // we derive
-    // * tofn: party_uids: [a, a, b, c]
-    // * tofn: participant_tofn_indices: [0, 1, 3]
     let mut sign = Sign::new(
         &secret_key_share,
         &participant_tofn_indices,

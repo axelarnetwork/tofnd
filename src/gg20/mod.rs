@@ -106,7 +106,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         tokio::spawn(async move {
             // can't return an error from a spawned thread
             if let Err(e) = keygen::handle_keygen(kv, stream_in, msg_sender).await {
-                println!("sign failure: {:?}", e);
+                println!("keygen failure: {:?}", e);
                 return;
             }
         });
@@ -116,7 +116,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
     async fn sign(
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,
-    ) -> Result<Response<Self::KeygenStream>, Status> {
+    ) -> Result<Response<Self::SignStream>, Status> {
         let stream = request.into_inner();
         let (msg_sender, rx) = mpsc::channel(4);
         let kv = self.kv.clone();
