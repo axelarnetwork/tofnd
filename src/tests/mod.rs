@@ -69,7 +69,7 @@ async fn basic_keygen_and_sign() {
 }
 
 #[tokio::test]
-async fn _restart_one_party() {
+async fn restart_one_party() {
     let dir = testdir!();
     for (uid_count, party_share_counts, threshold, sign_participant_indices) in TEST_CASES.iter() {
         let (parties, party_uids) = init_parties(*uid_count, &dir).await;
