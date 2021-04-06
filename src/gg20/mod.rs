@@ -176,8 +176,19 @@ pub(super) async fn route_messages(
             println!("Stream closed");
             break;
         }
+        let msg_data = msg_data.unwrap();
 
-        let msg_data = msg_data.unwrap()?.data;
+        // TODO: handle error if channel is closed prematurely.
+        // The router needs to determine whether the protocol is completed.
+        // In this case it should stop gracefully. If channel closes before the
+        // protocol was completed, then we should throw an error.
+        // Note: When axelar-core closes the channel at the end of the protocol, msg_data returns an error
+        if msg_data.is_err() {
+            println!("Stream closed");
+            break;
+        }
+
+        let msg_data = msg_data.unwrap().data;
 
         // I wish I could do `if !let` https://github.com/rust-lang/rfcs/pull/1303
         if msg_data.is_none() {
