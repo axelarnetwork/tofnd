@@ -58,6 +58,14 @@ impl KeygenInitSanitized {
     }
 }
 
+// Here, we define the input and output channels of generic execute_protocol worker.
+// This helps for grouping similar variables and keeping the number of variables
+// passed to functions under rust's analyser threshold (7).
+struct ProtocolCommunication<InMsg, OutMsg> {
+    receiver: mpsc::Receiver<InMsg>,
+    sender: mpsc::Sender<OutMsg>,
+}
+
 #[tonic::async_trait]
 impl proto::gg20_server::Gg20 for Gg20Service {
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
