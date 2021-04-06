@@ -163,7 +163,7 @@ fn sign_sanitize_args(
     Ok(SignInitSanitized {
         new_sig_uid: sign_init.new_sig_uid,
         // key_uid: sign_init.key_uid,
-        participant_uids,
+        participant_uids: sign_init.party_uids,
         participant_indices,
         message_to_sign: sign_init.message_to_sign,
     })
