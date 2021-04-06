@@ -82,6 +82,7 @@ pub(super) async fn execute_protocol(
                         "{}: out p2p to [{}]",
                         log_prefix_round, party_uids[tofnd_idx]
                     );
+                    // add tofnd's share index inside the message and send it to client
                     let p2p = bincode::serialize(&TofndP2pMsg {
                         payload: p2p.clone(),
                         subindex: tofnd_subindex,
@@ -109,6 +110,7 @@ pub(super) async fn execute_protocol(
             }
             let traffic = traffic.unwrap();
             if !traffic.is_broadcast {
+                // unwrap tofnd message and pass original payload to tofn
                 let tofnd_msg: TofndP2pMsg = bincode::deserialize(&traffic.payload)?;
                 println!("{}: incoming msg received", log_prefix_round);
                 protocol.set_msg_in(&tofnd_msg.payload)?;

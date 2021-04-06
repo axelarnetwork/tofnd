@@ -19,13 +19,13 @@ use tokio::sync::{mpsc, oneshot::Receiver};
 
 use futures_util::StreamExt;
 
+// we wrap the functionality of keygen gRPC here because we can't handle errors
+// conveniently when spawning theads.
 pub async fn handle_keygen(
     mut kv: Kv<PartyInfo>,
     mut stream_in: tonic::Streaming<proto::MessageIn>,
     mut stream_out_sender: mpsc::Sender<Result<proto::MessageOut, Status>>,
 ) -> Result<(), TofndError> {
-    // spawn a master thread to immediately return from gRPC
-    // Inside this master thread, we do the following:
     // 1. Receive KeygenInit, open message, sanitize arguments
     // 2. Reserve the key in kv store
     // 3. Spawn N keygen threads to execute the protocol in parallel; one of each of our shares to
@@ -112,10 +112,13 @@ pub async fn handle_keygen(
     Ok(())
 }
 
+// makes all needed assertions on incoming data, and create structures that are
+// needed to execute the protocol
 async fn handle_keygen_init(
     kv: &mut Kv<PartyInfo>,
     stream: &mut tonic::Streaming<proto::MessageIn>,
 ) -> Result<(KeygenInitSanitized, KeyReservation), TofndError> {
+    // receive message
     let msg_type = stream
         .next()
         .await
@@ -123,18 +126,33 @@ async fn handle_keygen_init(
         .data
         .ok_or("keygen: missing `data` field in client message")?;
 
+    // check if message is of expected type
     let keygen_init = match msg_type {
         proto::message_in::Data::KeygenInit(k) => k,
         _ => return Err(From::from("Expected keygen init message")),
     };
 
+    // sanitize arguments and reserve key
     let keygen_init = keygen_sanitize_args(keygen_init)?;
     let key_uid_reservation = kv.reserve_key(keygen_init.new_key_uid.clone()).await?;
 
     Ok((keygen_init, key_uid_reservation))
 }
 
+// sanitize arguments of incoming message.
+// Example:
+// input for party 'a':
+//   args.party_uids = [c, b, a]
+//   args.party_share_counts = [1, 2, 3]
+//   args.my_party_index = 2
+//   args.threshold = 1
+// output for party 'a':
+//   keygen_init.party_uids = [a, b, c]           <- sorted array
+//   keygen_init.party_share_counts = [3, 2, 1] . <- sorted with respect to party_uids
+//   keygen_init.my_party_index = 0 .             <- index inside sorted array
+//   keygen_init.threshold = 1                    <- same as in input
 fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
+    // convert `u32`s to `usize`s
     use std::convert::TryFrom;
     let my_index = usize::try_from(args.my_party_index)?;
     let threshold = usize::try_from(args.threshold)?;
@@ -143,12 +161,16 @@ fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, 
         .iter()
         .map(|i| usize::try_from(*i))
         .collect::<Result<Vec<usize>, _>>()?;
+
     // keep backwards compatibility with axelar-core that doesn't use multiple shares
-    if party_share_counts.len() == 0 {
+    if party_share_counts.is_empty() {
         party_share_counts = vec![1; args.party_uids.len()];
     }
+
+    // store total number of shares of all parties
     let total_shares = party_share_counts.iter().sum();
 
+    // assert that uids and party shares are alligned
     if args.party_uids.len() != party_share_counts.len() {
         return Err(From::from(format!(
             "uid vector and share counts vector not alligned: {:?}, {:?}",
@@ -162,6 +184,7 @@ fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, 
     let (my_new_index, sorted_uids, sorted_share_counts) =
         sort_uids_and_shares(my_index, &args.party_uids, &party_share_counts)?;
 
+    // make tofn validation
     validate_params(total_shares, threshold, my_index)?;
 
     Ok(KeygenInitSanitized {
@@ -173,6 +196,7 @@ fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, 
     })
 }
 
+// co-sort uids and shares with respect to uids an find new index
 fn sort_uids_and_shares(
     my_index: usize,
     uids: &[String],
@@ -206,6 +230,7 @@ fn sort_uids_and_shares(
     Ok((my_index, sorted_uids, sorted_share_counts))
 }
 
+// execute keygen protocol and write the result into the internal channel
 async fn execute_keygen(
     chan: ProtocolCommunication<Option<proto::TrafficIn>, Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
@@ -237,6 +262,7 @@ async fn execute_keygen(
     return Ok(secret_key_share.unwrap().clone());
 }
 
+// aggregate messages from all keygen workers, create a single record and insert it in the KVStore
 async fn aggregate_messages(
     aggregator_receivers: Vec<oneshot::Receiver<Result<SecretKeyShare, TofndError>>>,
     stream_out_sender: &mut mpsc::Sender<Result<proto::MessageOut, Status>>,
@@ -282,7 +308,6 @@ async fn aggregate_messages(
 async fn aggregate_secret_key_shares(
     aggregator_receivers: Vec<Receiver<Result<SecretKeyShare, TofndError>>>,
 ) -> Result<Vec<SecretKeyShare>, TofndError> {
-    // let mut secret_key_shares = new_vec_none(my_share_count);
     let mut secret_key_shares = Vec::with_capacity(aggregator_receivers.len());
     for aggregator in aggregator_receivers {
         let res = aggregator.await??;
@@ -299,6 +324,7 @@ fn get_party_info(
     share_counts: Vec<usize>,
     tofnd_index: usize,
 ) -> PartyInfo {
+    // grap the first share to acquire common data
     let s = secret_key_shares[0].clone();
     let common = CommonInfo {
         threshold: s.threshold,
@@ -308,6 +334,7 @@ fn get_party_info(
         all_zkps: s.all_zkps,
         share_count: s.share_count,
     };
+    // aggregate share data into a vector
     let mut shares = Vec::new();
     for share in secret_key_shares {
         shares.push(ShareInfo {
@@ -318,6 +345,7 @@ fn get_party_info(
             my_ecdsa_secret_key_share: share.my_ecdsa_secret_key_share,
         });
     }
+    // add tofnd data
     let tofnd = TofndInfo {
         party_uids: uids,
         share_counts,

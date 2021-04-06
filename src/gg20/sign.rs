@@ -20,6 +20,8 @@ struct SignInitSanitized {
     message_to_sign: Vec<u8>,
 }
 
+// we wrap the functionality of sign gRPC here because we can't handle errors
+// conveniently when spawning theads.
 pub async fn handle_sign(
     mut kv: Kv<PartyInfo>,
     mut stream_in: tonic::Streaming<proto::MessageIn>,
@@ -60,7 +62,7 @@ pub async fn handle_sign(
         let stream_out = stream_out_sender.clone();
         let all_party_uids = party_info.tofnd.party_uids.clone();
         let all_share_counts = party_info.tofnd.share_counts.clone();
-        let participant_tofn_indices: Vec<usize> = get_party_tofn_indices(
+        let participant_tofn_indices: Vec<usize> = get_signer_tofn_indices(
             &party_info.tofnd.share_counts,
             &sign_init.participant_indices,
         );
@@ -115,6 +117,8 @@ pub async fn handle_sign(
     Ok(())
 }
 
+// makes all needed assertions on incoming data, and create structures that are
+// needed to execute the protocol
 async fn handle_sign_init(
     kv: &mut Kv<PartyInfo>,
     stream: &mut tonic::Streaming<proto::MessageIn>,
@@ -137,6 +141,14 @@ async fn handle_sign_init(
     Ok((sign_init, party_info))
 }
 
+// sanitize arguments of incoming message.
+// Example:
+// input for party 'a':
+//   (from keygen) party_uids = [a, b, c]
+//   (from keygen) party_share_counts = [3, 2, 1]
+//   sign_init.party_uids = [c, a]
+// output for party 'a':
+//   sign_init.party_uids = [2, 0]  <- index of c, a in party_uids
 fn sign_sanitize_args(
     sign_init: proto::SignInit,
     all_party_uids: &[String],
@@ -191,6 +203,7 @@ fn get_secret_key_share(
     })
 }
 
+// execute keygen protocol and write the result into the internal channel
 async fn execute_sign(
     chan: ProtocolCommunication<Option<proto::TrafficIn>, Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
@@ -230,6 +243,7 @@ async fn execute_sign(
     Ok(signature.as_bytes().to_owned())
 }
 
+// waiting group for all sign workers
 async fn wait_threads_and_send_sign(
     aggregator_receivers: Vec<oneshot::Receiver<Result<Vec<u8>, TofndError>>>,
     stream_out_sender: &mut mpsc::Sender<Result<proto::MessageOut, Status>>,
@@ -248,17 +262,27 @@ async fn wait_threads_and_send_sign(
     Ok(())
 }
 
-fn get_party_tofn_indices(share_counts: &[usize], signing_indices: &[usize]) -> Vec<usize> {
-    let mut party_tofn_indices = Vec::new();
+// get all tofn indices of a party
+// Example:
+// input:
+//   sign_uids = [a, c]
+//   share_counts = [3, 2, 1]
+// output:
+//   all_party_tofn_indices: [0, 1, 2, 3, 4, 5]
+//                            ^  ^  ^  ^  ^  ^
+//                            a  a  a  b  b  c
+//   signing_tofn_indices: [0, 1, 2, 5] <- index of a's 3 shares + c's 2 shares
+fn get_signer_tofn_indices(share_counts: &[usize], signing_indices: &[usize]) -> Vec<usize> {
+    let mut signer_tofn_indices = Vec::new();
 
     for signing_index in signing_indices {
         let tofn_index = map_tofnd_to_tofn_idx(*signing_index, 0, share_counts);
         for share_count in 0..share_counts[*signing_index] {
-            party_tofn_indices.push(tofn_index + share_count);
+            signer_tofn_indices.push(tofn_index + share_count);
         }
     }
 
-    party_tofn_indices
+    signer_tofn_indices
 }
 
 #[cfg(test)]
@@ -293,7 +317,7 @@ mod tests {
 
         for t in tests {
             assert_eq!(
-                get_party_tofn_indices(&t.share_counts, &t.signing_indices),
+                get_signer_tofn_indices(&t.share_counts, &t.signing_indices),
                 t.result
             );
         }
