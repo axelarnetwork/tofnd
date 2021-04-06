@@ -1,6 +1,6 @@
 use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::Sign};
 
-use super::{proto, protocol, route_messages, PartyInfo};
+use super::{proto, protocol, route_messages, PartyInfo, ProtocolCommunication};
 use crate::{kv_manager::Kv, TofndError};
 
 use protocol::map_tofnd_to_tofn_idx;
@@ -71,8 +71,10 @@ pub async fn handle_sign(
         tokio::spawn(async move {
             // get result of keygen
             let signature = execute_sign(
-                sign_receiver,
-                stream_out,
+                ProtocolCommunication {
+                    receiver: sign_receiver,
+                    sender: stream_out,
+                },
                 &all_party_uids,
                 &all_share_counts,
                 &participant_tofn_indices,
@@ -179,8 +181,7 @@ fn get_secret_key_share(
 }
 
 async fn execute_sign(
-    channel: mpsc::Receiver<Option<proto::TrafficIn>>,
-    mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    chan: ProtocolCommunication<Option<proto::TrafficIn>, Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
     party_share_counts: &[usize],
     participant_tofn_indices: &[usize],
@@ -203,8 +204,7 @@ async fn execute_sign(
 
     protocol::execute_protocol(
         &mut sign,
-        channel,
-        &mut msg_sender,
+        chan,
         &party_uids,
         &party_share_counts,
         &participant_tofn_indices,

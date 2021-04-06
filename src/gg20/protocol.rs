@@ -1,12 +1,11 @@
 //! Abstract functionality used by keygen, sign, etc.
 use tofn::protocol::Protocol;
 
-use super::proto;
+use super::{proto, ProtocolCommunication};
 use crate::TofndError;
 
 // tonic cruft
 use futures_util::StreamExt;
-use tokio::sync::mpsc;
 
 use serde::{Deserialize, Serialize};
 
@@ -46,8 +45,10 @@ fn map_tofn_to_tofnd_idx(
 
 pub(super) async fn execute_protocol(
     protocol: &mut impl Protocol,
-    mut in_channel: mpsc::Receiver<Option<proto::TrafficIn>>,
-    out_sender: &mut mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    mut chan: ProtocolCommunication<
+        Option<proto::TrafficIn>,
+        Result<proto::MessageOut, tonic::Status>,
+    >,
     party_uids: &[String],
     party_share_counts: &[usize],
     party_indices: &[usize],
@@ -67,7 +68,7 @@ pub(super) async fn execute_protocol(
         let bcast = protocol.get_bcast_out();
         if let Some(bcast) = bcast {
             println!("{}: out bcast", log_prefix_round);
-            out_sender
+            chan.sender
                 .send(Ok(proto::MessageOut::new_bcast(bcast)))
                 .await?;
         }
@@ -85,7 +86,7 @@ pub(super) async fn execute_protocol(
                         payload: p2p.clone(),
                         subindex: tofnd_subindex,
                     })?;
-                    out_sender
+                    chan.sender
                         .send(Ok(proto::MessageOut::new_p2p(&party_uids[tofnd_idx], &p2p)))
                         .await?;
                 }
@@ -95,7 +96,7 @@ pub(super) async fn execute_protocol(
         // collect incoming messages
         // println!("{}: wait for incoming messages...", log_prefix_round);
         while protocol.expecting_more_msgs_this_round() {
-            let traffic = in_channel.next().await.ok_or(format!(
+            let traffic = chan.receiver.next().await.ok_or(format!(
                 "{}: stream closed by client before protocol has completed",
                 log_prefix_round
             ))?;

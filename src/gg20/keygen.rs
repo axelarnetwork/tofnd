@@ -5,7 +5,10 @@ use tofn::protocol::gg20::keygen::{
 
 use protocol::map_tofnd_to_tofn_idx;
 
-use super::{proto, protocol, route_messages, KeygenInitSanitized, PartyInfo, TofndInfo};
+use super::{
+    proto, protocol, route_messages, KeygenInitSanitized, PartyInfo, ProtocolCommunication,
+    TofndInfo,
+};
 use crate::{kv_manager::KeyReservation, kv_manager::Kv, TofndError};
 
 use tokio::sync::oneshot;
@@ -60,8 +63,10 @@ pub async fn handle_keygen(
         tokio::spawn(async move {
             // get result of keygen
             let secret_key_share = execute_keygen(
-                keygen_receiver,
-                stream_out,
+                ProtocolCommunication {
+                    receiver: keygen_receiver,
+                    sender: stream_out,
+                },
                 &uids,
                 &shares,
                 &party_indices,
@@ -185,8 +190,7 @@ fn sort_uids_and_shares(
 }
 
 async fn execute_keygen(
-    channel: mpsc::Receiver<Option<proto::TrafficIn>>,
-    mut msg_sender: mpsc::Sender<Result<proto::MessageOut, tonic::Status>>,
+    chan: ProtocolCommunication<Option<proto::TrafficIn>, Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
     party_share_counts: &[usize],
     party_indices: &[usize],
@@ -201,8 +205,7 @@ async fn execute_keygen(
     // instead I'll use the less-readable `and_then` https://doc.rust-lang.org/std/result/enum.Result.html#method.and_then
     let secret_key_share = protocol::execute_protocol(
         &mut keygen,
-        channel,
-        &mut msg_sender,
+        chan,
         &party_uids,
         &party_share_counts,
         &party_indices,
