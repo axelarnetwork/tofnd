@@ -16,31 +16,40 @@ use crate::proto;
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use testdir::testdir;
 
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
-    static ref TEST_CASES: Vec<(usize, usize, Vec<usize>)> = vec![ // (share_count, threshold, participant_indices)
-        (5, 2, vec![1,4,2,3]),
-        (1,0,vec![0]),
+    static ref TEST_CASES: Vec<(usize, Vec<u32>, usize, Vec<usize>)> = vec![ // (number of uids, count of shares per uid, threshold, indices of sign participants)
+        (5, vec![], 3, vec![1,4,2,3]),          // should initialize share_counts into [1,1,1,1,1]
+        (5, vec![1,1,1,1,1], 3, vec![1,4,2,3]), // 1 share per uid
+        (5, vec![1,2,1,3,2], 6, vec![1,4,2,3]), // multiple shares per uid
+        (1,vec![1],0,vec![0]),                  // trivial case
     ];
     // TODO add TEST_CASES_INVALID
 }
 
 #[tokio::test]
 async fn basic_keygen_and_sign() {
-    let dir: PathBuf = testdir!();
+    let dir = testdir!();
 
-    for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
-        let (parties, party_uids) = init_parties(*share_count, &dir).await;
+    for (uid_count, party_share_counts, threshold, sign_participant_indices) in TEST_CASES.iter() {
+        let (parties, party_uids) = init_parties(*uid_count, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
         //     share_count, threshold
         // );
         let new_key_uid = "Gus-test-key";
-        let parties = execute_keygen(parties, &party_uids, new_key_uid, *threshold).await;
+        let parties = execute_keygen(
+            parties,
+            &party_uids,
+            &party_share_counts,
+            new_key_uid,
+            *threshold,
+        )
+        .await;
 
         // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
@@ -62,15 +71,22 @@ async fn basic_keygen_and_sign() {
 #[tokio::test]
 async fn restart_one_party() {
     let dir = testdir!();
-    for (share_count, threshold, sign_participant_indices) in TEST_CASES.iter() {
-        let (parties, party_uids) = init_parties(*share_count, &dir).await;
+    for (uid_count, party_share_counts, threshold, sign_participant_indices) in TEST_CASES.iter() {
+        let (parties, party_uids) = init_parties(*uid_count, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
         //     share_count, threshold
         // );
         let new_key_uid = "Gus-test-key";
-        let parties = execute_keygen(parties, &party_uids, new_key_uid, *threshold).await;
+        let parties = execute_keygen(
+            parties,
+            &party_uids,
+            &party_share_counts,
+            new_key_uid,
+            *threshold,
+        )
+        .await;
 
         let shutdown_index = sign_participant_indices[0];
         println!("restart party {}", shutdown_index);
@@ -113,6 +129,7 @@ async fn init_parties(share_count: usize, testdir: &Path) -> (Vec<TofndParty>, V
     let party_uids: Vec<String> = (0..share_count)
         .map(|i| format!("{}", (b'A' + i as u8) as char))
         .collect();
+
     (parties, party_uids)
 }
 
@@ -133,6 +150,7 @@ fn delete_dbs(parties: &[impl Party]) {
 async fn execute_keygen(
     parties: Vec<TofndParty>,
     party_uids: &[String],
+    party_share_counts: &[u32],
     new_key_uid: &str,
     threshold: usize,
 ) -> Vec<TofndParty> {
@@ -147,6 +165,7 @@ async fn execute_keygen(
         let init = proto::KeygenInit {
             new_key_uid: new_key_uid.to_string(),
             party_uids: party_uids.to_owned(),
+            party_share_counts: party_share_counts.to_owned(),
             my_party_index: i32::try_from(i).unwrap(),
             threshold: i32::try_from(threshold).unwrap(),
         };

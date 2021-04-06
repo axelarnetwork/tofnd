@@ -91,6 +91,7 @@ impl Party for TofndParty {
             .await
             .unwrap();
 
+        let mut keygen_completed = false;
         while let Some(msg) = keygen_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
@@ -100,6 +101,7 @@ impl Party for TofndParty {
                 }
                 proto::message_out::Data::KeygenResult(_) => {
                     println!("party [{}] keygen finished!", my_display_name);
+                    keygen_completed = true;
                     break;
                 }
                 _ => panic!(
@@ -108,6 +110,7 @@ impl Party for TofndParty {
                 ),
             };
         }
+        assert!(keygen_completed, "keygen failure to complete");
         println!("party [{}] keygen execution complete", my_display_name);
     }
 
@@ -135,6 +138,7 @@ impl Party for TofndParty {
             .await
             .unwrap();
 
+        let mut sign_completed = false;
         while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
@@ -143,6 +147,7 @@ impl Party for TofndParty {
                     delivery.deliver(&msg, &my_uid).await;
                 }
                 proto::message_out::Data::SignResult(_) => {
+                    sign_completed = true;
                     println!("party [{}] sign finished!", my_display_name);
                     break;
                 }
@@ -152,6 +157,7 @@ impl Party for TofndParty {
                 ),
             };
         }
+        assert!(sign_completed, "sign failure to complete");
         println!("party [{}] sign execution complete", my_display_name);
     }
 
