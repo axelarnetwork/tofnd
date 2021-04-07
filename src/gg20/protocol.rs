@@ -7,16 +7,6 @@ use crate::TofndError;
 // tonic cruft
 use futures_util::StreamExt;
 
-use serde::{Deserialize, Serialize};
-
-// final output of keygen
-#[derive(Serialize, Deserialize)]
-pub struct TofndP2pMsg {
-    // TODO: &`a[u8]
-    pub payload: Vec<u8>,
-    pub subindex: usize,
-}
-
 pub fn map_tofnd_to_tofn_idx(
     tofnd_index: usize,
     tofnd_subindex: usize,
@@ -76,18 +66,12 @@ pub(super) async fn execute_protocol(
         if let Some(p2ps) = p2ps {
             for (i, p2p) in p2ps.iter().enumerate() {
                 if let Some(p2p) = p2p {
-                    let (tofnd_idx, tofnd_subindex) =
+                    let (tofnd_idx, _) =
                         map_tofn_to_tofnd_idx(party_indices[i], party_share_counts)?;
                     println!(
                         "{}: out p2p to [{}]",
                         log_prefix_round, party_uids[tofnd_idx]
                     );
-                    // add tofnd's share index inside the message and send it to client
-                    // TODO can we eliminate wrapping subindex?
-                    let p2p = bincode::serialize(&TofndP2pMsg {
-                        payload: p2p.clone(),
-                        subindex: tofnd_subindex,
-                    })?;
                     chan.sender
                         .send(Ok(proto::MessageOut::new_p2p(&party_uids[tofnd_idx], &p2p)))
                         .await?;
@@ -110,14 +94,7 @@ pub(super) async fn execute_protocol(
                 continue;
             }
             let traffic = traffic.unwrap();
-            if !traffic.is_broadcast {
-                // unwrap tofnd message and pass original payload to tofn
-                let tofnd_msg: TofndP2pMsg = bincode::deserialize(&traffic.payload)?;
-                println!("{}: incoming msg received", log_prefix_round);
-                protocol.set_msg_in(&tofnd_msg.payload)?;
-            } else {
-                protocol.set_msg_in(&traffic.payload)?;
-            }
+            protocol.set_msg_in(&traffic.payload)?;
         }
         println!("{}: end", log_prefix_round);
     }
