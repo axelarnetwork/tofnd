@@ -1,4 +1,7 @@
-use tofn::protocol::gg20::keygen::{CommonInfo, ShareInfo};
+use tofn::protocol::gg20::{
+    keygen::{CommonInfo, ShareInfo},
+    sign::SignOutput,
+};
 
 use super::proto;
 use crate::kv_manager::Kv;
@@ -157,9 +160,11 @@ impl proto::MessageOut {
             data: Some(proto::message_out::Data::KeygenResult(result.to_vec())),
         }
     }
-    fn new_sign_result(result: &[u8]) -> Self {
+    fn new_sign_result(result: SignOutput) -> Self {
+        // TODO TEMPORARY assume success
+        let result = result.unwrap();
         proto::MessageOut {
-            data: Some(proto::message_out::Data::SignResult(result.to_vec())),
+            data: Some(proto::message_out::Data::SignResult(result)),
         }
     }
 }

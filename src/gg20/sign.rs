@@ -1,4 +1,7 @@
-use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::Sign};
+use tofn::protocol::gg20::{
+    keygen::SecretKeyShare,
+    sign::{Sign, SignOutput},
+};
 
 use super::{proto, protocol, route_messages, PartyInfo, ProtocolCommunication};
 use crate::{kv_manager::Kv, TofndError};
@@ -212,7 +215,7 @@ async fn execute_sign(
     secret_key_share: SecretKeyShare,
     message_to_sign: Vec<u8>,
     log_prefix: String,
-) -> Result<Vec<u8>, TofndError> {
+) -> Result<SignOutput, TofndError> {
     // Sign::new() needs 'tofn' information:
     let mut sign = Sign::new(
         &secret_key_share,
@@ -230,28 +233,24 @@ async fn execute_sign(
     )
     .await?;
 
-    // TODO TEMPORARY assume success
-    Ok(sign
-        .get_result()
-        .ok_or("sign output is `None`")?
-        .unwrap()
-        .to_vec())
+    Ok(sign.clone_output().ok_or("sign output is `None`")?)
 }
 
 // waiting group for all sign workers
 async fn wait_threads_and_send_sign(
-    aggregator_receivers: Vec<oneshot::Receiver<Result<Vec<u8>, TofndError>>>,
+    aggregator_receivers: Vec<oneshot::Receiver<Result<SignOutput, TofndError>>>,
     stream_out_sender: &mut mpsc::Sender<Result<proto::MessageOut, Status>>,
 ) -> Result<(), TofndError> {
     //  wait all sign threads and get signature
-    let mut signature = Vec::new();
+    let mut sign_output = None;
     for aggregator in aggregator_receivers {
-        signature = aggregator.await??;
+        sign_output = Some(aggregator.await??);
     }
+    let sign_output = sign_output.ok_or("no output returned from waitgroup")?;
 
     // send signature to client
     stream_out_sender
-        .send(Ok(proto::MessageOut::new_sign_result(&signature)))
+        .send(Ok(proto::MessageOut::new_sign_result(sign_output)))
         .await?;
 
     Ok(())
