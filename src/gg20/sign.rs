@@ -234,9 +234,8 @@ async fn execute_sign(
     Ok(sign
         .get_result()
         .ok_or("sign output is `None`")?
-        .as_ref()
         .unwrap()
-        .clone())
+        .to_vec())
 }
 
 // waiting group for all sign workers
