@@ -1,6 +1,9 @@
-use tofn::protocol::gg20::{
-    keygen::{CommonInfo, ShareInfo},
-    sign::SignOutput,
+use tofn::protocol::{
+    gg20::{
+        keygen::{CommonInfo, ShareInfo},
+        sign::SignOutput,
+    },
+    CrimeType, Criminal,
 };
 
 use super::proto;
@@ -126,6 +129,12 @@ mod keygen;
 mod protocol;
 mod sign;
 
+use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;
+use proto::message_out::criminal_list::Criminal as ProtoCriminal;
+use proto::message_out::sign_result::SignResultData::Criminals as ProtoCriminals;
+use proto::message_out::sign_result::SignResultData::Signature as ProtoSignature;
+use proto::message_out::CriminalList as ProtoCriminalList;
+
 // convenience constructors
 impl proto::MessageOut {
     fn new_bcast(bcast: &[u8]) -> Self {
@@ -148,11 +157,42 @@ impl proto::MessageOut {
             data: Some(proto::message_out::Data::KeygenResult(result.to_vec())),
         }
     }
-    fn new_sign_result(result: SignOutput) -> Self {
-        // TODO TEMPORARY assume success
-        let result = result.unwrap();
+    fn new_sign_result(participant_uids: &[String], result: SignOutput) -> Self {
+        let result = match result {
+            Ok(signature) => ProtoSignature(signature),
+            Err(criminals) => ProtoCriminals(ProtoCriminalList::from(criminals, participant_uids)),
+        };
+
         proto::MessageOut {
-            data: Some(proto::message_out::Data::SignResult(result)),
+            data: Some(proto::message_out::Data::SignResult(
+                proto::message_out::SignResult {
+                    sign_result_data: Some(result),
+                },
+            )),
+        }
+    }
+}
+
+impl ProtoCriminalList {
+    // can't impl From<Vec<Criminal>> because we need participant_uids :(
+    fn from(criminals: Vec<Criminal>, participant_uids: &[String]) -> Self {
+        Self {
+            criminals: criminals
+                .into_iter()
+                .map(|c| ProtoCriminal {
+                    party_uid: participant_uids[c.index].clone(),
+                    crime_type: ProtoCrimeType::from(c.crime_type) as i32, // why `as i32`? https://github.com/danburkert/prost#enumerations
+                })
+                .collect(),
+        }
+    }
+}
+
+impl From<CrimeType> for ProtoCrimeType {
+    fn from(crime_type: CrimeType) -> Self {
+        match crime_type {
+            CrimeType::Malicious => Self::Malicious,
+            CrimeType::NonMalicious => Self::NonMalicious,
         }
     }
 }

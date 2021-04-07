@@ -120,7 +120,12 @@ pub async fn handle_sign(
     });
 
     // wait for all sign threads to end, get their responses, and return signature
-    wait_threads_and_send_sign(aggregator_receivers, &mut stream_out_sender).await?;
+    wait_threads_and_send_sign(
+        aggregator_receivers,
+        &mut stream_out_sender,
+        &sign_init.participant_uids,
+    )
+    .await?;
 
     Ok(())
 }
@@ -245,6 +250,7 @@ async fn execute_sign(
 async fn wait_threads_and_send_sign(
     aggregator_receivers: Vec<oneshot::Receiver<Result<SignOutput, TofndError>>>,
     stream_out_sender: &mut mpsc::Sender<Result<proto::MessageOut, Status>>,
+    participant_uids: &[String],
 ) -> Result<(), TofndError> {
     //  wait all sign threads and get signature
     let mut sign_output = None;
@@ -255,7 +261,10 @@ async fn wait_threads_and_send_sign(
 
     // send signature to client
     stream_out_sender
-        .send(Ok(proto::MessageOut::new_sign_result(sign_output)))
+        .send(Ok(proto::MessageOut::new_sign_result(
+            participant_uids,
+            sign_output,
+        )))
         .await?;
 
     Ok(())
