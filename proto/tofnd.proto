@@ -10,8 +10,6 @@ package tofnd;
 service GG20 {
     rpc Keygen(stream MessageIn) returns (stream MessageOut);
     rpc Sign(stream MessageIn) returns (stream MessageOut);
-    rpc GetKey(Uid) returns (Bytes);
-    rpc GetSig(Uid) returns (Bytes);
 }
 
 // generic message types shared by Keygen, Sign
@@ -61,16 +59,4 @@ message SignInit {
     string key_uid = 2;
     repeated string party_uids = 3; // TODO replace this with a subset of indices?
     bytes message_to_sign = 4;
-}
-
-// Generic message types shared by GetKey, GetSig.
-// Used only because rpc args cannot be scalar types,
-// so we need to wrap scalar types inside message types.
-
-message Uid {
-    string uid = 1;
-}
-
-message Bytes {
-    bytes payload = 1;
 }

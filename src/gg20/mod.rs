@@ -78,27 +78,6 @@ impl proto::gg20_server::Gg20 for Gg20Service {
     type KeygenStream = mpsc::Receiver<Result<proto::MessageOut, Status>>;
     type SignStream = Self::KeygenStream;
 
-    // TODO delete get_key, get_sign?
-    async fn get_key(
-        &self,
-        request: Request<proto::Uid>,
-    ) -> Result<Response<proto::Bytes>, Status> {
-        println!("get_key uid {:?}", request.get_ref());
-        Ok(Response::new(proto::Bytes {
-            payload: vec![1, 2, 3],
-        }))
-    }
-
-    async fn get_sig(
-        &self,
-        request: Request<proto::Uid>,
-    ) -> Result<Response<proto::Bytes>, Status> {
-        println!("get_sig uid {:?}", request.get_ref());
-        Ok(Response::new(proto::Bytes {
-            payload: vec![3, 2, 1],
-        }))
-    }
-
     async fn keygen(
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,
