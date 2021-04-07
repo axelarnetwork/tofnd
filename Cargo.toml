@@ -7,8 +7,8 @@ edition = "2018"
 [dependencies]
 tonic = "0.3"
 # tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
-tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "blame"}
-# tofn = { path = "../tofn" }
+# tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "blame"}
+tofn = { path = "../tofn" }
 bincode = "1.2.1"
 sled = "0.34"
 funty = "=1.1.0" # zengo baggage

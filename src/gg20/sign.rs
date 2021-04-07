@@ -231,7 +231,12 @@ async fn execute_sign(
     .await?;
 
     // TODO TEMPORARY assume success
-    Ok(sign.get_result().ok_or("sign output is `None`")?.unwrap())
+    Ok(sign
+        .get_result()
+        .ok_or("sign output is `None`")?
+        .as_ref()
+        .unwrap()
+        .clone())
 }
 
 // waiting group for all sign workers
