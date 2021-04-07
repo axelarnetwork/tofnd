@@ -229,11 +229,9 @@ async fn execute_sign(
         &log_prefix,
     )
     .await?;
-    let signature = sign.get_result().ok_or("sign output is `None`")?;
 
-    // serialize generated signature and send to client
-    // TODO how do I serialize in proper bitcoin format?
-    Ok(signature.as_bytes().to_owned())
+    // TODO TEMPORARY assume success
+    Ok(sign.get_result().ok_or("sign output is `None`")?.unwrap())
 }
 
 // waiting group for all sign workers
