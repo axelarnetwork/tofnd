@@ -1,10 +1,4 @@
-use tofn::protocol::{
-    gg20::{
-        keygen::{CommonInfo, ShareInfo},
-        sign::SignOutput,
-    },
-    CrimeType, Criminal,
-};
+use tofn::protocol::gg20::keygen::{CommonInfo, ShareInfo};
 
 use super::proto;
 use crate::kv_manager::Kv;
@@ -126,76 +120,9 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 }
 
 mod keygen;
+mod proto_helpers;
 mod protocol;
 mod sign;
-
-use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;
-use proto::message_out::criminal_list::Criminal as ProtoCriminal;
-use proto::message_out::sign_result::SignResultData::Criminals as ProtoCriminals;
-use proto::message_out::sign_result::SignResultData::Signature as ProtoSignature;
-use proto::message_out::CriminalList as ProtoCriminalList;
-
-// convenience constructors
-impl proto::MessageOut {
-    fn new_bcast(bcast: &[u8]) -> Self {
-        Self::new_traffic("", bcast, true)
-    }
-    fn new_p2p(receiver_id: &str, p2p: &[u8]) -> Self {
-        Self::new_traffic(receiver_id, p2p, false)
-    }
-    fn new_traffic(receiver_id: &str, msg: &[u8], is_broadcast: bool) -> Self {
-        proto::MessageOut {
-            data: Some(proto::message_out::Data::Traffic(proto::TrafficOut {
-                to_party_uid: receiver_id.to_string(),
-                payload: msg.to_vec(),
-                is_broadcast,
-            })),
-        }
-    }
-    fn new_keygen_result(result: &[u8]) -> Self {
-        proto::MessageOut {
-            data: Some(proto::message_out::Data::KeygenResult(result.to_vec())),
-        }
-    }
-    fn new_sign_result(participant_uids: &[String], result: SignOutput) -> Self {
-        let result = match result {
-            Ok(signature) => ProtoSignature(signature),
-            Err(criminals) => ProtoCriminals(ProtoCriminalList::from(criminals, participant_uids)),
-        };
-
-        proto::MessageOut {
-            data: Some(proto::message_out::Data::SignResult(
-                proto::message_out::SignResult {
-                    sign_result_data: Some(result),
-                },
-            )),
-        }
-    }
-}
-
-impl ProtoCriminalList {
-    // can't impl From<Vec<Criminal>> because we need participant_uids :(
-    fn from(criminals: Vec<Criminal>, participant_uids: &[String]) -> Self {
-        Self {
-            criminals: criminals
-                .into_iter()
-                .map(|c| ProtoCriminal {
-                    party_uid: participant_uids[c.index].clone(),
-                    crime_type: ProtoCrimeType::from(c.crime_type) as i32, // why `as i32`? https://github.com/danburkert/prost#enumerations
-                })
-                .collect(),
-        }
-    }
-}
-
-impl From<CrimeType> for ProtoCrimeType {
-    fn from(crime_type: CrimeType) -> Self {
-        match crime_type {
-            CrimeType::Malicious => Self::Malicious,
-            CrimeType::NonMalicious => Self::NonMalicious,
-        }
-    }
-}
 
 pub(super) async fn route_messages(
     in_stream: &mut tonic::Streaming<proto::MessageIn>,
