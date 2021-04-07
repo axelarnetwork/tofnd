@@ -206,6 +206,8 @@ pub(super) async fn route_messages(
         // if it's a p2p message, send it only to the corresponding keygen. In
         // case of p2p we have to also wrap the share we are refering to, so we
         // unwrap the message and read the 'subindex' field.
+
+        // TODO broadcast p2p messages; don't need TofndP2pMsg any more?
         if traffic.is_broadcast {
             for out_channel in &mut out_channels {
                 let _ = out_channel.send(Some(traffic.clone())).await;

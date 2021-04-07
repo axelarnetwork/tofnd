@@ -66,15 +66,16 @@ impl Deliverer {
         };
 
         // p2p message
-        if !msg.is_broadcast {
-            self.senders
-                .get_mut(&msg.to_party_uid)
-                .unwrap()
-                .send(msg_in)
-                .await
-                .unwrap();
-            return;
-        }
+        // TODO is it sufficient to simply treat everything as bcast?
+        // if !msg.is_broadcast {
+        //     self.senders
+        //         .get_mut(&msg.to_party_uid)
+        //         .unwrap()
+        //         .send(msg_in)
+        //         .await
+        //         .unwrap();
+        //     return;
+        // }
 
         // broadcast message
         for (_, sender) in self.senders.iter_mut() {

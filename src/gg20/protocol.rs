@@ -83,6 +83,7 @@ pub(super) async fn execute_protocol(
                         log_prefix_round, party_uids[tofnd_idx]
                     );
                     // add tofnd's share index inside the message and send it to client
+                    // TODO can we eliminate wrapping subindex?
                     let p2p = bincode::serialize(&TofndP2pMsg {
                         payload: p2p.clone(),
                         subindex: tofnd_subindex,
