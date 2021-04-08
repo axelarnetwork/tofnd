@@ -4,6 +4,9 @@ use tokio::net::TcpListener;
 mod gg20;
 mod kv_manager;
 
+// gather logs
+use tracing::{info, span, Level};
+
 // protocol buffers via tonic: https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md#writing-our-server
 pub mod proto {
     tonic::include_proto!("tofnd");
@@ -14,13 +17,20 @@ type TofndError = Box<dyn std::error::Error + Send + Sync>;
 
 #[tokio::main]
 async fn main() -> Result<(), TofndError> {
+    // set up an event subscriber for logs
+    tracing_subscriber::fmt::init();
+
+    // set up span for logs
+    let main_span = span!(Level::INFO, "main");
+    let _enter = main_span.enter();
+
     let args: Vec<String> = env::args().collect();
     let port: u16 = match args.len() {
         2 => args[1].parse()?,
         _ => 50051, // default listen port
     };
     let incoming = TcpListener::bind(addr(port)).await?;
-    println!(
+    info!(
         "tofnd listen addr {:?}, use ctrl+c to shutdown",
         incoming.local_addr()?
     );
@@ -45,7 +55,7 @@ async fn shutdown_signal() {
     tokio::signal::ctrl_c()
         .await
         .expect("failed to install CTRL+C signal handler");
-    println!("tofnd shutdown signal received");
+    info!("tofnd shutdown signal received");
 }
 
 #[cfg(test)]
