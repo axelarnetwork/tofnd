@@ -27,6 +27,13 @@ pub(super) struct Deliverer {
     senders: HashMap<String, Sender<proto::MessageIn>>, // (party_uid, sender)
 }
 impl Deliverer {
+    // fn new(party_count: usize) -> (Self, Vec<SenderReceiver>) {
+    //     Self::with_party_ids(
+    //         &(0..party_count)
+    //             .map(|i| format!("{}", (b'A' + i as u8) as char))
+    //             .collect::<Vec<String>>(),
+    //     )
+    // }
     pub(super) fn with_party_ids(party_ids: &[String]) -> (Self, Vec<SenderReceiver>) {
         let channels: Vec<SenderReceiver> = (0..party_ids.len()).map(|_| channel(4)).collect();
         let senders = party_ids
@@ -44,6 +51,10 @@ impl Deliverer {
                 panic!("msg must be traffic out");
             }
         };
+        // println!(
+        //     "deliver from [{}] to [{}] broadcast? [{}]",
+        //     from, msg.to_party_uid, msg.is_broadcast,
+        // );
 
         // simulate wire transmission: translate proto::MessageOut to proto::MessageIn
         let msg_in = proto::MessageIn {
@@ -54,7 +65,18 @@ impl Deliverer {
             })),
         };
 
-        // deliver all msgs to all parties (even p2p msgs)
+        // p2p message
+        if !msg.is_broadcast {
+            self.senders
+                .get_mut(&msg.to_party_uid)
+                .unwrap()
+                .send(msg_in)
+                .await
+                .unwrap();
+            return;
+        }
+
+        // broadcast message
         for (_, sender) in self.senders.iter_mut() {
             sender.send(msg_in.clone()).await.unwrap();
         }

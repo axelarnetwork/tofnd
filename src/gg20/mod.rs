@@ -1,7 +1,4 @@
-use tofn::protocol::gg20::{
-    keygen::{CommonInfo, ShareInfo},
-    sign::SignOutput,
-};
+use tofn::protocol::gg20::keygen::{CommonInfo, ShareInfo};
 
 use super::proto;
 use crate::kv_manager::Kv;
@@ -15,6 +12,7 @@ use serde::{Deserialize, Serialize};
 // for routing messages
 use crate::TofndError;
 use futures_util::StreamExt;
+use protocol::TofndP2pMsg;
 
 // Struct to hold `tonfd` info. This consists of information we need to
 // store in the KV store that is not relevant to `tofn`
@@ -160,11 +158,9 @@ impl proto::MessageOut {
             data: Some(proto::message_out::Data::KeygenResult(result.to_vec())),
         }
     }
-    fn new_sign_result(result: SignOutput) -> Self {
-        // TODO TEMPORARY assume success
-        let result = result.unwrap();
+    fn new_sign_result(result: &[u8]) -> Self {
         proto::MessageOut {
-            data: Some(proto::message_out::Data::SignResult(result)),
+            data: Some(proto::message_out::Data::SignResult(result.to_vec())),
         }
     }
 }
@@ -206,11 +202,18 @@ pub(super) async fn route_messages(
                 continue;
             }
         };
-
-        // send the message to all of my shares. This applies to p2p and bcast messages.
-        // We also broadcast p2p messages to facilitate fault attribution
-        for out_channel in &mut out_channels {
-            let _ = out_channel.send(Some(traffic.clone())).await;
+        // if message is broadcast, send it to all keygen threads.
+        // if it's a p2p message, send it only to the corresponding keygen. In
+        // case of p2p we have to also wrap the share we are refering to, so we
+        // unwrap the message and read the 'subindex' field.
+        if traffic.is_broadcast {
+            for out_channel in &mut out_channels {
+                let _ = out_channel.send(Some(traffic.clone())).await;
+            }
+        } else {
+            let tofnd_msg: TofndP2pMsg = bincode::deserialize(&traffic.payload)?;
+            let my_share_index: usize = tofnd_msg.subindex;
+            let _ = out_channels[my_share_index].send(Some(traffic)).await;
         }
     }
     Ok(())

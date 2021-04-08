@@ -1,7 +1,4 @@
-use tofn::protocol::gg20::{
-    keygen::SecretKeyShare,
-    sign::{Sign, SignOutput},
-};
+use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::Sign};
 
 use super::{proto, protocol, route_messages, PartyInfo, ProtocolCommunication};
 use crate::{kv_manager::Kv, TofndError};
@@ -215,7 +212,7 @@ async fn execute_sign(
     secret_key_share: SecretKeyShare,
     message_to_sign: Vec<u8>,
     log_prefix: String,
-) -> Result<SignOutput, TofndError> {
+) -> Result<Vec<u8>, TofndError> {
     // Sign::new() needs 'tofn' information:
     let mut sign = Sign::new(
         &secret_key_share,
@@ -232,25 +229,27 @@ async fn execute_sign(
         &log_prefix,
     )
     .await?;
+    let signature = sign.get_result().ok_or("sign output is `None`")?;
 
-    Ok(sign.clone_output().ok_or("sign output is `None`")?)
+    // serialize generated signature and send to client
+    // TODO how do I serialize in proper bitcoin format?
+    Ok(signature.as_bytes().to_owned())
 }
 
 // waiting group for all sign workers
 async fn wait_threads_and_send_sign(
-    aggregator_receivers: Vec<oneshot::Receiver<Result<SignOutput, TofndError>>>,
+    aggregator_receivers: Vec<oneshot::Receiver<Result<Vec<u8>, TofndError>>>,
     stream_out_sender: &mut mpsc::Sender<Result<proto::MessageOut, Status>>,
 ) -> Result<(), TofndError> {
     //  wait all sign threads and get signature
-    let mut sign_output = None;
+    let mut signature = Vec::new();
     for aggregator in aggregator_receivers {
-        sign_output = Some(aggregator.await??);
+        signature = aggregator.await??;
     }
-    let sign_output = sign_output.ok_or("no output returned from waitgroup")?;
 
     // send signature to client
     stream_out_sender
-        .send(Ok(proto::MessageOut::new_sign_result(sign_output)))
+        .send(Ok(proto::MessageOut::new_sign_result(&signature)))
         .await?;
 
     Ok(())
