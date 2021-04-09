@@ -50,7 +50,7 @@ pub(super) async fn execute_protocol(
 
     // TODO runs an extra iteration!
     while !protocol.done() {
-        let pspan = span!(parent: &span, Level::INFO, "Protocol", round);
+        let pspan = span!(parent: &span, Level::INFO, "", round);
         let _start = pspan.enter();
         round += 1;
         let log_prefix_round = format!("{}", round);

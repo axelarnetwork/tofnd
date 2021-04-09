@@ -83,8 +83,8 @@ pub async fn handle_sign(
             party_info.shares[my_tofnd_subindex].my_index + 1,
             party_info.common.share_count
         );
-        let log_prefix = log_prefix.as_str();
-        let handle_span = span!(parent: &sign_span, Level::INFO, "Handle", log = log_prefix);
+        let state = log_prefix.as_str();
+        let handle_span = span!(parent: &sign_span, Level::INFO, "", state);
         info!(
             "with (t,n)=({},{}), participant indices: {:?}",
             party_info.common.threshold,

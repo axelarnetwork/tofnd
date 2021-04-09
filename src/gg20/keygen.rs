@@ -48,7 +48,7 @@ pub async fn handle_keygen(
         keygen_init.party_uids.len(),
     );
     let state = log_prefix.as_str();
-    let handle_span = span!(parent: &keygen_span, Level::INFO, "Handle", state);
+    let handle_span = span!(parent: &keygen_span, Level::INFO, "", state);
     let _enter = handle_span.enter();
 
     // find my share count

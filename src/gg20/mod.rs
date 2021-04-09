@@ -186,7 +186,7 @@ pub(super) async fn route_messages(
     loop {
         let msg_data = in_stream.next().await;
 
-        let route_span = span!(parent: &span, Level::INFO, "Route");
+        let route_span = span!(parent: &span, Level::INFO, "");
         let start = route_span.enter();
         if msg_data.is_none() {
             info!("Stream closed");
