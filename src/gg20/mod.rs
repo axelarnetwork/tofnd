@@ -220,7 +220,7 @@ pub(super) async fn route_messages(
         };
 
         // need to drop span before entering async code or we have log conflicts
-        // with protocol execution
+        // with protocol execution https://github.com/tokio-rs/tracing#in-asynchronous-code
         drop(start);
 
         // send the message to all of my shares. This applies to p2p and bcast messages.

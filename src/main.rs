@@ -5,6 +5,7 @@ mod gg20;
 mod kv_manager;
 
 // gather logs
+// need to set RUST_LOG=info
 use tracing::{info, span, Level};
 
 // protocol buffers via tonic: https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md#writing-our-server

@@ -75,7 +75,7 @@ pub async fn handle_sign(
         let secret_key_share = get_secret_key_share(&party_info, my_tofnd_subindex)?;
         let message_to_sign = sign_init.message_to_sign.clone();
 
-        // TODO better logging
+        // set up log prefix
         let log_prefix = format!(
             "sign [{}] party [uid:{}, share:{}/{}]",
             sign_init.new_sig_uid,
