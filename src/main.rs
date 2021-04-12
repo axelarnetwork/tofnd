@@ -26,7 +26,7 @@ fn set_up_logs(log_level: &str, enable_colours: bool) {
 async fn main() -> Result<(), TofndError> {
     // set up log subscriber
     // TODO read arguments from a config file
-    set_up_logs("INFO", true);
+    set_up_logs("INFO", atty::is(atty::Stream::Stdout));
 
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
