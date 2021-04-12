@@ -19,12 +19,15 @@ use tokio::sync::{mpsc, oneshot::Receiver};
 
 use futures_util::StreamExt;
 
+use tracing::{error, span, Level, Span};
+
 // we wrap the functionality of keygen gRPC here because we can't handle errors
 // conveniently when spawning theads.
 pub async fn handle_keygen(
     mut kv: Kv<PartyInfo>,
     mut stream_in: tonic::Streaming<proto::MessageIn>,
     mut stream_out_sender: mpsc::Sender<Result<proto::MessageOut, Status>>,
+    keygen_span: Span,
 ) -> Result<(), TofndError> {
     // 1. Receive KeygenInit, open message, sanitize arguments
     // 2. Reserve the key in kv store
@@ -36,17 +39,17 @@ pub async fn handle_keygen(
     // get KeygenInit message from stream, sanitize arguments and reserve key
     let (keygen_init, key_uid_reservation) = handle_keygen_init(&mut kv, &mut stream_in).await?;
 
-    // TODO better logging
+    // Set log prefix
     let log_prefix = format!(
-        "keygen [{}] party [{}]",
-        keygen_init.new_key_uid, keygen_init.party_uids[keygen_init.my_index],
-    );
-    println!(
-        "begin {} with (t,n)=({},{})",
-        log_prefix,
+        "keygen [{}] party [{}] with (t,n)=({},{})",
+        keygen_init.new_key_uid,
+        keygen_init.party_uids[keygen_init.my_index],
         keygen_init.threshold,
         keygen_init.party_uids.len(),
     );
+    let state = log_prefix.as_str();
+    let handle_span = span!(parent: &keygen_span, Level::INFO, "Handle", state);
+    let _enter = handle_span.enter();
 
     // find my share count
     let my_share_count = keygen_init.my_shares_count();
@@ -70,7 +73,7 @@ pub async fn handle_keygen(
         let party_indices: Vec<usize> = (0..shares.iter().sum()).collect();
         let threshold = keygen_init.threshold;
         let my_tofn_index = my_starting_tofn_index + my_tofnd_subindex;
-        let log = log_prefix.to_owned();
+        let span = handle_span.clone();
 
         // spawn keygen threads
         tokio::spawn(async move {
@@ -85,7 +88,7 @@ pub async fn handle_keygen(
                 &party_indices,
                 threshold,
                 my_tofn_index,
-                log,
+                span,
             )
             .await;
             let _ = aggregator_sender.send(secret_key_share);
@@ -93,9 +96,10 @@ pub async fn handle_keygen(
     }
 
     // spawn router thread
+    let keygen_span = keygen_span.clone();
     tokio::spawn(async move {
-        if let Err(e) = route_messages(&mut stream_in, keygen_senders).await {
-            println!("Error at Keygen message router: {}", e);
+        if let Err(e) = route_messages(&mut stream_in, keygen_senders, keygen_span).await {
+            error!("Error at Keygen message router: {}", e);
         }
     });
 
@@ -234,7 +238,7 @@ async fn execute_keygen(
     party_indices: &[usize],
     threshold: usize,
     my_index: usize,
-    log_prefix: String,
+    keygen_span: Span,
 ) -> Result<SecretKeyShare, TofndError> {
     let mut keygen = Keygen::new(party_share_counts.iter().sum(), threshold, my_index)?;
     let secret_key_share = protocol::execute_protocol(
@@ -243,7 +247,7 @@ async fn execute_keygen(
         &party_uids,
         &party_share_counts,
         &party_indices,
-        &log_prefix,
+        keygen_span,
     )
     .await
     .and_then(|_| {

@@ -14,6 +14,8 @@ use futures_util::StreamExt;
 use tokio::sync::mpsc;
 use tonic::Status;
 
+use tracing::{error, info, span, Level, Span};
+
 #[allow(dead_code)] // allow dead code because participant_uids is not used
 struct SignInitSanitized {
     new_sig_uid: String, // this is only used for logging
@@ -29,6 +31,7 @@ pub async fn handle_sign(
     mut kv: Kv<PartyInfo>,
     mut stream_in: tonic::Streaming<proto::MessageIn>,
     mut stream_out_sender: mpsc::Sender<Result<proto::MessageOut, Status>>,
+    sign_span: Span,
 ) -> Result<(), TofndError> {
     // 1. Receive SignInit, open message, sanitize arguments
     // 2. Spawn N sign threads to execute the protocol in parallel; one of each of our shares
@@ -45,7 +48,7 @@ pub async fn handle_sign(
         .find(|&&i| i == party_info.tofnd.index)
         .is_none()
     {
-        println!("abort i'm not a participant");
+        info!("abort i'm not a participant");
         return Ok(());
     }
 
@@ -77,12 +80,13 @@ pub async fn handle_sign(
             "sign [{}] party [uid:{}, share:{}/{}]",
             sign_init.new_sig_uid,
             party_info.tofnd.party_uids[party_info.tofnd.index],
-            party_info.shares[my_tofnd_subindex].my_index,
+            party_info.shares[my_tofnd_subindex].my_index + 1,
             party_info.common.share_count
         );
-        println!(
-            "begin {} with (t,n)=({},{}), participant indices: {:?}",
-            log_prefix,
+        let log_prefix = log_prefix.as_str();
+        let handle_span = span!(parent: &sign_span, Level::INFO, "Handle", log = log_prefix);
+        info!(
+            "with (t,n)=({},{}), participant indices: {:?}",
             party_info.common.threshold,
             party_info.common.share_count,
             sign_init.participant_indices
@@ -101,16 +105,17 @@ pub async fn handle_sign(
                 &participant_tofn_indices,
                 secret_key_share,
                 message_to_sign,
-                log_prefix,
+                handle_span,
             )
             .await;
             let _ = aggregator_sender.send(signature);
         });
     }
     // spawn router thread
+    let span = sign_span.clone();
     tokio::spawn(async move {
-        if let Err(e) = route_messages(&mut stream_in, sign_senders).await {
-            println!("Error at Sign message router: {}", e);
+        if let Err(e) = route_messages(&mut stream_in, sign_senders, span).await {
+            error!("Error at Sign message router: {}", e);
         }
     });
 
@@ -214,7 +219,7 @@ async fn execute_sign(
     participant_tofn_indices: &[usize],
     secret_key_share: SecretKeyShare,
     message_to_sign: Vec<u8>,
-    log_prefix: String,
+    handle_span: Span,
 ) -> Result<SignOutput, TofndError> {
     // Sign::new() needs 'tofn' information:
     let mut sign = Sign::new(
@@ -229,7 +234,7 @@ async fn execute_sign(
         &party_uids,
         &party_share_counts,
         &participant_tofn_indices,
-        &log_prefix,
+        handle_span,
     )
     .await?;
 

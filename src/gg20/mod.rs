@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 use crate::TofndError;
 use futures_util::StreamExt;
 
+use tracing::{error, info, span, warn, Level, Span};
+
 // Struct to hold `tonfd` info. This consists of information we need to
 // store in the KV store that is not relevant to `tofn`
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,10 +107,13 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         let (msg_sender, rx) = mpsc::channel(4);
         let kv = self.kv.clone();
 
+        let span = span!(Level::INFO, "Keygen");
+        let _enter = span.enter();
+        let s = span.clone();
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = keygen::handle_keygen(kv, stream_in, msg_sender).await {
-                println!("keygen failure: {:?}", e);
+            if let Err(e) = keygen::handle_keygen(kv, stream_in, msg_sender, s).await {
+                error!("keygen failure: {:?}", e);
                 return;
             }
         });
@@ -123,10 +128,14 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         let (msg_sender, rx) = mpsc::channel(4);
         let kv = self.kv.clone();
 
+        // span logs for sign
+        let span = span!(Level::INFO, "Sign");
+        let _enter = span.enter();
+        let s = span.clone();
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = sign::handle_sign(kv, stream, msg_sender).await {
-                println!("sign failure: {:?}", e);
+            if let Err(e) = sign::handle_sign(kv, stream, msg_sender, s).await {
+                error!("sign failure: {:?}", e);
                 return;
             }
         });
@@ -172,12 +181,15 @@ impl proto::MessageOut {
 pub(super) async fn route_messages(
     in_stream: &mut tonic::Streaming<proto::MessageIn>,
     mut out_channels: Vec<mpsc::Sender<Option<proto::TrafficIn>>>,
+    span: Span,
 ) -> Result<(), TofndError> {
     loop {
         let msg_data = in_stream.next().await;
 
+        let route_span = span!(parent: &span, Level::INFO, "Route");
+        let start = route_span.enter();
         if msg_data.is_none() {
-            println!("Stream closed");
+            info!("Stream closed");
             break;
         }
         let msg_data = msg_data.unwrap();
@@ -188,7 +200,7 @@ pub(super) async fn route_messages(
         // protocol was completed, then we should throw an error.
         // Note: When axelar-core closes the channel at the end of the protocol, msg_data returns an error
         if msg_data.is_err() {
-            println!("Stream closed");
+            info!("Stream closed");
             break;
         }
 
@@ -196,16 +208,20 @@ pub(super) async fn route_messages(
 
         // I wish I could do `if !let` https://github.com/rust-lang/rfcs/pull/1303
         if msg_data.is_none() {
-            println!("WARNING: ignore incoming msg: missing `data` field");
+            warn!("ignore incoming msg: missing `data` field");
             continue;
         }
         let traffic = match msg_data.unwrap() {
             proto::message_in::Data::Traffic(t) => t,
             _ => {
-                println!("WARNING: ignore incoming msg: expect `data` to be TrafficIn type");
+                warn!("ignore incoming msg: expect `data` to be TrafficIn type");
                 continue;
             }
         };
+
+        // need to drop span before entering async code or we have log conflicts
+        // with protocol execution
+        drop(start);
 
         // send the message to all of my shares. This applies to p2p and bcast messages.
         // We also broadcast p2p messages to facilitate fault attribution
