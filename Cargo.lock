@@ -2278,13 +2278,16 @@ dependencies = [
 [[package]]
 name = "tofn"
 version = "0.1.0"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git#e13184afbf12634fba230363e7dd138d96548a65"
 dependencies = [
  "bincode",
  "curv 0.2.6",
  "k256",
+ "log",
  "multi-party-ecdsa",
  "paillier",
  "serde",
+ "tracing",
  "zk-paillier",
 ]
 
