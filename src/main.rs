@@ -4,6 +4,9 @@ use tokio::net::TcpListener;
 mod gg20;
 mod kv_manager;
 
+// gather logs; need to set RUST_LOG=info
+use tracing::{info, span, Level};
+
 // protocol buffers via tonic: https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md#writing-our-server
 pub mod proto {
     tonic::include_proto!("tofnd");
@@ -12,15 +15,30 @@ pub mod proto {
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type TofndError = Box<dyn std::error::Error + Send + Sync>;
 
+fn set_up_logs(log_level: &str, enable_colours: bool) {
+    // set up environment variable for log level
+    env::set_var("RUST_LOG", log_level);
+    // set up an event subscriber for logs
+    tracing_subscriber::fmt().with_ansi(enable_colours).init();
+}
+
 #[tokio::main]
 async fn main() -> Result<(), TofndError> {
+    // set up log subscriber
+    // TODO read arguments from a config file
+    set_up_logs("INFO", atty::is(atty::Stream::Stdout));
+
+    // set up span for logs
+    let main_span = span!(Level::INFO, "main");
+    let _enter = main_span.enter();
+
     let args: Vec<String> = env::args().collect();
     let port: u16 = match args.len() {
         2 => args[1].parse()?,
         _ => 50051, // default listen port
     };
     let incoming = TcpListener::bind(addr(port)).await?;
-    println!(
+    info!(
         "tofnd listen addr {:?}, use ctrl+c to shutdown",
         incoming.local_addr()?
     );
@@ -45,7 +63,7 @@ async fn shutdown_signal() {
     tokio::signal::ctrl_c()
         .await
         .expect("failed to install CTRL+C signal handler");
-    println!("tofnd shutdown signal received");
+    info!("tofnd shutdown signal received");
 }
 
 #[cfg(test)]

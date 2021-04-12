@@ -7,6 +7,8 @@ use crate::TofndError;
 // tonic cruft
 use futures_util::StreamExt;
 
+use tracing::{info, span, warn, Level, Span};
+
 pub fn map_tofnd_to_tofn_idx(
     tofnd_index: usize,
     tofnd_subindex: usize,
@@ -42,22 +44,23 @@ pub(super) async fn execute_protocol(
     party_uids: &[String],
     party_share_counts: &[usize],
     party_indices: &[usize],
-    log_prefix: &str,
+    span: Span,
 ) -> Result<(), TofndError> {
-    println!("{} protocol: begin", log_prefix);
     let mut round = 0;
 
     // TODO runs an extra iteration!
     while !protocol.done() {
+        let pspan = span!(parent: &span, Level::INFO, "", round);
+        let _start = pspan.enter();
         round += 1;
-        let log_prefix_round = format!("{} round {}", log_prefix, round);
-        println!("{}: begin", log_prefix_round);
+        let log_prefix_round = format!("{}", round);
+        info!("begin");
         protocol.next_round()?;
 
         // send outgoing messages
         let bcast = protocol.get_bcast_out();
         if let Some(bcast) = bcast {
-            println!("{}: out bcast", log_prefix_round);
+            info!("out bcast");
             chan.sender
                 .send(Ok(proto::MessageOut::new_bcast(bcast)))
                 .await?;
@@ -68,10 +71,7 @@ pub(super) async fn execute_protocol(
                 if let Some(p2p) = p2p {
                     let (tofnd_idx, _) =
                         map_tofn_to_tofnd_idx(party_indices[i], party_share_counts)?;
-                    println!(
-                        "{}: out p2p to [{}]",
-                        log_prefix_round, party_uids[tofnd_idx]
-                    );
+                    info!("out p2p to [{}]", party_uids[tofnd_idx]);
                     chan.sender
                         .send(Ok(proto::MessageOut::new_p2p(&party_uids[tofnd_idx], &p2p)))
                         .await?;
@@ -81,24 +81,23 @@ pub(super) async fn execute_protocol(
 
         // collect incoming messages
         // println!("{}: wait for incoming messages...", log_prefix_round);
+        info!("wait for incoming messages");
         while protocol.expecting_more_msgs_this_round() {
             let traffic = chan.receiver.next().await.ok_or(format!(
                 "{}: stream closed by client before protocol has completed",
                 log_prefix_round
             ))?;
             if traffic.is_none() {
-                println!(
-                    "{}: WARNING: ignore incoming msg: missing `data` field",
-                    log_prefix_round
-                );
+                warn!("ignore incoming msg: missing `data` field");
                 continue;
             }
             let traffic = traffic.unwrap();
             protocol.set_msg_in(&traffic.payload)?;
         }
-        println!("{}: end", log_prefix_round);
+        info!("got all incoming messages");
+        info!("end");
     }
-    println!("{} protocol: end", log_prefix);
+    info!("end");
     Ok(())
 }
 

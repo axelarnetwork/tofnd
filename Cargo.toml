@@ -14,6 +14,12 @@ sled = "0.34"
 funty = "=1.1.0" # zengo baggage
 testdir = "0.4.0"
 
+# logging
+log = "0.4"
+tracing = "0.1"
+tracing-subscriber = "0.2"
+atty = "*"
+
 # sled dependency
 serde = { version = "1.0", features = ["derive"] }
 
