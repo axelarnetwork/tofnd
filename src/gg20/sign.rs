@@ -216,6 +216,15 @@ fn get_secret_key_share(
     })
 }
 
+// get regular sign
+pub fn get_sign(
+    my_secret_key_share: &SecretKeyShare,
+    participant_indices: &[usize],
+    msg_to_sign: &[u8],
+) -> Result<Sign, ParamsError> {
+    Sign::new(my_secret_key_share, participant_indices, msg_to_sign)
+}
+
 // execute sign protocol and write the result into the internal channel
 async fn execute_sign(
     chan: ProtocolCommunication<Option<proto::TrafficIn>, Result<proto::MessageOut, tonic::Status>>,
@@ -227,7 +236,7 @@ async fn execute_sign(
     handle_span: Span,
 ) -> Result<SignOutput, TofndError> {
     // Sign::new() needs 'tofn' information:
-    let mut sign = Sign::new(
+    let mut sign = get_sign(
         &secret_key_share,
         &participant_tofn_indices,
         &message_to_sign,
