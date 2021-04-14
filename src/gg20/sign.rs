@@ -1,7 +1,9 @@
-use tofn::protocol::gg20::{
-    keygen::SecretKeyShare,
-    sign::{Sign, SignOutput},
-};
+use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::SignOutput};
+
+#[cfg(feature = "malicious")]
+use super::malicious::get_sign;
+#[cfg(not(feature = "malicious"))]
+use tofn::protocol::gg20::sign::{ParamsError, Sign};
 
 use super::{proto, protocol, route_messages, PartyInfo, ProtocolCommunication};
 use crate::{kv_manager::Kv, TofndError};
@@ -217,6 +219,7 @@ fn get_secret_key_share(
 }
 
 // get regular sign
+#[cfg(not(feature = "malicious"))]
 pub fn get_sign(
     my_secret_key_share: &SecretKeyShare,
     participant_indices: &[usize],

@@ -22,6 +22,7 @@ fn set_up_logs(log_level: &str, enable_colours: bool) {
     tracing_subscriber::fmt().with_ansi(enable_colours).init();
 }
 
+#[cfg(feature = "malicious")]
 mod config;
 
 #[tokio::main]

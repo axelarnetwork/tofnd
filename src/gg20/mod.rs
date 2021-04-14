@@ -144,6 +144,8 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 }
 
 mod keygen;
+#[cfg(feature = "malicious")]
+mod malicious;
 mod protocol;
 mod sign;
 
