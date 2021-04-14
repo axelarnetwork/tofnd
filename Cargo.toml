@@ -20,6 +20,9 @@ tracing = "0.1"
 tracing-subscriber = "0.2"
 atty = "*"
 
+# config
+clap = "*"
+
 # sled dependency
 serde = { version = "1.0", features = ["derive"] }
 
@@ -27,6 +30,8 @@ serde = { version = "1.0", features = ["derive"] }
 prost = "0.6"
 tokio = { version = "0.2", features = ["macros", "signal"] }
 futures-util = "0.3"
+
+lazy_static = "1.4"
 
 [build-dependencies]
 tonic-build = "0.3"

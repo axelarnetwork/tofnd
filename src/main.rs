@@ -22,6 +22,8 @@ fn set_up_logs(log_level: &str, enable_colours: bool) {
     tracing_subscriber::fmt().with_ansi(enable_colours).init();
 }
 
+mod config;
+
 #[tokio::main]
 async fn main() -> Result<(), TofndError> {
     // set up log subscriber
