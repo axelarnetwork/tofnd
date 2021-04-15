@@ -1,4 +1,4 @@
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 use lazy_static::lazy_static;
 
 // init config
@@ -29,23 +29,23 @@ pub fn parse_args() -> (String, usize) {
         "R2BadMtaWc",
         "R2FalseAccusationMta",
         "R2FalseAccusationMtaWc",
+        "R3BadProof",
     ];
 
+    // TODO: some of the behaviours do not demand a victim. In the future, more
+    // will be added that potentially need different set of arguments.
+    // Adjust this as needed to support that.
     let matches = App::new("tofnd")
         .version("A threshold signature scheme daemon")
-        .subcommand(
-            SubCommand::with_name("behaviour")
-                .arg(
-                    Arg::with_name("name")
-                        .required(true)
-                        .possible_values(&available_behaviours),
-                )
-                .arg(Arg::with_name("victim").required(true)),
+        .arg(
+            Arg::with_name("name")
+                .required(true)
+                .possible_values(&available_behaviours),
         )
+        .arg(Arg::with_name("victim").required(true))
         .get_matches();
 
-    if let Some(matches) = matches.subcommand_matches("behaviour") {
-        let name = matches.value_of("name").unwrap();
+    if let Some(name) = matches.value_of("name") {
         let victim = matches
             .value_of("victim")
             .unwrap()
