@@ -1,7 +1,7 @@
 use crate::config::CONFIG;
 use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::ParamsError};
 
-use tofn::protocol::gg20::sign::malicious::{BadSign, MaliciousType};
+use tofn::protocol::gg20::sign::malicious::{BadSign, MaliciousType::*};
 
 // get user sign
 pub fn get_sign(
@@ -14,7 +14,13 @@ pub fn get_sign(
 
     // TODO: add all behaviours from MaliciousType
     let behaviour = match behaviour {
-        "R1BadProof" => MaliciousType::R1BadProof { victim },
+        "R1BadProof" => R1BadProof { victim },
+        "R1FalseAccusation" => R1FalseAccusation { victim },
+        "R2BadMta" => R2BadMta { victim },
+        "R2BadMtaWc" => R2BadMtaWc { victim },
+        "R2FalseAccusationMta" => R2FalseAccusationMta { victim },
+        "R2FalseAccusationMtaWc" => R2FalseAccusationMtaWc { victim },
+        "R3BadProof" => R3BadProof,
         _ => panic!("undefined behaviour"),
     };
 
