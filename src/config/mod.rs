@@ -45,14 +45,11 @@ pub fn parse_args() -> (String, usize) {
         .arg(Arg::with_name("victim").required(true))
         .get_matches();
 
-    if let Some(name) = matches.value_of("name") {
-        let victim = matches
-            .value_of("victim")
-            .unwrap()
-            .parse::<usize>()
-            .unwrap();
-        (name.to_owned(), victim)
-    } else {
-        ("honest".to_owned(), 0)
-    }
+    let name = matches.value_of("name").unwrap();
+    let victim = matches
+        .value_of("victim")
+        .unwrap()
+        .parse::<usize>()
+        .unwrap();
+    (name.to_owned(), victim)
 }
