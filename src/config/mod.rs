@@ -38,14 +38,14 @@ pub fn parse_args() -> (String, usize) {
     let matches = App::new("tofnd")
         .version("A threshold signature scheme daemon")
         .arg(
-            Arg::with_name("name")
+            Arg::with_name("behaviour")
                 .required(true)
                 .possible_values(&available_behaviours),
         )
         .arg(Arg::with_name("victim").required(true))
         .get_matches();
 
-    let name = matches.value_of("name").unwrap();
+    let name = matches.value_of("behaviour").unwrap();
     let victim = matches
         .value_of("victim")
         .unwrap()
