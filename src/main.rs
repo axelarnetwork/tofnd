@@ -25,11 +25,26 @@ fn set_up_logs(log_level: &str, enable_colours: bool) {
 #[cfg(feature = "malicious")]
 mod config;
 
+#[cfg(feature = "malicious")]
+pub fn warn_for_malicious_build() {
+    use config::CONFIG;
+    use tracing::warn;
+    warn!("WARNING: THIS tofnd BINARY AS COMPILED IN 'MALICIOUS' MODE.  MALICIOUS BEHAVIOUR IS INTENTIONALLY INSERTED INTO SOME MESSAGES.  THIS BEHAVIOUR WILL CAUSE OTHER tofnd PROCESSES TO IDENTIFY THE CURRENT PROCESS AS MALICIOUS.");
+    warn!(
+        "Malicious behaviour: {}, victim: {} ",
+        CONFIG.behaviour, CONFIG.victim
+    );
+}
+
 #[tokio::main]
 async fn main() -> Result<(), TofndError> {
     // set up log subscriber
     // TODO read arguments from a config file
     set_up_logs("INFO", atty::is(atty::Stream::Stdout));
+
+    // print a warning log if we are running in malicious mode
+    #[cfg(feature = "malicious")]
+    warn_for_malicious_build();
 
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
