@@ -62,8 +62,7 @@ pub(super) async fn execute_protocol(
         if let Some(bcast) = bcast {
             info!("out bcast");
             chan.sender
-                .send(Ok(proto::MessageOut::new_bcast(bcast)))
-                .await?;
+                .send(Ok(proto::MessageOut::new_bcast(bcast)))?;
         }
         let p2ps = protocol.get_p2p_out();
         if let Some(p2ps) = p2ps {
@@ -73,8 +72,7 @@ pub(super) async fn execute_protocol(
                         map_tofn_to_tofnd_idx(party_indices[i], party_share_counts)?;
                     info!("out p2p to [{}]", party_uids[tofnd_idx]);
                     chan.sender
-                        .send(Ok(proto::MessageOut::new_p2p(&party_uids[tofnd_idx], &p2p)))
-                        .await?;
+                        .send(Ok(proto::MessageOut::new_p2p(&party_uids[tofnd_idx], &p2p)))?;
                 }
             }
         }

@@ -1,6 +1,6 @@
 use crate::proto;
 use std::collections::HashMap;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc;
 
 #[tonic::async_trait]
 pub(super) trait Party: Sync + Send {
@@ -21,14 +21,14 @@ pub(super) trait Party: Sync + Send {
     fn get_db_path(&self) -> std::path::PathBuf;
 }
 
-pub(super) type SenderReceiver = (Sender<proto::MessageIn>, Receiver<proto::MessageIn>);
+pub(super) type SenderReceiver = (mpsc::UnboundedSender<proto::MessageIn>, mpsc::UnboundedReceiver<proto::MessageIn>);
 #[derive(Clone)]
 pub(super) struct Deliverer {
-    senders: HashMap<String, Sender<proto::MessageIn>>, // (party_uid, sender)
+    senders: HashMap<String, mpsc::UnboundedSender<proto::MessageIn>>, // (party_uid, sender)
 }
 impl Deliverer {
     pub(super) fn with_party_ids(party_ids: &[String]) -> (Self, Vec<SenderReceiver>) {
-        let channels: Vec<SenderReceiver> = (0..party_ids.len()).map(|_| channel(4)).collect();
+        let channels: Vec<SenderReceiver> = (0..party_ids.len()).map(|_| mpsc::unbounded_channel()).collect();
         let senders = party_ids
             .iter()
             .cloned()
@@ -56,7 +56,7 @@ impl Deliverer {
 
         // deliver all msgs to all parties (even p2p msgs)
         for (_, sender) in self.senders.iter_mut() {
-            sender.send(msg_in.clone()).await.unwrap();
+            sender.send(msg_in.clone()).unwrap();
         }
     }
 }
