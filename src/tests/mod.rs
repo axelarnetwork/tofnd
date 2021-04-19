@@ -26,6 +26,7 @@ lazy_static::lazy_static! {
         (5, vec![1,1,1,1,1], 3, vec![1,4,2,3]), // 1 share per uid
         (5, vec![1,2,1,3,2], 6, vec![1,4,2,3]), // multiple shares per uid
         (1,vec![1],0,vec![0]),                  // trivial case
+        (5,vec![1,2,3,4,20],27,vec![0,1,2,3,4]), // many share counts
     ];
     // TODO add TEST_CASES_INVALID
 }
