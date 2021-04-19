@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 jobs:
   build-and-push-latest-docker-image:
@@ -15,6 +16,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - uses: nelonoel/branch-name@v1.0.1
+
+      - id: set-tag
+        name: Set image tag
+        run: |
+          TAG="latest"
+
+          if [[ "$BRANCH_NAME" != "master" ]]; then
+            TAG=$(echo $BRANCH_NAME | tr "/" "-")
+          fi
+
+          echo '::set-output name=TAG::'$TAG
 
       - name: Install SSH key
         uses: webfactory/ssh-agent@v0.4.1
@@ -32,4 +46,4 @@ jobs:
           secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           region: us-east-2
           local-image: axelar/tofnd
-          image: tofnd:latest
+          image: tofnd:${{ steps.set-tag.outputs.TAG }}
