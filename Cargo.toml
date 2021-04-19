@@ -33,3 +33,4 @@ tonic-build = "0.3"
 
 [dev-dependencies]
 lazy_static = "1.4"
+tracing-test = "0.1.0"
