@@ -21,14 +21,19 @@ pub(super) trait Party: Sync + Send {
     fn get_db_path(&self) -> std::path::PathBuf;
 }
 
-pub(super) type SenderReceiver = (mpsc::UnboundedSender<proto::MessageIn>, mpsc::UnboundedReceiver<proto::MessageIn>);
+pub(super) type SenderReceiver = (
+    mpsc::UnboundedSender<proto::MessageIn>,
+    mpsc::UnboundedReceiver<proto::MessageIn>,
+);
 #[derive(Clone)]
 pub(super) struct Deliverer {
     senders: HashMap<String, mpsc::UnboundedSender<proto::MessageIn>>, // (party_uid, sender)
 }
 impl Deliverer {
     pub(super) fn with_party_ids(party_ids: &[String]) -> (Self, Vec<SenderReceiver>) {
-        let channels: Vec<SenderReceiver> = (0..party_ids.len()).map(|_| mpsc::unbounded_channel()).collect();
+        let channels: Vec<SenderReceiver> = (0..party_ids.len())
+            .map(|_| mpsc::unbounded_channel())
+            .collect();
         let senders = party_ids
             .iter()
             .cloned()

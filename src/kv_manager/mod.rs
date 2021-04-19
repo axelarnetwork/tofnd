@@ -46,21 +46,19 @@ where
         value: V,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let (resp_tx, resp_rx) = oneshot::channel();
-        self.sender
-            .send(Put {
-                reservation,
-                value,
-                resp: resp_tx,
-            })?;
+        self.sender.send(Put {
+            reservation,
+            value,
+            resp: resp_tx,
+        })?;
         resp_rx.await?
     }
     pub async fn get(&mut self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
         let (resp_tx, resp_rx) = oneshot::channel();
-        self.sender
-            .send(Get {
-                key: key.to_string(),
-                resp: resp_tx,
-            })?;
+        self.sender.send(Get {
+            key: key.to_string(),
+            resp: resp_tx,
+        })?;
         resp_rx.await?
     }
 

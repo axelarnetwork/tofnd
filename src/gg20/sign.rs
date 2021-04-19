@@ -254,8 +254,7 @@ async fn wait_threads_and_send_sign(
     let sign_output = sign_output.ok_or("no output returned from waitgroup")?;
 
     // send signature to client
-    stream_out_sender
-        .send(Ok(proto::MessageOut::new_sign_result(sign_output)))?;
+    stream_out_sender.send(Ok(proto::MessageOut::new_sign_result(sign_output)))?;
 
     Ok(())
 }

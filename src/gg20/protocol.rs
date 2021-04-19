@@ -61,8 +61,7 @@ pub(super) async fn execute_protocol(
         let bcast = protocol.get_bcast_out();
         if let Some(bcast) = bcast {
             info!("out bcast");
-            chan.sender
-                .send(Ok(proto::MessageOut::new_bcast(bcast)))?;
+            chan.sender.send(Ok(proto::MessageOut::new_bcast(bcast)))?;
         }
         let p2ps = protocol.get_p2p_out();
         if let Some(p2ps) = p2ps {
