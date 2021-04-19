@@ -26,7 +26,7 @@ use tracing::{error, span, Level, Span};
 pub async fn handle_keygen(
     mut kv: Kv<PartyInfo>,
     mut stream_in: tonic::Streaming<proto::MessageIn>,
-    mut stream_out_sender: mpsc::Sender<Result<proto::MessageOut, Status>>,
+    mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     keygen_span: Span,
 ) -> Result<(), TofndError> {
     // 1. Receive KeygenInit, open message, sanitize arguments
@@ -61,7 +61,7 @@ pub async fn handle_keygen(
         map_tofnd_to_tofn_idx(keygen_init.my_index, 0, &keygen_init.party_share_counts);
 
     for my_tofnd_subindex in 0..my_share_count {
-        let (keygen_sender, keygen_receiver) = mpsc::channel(4);
+        let (keygen_sender, keygen_receiver) = mpsc::unbounded_channel();
         let (aggregator_sender, aggregator_receiver) = oneshot::channel();
         keygen_senders.push(keygen_sender);
         aggregator_receivers.push(aggregator_receiver);
@@ -265,7 +265,7 @@ async fn execute_keygen(
 // aggregate messages from all keygen workers, create a single record and insert it in the KVStore
 async fn aggregate_messages(
     aggregator_receivers: Vec<oneshot::Receiver<Result<SecretKeyShare, TofndError>>>,
-    stream_out_sender: &mut mpsc::Sender<Result<proto::MessageOut, Status>>,
+    stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     kv: &mut Kv<PartyInfo>,
     key_uid_reservation: KeyReservation,
     keygen_init: KeygenInitSanitized,
@@ -296,9 +296,7 @@ async fn aggregate_messages(
     kv.put(key_uid_reservation, kv_data).await?;
 
     // serialize generated public key and send to client
-    stream_out_sender
-        .send(Ok(proto::MessageOut::new_keygen_result(&pubkey)))
-        .await?;
+    stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(&pubkey)))?;
 
     Ok(())
 }
