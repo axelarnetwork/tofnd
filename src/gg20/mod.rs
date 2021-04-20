@@ -305,7 +305,7 @@ pub(super) mod tests {
 
     #[cfg(test)]
     #[cfg(feature = "malicious")]
-    pub fn with_db_name(
+    pub fn with_db_name_malicious(
         db_name: &str,
         malicious_type: MaliciousType,
     ) -> impl proto::gg20_server::Gg20 {

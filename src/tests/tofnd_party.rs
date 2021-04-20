@@ -29,7 +29,7 @@ impl TofndParty {
         let my_service = gg20::tests::with_db_name(&db_path);
 
         #[cfg(feature = "malicious")]
-        let my_service = gg20::tests::with_db_name(&db_path, malicious_type);
+        let my_service = gg20::tests::with_db_name_malicious(&db_path, malicious_type);
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
