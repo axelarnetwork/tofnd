@@ -48,19 +48,43 @@ pub(super) async fn execute_protocol(
 ) -> Result<(), TofndError> {
     let mut round = 0;
 
+    // protocol_info macro is used to create a temporary span.
+    // We need temp spans because logs are getting scrambled when async code is
+    // executed inside a span, so we create a temp span and discard it immediately after logging.
+    // We define this macro here to implicitly capture the value of local 'round'.
+    // See details on how we need to make spans curve around `.await`s here:
+    // https://docs.rs/tracing/0.1.25/tracing/span/index.html#entering-a-span
+    // protocol_info carries all the information from keygen/sign spans as prefix e.g.:
+    // keygen/sign [key] party [A] with (t,n)=(7,5)"}:{round=1}: <message>
+    // call as:
+    //   protocol_info("message") or
+    //   protocol_info("my message and some numbers {}, {}, {}", i, j, k)
+    macro_rules! protocol_info {
+        // read exactly one argument $e and as many $opt args as the user provides
+        // we use opt* arguments to match calls with place holders much like
+        // println("{}, {}", i, j) does.
+        ($e:expr $(, $opt:expr)* ) => {
+            // create a protocol span
+            let protocol_span = span!(parent: &span, Level::INFO, "", round);
+            // enter span
+            let _start = protocol_span.enter();
+            // log message
+            info!($e $(, $opt)*);
+            // spans are RAII objects. Our span exits here.
+            // https://docs.rs/tracing/0.1.25/tracing/#spans-1
+        };
+    }
+
     // TODO runs an extra iteration!
     while !protocol.done() {
-        let pspan = span!(parent: &span, Level::INFO, "", round);
-        let _start = pspan.enter();
         round += 1;
-        let log_prefix_round = format!("{}", round);
-        info!("begin");
+        protocol_info!("begin");
         protocol.next_round()?;
 
         // send outgoing messages
         let bcast = protocol.get_bcast_out();
         if let Some(bcast) = bcast {
-            info!("out bcast");
+            protocol_info!("out bcast");
             chan.sender.send(Ok(proto::MessageOut::new_bcast(bcast)))?;
         }
         let p2ps = protocol.get_p2p_out();
@@ -69,7 +93,7 @@ pub(super) async fn execute_protocol(
                 if let Some(p2p) = p2p {
                     let (tofnd_idx, _) =
                         map_tofn_to_tofnd_idx(party_indices[i], party_share_counts)?;
-                    info!("out p2p to [{}]", party_uids[tofnd_idx]);
+                    protocol_info!("out p2p to [{}]", party_uids[tofnd_idx]);
                     chan.sender
                         .send(Ok(proto::MessageOut::new_p2p(&party_uids[tofnd_idx], &p2p)))?;
                 }
@@ -77,12 +101,11 @@ pub(super) async fn execute_protocol(
         }
 
         // collect incoming messages
-        // println!("{}: wait for incoming messages...", log_prefix_round);
-        info!("wait for incoming messages");
+        protocol_info!("wait for incoming messages");
         while protocol.expecting_more_msgs_this_round() {
             let traffic = chan.receiver.next().await.ok_or(format!(
                 "{}: stream closed by client before protocol has completed",
-                log_prefix_round
+                round
             ))?;
             if traffic.is_none() {
                 warn!("ignore incoming msg: missing `data` field");
@@ -91,10 +114,10 @@ pub(super) async fn execute_protocol(
             let traffic = traffic.unwrap();
             protocol.set_msg_in(&traffic.payload)?;
         }
-        info!("got all incoming messages");
-        info!("end");
+        protocol_info!("got all incoming messages");
+        protocol_info!("end");
     }
-    info!("end");
+    protocol_info!("end");
     Ok(())
 }
 

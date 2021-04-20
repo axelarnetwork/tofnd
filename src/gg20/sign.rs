@@ -146,6 +146,11 @@ async fn handle_sign_init(
     let party_info = kv.get(&sign_init.key_uid).await?;
     let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
 
+    info!(
+        "Starting Keygen with uids: {:?}, party_shares: {:?}",
+        party_info.tofnd.party_uids, party_info.tofnd.share_counts
+    );
+
     Ok((sign_init, party_info))
 }
 

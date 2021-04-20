@@ -19,7 +19,7 @@ use tokio::sync::{mpsc, oneshot::Receiver};
 
 use futures_util::StreamExt;
 
-use tracing::{error, span, Level, Span};
+use tracing::{error, info, span, Level, Span};
 
 // we wrap the functionality of keygen gRPC here because we can't handle errors
 // conveniently when spawning theads.
@@ -139,6 +139,11 @@ async fn handle_keygen_init(
     // sanitize arguments and reserve key
     let keygen_init = keygen_sanitize_args(keygen_init)?;
     let key_uid_reservation = kv.reserve_key(keygen_init.new_key_uid.clone()).await?;
+
+    info!(
+        "Starting Keygen with uids: {:?}, party_shares: {:?}",
+        keygen_init.party_uids, keygen_init.party_share_counts
+    );
 
     Ok((keygen_init, key_uid_reservation))
 }
