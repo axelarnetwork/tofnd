@@ -22,16 +22,17 @@ use testdir::testdir;
 // enable logs in tests
 use tracing_test::traced_test;
 
+use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
+
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
-    static ref TEST_CASES: Vec<(usize, Vec<u32>, usize, Vec<usize>)> = vec![ // (number of uids, count of shares per uid, threshold, indices of sign participants)
-        (5, vec![], 3, vec![1,4,2,3]),          // should initialize share_counts into [1,1,1,1,1]
-        (5, vec![1,1,1,1,1], 3, vec![1,4,2,3]), // 1 share per uid
-        (5, vec![1,2,1,3,2], 6, vec![1,4,2,3]), // multiple shares per uid
-        (1,vec![1],0,vec![0]),                  // trivial case
-        (5, vec![1,2,3,4,20], 27, vec![0,1,4,2,3]), // multiple shares per uid
+    static ref TEST_CASES: Vec<(usize, Vec<u32>, usize, Vec<usize>, Vec<MaliciousType>)> = vec![ // (number of uids, count of shares per uid, threshold, indices of sign participants)
+        (4, vec![], 0, vec![0, 1, 2, 3], vec![Honest; 4]),          // should initialize share_counts into [1,1,1,1,1]
+        (5, vec![1,1,1,1,1], 3, vec![1,4,2,3], vec![Honest; 5]),    // 1 share per uid
+        (5, vec![1,2,1,3,2], 6, vec![1,4,2,3], vec![Honest; 5]),    // multiple shares per uid
+        (1, vec![1], 0, vec![0], vec![Honest; 1]),                    // trivial case
+        (4, vec![1,2,3,4], 0, vec![0, 1, 2, 3], vec![Honest, Honest, Honest, R1BadProof{victim:1}]), // Create a malicious party
     ];
-    // TODO add TEST_CASES_INVALID
 }
 
 #[traced_test]
@@ -39,8 +40,10 @@ lazy_static::lazy_static! {
 async fn basic_keygen_and_sign() {
     let dir = testdir!();
 
-    for (uid_count, party_share_counts, threshold, sign_participant_indices) in TEST_CASES.iter() {
-        let (parties, party_uids) = init_parties(*uid_count, &dir).await;
+    for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
+        TEST_CASES.iter()
+    {
+        let (parties, party_uids) = init_parties(*uid_count, malicious_types, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
@@ -78,8 +81,10 @@ async fn basic_keygen_and_sign() {
 async fn restart_one_party() {
     let dir = testdir!();
 
-    for (uid_count, party_share_counts, threshold, sign_participant_indices) in TEST_CASES.iter() {
-        let (parties, party_uids) = init_parties(*uid_count, &dir).await;
+    for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
+        TEST_CASES.iter()
+    {
+        let (parties, party_uids) = init_parties(*uid_count, malicious_types, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
@@ -102,7 +107,14 @@ async fn restart_one_party() {
         let shutdown_party = party_options[shutdown_index].take().unwrap();
         shutdown_party.shutdown().await;
 
-        party_options[shutdown_index] = Some(TofndParty::new(shutdown_index, &dir).await);
+        party_options[shutdown_index] = Some(
+            TofndParty::new(
+                shutdown_index,
+                &dir,
+                malicious_types[shutdown_index].clone(),
+            )
+            .await,
+        );
         let parties = party_options
             .into_iter()
             .map(|o| o.unwrap())
@@ -125,12 +137,16 @@ async fn restart_one_party() {
     }
 }
 
-async fn init_parties(share_count: usize, testdir: &Path) -> (Vec<TofndParty>, Vec<String>) {
+async fn init_parties(
+    share_count: usize,
+    malicious_types: &Vec<MaliciousType>,
+    testdir: &Path,
+) -> (Vec<TofndParty>, Vec<String>) {
     let mut parties = Vec::with_capacity(share_count);
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     for i in 0..share_count {
-        parties.push(TofndParty::new(i, testdir).await);
+        parties.push(TofndParty::new(i, testdir, malicious_types[i].clone()).await);
     }
 
     let party_uids: Vec<String> = (0..share_count)

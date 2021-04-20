@@ -13,7 +13,7 @@ pub mod proto {
 }
 
 mod config;
-use config::CONFIG;
+use config::parse_args;
 
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type TofndError = Box<dyn std::error::Error + Send + Sync>;
@@ -41,16 +41,27 @@ async fn main() -> Result<(), TofndError> {
     #[cfg(feature = "malicious")]
     warn_for_malicious_build();
 
+    #[cfg(feature = "malicious")]
+    let (port, malicious_type) = parse_args();
+
+    #[cfg(not(feature = "malicious"))]
+    let port = parse_args();
+
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
     let _enter = main_span.enter();
 
-    let incoming = TcpListener::bind(addr(CONFIG.port)).await?;
+    let incoming = TcpListener::bind(addr(port)).await?;
     info!(
         "tofnd listen addr {:?}, use ctrl+c to shutdown",
         incoming.local_addr()?
     );
+
+    #[cfg(not(feature = "malicious"))]
     let my_service = gg20::new_service();
+    #[cfg(feature = "malicious")]
+    let my_service = gg20::new_service(malicious_type);
+
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
     tonic::transport::Server::builder()
