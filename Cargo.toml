@@ -31,8 +31,6 @@ prost = "0.6"
 tokio = { version = "0.2", features = ["macros", "signal"] }
 futures-util = "0.3"
 
-lazy_static = "1.4"
-
 [build-dependencies]
 tonic-build = "0.3"
 
