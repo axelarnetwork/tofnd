@@ -21,7 +21,7 @@ tracing-subscriber = "0.2"
 atty = "*"
 
 # config
-clap = "*"
+clap = "2.33"
 
 # sled dependency
 serde = { version = "1.0", features = ["derive"] }
