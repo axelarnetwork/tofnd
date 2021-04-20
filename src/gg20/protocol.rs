@@ -52,13 +52,26 @@ pub(super) async fn execute_protocol(
     // We need temp spans because logs are getting scrambled when async code is
     // executed inside a span, so we create a temp span and discard it immediately after logging.
     // We define this macro here to implicitly capture the value of local 'round'.
+    // See details on how we need to make spans curve around `.await`s here:
+    // https://docs.rs/tracing/0.1.25/tracing/span/index.html#entering-a-span
     // protocol_info carries all the information from keygen/sign spans as prefix e.g.:
     // keygen/sign [key] party [A] with (t,n)=(7,5)"}:{round=1}: <message>
+    // call as:
+    //   protocol_info("message") or
+    //   protocol_info("my message and some numbers {}, {}, {}", i, j, k)
     macro_rules! protocol_info {
+        // read exactly one argument $e and as many $opt args as the user provides
+        // we use opt* arguments to match calls with place holders much like
+        // println("{}, {}", i, j) does.
         ($e:expr $(, $opt:expr)* ) => {
-            let pspan = span!(parent: &span, Level::INFO, "", round);
-            let _start = pspan.enter();
+            // create a protocol span
+            let protocol_span = span!(parent: &span, Level::INFO, "", round);
+            // enter span
+            let _start = protocol_span.enter();
+            // log message
             info!($e $(, $opt)*);
+            // spans are RAII objects. Our span exits here.
+            // https://docs.rs/tracing/0.1.25/tracing/#spans-1
         };
     }
 
