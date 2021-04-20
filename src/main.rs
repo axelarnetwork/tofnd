@@ -12,6 +12,9 @@ pub mod proto {
     tonic::include_proto!("tofnd");
 }
 
+mod config;
+use config::CONFIG;
+
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type TofndError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -23,17 +26,9 @@ fn set_up_logs(log_level: &str, enable_colours: bool) {
 }
 
 #[cfg(feature = "malicious")]
-mod config;
-
-#[cfg(feature = "malicious")]
 pub fn warn_for_malicious_build() {
-    use config::CONFIG;
     use tracing::warn;
     warn!("WARNING: THIS tofnd BINARY AS COMPILED IN 'MALICIOUS' MODE.  MALICIOUS BEHAVIOUR IS INTENTIONALLY INSERTED INTO SOME MESSAGES.  THIS BEHAVIOUR WILL CAUSE OTHER tofnd PROCESSES TO IDENTIFY THE CURRENT PROCESS AS MALICIOUS.");
-    warn!(
-        "Malicious behaviour: {}, victim: {} ",
-        CONFIG.behaviour, CONFIG.victim
-    );
 }
 
 #[tokio::main]
@@ -50,12 +45,7 @@ async fn main() -> Result<(), TofndError> {
     let main_span = span!(Level::INFO, "main");
     let _enter = main_span.enter();
 
-    let args: Vec<String> = env::args().collect();
-    let port: u16 = match args.len() {
-        2 => args[1].parse()?,
-        _ => 50051, // default listen port
-    };
-    let incoming = TcpListener::bind(addr(port)).await?;
+    let incoming = TcpListener::bind(addr(CONFIG.port)).await?;
     info!(
         "tofnd listen addr {:?}, use ctrl+c to shutdown",
         incoming.local_addr()?
