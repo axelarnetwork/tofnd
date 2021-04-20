@@ -31,6 +31,7 @@ lazy_static::lazy_static! {
         (5, vec![1,1,1,1,1], 3, vec![1,4,2,3], vec![Honest; 5]),    // 1 share per uid
         (5, vec![1,2,1,3,2], 6, vec![1,4,2,3], vec![Honest; 5]),    // multiple shares per uid
         (1, vec![1], 0, vec![0], vec![Honest; 1]),                    // trivial case
+        (5, vec![1,2,3,4,20], 27, vec![0, 1, 4, 3, 2], vec![Honest, Honest, Honest, Honest, Honest]), // Create a malicious party
         (4, vec![1,2,3,4], 0, vec![0, 1, 2, 3], vec![Honest, Honest, Honest, R1BadProof{victim:1}]), // Create a malicious party
     ];
 }
