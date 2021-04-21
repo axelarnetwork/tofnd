@@ -24,15 +24,39 @@ use tracing_test::traced_test;
 
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
 
+#[cfg(not(feature = "malicious"))]
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
-    static ref TEST_CASES: Vec<(usize, Vec<u32>, usize, Vec<usize>, Vec<MaliciousType>)> = vec![ // (number of uids, count of shares per uid, threshold, indices of sign participants)
-        (4, vec![], 0, vec![0, 1, 2, 3], vec![Honest; 4]),          // should initialize share_counts into [1,1,1,1,1]
-        (5, vec![1,1,1,1,1], 3, vec![1,4,2,3], vec![Honest; 5]),    // 1 share per uid
-        (5, vec![1,2,1,3,2], 6, vec![1,4,2,3], vec![Honest; 5]),    // multiple shares per uid
-        (1, vec![1], 0, vec![0], vec![Honest; 1]),                    // trivial case
-        (5, vec![1,2,3,4,20], 27, vec![0, 1, 4, 3, 2], vec![Honest, Honest, Honest, Honest, Honest]), // Create a malicious party
-        (4, vec![1,2,3,4], 0, vec![0, 1, 2, 3], vec![Honest, Honest, Honest, R1BadProof{victim:1}]), // Create a malicious party
+    // (number of uids, count of shares per uid, threshold, indices of sign participants, malicious types)
+    static ref TEST_CASES: Vec<(usize, Vec<u32>, usize, Vec<usize>, Vec<MaliciousType>)> = vec![
+        (4, vec![], 0, vec![0, 1, 2, 3], vec![]),          // should initialize share_counts into [1,1,1,1,1]
+        (5, vec![1,1,1,1,1], 3, vec![1,4,2,3], vec![]),    // 1 share per uid
+        (5, vec![1,2,1,3,2], 6, vec![1,4,2,3], vec![]),    // multiple shares per uid
+        (1, vec![1], 0, vec![0], vec![]),                    // trivial case
+        (5, vec![1,2,3,4,20], 27, vec![0, 1, 4, 3, 2], vec![]), // Create a malicious party
+    ];
+}
+
+#[cfg(feature = "malicious")]
+lazy_static::lazy_static! {
+    static ref MSG_TO_SIGN: Vec<u8> = vec![42];
+    // (number of uids, count of shares per uid, threshold, indices of sign participants, malicious types)
+    static ref TEST_CASES: Vec<(usize, Vec<u32>, usize, Vec<usize>, Vec<MaliciousType>)> = vec![
+        (5, vec![1,2,1,3,2], 6, vec![1,2,3,4,5], vec![Honest; 5]),    // only honest
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R1BadProof{victim:0}]),  // R1BadProof
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R1FalseAccusation{victim:0}]),  // R1FalseAccusation
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R2BadMta{victim:0}]),  // R2BadMta
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R2BadMtaWc{victim:0}]),  // R2BadMtaWc
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R2FalseAccusationMta{victim:0}]),  // R2FalseAccusationMta
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R2FalseAccusationMtaWc{victim:0}]),  // R2FalseAccusationMtaWc
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R3BadProof]),  // R3BadProof
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R3FalseAccusation{victim:0}]),  // R3FalseAccusation
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R4BadReveal]),  // R4BadReveal
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R4FalseAccusation{victim:0}]),  // R4FalseAccusation
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R5BadProof{victim:1}]),  // R5BadProof
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R5FalseAccusation{victim:0}]),  // R5FalseAccusation
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R6BadProof]),  // R6BadProof
+        (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R6FalseAccusation{victim:0}]),  // R6FalseAccusation
     ];
 }
 
@@ -139,18 +163,22 @@ async fn restart_one_party() {
 }
 
 async fn init_parties(
-    share_count: usize,
+    party_count: usize,
     malicious_types: &Vec<MaliciousType>,
     testdir: &Path,
 ) -> (Vec<TofndParty>, Vec<String>) {
-    let mut parties = Vec::with_capacity(share_count);
+    let mut parties = Vec::with_capacity(party_count);
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
-    for i in 0..share_count {
-        parties.push(TofndParty::new(i, testdir, malicious_types[i].clone()).await);
+    for i in 0..party_count {
+        let malicious_type = match malicious_types.len() {
+            0 => Honest,
+            _ => malicious_types[i].clone(),
+        };
+        parties.push(TofndParty::new(i, testdir, malicious_type).await);
     }
 
-    let party_uids: Vec<String> = (0..share_count)
+    let party_uids: Vec<String> = (0..party_count)
         .map(|i| format!("{}", (b'A' + i as u8) as char))
         .collect();
 
