@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 tonic = "0.3"
 # tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
+# TODO: change that after merging tofn
 tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "feat/honest-behaviour"}
 # tofn = { path = "../tofn" }
 bincode = "1.2.1"
