@@ -30,7 +30,7 @@ struct SignInitSanitized {
 pub async fn handle_sign(
     mut kv: Kv<PartyInfo>,
     mut stream_in: tonic::Streaming<proto::MessageIn>,
-    mut stream_out_sender: mpsc::Sender<Result<proto::MessageOut, Status>>,
+    mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     sign_span: Span,
 ) -> Result<(), TofndError> {
     // 1. Receive SignInit, open message, sanitize arguments
@@ -59,7 +59,7 @@ pub async fn handle_sign(
     let mut aggregator_receivers = Vec::new();
 
     for my_tofnd_subindex in 0..my_share_count {
-        let (sign_sender, sign_receiver) = mpsc::channel(4);
+        let (sign_sender, sign_receiver) = mpsc::unbounded_channel();
         let (aggregator_sender, aggregator_receiver) = oneshot::channel();
         sign_senders.push(sign_sender);
         aggregator_receivers.push(aggregator_receiver);
@@ -150,6 +150,11 @@ async fn handle_sign_init(
 
     let party_info = kv.get(&sign_init.key_uid).await?;
     let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
+
+    info!(
+        "Starting Keygen with uids: {:?}, party_shares: {:?}",
+        party_info.tofnd.party_uids, party_info.tofnd.share_counts
+    );
 
     Ok((sign_init, party_info))
 }
@@ -249,7 +254,7 @@ async fn execute_sign(
 // waiting group for all sign workers
 async fn wait_threads_and_send_sign(
     aggregator_receivers: Vec<oneshot::Receiver<Result<SignOutput, TofndError>>>,
-    stream_out_sender: &mut mpsc::Sender<Result<proto::MessageOut, Status>>,
+    stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     participant_uids: &[String],
 ) -> Result<(), TofndError> {
     //  wait all sign threads and get signature
@@ -260,13 +265,10 @@ async fn wait_threads_and_send_sign(
     let sign_output = sign_output.ok_or("no output returned from waitgroup")?;
 
     // send signature to client
-    stream_out_sender
-        .send(Ok(proto::MessageOut::new_sign_result(
-            participant_uids,
-            sign_output,
-        )))
-        .await?;
-
+    stream_out_sender.send(Ok(proto::MessageOut::new_sign_result(
+        participant_uids,
+        sign_output,
+    )))?;
     Ok(())
 }
 

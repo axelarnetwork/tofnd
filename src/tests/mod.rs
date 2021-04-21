@@ -19,6 +19,9 @@ use tofnd_party::TofndParty;
 use std::path::Path;
 use testdir::testdir;
 
+// enable logs in tests
+use tracing_test::traced_test;
+
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
     static ref TEST_CASES: Vec<(usize, Vec<u32>, usize, Vec<usize>)> = vec![ // (number of uids, count of shares per uid, threshold, indices of sign participants)
@@ -26,10 +29,12 @@ lazy_static::lazy_static! {
         (5, vec![1,1,1,1,1], 3, vec![1,4,2,3]), // 1 share per uid
         (5, vec![1,2,1,3,2], 6, vec![1,4,2,3]), // multiple shares per uid
         (1,vec![1],0,vec![0]),                  // trivial case
+        (5, vec![1,2,3,4,20], 27, vec![0,1,4,2,3]), // multiple shares per uid
     ];
     // TODO add TEST_CASES_INVALID
 }
 
+#[traced_test]
 #[tokio::test]
 async fn basic_keygen_and_sign() {
     let dir = testdir!();
@@ -68,6 +73,7 @@ async fn basic_keygen_and_sign() {
     }
 }
 
+#[traced_test]
 #[tokio::test]
 async fn restart_one_party() {
     let dir = testdir!();

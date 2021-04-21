@@ -75,7 +75,7 @@ impl Party for TofndParty {
     ) {
         let my_uid = init.party_uids[usize::try_from(init.my_party_index).unwrap()].clone();
         let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
-        let (mut keygen_server_incoming, rx) = channels;
+        let (keygen_server_incoming, rx) = channels;
         let mut keygen_server_outgoing = self
             .client
             .keygen(Request::new(rx))
@@ -88,7 +88,6 @@ impl Party for TofndParty {
             .send(proto::MessageIn {
                 data: Some(proto::message_in::Data::KeygenInit(init)),
             })
-            .await
             .unwrap();
 
         let mut keygen_completed = false;
@@ -122,7 +121,7 @@ impl Party for TofndParty {
         my_uid: &str,
     ) {
         let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
-        let (mut sign_server_incoming, rx) = channels;
+        let (sign_server_incoming, rx) = channels;
         let mut sign_server_outgoing = self
             .client
             .sign(Request::new(rx))
@@ -135,7 +134,6 @@ impl Party for TofndParty {
             .send(proto::MessageIn {
                 data: Some(proto::message_in::Data::SignInit(init)),
             })
-            .await
             .unwrap();
 
         let mut sign_completed = false;

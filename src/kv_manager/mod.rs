@@ -15,7 +15,7 @@ const DEFAULT_RESERV: &str = "";
 // see also https://tokio.rs/tokio/tutorial/channels
 #[derive(Clone)]
 pub struct Kv<V> {
-    sender: mpsc::Sender<Command<V>>,
+    sender: mpsc::UnboundedSender<Command<V>>,
 }
 impl<V: 'static> Kv<V>
 where
@@ -25,7 +25,7 @@ where
         Self::with_db_name(".kvstore")
     }
     pub fn with_db_name(db_name: &str) -> Self {
-        let (sender, rx) = mpsc::channel(4); // TODO buffer size?
+        let (sender, rx) = mpsc::unbounded_channel();
         tokio::spawn(kv_cmd_handler(rx, db_name.to_string()));
         Self { sender }
     }
@@ -34,11 +34,11 @@ where
         key: String,
     ) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
         let (resp_tx, resp_rx) = oneshot::channel();
-        self.sender.send(ReserveKey { key, resp: resp_tx }).await?;
+        self.sender.send(ReserveKey { key, resp: resp_tx })?;
         resp_rx.await?
     }
     pub async fn unreserve_key(&mut self, reservation: KeyReservation) {
-        let _ = self.sender.send(UnreserveKey { reservation }).await;
+        let _ = self.sender.send(UnreserveKey { reservation });
     }
     pub async fn put(
         &mut self,
@@ -46,23 +46,19 @@ where
         value: V,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let (resp_tx, resp_rx) = oneshot::channel();
-        self.sender
-            .send(Put {
-                reservation,
-                value,
-                resp: resp_tx,
-            })
-            .await?;
+        self.sender.send(Put {
+            reservation,
+            value,
+            resp: resp_tx,
+        })?;
         resp_rx.await?
     }
     pub async fn get(&mut self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
         let (resp_tx, resp_rx) = oneshot::channel();
-        self.sender
-            .send(Get {
-                key: key.to_string(),
-                resp: resp_tx,
-            })
-            .await?;
+        self.sender.send(Get {
+            key: key.to_string(),
+            resp: resp_tx,
+        })?;
         resp_rx.await?
     }
 
@@ -123,7 +119,7 @@ fn get_kv_store(db_name: String) -> sled::Db {
 }
 
 // private handler function to process commands as per the "actor" pattern (see above)
-async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::Receiver<Command<V>>, db_name: String)
+async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::UnboundedReceiver<Command<V>>, db_name: String)
 where
     V: Serialize + DeserializeOwned,
 {

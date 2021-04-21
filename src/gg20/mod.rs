@@ -65,14 +65,14 @@ impl KeygenInitSanitized {
 // This helps for grouping similar variables and keeping the number of variables
 // passed to functions under rust's analyser threshold (7).
 struct ProtocolCommunication<InMsg, OutMsg> {
-    receiver: mpsc::Receiver<InMsg>,
-    sender: mpsc::Sender<OutMsg>,
+    receiver: mpsc::UnboundedReceiver<InMsg>,
+    sender: mpsc::UnboundedSender<OutMsg>,
 }
 
 #[tonic::async_trait]
 impl proto::gg20_server::Gg20 for Gg20Service {
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
-    type KeygenStream = mpsc::Receiver<Result<proto::MessageOut, Status>>;
+    type KeygenStream = mpsc::UnboundedReceiver<Result<proto::MessageOut, Status>>;
     type SignStream = Self::KeygenStream;
 
     async fn keygen(
@@ -80,7 +80,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         request: Request<tonic::Streaming<proto::MessageIn>>,
     ) -> Result<Response<Self::KeygenStream>, Status> {
         let stream_in = request.into_inner();
-        let (msg_sender, rx) = mpsc::channel(4);
+        let (msg_sender, rx) = mpsc::unbounded_channel();
         let kv = self.kv.clone();
 
         let span = span!(Level::INFO, "Keygen");
@@ -101,7 +101,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         request: Request<tonic::Streaming<proto::MessageIn>>,
     ) -> Result<Response<Self::SignStream>, Status> {
         let stream = request.into_inner();
-        let (msg_sender, rx) = mpsc::channel(4);
+        let (msg_sender, rx) = mpsc::unbounded_channel();
         let kv = self.kv.clone();
 
         // span logs for sign
@@ -126,7 +126,7 @@ mod sign;
 
 pub(super) async fn route_messages(
     in_stream: &mut tonic::Streaming<proto::MessageIn>,
-    mut out_channels: Vec<mpsc::Sender<Option<proto::TrafficIn>>>,
+    mut out_channels: Vec<mpsc::UnboundedSender<Option<proto::TrafficIn>>>,
     span: Span,
 ) -> Result<(), TofndError> {
     loop {
@@ -172,7 +172,7 @@ pub(super) async fn route_messages(
         // send the message to all of my shares. This applies to p2p and bcast messages.
         // We also broadcast p2p messages to facilitate fault attribution
         for out_channel in &mut out_channels {
-            let _ = out_channel.send(Some(traffic.clone())).await;
+            let _ = out_channel.send(Some(traffic.clone()));
         }
     }
     Ok(())
