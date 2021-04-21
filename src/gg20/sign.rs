@@ -155,6 +155,7 @@ impl Gg20Service {
     }
 
     // execute sign protocol and write the result into the internal channel
+    #[allow(clippy::too_many_arguments)]
     async fn execute_sign(
         self,
         chan: ProtocolCommunication<
