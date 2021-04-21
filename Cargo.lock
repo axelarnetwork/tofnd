@@ -2317,7 +2317,7 @@ dependencies = [
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=feat/honest-behaviour#d0bdaff93b599deefa8466c4c7f0b0613bca6b9d"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git#a8ea46a98a803e5dbee7e9604198fc5190382675"
 dependencies = [
  "bincode",
  "curv 0.2.6",
