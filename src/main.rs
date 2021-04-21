@@ -42,10 +42,10 @@ async fn main() -> Result<(), TofndError> {
     warn_for_malicious_build();
 
     #[cfg(feature = "malicious")]
-    let (port, malicious_type) = parse_args();
+    let (port, malicious_type) = parse_args()?;
 
     #[cfg(not(feature = "malicious"))]
-    let port = parse_args();
+    let port = parse_args()?;
 
     // set up span for logs
     let main_span = span!(Level::INFO, "main");

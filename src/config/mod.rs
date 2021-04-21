@@ -1,7 +1,8 @@
+use crate::TofndError;
 use clap::{App, Arg};
 
 #[cfg(not(feature = "malicious"))]
-pub fn parse_args() -> u16 {
+pub fn parse_args() -> Result<u16, TofndError> {
     let matches = App::new("tofnd")
         .about("A threshold signature scheme daemon")
         .arg(
@@ -13,8 +14,8 @@ pub fn parse_args() -> u16 {
         )
         .get_matches();
 
-    let port = matches.value_of("port").unwrap().parse::<u16>().unwrap();
-    port
+    let port = matches.value_of("port").unwrap().parse::<u16>()?;
+    Ok(port)
 }
 
 #[cfg(feature = "malicious")]
@@ -23,7 +24,7 @@ use clap::SubCommand;
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
 
 #[cfg(feature = "malicious")]
-pub fn parse_args() -> (u16, MaliciousType) {
+pub fn parse_args() -> Result<(u16, MaliciousType), TofndError> {
     // TODO: if we want to read all available behaviours from tofn automatically,
     // we should add strum (https://docs.rs/strum) to iterate over enums and
     // print their names, but it has to be imported in tofn.
@@ -71,22 +72,18 @@ pub fn parse_args() -> (u16, MaliciousType) {
         )
         .get_matches();
 
-    let port = matches.value_of("port").unwrap().parse::<u16>().unwrap();
+    let port = matches.value_of("port").unwrap().parse::<u16>()?;
 
     // Set a default behaviour
     let mut behaviour = "Honest";
     let mut victim = 0;
     if let Some(matches) = matches.subcommand_matches("malicious") {
         behaviour = matches.value_of("behaviour").unwrap();
-        victim = matches
-            .value_of("victim")
-            .unwrap()
-            .parse::<usize>()
-            .unwrap();
+        victim = matches.value_of("victim").unwrap().parse::<usize>()?;
     }
 
     let behaviour = match_string_to_behaviour(behaviour, victim);
-    (port, behaviour)
+    Ok((port, behaviour))
 }
 
 #[cfg(feature = "malicious")]
