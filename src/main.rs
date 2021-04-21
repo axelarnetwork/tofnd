@@ -12,6 +12,9 @@ pub mod proto {
     tonic::include_proto!("tofnd");
 }
 
+mod config;
+use config::parse_args;
+
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type TofndError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -22,27 +25,43 @@ fn set_up_logs(log_level: &str, enable_colours: bool) {
     tracing_subscriber::fmt().with_ansi(enable_colours).init();
 }
 
+#[cfg(feature = "malicious")]
+pub fn warn_for_malicious_build() {
+    use tracing::warn;
+    warn!("WARNING: THIS tofnd BINARY AS COMPILED IN 'MALICIOUS' MODE.  MALICIOUS BEHAVIOUR IS INTENTIONALLY INSERTED INTO SOME MESSAGES.  THIS BEHAVIOUR WILL CAUSE OTHER tofnd PROCESSES TO IDENTIFY THE CURRENT PROCESS AS MALICIOUS.");
+}
+
 #[tokio::main]
 async fn main() -> Result<(), TofndError> {
     // set up log subscriber
     // TODO read arguments from a config file
     set_up_logs("INFO", atty::is(atty::Stream::Stdout));
 
+    // print a warning log if we are running in malicious mode
+    #[cfg(feature = "malicious")]
+    warn_for_malicious_build();
+
+    #[cfg(feature = "malicious")]
+    let (port, malicious_type) = parse_args()?;
+
+    #[cfg(not(feature = "malicious"))]
+    let port = parse_args()?;
+
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
     let _enter = main_span.enter();
 
-    let args: Vec<String> = env::args().collect();
-    let port: u16 = match args.len() {
-        2 => args[1].parse()?,
-        _ => 50051, // default listen port
-    };
     let incoming = TcpListener::bind(addr(port)).await?;
     info!(
         "tofnd listen addr {:?}, use ctrl+c to shutdown",
         incoming.local_addr()?
     );
+
+    #[cfg(not(feature = "malicious"))]
     let my_service = gg20::new_service();
+    #[cfg(feature = "malicious")]
+    let my_service = gg20::new_service(malicious_type);
+
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
     tonic::transport::Server::builder()

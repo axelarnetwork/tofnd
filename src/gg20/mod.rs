@@ -39,14 +39,25 @@ pub struct PartyInfo {
 
 // TODO don't store party_uids in this daemon!
 type KeySharesKv = Kv<PartyInfo>;
-
+#[derive(Clone)]
 struct Gg20Service {
     kv: KeySharesKv,
+    #[cfg(feature = "malicious")]
+    malicious_type: MaliciousType,
 }
 
+#[cfg(not(feature = "malicious"))]
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
     Gg20Service {
         kv: KeySharesKv::new(),
+    }
+}
+
+#[cfg(feature = "malicious")]
+pub fn new_service(malicious_type: MaliciousType) -> impl proto::gg20_server::Gg20 {
+    Gg20Service {
+        kv: KeySharesKv::new(),
+        malicious_type,
     }
 }
 
@@ -126,20 +137,56 @@ impl proto::gg20_server::Gg20 for Gg20Service {
     ) -> Result<Response<Self::SignStream>, Status> {
         let stream = request.into_inner();
         let (msg_sender, rx) = mpsc::unbounded_channel();
-        let kv = self.kv.clone();
 
         // span logs for sign
         let span = span!(Level::INFO, "Sign");
         let _enter = span.enter();
         let s = span.clone();
+        let mut gg20 = self.clone();
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = sign::handle_sign(kv, stream, msg_sender, s).await {
+            if let Err(e) = gg20.handle_sign(stream, msg_sender, s).await {
                 error!("sign failure: {:?}", e);
                 return;
             }
         });
         Ok(Response::new(rx))
+    }
+}
+
+#[cfg(feature = "malicious")]
+use tofn::protocol::gg20::sign::malicious::BadSign;
+#[cfg(feature = "malicious")]
+use tofn::protocol::gg20::sign::malicious::MaliciousType;
+#[cfg(not(feature = "malicious"))]
+use tofn::protocol::gg20::sign::Sign;
+use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::ParamsError};
+impl Gg20Service {
+    // get regular sign
+    #[cfg(not(feature = "malicious"))]
+    fn get_sign(
+        &self,
+        my_secret_key_share: &SecretKeyShare,
+        participant_indices: &[usize],
+        msg_to_sign: &[u8],
+    ) -> Result<Sign, ParamsError> {
+        Sign::new(my_secret_key_share, participant_indices, msg_to_sign)
+    }
+
+    #[cfg(feature = "malicious")]
+    fn get_sign(
+        &self,
+        my_secret_key_share: &SecretKeyShare,
+        participant_indices: &[usize],
+        msg_to_sign: &[u8],
+    ) -> Result<BadSign, ParamsError> {
+        let behaviour = self.malicious_type.clone();
+        BadSign::new(
+            my_secret_key_share,
+            participant_indices,
+            msg_to_sign,
+            behaviour,
+        )
     }
 }
 
@@ -170,10 +217,18 @@ impl proto::MessageOut {
         }
     }
     fn new_sign_result(result: SignOutput) -> Self {
+        let response: Vec<u8>;
+        if let Err(criminals) = result {
+            warn!("Criminals detected! {:?}", criminals);
+            // TODO temporarily use a dummy Vec<u8> if the result is a Criminal vector
+            // when Criminal struct is incorporated to protobuf, this will have to change
+            response = vec![42; criminals.len()];
+        } else {
+            response = result.unwrap();
+        }
         // TODO TEMPORARY assume success
-        let result = result.unwrap();
         proto::MessageOut {
-            data: Some(proto::message_out::Data::SignResult(result)),
+            data: Some(proto::message_out::Data::SignResult(response)),
         }
     }
 }
@@ -236,11 +291,25 @@ pub(super) async fn route_messages(
 pub(super) mod tests {
     use super::{Gg20Service, KeySharesKv};
     use crate::proto;
+    use tofn::protocol::gg20::sign::malicious::MaliciousType;
 
     #[cfg(test)]
+    #[cfg(not(feature = "malicious"))]
     pub fn with_db_name(db_name: &str) -> impl proto::gg20_server::Gg20 {
         Gg20Service {
             kv: KeySharesKv::with_db_name(db_name),
+        }
+    }
+
+    #[cfg(test)]
+    #[cfg(feature = "malicious")]
+    pub fn with_db_name_malicious(
+        db_name: &str,
+        malicious_type: MaliciousType,
+    ) -> impl proto::gg20_server::Gg20 {
+        Gg20Service {
+            kv: KeySharesKv::with_db_name(db_name),
+            malicious_type,
         }
     }
 

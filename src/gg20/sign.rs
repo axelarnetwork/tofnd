@@ -1,10 +1,7 @@
-use tofn::protocol::gg20::{
-    keygen::SecretKeyShare,
-    sign::{Sign, SignOutput},
-};
+use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::SignOutput};
 
-use super::{proto, protocol, route_messages, PartyInfo, ProtocolCommunication};
-use crate::{kv_manager::Kv, TofndError};
+use super::{proto, protocol, route_messages, Gg20Service, PartyInfo, ProtocolCommunication};
+use crate::TofndError;
 
 use protocol::map_tofnd_to_tofn_idx;
 use tokio::sync::oneshot;
@@ -25,133 +22,172 @@ struct SignInitSanitized {
     message_to_sign: Vec<u8>,
 }
 
-// we wrap the functionality of sign gRPC here because we can't handle errors
-// conveniently when spawning theads.
-pub async fn handle_sign(
-    mut kv: Kv<PartyInfo>,
-    mut stream_in: tonic::Streaming<proto::MessageIn>,
-    mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
-    sign_span: Span,
-) -> Result<(), TofndError> {
-    // 1. Receive SignInit, open message, sanitize arguments
-    // 2. Spawn N sign threads to execute the protocol in parallel; one of each of our shares
-    // 3. Spawn 1 router thread to route messages from axelar core to the respective sign thread
-    // 4. Wait for all sign threads to finish and aggregate all responses
+impl Gg20Service {
+    // we wrap the functionality of sign gRPC here because we can't handle errors
+    // conveniently when spawning theads.
+    pub async fn handle_sign(
+        &mut self,
+        mut stream_in: tonic::Streaming<proto::MessageIn>,
+        mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
+        sign_span: Span,
+    ) -> Result<(), TofndError> {
+        // 1. Receive SignInit, open message, sanitize arguments
+        // 2. Spawn N sign threads to execute the protocol in parallel; one of each of our shares
+        // 3. Spawn 1 router thread to route messages from axelar core to the respective sign thread
+        // 4. Wait for all sign threads to finish and aggregate all responses
 
-    // get SignInit message from stream and sanitize arguments
-    let (sign_init, party_info) = handle_sign_init(&mut kv, &mut stream_in).await?;
+        // get SignInit message from stream and sanitize arguments
+        let (sign_init, party_info) = self.handle_sign_init(&mut stream_in).await?;
 
-    // quit now if I'm not a participant
-    if sign_init
-        .participant_indices
-        .iter()
-        .find(|&&i| i == party_info.tofnd.index)
-        .is_none()
-    {
-        info!("abort i'm not a participant");
-        return Ok(());
-    }
-
-    // find my share count
-    let my_share_count = party_info.shares.len();
-    // create in and out channels for each share, and spawn as many threads
-    let mut sign_senders = Vec::new();
-    let mut aggregator_receivers = Vec::new();
-
-    for my_tofnd_subindex in 0..my_share_count {
-        let (sign_sender, sign_receiver) = mpsc::unbounded_channel();
-        let (aggregator_sender, aggregator_receiver) = oneshot::channel();
-        sign_senders.push(sign_sender);
-        aggregator_receivers.push(aggregator_receiver);
-
-        // make copies to pass to execute sign thread
-        let stream_out = stream_out_sender.clone();
-        let all_party_uids = party_info.tofnd.party_uids.clone();
-        let all_share_counts = party_info.tofnd.share_counts.clone();
-        let participant_tofn_indices: Vec<usize> = get_signer_tofn_indices(
-            &party_info.tofnd.share_counts,
-            &sign_init.participant_indices,
-        );
-        let secret_key_share = get_secret_key_share(&party_info, my_tofnd_subindex)?;
-        let message_to_sign = sign_init.message_to_sign.clone();
-
-        // set up log prefix
-        let log_prefix = format!(
-            "sign [{}] party [uid:{}, share:{}/{}]",
-            sign_init.new_sig_uid,
-            party_info.tofnd.party_uids[party_info.tofnd.index],
-            party_info.shares[my_tofnd_subindex].my_index + 1,
-            party_info.common.share_count
-        );
-        let state = log_prefix.as_str();
-        let handle_span = span!(parent: &sign_span, Level::INFO, "", state);
-        info!(
-            "with (t,n)=({},{}), participant indices: {:?}",
-            party_info.common.threshold,
-            party_info.common.share_count,
-            sign_init.participant_indices
-        );
-
-        // spawn keygen threads
-        tokio::spawn(async move {
-            // get result of sign
-            let signature = execute_sign(
-                ProtocolCommunication {
-                    receiver: sign_receiver,
-                    sender: stream_out,
-                },
-                &all_party_uids,
-                &all_share_counts,
-                &participant_tofn_indices,
-                secret_key_share,
-                message_to_sign,
-                handle_span,
-            )
-            .await;
-            let _ = aggregator_sender.send(signature);
-        });
-    }
-    // spawn router thread
-    let span = sign_span.clone();
-    tokio::spawn(async move {
-        if let Err(e) = route_messages(&mut stream_in, sign_senders, span).await {
-            error!("Error at Sign message router: {}", e);
+        // quit now if I'm not a participant
+        if sign_init
+            .participant_indices
+            .iter()
+            .find(|&&i| i == party_info.tofnd.index)
+            .is_none()
+        {
+            info!("abort i'm not a participant");
+            return Ok(());
         }
-    });
 
-    // wait for all sign threads to end, get their responses, and return signature
-    wait_threads_and_send_sign(aggregator_receivers, &mut stream_out_sender).await?;
+        // find my share count
+        let my_share_count = party_info.shares.len();
+        // create in and out channels for each share, and spawn as many threads
+        let mut sign_senders = Vec::new();
+        let mut aggregator_receivers = Vec::new();
 
-    Ok(())
-}
+        for my_tofnd_subindex in 0..my_share_count {
+            let (sign_sender, sign_receiver) = mpsc::unbounded_channel();
+            let (aggregator_sender, aggregator_receiver) = oneshot::channel();
+            sign_senders.push(sign_sender);
+            aggregator_receivers.push(aggregator_receiver);
 
-// makes all needed assertions on incoming data, and create structures that are
-// needed to execute the protocol
-async fn handle_sign_init(
-    kv: &mut Kv<PartyInfo>,
-    stream: &mut tonic::Streaming<proto::MessageIn>,
-) -> Result<(SignInitSanitized, PartyInfo), TofndError> {
-    let msg_type = stream
-        .next()
-        .await
-        .ok_or("sign: stream closed by client without sending a message")??
-        .data
-        .ok_or("sign: missing `data` field in client message")?;
+            // make copies to pass to execute sign thread
+            let stream_out = stream_out_sender.clone();
+            let all_party_uids = party_info.tofnd.party_uids.clone();
+            let all_share_counts = party_info.tofnd.share_counts.clone();
+            let participant_tofn_indices: Vec<usize> = get_signer_tofn_indices(
+                &party_info.tofnd.share_counts,
+                &sign_init.participant_indices,
+            );
+            let secret_key_share = get_secret_key_share(&party_info, my_tofnd_subindex)?;
+            let message_to_sign = sign_init.message_to_sign.clone();
+            let gg20 = self.clone();
 
-    let sign_init = match msg_type {
-        proto::message_in::Data::SignInit(k) => k,
-        _ => return Err(From::from("Expected sign init message")),
-    };
+            // set up log prefix
+            let log_prefix = format!(
+                "sign [{}] party [uid:{}, share:{}/{}]",
+                sign_init.new_sig_uid,
+                party_info.tofnd.party_uids[party_info.tofnd.index],
+                party_info.shares[my_tofnd_subindex].my_index + 1,
+                party_info.common.share_count
+            );
+            let state = log_prefix.as_str();
+            let handle_span = span!(parent: &sign_span, Level::INFO, "", state);
+            info!(
+                "with (t,n)=({},{}), participant indices: {:?}",
+                party_info.common.threshold,
+                party_info.common.share_count,
+                sign_init.participant_indices
+            );
 
-    let party_info = kv.get(&sign_init.key_uid).await?;
-    let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
+            // spawn keygen threads
+            tokio::spawn(async move {
+                // get result of sign
+                let signature = gg20
+                    .execute_sign(
+                        ProtocolCommunication {
+                            receiver: sign_receiver,
+                            sender: stream_out,
+                        },
+                        &all_party_uids,
+                        &all_share_counts,
+                        &participant_tofn_indices,
+                        secret_key_share,
+                        message_to_sign,
+                        handle_span,
+                    )
+                    .await;
+                let _ = aggregator_sender.send(signature);
+            });
+        }
+        // spawn router thread
+        let span = sign_span.clone();
+        tokio::spawn(async move {
+            if let Err(e) = route_messages(&mut stream_in, sign_senders, span).await {
+                error!("Error at Sign message router: {}", e);
+            }
+        });
 
-    info!(
-        "Starting Keygen with uids: {:?}, party_shares: {:?}",
-        party_info.tofnd.party_uids, party_info.tofnd.share_counts
-    );
+        // wait for all sign threads to end, get their responses, and return signature
+        wait_threads_and_send_sign(aggregator_receivers, &mut stream_out_sender).await?;
 
-    Ok((sign_init, party_info))
+        Ok(())
+    }
+
+    // makes all needed assertions on incoming data, and create structures that are
+    // needed to execute the protocol
+    async fn handle_sign_init(
+        &mut self,
+        stream: &mut tonic::Streaming<proto::MessageIn>,
+    ) -> Result<(SignInitSanitized, PartyInfo), TofndError> {
+        let msg_type = stream
+            .next()
+            .await
+            .ok_or("sign: stream closed by client without sending a message")??
+            .data
+            .ok_or("sign: missing `data` field in client message")?;
+
+        let sign_init = match msg_type {
+            proto::message_in::Data::SignInit(k) => k,
+            _ => return Err(From::from("Expected sign init message")),
+        };
+
+        let party_info = self.kv.get(&sign_init.key_uid).await?;
+        let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
+
+        info!(
+            "Starting Keygen with uids: {:?}, party_shares: {:?}",
+            party_info.tofnd.party_uids, party_info.tofnd.share_counts
+        );
+
+        Ok((sign_init, party_info))
+    }
+
+    // execute sign protocol and write the result into the internal channel
+    #[allow(clippy::too_many_arguments)]
+    async fn execute_sign(
+        &self,
+        chan: ProtocolCommunication<
+            Option<proto::TrafficIn>,
+            Result<proto::MessageOut, tonic::Status>,
+        >,
+        party_uids: &[String],
+        party_share_counts: &[usize],
+        participant_tofn_indices: &[usize],
+        secret_key_share: SecretKeyShare,
+        message_to_sign: Vec<u8>,
+        handle_span: Span,
+    ) -> Result<SignOutput, TofndError> {
+        // Sign::new() needs 'tofn' information:
+        let mut sign = self.get_sign(
+            &secret_key_share,
+            &participant_tofn_indices,
+            &message_to_sign,
+        )?;
+
+        protocol::execute_protocol(
+            &mut sign,
+            chan,
+            &party_uids,
+            &party_share_counts,
+            &participant_tofn_indices,
+            handle_span,
+        )
+        .await?;
+
+        Ok(sign.clone_output().ok_or("sign output is `None`")?)
+    }
 }
 
 // sanitize arguments of incoming message.
@@ -214,36 +250,6 @@ fn get_secret_key_share(
         all_eks: party_info.common.all_eks.clone(),
         all_zkps: party_info.common.all_zkps.clone(),
     })
-}
-
-// execute sign protocol and write the result into the internal channel
-async fn execute_sign(
-    chan: ProtocolCommunication<Option<proto::TrafficIn>, Result<proto::MessageOut, tonic::Status>>,
-    party_uids: &[String],
-    party_share_counts: &[usize],
-    participant_tofn_indices: &[usize],
-    secret_key_share: SecretKeyShare,
-    message_to_sign: Vec<u8>,
-    handle_span: Span,
-) -> Result<SignOutput, TofndError> {
-    // Sign::new() needs 'tofn' information:
-    let mut sign = Sign::new(
-        &secret_key_share,
-        &participant_tofn_indices,
-        &message_to_sign,
-    )?;
-
-    protocol::execute_protocol(
-        &mut sign,
-        chan,
-        &party_uids,
-        &party_share_counts,
-        &participant_tofn_indices,
-        handle_span,
-    )
-    .await?;
-
-    Ok(sign.clone_output().ok_or("sign output is `None`")?)
 }
 
 // waiting group for all sign workers

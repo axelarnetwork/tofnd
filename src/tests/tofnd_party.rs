@@ -2,6 +2,7 @@ use super::{mock::SenderReceiver, Deliverer, Party};
 use crate::{addr, gg20, proto};
 use std::convert::TryFrom;
 use std::path::Path;
+use tofn::protocol::gg20::sign::malicious::MaliciousType;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
@@ -16,14 +17,20 @@ pub(super) struct TofndParty {
 }
 
 impl TofndParty {
-    pub(super) async fn new(index: usize, testdir: &Path) -> Self {
+    pub(super) async fn new(index: usize, testdir: &Path, malicious_type: MaliciousType) -> Self {
         let db_name = format!("test-key-{:02}", index);
         let db_path = testdir.join(db_name);
         let db_path = db_path.to_str().unwrap();
 
         // start server
         let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
+
+        #[cfg(not(feature = "malicious"))]
         let my_service = gg20::tests::with_db_name(&db_path);
+
+        #[cfg(feature = "malicious")]
+        let my_service = gg20::tests::with_db_name_malicious(&db_path, malicious_type);
+
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
         let server_addr = incoming.local_addr().unwrap();
