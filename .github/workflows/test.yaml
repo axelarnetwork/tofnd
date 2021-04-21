@@ -35,4 +35,4 @@ jobs:
         # and
         # . command: test --all-features
         # don't work
-          command: test 
+          command: test --all-features
