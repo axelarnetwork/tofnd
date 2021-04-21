@@ -157,7 +157,7 @@ impl Gg20Service {
     // execute sign protocol and write the result into the internal channel
     #[allow(clippy::too_many_arguments)]
     async fn execute_sign(
-        self,
+        &self,
         chan: ProtocolCommunication<
             Option<proto::TrafficIn>,
             Result<proto::MessageOut, tonic::Status>,
@@ -170,8 +170,7 @@ impl Gg20Service {
         handle_span: Span,
     ) -> Result<SignOutput, TofndError> {
         // Sign::new() needs 'tofn' information:
-        let mut sign = Gg20Service::get_sign(
-            &self,
+        let mut sign = self.get_sign(
             &secret_key_share,
             &participant_tofn_indices,
             &message_to_sign,
