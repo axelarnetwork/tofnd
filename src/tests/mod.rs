@@ -71,7 +71,11 @@ async fn basic_keygen_and_sign() {
     for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
         TEST_CASES.iter()
     {
-        let (parties, party_uids) = init_parties(*uid_count, malicious_types, &dir).await;
+        let malicious_types = match malicious_types.len() {
+            0 => vec![Honest; *uid_count],
+            _ => malicious_types.clone(),
+        };
+        let (parties, party_uids) = init_parties(*uid_count, &malicious_types, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
