@@ -148,7 +148,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         let span = span!(Level::INFO, "Sign");
         let _enter = span.enter();
         let s = span.clone();
-        let gg20 = self.clone();
+        let mut gg20 = self.clone();
         tokio::spawn(async move {
             // can't return an error from a spawned thread
             if let Err(e) = gg20.handle_sign(stream, msg_sender, s).await {

@@ -1,7 +1,7 @@
 use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::SignOutput};
 
 use super::{proto, protocol, route_messages, Gg20Service, PartyInfo, ProtocolCommunication};
-use crate::{kv_manager::Kv, TofndError};
+use crate::TofndError;
 
 use protocol::map_tofnd_to_tofn_idx;
 use tokio::sync::oneshot;
@@ -26,7 +26,7 @@ impl Gg20Service {
     // we wrap the functionality of sign gRPC here because we can't handle errors
     // conveniently when spawning theads.
     pub async fn handle_sign(
-        &self,
+        &mut self,
         mut stream_in: tonic::Streaming<proto::MessageIn>,
         mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         sign_span: Span,
@@ -36,9 +36,8 @@ impl Gg20Service {
         // 3. Spawn 1 router thread to route messages from axelar core to the respective sign thread
         // 4. Wait for all sign threads to finish and aggregate all responses
 
-        let mut kv = self.kv.clone();
         // get SignInit message from stream and sanitize arguments
-        let (sign_init, party_info) = handle_sign_init(&mut kv, &mut stream_in).await?;
+        let (sign_init, party_info) = self.handle_sign_init(&mut stream_in).await?;
 
         // quit now if I'm not a participant
         if sign_init
@@ -125,35 +124,70 @@ impl Gg20Service {
 
         Ok(())
     }
-}
 
-// makes all needed assertions on incoming data, and create structures that are
-// needed to execute the protocol
-async fn handle_sign_init(
-    kv: &mut Kv<PartyInfo>,
-    stream: &mut tonic::Streaming<proto::MessageIn>,
-) -> Result<(SignInitSanitized, PartyInfo), TofndError> {
-    let msg_type = stream
-        .next()
-        .await
-        .ok_or("sign: stream closed by client without sending a message")??
-        .data
-        .ok_or("sign: missing `data` field in client message")?;
+    // makes all needed assertions on incoming data, and create structures that are
+    // needed to execute the protocol
+    async fn handle_sign_init(
+        &mut self,
+        stream: &mut tonic::Streaming<proto::MessageIn>,
+    ) -> Result<(SignInitSanitized, PartyInfo), TofndError> {
+        let msg_type = stream
+            .next()
+            .await
+            .ok_or("sign: stream closed by client without sending a message")??
+            .data
+            .ok_or("sign: missing `data` field in client message")?;
 
-    let sign_init = match msg_type {
-        proto::message_in::Data::SignInit(k) => k,
-        _ => return Err(From::from("Expected sign init message")),
-    };
+        let sign_init = match msg_type {
+            proto::message_in::Data::SignInit(k) => k,
+            _ => return Err(From::from("Expected sign init message")),
+        };
 
-    let party_info = kv.get(&sign_init.key_uid).await?;
-    let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
+        let party_info = self.kv.get(&sign_init.key_uid).await?;
+        let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
 
-    info!(
-        "Starting Keygen with uids: {:?}, party_shares: {:?}",
-        party_info.tofnd.party_uids, party_info.tofnd.share_counts
-    );
+        info!(
+            "Starting Keygen with uids: {:?}, party_shares: {:?}",
+            party_info.tofnd.party_uids, party_info.tofnd.share_counts
+        );
 
-    Ok((sign_init, party_info))
+        Ok((sign_init, party_info))
+    }
+
+    // execute sign protocol and write the result into the internal channel
+    async fn execute_sign(
+        self,
+        chan: ProtocolCommunication<
+            Option<proto::TrafficIn>,
+            Result<proto::MessageOut, tonic::Status>,
+        >,
+        party_uids: &[String],
+        party_share_counts: &[usize],
+        participant_tofn_indices: &[usize],
+        secret_key_share: SecretKeyShare,
+        message_to_sign: Vec<u8>,
+        handle_span: Span,
+    ) -> Result<SignOutput, TofndError> {
+        // Sign::new() needs 'tofn' information:
+        let mut sign = Gg20Service::get_sign(
+            &self,
+            &secret_key_share,
+            &participant_tofn_indices,
+            &message_to_sign,
+        )?;
+
+        protocol::execute_protocol(
+            &mut sign,
+            chan,
+            &party_uids,
+            &party_share_counts,
+            &participant_tofn_indices,
+            handle_span,
+        )
+        .await?;
+
+        Ok(sign.clone_output().ok_or("sign output is `None`")?)
+    }
 }
 
 // sanitize arguments of incoming message.
@@ -216,43 +250,6 @@ fn get_secret_key_share(
         all_eks: party_info.common.all_eks.clone(),
         all_zkps: party_info.common.all_zkps.clone(),
     })
-}
-
-impl Gg20Service {
-    // execute sign protocol and write the result into the internal channel
-    async fn execute_sign(
-        &self,
-        chan: ProtocolCommunication<
-            Option<proto::TrafficIn>,
-            Result<proto::MessageOut, tonic::Status>,
-        >,
-        party_uids: &[String],
-        party_share_counts: &[usize],
-        participant_tofn_indices: &[usize],
-        secret_key_share: SecretKeyShare,
-        message_to_sign: Vec<u8>,
-        handle_span: Span,
-    ) -> Result<SignOutput, TofndError> {
-        // Sign::new() needs 'tofn' information:
-        let mut sign = Gg20Service::get_sign(
-            &self,
-            &secret_key_share,
-            &participant_tofn_indices,
-            &message_to_sign,
-        )?;
-
-        protocol::execute_protocol(
-            &mut sign,
-            chan,
-            &party_uids,
-            &party_share_counts,
-            &participant_tofn_indices,
-            handle_span,
-        )
-        .await?;
-
-        Ok(sign.clone_output().ok_or("sign output is `None`")?)
-    }
 }
 
 // waiting group for all sign workers
