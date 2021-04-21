@@ -43,6 +43,7 @@ pub fn parse_args() -> (u16, MaliciousType) {
         "R5FalseAccusation",
         "R6BadProof",
         "R6FalseAccusation",
+        "R7BadSigSummand",
     ];
 
     // TODO: some of the behaviours do not demand a victim. In the future, more
@@ -107,6 +108,7 @@ fn match_string_to_behaviour(behaviour: &str, victim: usize) -> MaliciousType {
         "R5FalseAccusation" => R5FalseAccusation { victim },
         "R6BadProof" => R6BadProof,
         "R6FalseAccusation" => R6FalseAccusation { victim },
+        "R7BadSigSummand" => R7BadSigSummand,
         _ => panic!("Unknown behaviour"),
     }
 }
