@@ -293,7 +293,7 @@ pub(super) async fn route_messages(
 pub(super) mod tests {
     use super::{Gg20Service, KeySharesKv};
     use crate::proto;
-    use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
+    use tofn::protocol::gg20::sign::malicious::MaliciousType;
 
     #[cfg(test)]
     #[cfg(not(feature = "malicious"))]

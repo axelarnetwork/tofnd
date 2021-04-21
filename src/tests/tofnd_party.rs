@@ -2,7 +2,7 @@ use super::{mock::SenderReceiver, Deliverer, Party};
 use crate::{addr, gg20, proto};
 use std::convert::TryFrom;
 use std::path::Path;
-use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
+use tofn::protocol::gg20::sign::malicious::MaliciousType;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
