@@ -24,11 +24,13 @@ use tracing_test::traced_test;
 
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
 
+type TestCase = (usize, Vec<u32>, usize, Vec<usize>, Vec<MaliciousType>);
+
 #[cfg(not(feature = "malicious"))]
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
     // (number of uids, count of shares per uid, threshold, indices of sign participants, malicious types)
-    static ref TEST_CASES: Vec<(usize, Vec<u32>, usize, Vec<usize>, Vec<MaliciousType>)> = vec![
+    static ref TEST_CASES: Vec<TestCase> = vec![
         (4, vec![], 0, vec![0,1,2,3], vec![]),          // should initialize share_counts into [1,1,1,1,1]
         (5, vec![1,1,1,1,1], 3, vec![1,4,2,3], vec![]),    // 1 share per uid
         (5, vec![1,2,1,3,2], 6, vec![1,4,2,3], vec![]),    // multiple shares per uid
@@ -41,7 +43,7 @@ lazy_static::lazy_static! {
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
     // (number of uids, count of shares per uid, threshold, indices of sign participants, malicious types)
-    static ref TEST_CASES: Vec<(usize, Vec<u32>, usize, Vec<usize>, Vec<MaliciousType>)> = vec![
+    static ref TEST_CASES: Vec<TestCase> = vec![
         (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest; 5]),    // only honest
         (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R1BadProof{victim:0}]),  // R1BadProof
         (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R1FalseAccusation{victim:0}]),  // R1FalseAccusation
@@ -168,14 +170,14 @@ async fn restart_one_party() {
 
 async fn init_parties(
     party_count: usize,
-    malicious_types: &Vec<MaliciousType>,
+    malicious_types: &[MaliciousType],
     testdir: &Path,
 ) -> (Vec<TofndParty>, Vec<String>) {
     let mut parties = Vec::with_capacity(party_count);
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     for i in 0..party_count {
-        parties.push(TofndParty::new(i, testdir, malicious_types[i].clone()).await);
+        parties.push(TofndParty::new(i, testdir, malicious_types.get(i).unwrap().clone()).await);
     }
 
     let party_uids: Vec<String> = (0..party_count)
