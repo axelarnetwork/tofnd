@@ -29,5 +29,10 @@ jobs:
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
+        # TODO: how to run tests for all features?
+        #  command: test 
+        #  args: --all-features
+        # and
+        # . command: test --all-features
+        # don't work
           command: test 
-          args: --all-features
