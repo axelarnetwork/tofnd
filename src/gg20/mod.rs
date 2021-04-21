@@ -3,12 +3,6 @@ use tofn::protocol::gg20::{
     sign::SignOutput,
 };
 
-#[cfg(not(feature = "malicious"))]
-use tofn::protocol::gg20::sign::Sign;
-
-#[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::malicious::MaliciousType;
-
 use super::proto;
 use crate::kv_manager::Kv;
 
@@ -162,6 +156,10 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::BadSign;
+#[cfg(feature = "malicious")]
+use tofn::protocol::gg20::sign::malicious::MaliciousType;
+#[cfg(not(feature = "malicious"))]
+use tofn::protocol::gg20::sign::Sign;
 use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::ParamsError};
 impl Gg20Service {
     // get regular sign
