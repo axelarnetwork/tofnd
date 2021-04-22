@@ -137,7 +137,7 @@ fn check_results(results: Vec<Vec<u8>>, sign_indices: &[usize]) -> (bool, bool, 
         if sign_indices.contains(&i) {
             all_signers_same &= first == result;
         } else {
-            all_non_signers_empty &= result.len() == 0;
+            all_non_signers_empty &= result.is_empty();
         }
     }
 
