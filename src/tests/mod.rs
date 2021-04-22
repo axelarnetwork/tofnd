@@ -437,9 +437,8 @@ async fn execute_sign(
 
         // execute the protocol in a spawn
         let handle = tokio::spawn(async move {
-            let mut result = vec![];
-            party
-                .execute_sign(init, channel_pair, delivery, &participant_uid, &mut result)
+            let result = party
+                .execute_sign(init, channel_pair, delivery, &participant_uid)
                 .await;
             (party, result)
         });
