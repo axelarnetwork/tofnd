@@ -22,8 +22,12 @@ use testdir::testdir;
 // enable logs in tests
 use tracing_test::traced_test;
 
-use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
+#[cfg(not(feature = "malicious"))]
+type TestCase = (usize, Vec<u32>, usize, Vec<usize>);
 
+#[cfg(feature = "malicious")]
+use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
+#[cfg(feature = "malicious")]
 type TestCase = (usize, Vec<u32>, usize, Vec<usize>, Vec<MaliciousType>);
 
 #[cfg(not(feature = "malicious"))]
@@ -31,11 +35,11 @@ lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
     // (number of uids, count of shares per uid, threshold, indices of sign participants, malicious types)
     static ref TEST_CASES: Vec<TestCase> = vec![
-        (4, vec![], 0, vec![0,1,2,3], vec![]),          // should initialize share_counts into [1,1,1,1,1]
-        (5, vec![1,1,1,1,1], 3, vec![1,4,2,3], vec![]),    // 1 share per uid
-        (5, vec![1,2,1,3,2], 6, vec![1,4,2,3], vec![]),    // multiple shares per uid
-        (1, vec![1], 0, vec![0], vec![]),                    // trivial case
-        (5, vec![1,2,3,4,20], 27, vec![0, 1, 4, 3, 2], vec![]), // Create a malicious party
+        (4, vec![], 0, vec![0,1,2,3]),              // should initialize share_counts into [1,1,1,1,1]
+        (5, vec![1,1,1,1,1], 3, vec![1,4,2,3]),     // 1 share per uid
+        (5, vec![1,2,1,3,2], 6, vec![1,4,2,3]),     // multiple shares per uid
+        (1, vec![1], 0, vec![0]),                   // trivial case
+        (5, vec![1,2,3,4,20], 27, vec![0, 1, 4, 3, 2]), // Create a malicious party
     ];
 }
 
@@ -63,19 +67,39 @@ lazy_static::lazy_static! {
     ];
 }
 
+struct InitParties {
+    party_count: usize,
+    #[cfg(feature = "malicious")]
+    malicious_types: Vec<MaliciousType>,
+}
+
+impl InitParties {
+    fn new(party_count: usize) -> InitParties {
+        InitParties { party_count }
+    }
+}
+
 #[traced_test]
 #[tokio::test]
 async fn basic_keygen_and_sign() {
     let dir = testdir!();
 
-    for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
-        TEST_CASES.iter()
-    {
+    // for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
+    for test_case in TEST_CASES.iter() {
+        let uid_count = test_case.0;
+        let party_share_counts = test_case.1.clone();
+        let threshold = test_case.2;
+        let sign_participant_indices = test_case.3.clone();
+
+        #[cfg(feature = "malicious")]
         let malicious_types = match malicious_types.len() {
             0 => vec![Honest; *uid_count],
             _ => malicious_types.clone(),
         };
-        let (parties, party_uids) = init_parties(*uid_count, &malicious_types, &dir).await;
+
+        let init_parties_t = InitParties::new(uid_count);
+
+        let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
@@ -87,7 +111,7 @@ async fn basic_keygen_and_sign() {
             &party_uids,
             &party_share_counts,
             new_key_uid,
-            *threshold,
+            threshold,
         )
         .await;
 
@@ -96,7 +120,7 @@ async fn basic_keygen_and_sign() {
         let parties = execute_sign(
             parties,
             &party_uids,
-            sign_participant_indices,
+            &sign_participant_indices,
             new_key_uid,
             new_sig_uid,
             &MSG_TO_SIGN,
@@ -113,14 +137,20 @@ async fn basic_keygen_and_sign() {
 async fn restart_one_party() {
     let dir = testdir!();
 
-    for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
-        TEST_CASES.iter()
-    {
+    // for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
+    for test_case in TEST_CASES.iter() {
+        let uid_count = test_case.0;
+        let party_share_counts = test_case.1.clone();
+        let threshold = test_case.2;
+        let sign_participant_indices = test_case.3.clone();
+
+        #[cfg(feature = "malicious")]
         let malicious_types = match malicious_types.len() {
             0 => vec![Honest; *uid_count],
             _ => malicious_types.clone(),
         };
-        let (parties, party_uids) = init_parties(*uid_count, &malicious_types, &dir).await;
+        let init_parties_t = InitParties::new(uid_count);
+        let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
         // println!(
         //     "keygen: share_count:{}, threshold: {}",
@@ -132,7 +162,7 @@ async fn restart_one_party() {
             &party_uids,
             &party_share_counts,
             new_key_uid,
-            *threshold,
+            threshold,
         )
         .await;
 
@@ -143,14 +173,9 @@ async fn restart_one_party() {
         let shutdown_party = party_options[shutdown_index].take().unwrap();
         shutdown_party.shutdown().await;
 
-        party_options[shutdown_index] = Some(
-            TofndParty::new(
-                shutdown_index,
-                &dir,
-                malicious_types[shutdown_index].clone(),
-            )
-            .await,
-        );
+        let init_party = InitParty::new(shutdown_index);
+
+        party_options[shutdown_index] = Some(TofndParty::new(init_party, &dir).await);
         let parties = party_options
             .into_iter()
             .map(|o| o.unwrap())
@@ -161,7 +186,7 @@ async fn restart_one_party() {
         let parties = execute_sign(
             parties,
             &party_uids,
-            sign_participant_indices,
+            &sign_participant_indices,
             new_key_uid,
             new_sig_uid,
             &MSG_TO_SIGN,
@@ -173,19 +198,31 @@ async fn restart_one_party() {
     }
 }
 
+struct InitParty {
+    party_index: usize,
+    #[cfg(feature = "malicious")]
+    malicious_type: Vec<MaliciousType>,
+}
+
+impl InitParty {
+    fn new(party_index: usize) -> InitParty {
+        InitParty { party_index }
+    }
+}
+
 async fn init_parties(
-    party_count: usize,
-    malicious_types: &[MaliciousType],
+    init_parties: &InitParties,
     testdir: &Path,
 ) -> (Vec<TofndParty>, Vec<String>) {
-    let mut parties = Vec::with_capacity(party_count);
+    let mut parties = Vec::with_capacity(init_parties.party_count);
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
-    for i in 0..party_count {
-        parties.push(TofndParty::new(i, testdir, malicious_types.get(i).unwrap().clone()).await);
+    for i in 0..init_parties.party_count {
+        let init_party = InitParty::new(i);
+        parties.push(TofndParty::new(init_party, testdir).await);
     }
 
-    let party_uids: Vec<String> = (0..party_count)
+    let party_uids: Vec<String> = (0..init_parties.party_count)
         .map(|i| format!("{}", (b'A' + i as u8) as char))
         .collect();
 

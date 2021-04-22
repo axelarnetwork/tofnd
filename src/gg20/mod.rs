@@ -291,6 +291,8 @@ pub(super) async fn route_messages(
 pub(super) mod tests {
     use super::{Gg20Service, KeySharesKv};
     use crate::proto;
+
+    #[cfg(feature = "malicious")]
     use tofn::protocol::gg20::sign::malicious::MaliciousType;
 
     #[cfg(test)]
