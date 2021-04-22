@@ -295,7 +295,6 @@ pub(super) mod tests {
     #[cfg(feature = "malicious")]
     use tofn::protocol::gg20::sign::malicious::MaliciousType;
 
-    #[cfg(test)]
     #[cfg(not(feature = "malicious"))]
     pub fn with_db_name(db_name: &str) -> impl proto::gg20_server::Gg20 {
         Gg20Service {
@@ -303,7 +302,6 @@ pub(super) mod tests {
         }
     }
 
-    #[cfg(test)]
     #[cfg(feature = "malicious")]
     pub fn with_db_name_malicious(
         db_name: &str,
@@ -315,7 +313,6 @@ pub(super) mod tests {
         }
     }
 
-    #[cfg(test)]
     pub fn get_db_path(name: &str) -> std::path::PathBuf {
         KeySharesKv::get_db_path(name)
     }
