@@ -6,9 +6,8 @@ edition = "2018"
 
 [dependencies]
 tonic = "0.3"
-# tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
-# TODO: change this when tofn branch is merged
-tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "feat/malicious-build-2"}
+tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
+# tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "feat/malicious-build-2"}
 # tofn = { path = "../tofn" }
 bincode = "1.2.1"
 sled = "0.34"
