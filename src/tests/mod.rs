@@ -177,7 +177,7 @@ async fn basic_keygen_and_sign() {
         let parties = execute_sign(
             parties,
             &party_uids,
-            sign_participant_indices,
+            &sign_participant_indices,
             new_key_uid,
             new_sig_uid,
             &MSG_TO_SIGN,
