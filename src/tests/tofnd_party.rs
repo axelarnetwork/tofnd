@@ -125,6 +125,7 @@ impl Party for TofndParty {
         channels: SenderReceiver,
         mut delivery: Deliverer,
         my_uid: &str,
+        result: &mut Vec<u8>,
     ) {
         let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
         let (sign_server_incoming, rx) = channels;
@@ -150,8 +151,9 @@ impl Party for TofndParty {
                 proto::message_out::Data::Traffic(_) => {
                     delivery.deliver(&msg, &my_uid).await;
                 }
-                proto::message_out::Data::SignResult(_) => {
+                proto::message_out::Data::SignResult(res) => {
                     sign_completed = true;
+                    *result = res.clone();
                     println!("party [{}] sign finished!", my_display_name);
                     break;
                 }
