@@ -98,9 +98,9 @@ async fn basic_keygen_and_sign() {
     // for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
     for test_case in TEST_CASES.iter() {
         let uid_count = test_case.0;
-        let party_share_counts = test_case.1.clone();
+        let party_share_counts = &test_case.1;
         let threshold = test_case.2;
-        let sign_participant_indices = test_case.3.clone();
+        let sign_participant_indices = &test_case.3;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
@@ -108,7 +108,7 @@ async fn basic_keygen_and_sign() {
             let malicious_types = test_case.4.clone();
             match malicious_types.len() {
                 0 => vec![Honest; uid_count],
-                _ => malicious_types.clone(),
+                _ => malicious_types,
             }
         };
 
@@ -128,7 +128,7 @@ async fn basic_keygen_and_sign() {
         let parties = execute_keygen(
             parties,
             &party_uids,
-            &party_share_counts,
+            party_share_counts,
             new_key_uid,
             threshold,
         )
@@ -139,7 +139,7 @@ async fn basic_keygen_and_sign() {
         let parties = execute_sign(
             parties,
             &party_uids,
-            &sign_participant_indices,
+            sign_participant_indices,
             new_key_uid,
             new_sig_uid,
             &MSG_TO_SIGN,
@@ -168,7 +168,7 @@ async fn restart_one_party() {
             let malicious_types = test_case.4.clone();
             match malicious_types.len() {
                 0 => vec![Honest; uid_count],
-                _ => malicious_types.clone(),
+                _ => malicious_types,
             }
         };
 
