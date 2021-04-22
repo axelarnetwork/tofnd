@@ -5,9 +5,6 @@ use std::path::Path;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
-#[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::malicious::MaliciousType;
-
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
 pub(super) struct TofndParty {
@@ -19,7 +16,6 @@ pub(super) struct TofndParty {
 }
 
 impl TofndParty {
-    // pub(super) async fn new(index: usize, testdir: &Path, malicious_type: MaliciousType) -> Self {
     pub(super) async fn new(init_party: InitParty, testdir: &Path) -> Self {
         let db_name = format!("test-key-{:02}", init_party.party_index);
         let db_path = testdir.join(db_name);
@@ -30,7 +26,6 @@ impl TofndParty {
 
         #[cfg(not(feature = "malicious"))]
         let my_service = gg20::tests::with_db_name(&db_path);
-
         #[cfg(feature = "malicious")]
         let my_service = gg20::tests::with_db_name_malicious(&db_path, init_party.malicious_type);
 

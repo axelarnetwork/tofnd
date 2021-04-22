@@ -2317,7 +2317,7 @@ dependencies = [
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+ssh://git@github.com/axelarnetwork/tofn.git#a8ea46a98a803e5dbee7e9604198fc5190382675"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=feat/malicious-build-2#7b57ccb993855bbe84423d5aac38ddca25aec409"
 dependencies = [
  "bincode",
  "curv 0.2.6",

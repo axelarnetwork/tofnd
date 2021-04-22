@@ -74,8 +74,16 @@ struct InitParties {
 }
 
 impl InitParties {
+    #[cfg(not(feature = "malicious"))]
     fn new(party_count: usize) -> InitParties {
         InitParties { party_count }
+    }
+    #[cfg(feature = "malicious")]
+    fn new(party_count: usize, malicious_types: Vec<MaliciousType>) -> InitParties {
+        InitParties {
+            party_count,
+            malicious_types,
+        }
     }
 }
 
@@ -92,12 +100,18 @@ async fn basic_keygen_and_sign() {
         let sign_participant_indices = test_case.3.clone();
 
         #[cfg(feature = "malicious")]
-        let malicious_types = match malicious_types.len() {
-            0 => vec![Honest; *uid_count],
-            _ => malicious_types.clone(),
+        let malicious_types = {
+            let malicious_types = test_case.4.clone();
+            match malicious_types.len() {
+                0 => vec![Honest; uid_count],
+                _ => malicious_types.clone(),
+            }
         };
 
+        #[cfg(not(feature = "malicious"))]
         let init_parties_t = InitParties::new(uid_count);
+        #[cfg(feature = "malicious")]
+        let init_parties_t = InitParties::new(uid_count, malicious_types);
 
         let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
@@ -137,7 +151,6 @@ async fn basic_keygen_and_sign() {
 async fn restart_one_party() {
     let dir = testdir!();
 
-    // for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
     for test_case in TEST_CASES.iter() {
         let uid_count = test_case.0;
         let party_share_counts = test_case.1.clone();
@@ -145,11 +158,19 @@ async fn restart_one_party() {
         let sign_participant_indices = test_case.3.clone();
 
         #[cfg(feature = "malicious")]
-        let malicious_types = match malicious_types.len() {
-            0 => vec![Honest; *uid_count],
-            _ => malicious_types.clone(),
+        let malicious_types = {
+            let malicious_types = test_case.4.clone();
+            match malicious_types.len() {
+                0 => vec![Honest; uid_count],
+                _ => malicious_types.clone(),
+            }
         };
+
+        #[cfg(not(feature = "malicious"))]
         let init_parties_t = InitParties::new(uid_count);
+        #[cfg(feature = "malicious")]
+        let init_parties_t = InitParties::new(uid_count, malicious_types.clone());
+
         let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
         // println!(
@@ -173,7 +194,13 @@ async fn restart_one_party() {
         let shutdown_party = party_options[shutdown_index].take().unwrap();
         shutdown_party.shutdown().await;
 
+        #[cfg(not(feature = "malicious"))]
         let init_party = InitParty::new(shutdown_index);
+        #[cfg(feature = "malicious")]
+        let init_party = InitParty::new(
+            shutdown_index,
+            malicious_types.get(shutdown_index).unwrap().clone(),
+        );
 
         party_options[shutdown_index] = Some(TofndParty::new(init_party, &dir).await);
         let parties = party_options
@@ -201,12 +228,21 @@ async fn restart_one_party() {
 struct InitParty {
     party_index: usize,
     #[cfg(feature = "malicious")]
-    malicious_type: Vec<MaliciousType>,
+    malicious_type: MaliciousType,
 }
 
 impl InitParty {
+    #[cfg(not(feature = "malicious"))]
     fn new(party_index: usize) -> InitParty {
         InitParty { party_index }
+    }
+
+    #[cfg(feature = "malicious")]
+    fn new(party_index: usize, malicious_type: MaliciousType) -> InitParty {
+        InitParty {
+            party_index,
+            malicious_type,
+        }
     }
 }
 
@@ -218,7 +254,10 @@ async fn init_parties(
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     for i in 0..init_parties.party_count {
+        #[cfg(not(feature = "malicious"))]
         let init_party = InitParty::new(i);
+        #[cfg(feature = "malicious")]
+        let init_party = InitParty::new(i, init_parties.malicious_types.get(i).unwrap().clone());
         parties.push(TofndParty::new(init_party, testdir).await);
     }
 
