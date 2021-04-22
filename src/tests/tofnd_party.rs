@@ -24,6 +24,7 @@ impl TofndParty {
         // start server
         let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
 
+        // start service with respect to the current build
         #[cfg(not(feature = "malicious"))]
         let my_service = gg20::tests::with_db_name(&db_path);
         #[cfg(feature = "malicious")]

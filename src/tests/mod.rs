@@ -22,18 +22,18 @@ use testdir::testdir;
 // enable logs in tests
 use tracing_test::traced_test;
 
-#[cfg(not(feature = "malicious"))]
-type TestCase = (usize, Vec<u32>, usize, Vec<usize>);
-
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
+
+#[cfg(not(feature = "malicious"))]
+type TestCase = (usize, Vec<u32>, usize, Vec<usize>);
 #[cfg(feature = "malicious")]
 type TestCase = (usize, Vec<u32>, usize, Vec<usize>, Vec<MaliciousType>);
 
 #[cfg(not(feature = "malicious"))]
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
-    // (number of uids, count of shares per uid, threshold, indices of sign participants, malicious types)
+    // (number of uids, count of shares per uid, threshold, indices of sign participants)
     static ref TEST_CASES: Vec<TestCase> = vec![
         (4, vec![], 0, vec![0,1,2,3]),              // should initialize share_counts into [1,1,1,1,1]
         (5, vec![1,1,1,1,1], 3, vec![1,4,2,3]),     // 1 share per uid
@@ -64,9 +64,12 @@ lazy_static::lazy_static! {
         (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R6BadProof]),  // R6BadProof
         (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R6FalseAccusation{victim:0}]),  // R6FalseAccusation
         (5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R7BadSigSummand]),  // R7BadSigSummand
+        // TODO add more complex tests for malicious behaviours
     ];
 }
 
+// struct to pass in init_parties function.
+// needs to include malicious when we are running in malicious mode
 struct InitParties {
     party_count: usize,
     #[cfg(feature = "malicious")]
@@ -99,6 +102,7 @@ async fn basic_keygen_and_sign() {
         let threshold = test_case.2;
         let sign_participant_indices = test_case.3.clone();
 
+        // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
         let malicious_types = {
             let malicious_types = test_case.4.clone();
@@ -108,6 +112,7 @@ async fn basic_keygen_and_sign() {
             }
         };
 
+        // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
         let init_parties_t = InitParties::new(uid_count);
         #[cfg(feature = "malicious")]
@@ -157,6 +162,7 @@ async fn restart_one_party() {
         let threshold = test_case.2;
         let sign_participant_indices = test_case.3.clone();
 
+        // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
         let malicious_types = {
             let malicious_types = test_case.4.clone();
@@ -166,6 +172,7 @@ async fn restart_one_party() {
             }
         };
 
+        // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
         let init_parties_t = InitParties::new(uid_count);
         #[cfg(feature = "malicious")]
@@ -194,6 +201,7 @@ async fn restart_one_party() {
         let shutdown_party = party_options[shutdown_index].take().unwrap();
         shutdown_party.shutdown().await;
 
+        // initialize restarted party with malicious_type when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
         let init_party = InitParty::new(shutdown_index);
         #[cfg(feature = "malicious")]
@@ -225,6 +233,8 @@ async fn restart_one_party() {
     }
 }
 
+// struct to pass in TofndParty constructor.
+// needs to include malicious when we are running in malicious mode
 struct InitParty {
     party_index: usize,
     #[cfg(feature = "malicious")]
@@ -254,6 +264,7 @@ async fn init_parties(
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     for i in 0..init_parties.party_count {
+        // initialize party with respect to current build
         #[cfg(not(feature = "malicious"))]
         let init_party = InitParty::new(i);
         #[cfg(feature = "malicious")]
