@@ -16,7 +16,7 @@ pub(super) trait Party: Sync + Send {
         channels: SenderReceiver,
         delivery: Deliverer,
         my_uid: &str,
-    );
+    ) -> Vec<u8>;
     async fn shutdown(mut self);
     fn get_db_path(&self) -> std::path::PathBuf;
 }

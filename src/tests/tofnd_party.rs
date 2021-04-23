@@ -125,7 +125,7 @@ impl Party for TofndParty {
         channels: SenderReceiver,
         mut delivery: Deliverer,
         my_uid: &str,
-    ) {
+    ) -> Vec<u8> {
         let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
         let (sign_server_incoming, rx) = channels;
         let mut sign_server_outgoing = self
@@ -143,6 +143,7 @@ impl Party for TofndParty {
             .unwrap();
 
         let mut sign_completed = false;
+        let mut result = Vec::new();
         while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
@@ -150,8 +151,9 @@ impl Party for TofndParty {
                 proto::message_out::Data::Traffic(_) => {
                     delivery.deliver(&msg, &my_uid).await;
                 }
-                proto::message_out::Data::SignResult(_) => {
+                proto::message_out::Data::SignResult(res) => {
                     sign_completed = true;
+                    result = res.clone();
                     println!("party [{}] sign finished!", my_display_name);
                     break;
                 }
@@ -163,6 +165,8 @@ impl Party for TofndParty {
         }
         assert!(sign_completed, "sign failure to complete");
         println!("party [{}] sign execution complete", my_display_name);
+
+        result.clone()
     }
 
     async fn shutdown(mut self) {
