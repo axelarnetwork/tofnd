@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 tonic = "0.3"
 tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
-# tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "feat/honest-behaviour"}
+# tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "feat/malicious-build-2"}
 # tofn = { path = "../tofn" }
 bincode = "1.2.1"
 sled = "0.34"
@@ -40,4 +40,5 @@ lazy_static = "1.4"
 tracing-test = "0.1.0"
 
 [features]
-malicious = []
+# when we compile tofnd with malicious build, also use malicious build for tofn
+malicious = ["tofn/malicious"]
