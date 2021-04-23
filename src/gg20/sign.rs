@@ -120,7 +120,13 @@ impl Gg20Service {
         });
 
         // wait for all sign threads to end, get their responses, and return signature
-        wait_threads_and_send_sign(aggregator_receivers, &mut stream_out_sender).await?;
+        wait_threads_and_send_sign(
+            aggregator_receivers,
+            &mut stream_out_sender,
+            &sign_init.participant_uids,
+            &party_info.tofnd.share_counts,
+        )
+        .await?;
 
         Ok(())
     }
@@ -256,6 +262,8 @@ fn get_secret_key_share(
 async fn wait_threads_and_send_sign(
     aggregator_receivers: Vec<oneshot::Receiver<Result<SignOutput, TofndError>>>,
     stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
+    participant_uids: &[String],
+    all_share_counts: &[usize],
 ) -> Result<(), TofndError> {
     //  wait all sign threads and get signature
     let mut sign_output = None;
@@ -265,8 +273,11 @@ async fn wait_threads_and_send_sign(
     let sign_output = sign_output.ok_or("no output returned from waitgroup")?;
 
     // send signature to client
-    stream_out_sender.send(Ok(proto::MessageOut::new_sign_result(sign_output)))?;
-
+    stream_out_sender.send(Ok(proto::MessageOut::new_sign_result(
+        participant_uids,
+        all_share_counts,
+        sign_output,
+    )))?;
     Ok(())
 }
 

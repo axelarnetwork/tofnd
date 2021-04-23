@@ -5,6 +5,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // client build needed only for tests https://github.com/rust-lang/cargo/issues/1581
     tonic_build::configure()
         // .build_client(false)
+        // .out_dir(".") // if you want to peek at the generated code
         .compile(&["proto/tofnd.proto"], &["proto"])?;
     Ok(())
 }

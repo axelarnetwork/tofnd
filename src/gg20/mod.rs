@@ -1,7 +1,4 @@
-use tofn::protocol::gg20::{
-    keygen::{CommonInfo, ShareInfo},
-    sign::SignOutput,
-};
+use tofn::protocol::gg20::keygen::{CommonInfo, ShareInfo};
 
 use super::proto;
 use crate::kv_manager::Kv;
@@ -89,27 +86,6 @@ impl proto::gg20_server::Gg20 for Gg20Service {
     type KeygenStream = mpsc::UnboundedReceiver<Result<proto::MessageOut, Status>>;
     type SignStream = Self::KeygenStream;
 
-    // TODO delete get_key, get_sign?
-    async fn get_key(
-        &self,
-        request: Request<proto::Uid>,
-    ) -> Result<Response<proto::Bytes>, Status> {
-        println!("get_key uid {:?}", request.get_ref());
-        Ok(Response::new(proto::Bytes {
-            payload: vec![1, 2, 3],
-        }))
-    }
-
-    async fn get_sig(
-        &self,
-        request: Request<proto::Uid>,
-    ) -> Result<Response<proto::Bytes>, Status> {
-        println!("get_sig uid {:?}", request.get_ref());
-        Ok(Response::new(proto::Bytes {
-            payload: vec![3, 2, 1],
-        }))
-    }
-
     async fn keygen(
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,
@@ -191,47 +167,9 @@ impl Gg20Service {
 }
 
 mod keygen;
+mod proto_helpers;
 mod protocol;
 mod sign;
-
-// convenience constructors
-impl proto::MessageOut {
-    fn new_bcast(bcast: &[u8]) -> Self {
-        Self::new_traffic("", bcast, true)
-    }
-    fn new_p2p(receiver_id: &str, p2p: &[u8]) -> Self {
-        Self::new_traffic(receiver_id, p2p, false)
-    }
-    fn new_traffic(receiver_id: &str, msg: &[u8], is_broadcast: bool) -> Self {
-        proto::MessageOut {
-            data: Some(proto::message_out::Data::Traffic(proto::TrafficOut {
-                to_party_uid: receiver_id.to_string(),
-                payload: msg.to_vec(),
-                is_broadcast,
-            })),
-        }
-    }
-    fn new_keygen_result(result: &[u8]) -> Self {
-        proto::MessageOut {
-            data: Some(proto::message_out::Data::KeygenResult(result.to_vec())),
-        }
-    }
-    fn new_sign_result(result: SignOutput) -> Self {
-        let response: Vec<u8>;
-        if let Err(criminals) = result {
-            warn!("Criminals detected! {:?}", criminals);
-            // TODO temporarily use a dummy Vec<u8> if the result is a Criminal vector
-            // when Criminal struct is incorporated to protobuf, this will have to change
-            response = vec![42; criminals.len()];
-        } else {
-            response = result.unwrap();
-        }
-        // TODO TEMPORARY assume success
-        proto::MessageOut {
-            data: Some(proto::message_out::Data::SignResult(response)),
-        }
-    }
-}
 
 pub(super) async fn route_messages(
     in_stream: &mut tonic::Streaming<proto::MessageIn>,

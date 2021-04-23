@@ -10,14 +10,15 @@ package tofnd;
 service GG20 {
     rpc Keygen(stream MessageIn) returns (stream MessageOut);
     rpc Sign(stream MessageIn) returns (stream MessageOut);
-    rpc GetKey(Uid) returns (Bytes);
-    rpc GetSig(Uid) returns (Bytes);
 }
 
 // generic message types shared by Keygen, Sign
 
+// TODO use nested message types
+// eg. KeygenInit, SignInit should be defined inside MessageIn, etc.
+
 message MessageIn {
-    oneof data {
+    oneof data { // TODO don't reuse `data`
         KeygenInit keygen_init = 1; // first message only, Keygen
         SignInit sign_init = 2;     // first message only, Sign
         TrafficIn traffic = 3;      // all subsequent messages
@@ -25,10 +26,32 @@ message MessageIn {
 }
 
 message MessageOut {
-    oneof data {
+    oneof data { // TODO don't reuse `data`
         TrafficOut traffic = 1;  // all but final message
         bytes keygen_result = 2; // final message only, Keygen
-        bytes sign_result = 3;   // final message only, Sign
+        SignResult sign_result = 3;   // final message only, Sign
+    }
+
+    message SignResult {
+        oneof sign_result_data {
+            bytes signature = 1;
+            CriminalList criminals = 2;
+        }
+    }
+
+    message CriminalList {
+        repeated Criminal criminals = 1;
+
+        message Criminal {
+            string party_uid = 1;
+        
+            enum CrimeType {
+                CRIME_TYPE_UNSPECIFIED = 0;
+                CRIME_TYPE_NON_MALICIOUS = 1;
+                CRIME_TYPE_MALICIOUS = 2;
+            }
+            CrimeType crime_type = 2;
+        }
     }
 }
 
@@ -44,7 +67,7 @@ message TrafficOut {
     bool is_broadcast = 3;
 }
 
-// Keygen specific message types
+// Keygen-specific message types
 
 message KeygenInit {
     string new_key_uid = 1;
@@ -54,23 +77,11 @@ message KeygenInit {
     int32 threshold = 4;
 }
 
-// Sign specific message types
+// Sign-specific message types
 
 message SignInit {
     string new_sig_uid = 1;
     string key_uid = 2;
     repeated string party_uids = 3; // TODO replace this with a subset of indices?
     bytes message_to_sign = 4;
-}
-
-// Generic message types shared by GetKey, GetSig.
-// Used only because rpc args cannot be scalar types,
-// so we need to wrap scalar types inside message types.
-
-message Uid {
-    string uid = 1;
-}
-
-message Bytes {
-    bytes payload = 1;
 }

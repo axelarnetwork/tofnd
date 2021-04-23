@@ -18,10 +18,11 @@ pub fn map_tofnd_to_tofn_idx(
     s + tofnd_subindex
 }
 
-fn map_tofn_to_tofnd_idx(
+pub(super) fn map_tofn_to_tofnd_idx(
     tofn_index: usize,
     party_share_counts: &[usize],
-) -> Result<(usize, usize), TofndError> {
+) -> Result<(usize, usize), TofndError> // (party_index, share_index)
+{
     let mut sum = 0;
     for (tofnd_index, count) in party_share_counts.iter().enumerate() {
         sum += count;
