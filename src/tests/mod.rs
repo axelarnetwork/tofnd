@@ -77,7 +77,7 @@ lazy_static::lazy_static! {
         TestCase::new(5, vec![1,1,1,1,1], 3, vec![1,4,2,3]),     // 1 share per uid
         TestCase::new(5, vec![1,2,1,3,2], 6, vec![1,4,2,3]),     // multiple shares per uid
         TestCase::new(1, vec![1], 0, vec![0]),                   // trivial case
-        TestCase::new(5, vec![1,2,3,4,20], 27, vec![0, 1, 4, 3, 2]), // Create a malicious party
+        // TestCase::new(5, vec![1,2,3,4,20], 27, vec![0, 1, 4, 3, 2]), // Create a malicious party
     ];
 }
 
