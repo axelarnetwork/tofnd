@@ -46,8 +46,9 @@ message MessageOut {
             string party_uid = 1;
         
             enum CrimeType {
-                MALICIOUS = 0;
-                NON_MALICIOUS = 1;
+                CRIME_TYPE_UNSPECIFIED = 0;
+                CRIME_TYPE_NON_MALICIOUS = 1;
+                CRIME_TYPE_MALICIOUS = 2;
             }
             CrimeType crime_type = 2;
         }
