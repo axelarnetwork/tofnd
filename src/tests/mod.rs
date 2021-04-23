@@ -128,23 +128,6 @@ impl InitParties {
     }
 }
 
-fn check_results(results: Vec<Vec<u8>>, sign_indices: &[usize]) -> (bool, bool, bool) {
-    let mut all_signers_same = true;
-    let mut all_non_signers_empty = true;
-    let first = &results[sign_indices[0]];
-    for (i, result) in results.iter().enumerate() {
-        // println!("result of {} is {:?}", i, result);
-        if sign_indices.contains(&i) {
-            all_signers_same &= first == result;
-        } else {
-            all_non_signers_empty &= result.is_empty();
-        }
-    }
-
-    let expected_result = true;
-    (all_signers_same, all_non_signers_empty, expected_result)
-}
-
 #[traced_test]
 #[tokio::test]
 async fn basic_keygen_and_sign() {
@@ -191,7 +174,7 @@ async fn basic_keygen_and_sign() {
 
         // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
-        let sign_output = execute_sign(
+        let parties = execute_sign(
             parties,
             &party_uids,
             sign_participant_indices,
@@ -201,17 +184,8 @@ async fn basic_keygen_and_sign() {
         )
         .await;
 
-        let parties = sign_output.0;
-
         delete_dbs(&parties);
         shutdown_parties(parties).await;
-
-        let results = sign_output.1;
-        let (signers_ok, non_signers_ok, expected_result) =
-            check_results(results, &sign_participant_indices);
-        assert!(signers_ok);
-        assert!(non_signers_ok);
-        assert!(expected_result);
     }
 }
 
@@ -282,7 +256,7 @@ async fn restart_one_party() {
 
         // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
-        let sign_output = execute_sign(
+        let parties = execute_sign(
             parties,
             &party_uids,
             &sign_participant_indices,
@@ -292,17 +266,8 @@ async fn restart_one_party() {
         )
         .await;
 
-        let parties = sign_output.0;
-
         delete_dbs(&parties);
         shutdown_parties(parties).await;
-
-        let results = sign_output.1;
-        let (signers_ok, non_signers_ok, expected_result) =
-            check_results(results, &sign_participant_indices);
-        assert!(signers_ok);
-        assert!(non_signers_ok);
-        assert!(expected_result);
     }
 }
 
@@ -410,7 +375,7 @@ async fn execute_sign(
     key_uid: &str,
     new_sig_uid: &str,
     msg_to_sign: &[u8],
-) -> (Vec<impl Party>, Vec<Vec<u8>>) {
+) -> Vec<impl Party> {
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
         .map(|&i| party_uids[i].clone())
@@ -437,26 +402,20 @@ async fn execute_sign(
 
         // execute the protocol in a spawn
         let handle = tokio::spawn(async move {
-            let result = party
+            party
                 .execute_sign(init, channel_pair, delivery, &participant_uid)
                 .await;
-            (party, result)
+            party
         });
         sign_join_handles.push((participant_index, handle));
     }
 
-    let mut results = vec![vec![]; party_options.len()];
     // move participants back into party_options
     for (i, h) in sign_join_handles {
-        let handle = h.await.unwrap();
-        party_options[i] = Some(handle.0);
-        results[i] = handle.1;
+        party_options[i] = Some(h.await.unwrap());
     }
-    (
-        party_options
-            .into_iter()
-            .map(|o| o.unwrap())
-            .collect::<Vec<_>>(),
-        results,
-    )
+    party_options
+        .into_iter()
+        .map(|o| o.unwrap())
+        .collect::<Vec<_>>()
 }
