@@ -379,19 +379,13 @@ async fn basic_keygen_and_sign() {
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
-        let malicious_types = {
-            let malicious_types = test_case.malicious_types.clone();
-            match malicious_types.len() {
-                0 => vec![Honest; uid_count],
-                _ => malicious_types,
-            }
-        };
+        let malicious_types = &test_case.malicious_types;
 
         // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
         let init_parties_t = InitParties::new(uid_count);
         #[cfg(feature = "malicious")]
-        let init_parties_t = InitParties::new(uid_count, malicious_types);
+        let init_parties_t = InitParties::new(uid_count, malicious_types.clone());
 
         let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
@@ -442,13 +436,7 @@ async fn restart_one_party() {
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
-        let malicious_types = {
-            let malicious_types = test_case.malicious_types.clone();
-            match malicious_types.len() {
-                0 => vec![Honest; uid_count],
-                _ => malicious_types,
-            }
-        };
+        let malicious_types = &test_case.malicious_types;
 
         // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
