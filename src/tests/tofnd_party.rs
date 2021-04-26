@@ -1,5 +1,6 @@
 use super::{mock::SenderReceiver, Deliverer, InitParty, Party};
 use crate::{addr, gg20, proto};
+use proto::message_out::SignResult;
 use std::convert::TryFrom;
 use std::path::Path;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
@@ -125,7 +126,7 @@ impl Party for TofndParty {
         channels: SenderReceiver,
         mut delivery: Deliverer,
         my_uid: &str,
-    ) -> Vec<u8> {
+    ) -> SignResult {
         let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
         let (sign_server_incoming, rx) = channels;
         let mut sign_server_outgoing = self
@@ -142,8 +143,8 @@ impl Party for TofndParty {
             })
             .unwrap();
 
-        let mut sign_completed = false;
-        let mut result = Vec::new();
+        // use Option of SignResult to avoid giving a default value to SignResult
+        let mut result: Option<SignResult> = None;
         while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
@@ -152,8 +153,7 @@ impl Party for TofndParty {
                     delivery.deliver(&msg, &my_uid).await;
                 }
                 proto::message_out::Data::SignResult(res) => {
-                    sign_completed = true;
-                    result = res.clone();
+                    result = Some(res.clone());
                     println!("party [{}] sign finished!", my_display_name);
                     break;
                 }
@@ -163,10 +163,11 @@ impl Party for TofndParty {
                 ),
             };
         }
-        assert!(sign_completed, "sign failure to complete");
+        // fail test if socket was closed before I received the result
+        assert!(result.is_some(), "sign failure to complete");
         println!("party [{}] sign execution complete", my_display_name);
 
-        result.clone()
+        result.unwrap().clone() // it's safe to unwrap here
     }
 
     async fn shutdown(mut self) {

@@ -12,7 +12,7 @@ use std::convert::TryFrom;
 mod mock;
 mod tofnd_party;
 
-use crate::proto;
+use crate::proto::{self, message_out::SignResult};
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
@@ -30,6 +30,7 @@ struct TestCase {
     share_counts: Vec<u32>,
     threshold: usize,
     signer_indices: Vec<usize>,
+    criminal_list: Vec<usize>,
     #[cfg(feature = "malicious")]
     malicious_types: Vec<MaliciousType>,
 }
@@ -42,11 +43,13 @@ impl TestCase {
         threshold: usize,
         signer_indices: Vec<usize>,
     ) -> TestCase {
+        let criminal_list = vec![];
         TestCase {
             uid_count,
             share_counts,
             threshold,
             signer_indices,
+            criminal_list,
         }
     }
 
@@ -58,11 +61,18 @@ impl TestCase {
         signer_indices: Vec<usize>,
         malicious_types: Vec<MaliciousType>,
     ) -> TestCase {
+        let mut criminal_list = Vec::new();
+        for (i, m) in malicious_types.iter().enumerate() {
+            if !matches!(m, Honest) {
+                criminal_list.push(i);
+            }
+        }
         TestCase {
             uid_count,
             share_counts,
             threshold,
             signer_indices,
+            criminal_list,
             malicious_types,
         }
     }
@@ -225,6 +235,7 @@ async fn restart_one_party() {
         let party_share_counts = &test_case.share_counts;
         let threshold = test_case.threshold;
         let sign_participant_indices = &test_case.signer_indices;
+        let expected_criminals = &test_case.criminal_list;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
@@ -410,7 +421,7 @@ async fn execute_sign(
     key_uid: &str,
     new_sig_uid: &str,
     msg_to_sign: &[u8],
-) -> (Vec<impl Party>, Vec<Vec<u8>>) {
+) -> (Vec<impl Party>, Vec<proto::message_out::SignResult>) {
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
         .map(|&i| party_uids[i].clone())
@@ -445,12 +456,12 @@ async fn execute_sign(
         sign_join_handles.push((participant_index, handle));
     }
 
-    let mut results = vec![vec![]; party_options.len()];
+    let mut results = Vec::new();
     // move participants back into party_options
     for (i, h) in sign_join_handles {
         let handle = h.await.unwrap();
         party_options[i] = Some(handle.0);
-        results[i] = handle.1;
+        results.push(handle.1);
     }
     (
         party_options
