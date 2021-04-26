@@ -148,36 +148,38 @@ fn check_results(results: Vec<SignResult>, sign_indices: &[usize], expected_crim
     assert_eq!(sign_indices.len(), results.len());
     let first = &results[sign_indices[0]];
 
-    // if no criminals were defined, check that all parties produced the same output
-    if let Some(Signature(_)) = first.sign_result_data {
-        assert_eq!(
-            expected_criminals.len(),
-            0,
-            "Expected criminals but didn't discover any",
-        );
-        for (i, result) in results.iter().enumerate() {
+    match first.sign_result_data {
+        Some(Signature(_)) => {
             assert_eq!(
-                first, result,
-                "party {} didn't produce the expected result",
-                i
+                expected_criminals.len(),
+                0,
+                "Expected criminals but didn't discover any",
             );
+            for (i, result) in results.iter().enumerate() {
+                assert_eq!(
+                    first, result,
+                    "party {} didn't produce the expected result",
+                    i
+                );
+            }
         }
-    }
-
-    // if criminals were defined, check that all parties found all of them
-    if let Some(Criminals(criminal_list)) = first.sign_result_data.clone() {
-        // get criminal list
-        let mut criminals = criminal_list.criminals;
-        // remove duplicates
-        criminals.dedup();
-        // check that we are left with as many criminals as expected
-        assert!(criminals.len() == expected_criminals.len());
-        // check that every criminal was in the "expected" list
-        for res in criminals.iter().zip(expected_criminals).into_iter() {
-            let criminal_uid = format!("{}", (b'A' + *res.1 as u8) as char);
-            assert_eq!(res.0.party_uid, criminal_uid);
+        Some(Criminals(ref criminal_list)) => {
+            // get criminal list
+            let mut criminals = criminal_list.criminals.clone();
+            // remove duplicates
+            criminals.dedup();
+            // check that we are left with as many criminals as expected
+            assert!(criminals.len() == expected_criminals.len());
+            // check that every criminal was in the "expected" list
+            for res in criminals.iter().zip(expected_criminals).into_iter() {
+                let criminal_uid = format!("{}", (b'A' + *res.1 as u8) as char);
+                assert_eq!(res.0.party_uid, criminal_uid);
+            }
+            // println!("criminals: {:?}", criminals);
         }
-        // println!("criminals: {:?}", criminals);
+        None => {
+            panic!("Result was None");
+        }
     }
 }
 
