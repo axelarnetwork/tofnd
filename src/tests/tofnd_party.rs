@@ -167,7 +167,7 @@ impl Party for TofndParty {
         assert!(result.is_some(), "sign failure to complete");
         println!("party [{}] sign execution complete", my_display_name);
 
-        result.unwrap().clone() // it's safe to unwrap here
+        result.unwrap() // it's safe to unwrap here
     }
 
     async fn shutdown(mut self) {
