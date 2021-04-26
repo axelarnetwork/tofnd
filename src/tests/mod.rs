@@ -31,6 +31,22 @@ use tracing_test::traced_test;
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
 
+#[cfg(feature = "malicious")]
+struct Signer {
+    party_index: usize,
+    behaviour: MaliciousType,
+}
+
+#[cfg(feature = "malicious")]
+impl Signer {
+    pub fn new(party_index: usize, behaviour: MaliciousType) -> Self {
+        Signer {
+            party_index,
+            behaviour,
+        }
+    }
+}
+
 struct TestCase {
     uid_count: usize,
     share_counts: Vec<u32>,
