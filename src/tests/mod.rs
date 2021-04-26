@@ -140,163 +140,147 @@ lazy_static::lazy_static! {
     // (number of uids, count of shares per uid, threshold, indices of sign participants, malicious types)
     static ref TEST_CASES: Vec<TestCase> = vec![
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,3], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
                 Signer::new(3, Honest),
-                Signer::new(4, Honest)
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R1BadProof{victim: 1})
+                Signer::new(3, R1BadProof{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R1FalseAccusation{victim: 1})
+                Signer::new(3, R1FalseAccusation{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R2BadMta{victim: 1})
+                Signer::new(3, R2BadMta{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R2BadMtaWc{victim: 1})
+                Signer::new(3, R2BadMtaWc{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R2FalseAccusationMta{victim: 1})
+                Signer::new(3, R2FalseAccusationMta{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R2FalseAccusationMtaWc{victim: 1})
+                Signer::new(3, R2FalseAccusationMtaWc{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R3BadProof)
+                Signer::new(3, R3BadProof)
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R3FalseAccusation{victim: 1})
+                Signer::new(3, R3FalseAccusation{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R4BadReveal)
+                Signer::new(3, R4BadReveal)
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R4FalseAccusation{victim: 1})
+                Signer::new(3, R4FalseAccusation{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R5BadProof{victim: 1})
+                Signer::new(3, R5BadProof{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R5FalseAccusation{victim: 1})
+                Signer::new(3, R5FalseAccusation{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R6BadProof)
+                Signer::new(3, R6BadProof)
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R6FalseAccusation{victim: 1})
+                Signer::new(3, R6FalseAccusation{victim: 0})
             ]
         ),
         TestCase::new(
-            5, vec![1,2,1,3,3], 3,
+            4, vec![1,1,1,1], 3,
             vec![
                 Signer::new(0, Honest),
                 Signer::new(1, Honest),
                 Signer::new(2, Honest),
-                Signer::new(3, Honest),
-                Signer::new(4, R7BadSigSummand)
+                Signer::new(3, R7BadSigSummand)
             ]
         ),
         // TODO add more complex tests for malicious behaviours
