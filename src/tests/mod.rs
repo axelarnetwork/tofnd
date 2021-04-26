@@ -12,7 +12,13 @@ use std::convert::TryFrom;
 mod mock;
 mod tofnd_party;
 
-use crate::proto::{self, message_out::SignResult};
+use crate::proto::{
+    self,
+    message_out::{
+        sign_result::SignResultData::{Criminals, Signature},
+        SignResult,
+    },
+};
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
@@ -138,21 +144,41 @@ impl InitParties {
     }
 }
 
-fn check_results(results: Vec<Vec<u8>>, sign_indices: &[usize]) -> (bool, bool, bool) {
-    let mut all_signers_same = true;
-    let mut all_non_signers_empty = true;
+fn check_results(results: Vec<SignResult>, sign_indices: &[usize], expected_criminals: &[usize]) {
+    assert_eq!(sign_indices.len(), results.len());
     let first = &results[sign_indices[0]];
-    for (i, result) in results.iter().enumerate() {
-        // println!("result of {} is {:?}", i, result);
-        if sign_indices.contains(&i) {
-            all_signers_same &= first == result;
-        } else {
-            all_non_signers_empty &= result.is_empty();
+
+    // if no criminals were defined, check that all parties produced the same output
+    if let Some(Signature(_)) = first.sign_result_data {
+        assert_eq!(
+            expected_criminals.len(),
+            0,
+            "Expected criminals but didn't discover any",
+        );
+        for (i, result) in results.iter().enumerate() {
+            assert_eq!(
+                first, result,
+                "party {} didn't produce the expected result",
+                i
+            );
         }
     }
 
-    let expected_result = true;
-    (all_signers_same, all_non_signers_empty, expected_result)
+    // if criminals were defined, check that all parties found all of them
+    if let Some(Criminals(criminal_list)) = first.sign_result_data.clone() {
+        // get criminal list
+        let mut criminals = criminal_list.criminals;
+        // remove duplicates
+        criminals.dedup();
+        // check that we are left with as many criminals as expected
+        assert!(criminals.len() == expected_criminals.len());
+        // check that every criminal was in the "expected" list
+        for res in criminals.iter().zip(expected_criminals).into_iter() {
+            let criminal_uid = format!("{}", (b'A' + *res.1 as u8) as char);
+            assert_eq!(res.0.party_uid, criminal_uid);
+        }
+        // println!("criminals: {:?}", criminals);
+    }
 }
 
 #[traced_test]
@@ -166,6 +192,7 @@ async fn basic_keygen_and_sign() {
         let party_share_counts = &test_case.share_counts;
         let threshold = test_case.threshold;
         let sign_participant_indices = &test_case.signer_indices;
+        let expected_criminals = &test_case.criminal_list;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
@@ -217,11 +244,7 @@ async fn basic_keygen_and_sign() {
         shutdown_parties(parties).await;
 
         let results = sign_output.1;
-        let (signers_ok, non_signers_ok, expected_result) =
-            check_results(results, &sign_participant_indices);
-        assert!(signers_ok);
-        assert!(non_signers_ok);
-        assert!(expected_result);
+        check_results(results, &sign_participant_indices, &expected_criminals);
     }
 }
 
@@ -309,11 +332,7 @@ async fn restart_one_party() {
         shutdown_parties(parties).await;
 
         let results = sign_output.1;
-        let (signers_ok, non_signers_ok, expected_result) =
-            check_results(results, &sign_participant_indices);
-        assert!(signers_ok);
-        assert!(non_signers_ok);
-        assert!(expected_result);
+        check_results(results, &sign_participant_indices, &expected_criminals);
     }
 }
 
