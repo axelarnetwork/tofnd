@@ -54,7 +54,7 @@ struct TestCase {
     signer_indices: Vec<usize>,
     criminal_list: Vec<usize>,
     #[cfg(feature = "malicious")]
-    malicious_types: Vec<MaliciousType>,
+    malicious_types: Vec<MaliciousType>, // TODO: include CrimeType = {Malicious, NonMalicious} in the future
 }
 
 impl TestCase {
@@ -82,6 +82,13 @@ impl TestCase {
         threshold: usize,
         sign_participants: Vec<Signer>,
     ) -> TestCase {
+        // we use the Signer struct to allign the beaviour type with the index of each signer
+        // however, in the context of tofnd, behaviour is not only related with signers, but with
+        // init_party, as well. That is becuase we need to initialize the Gg20 service for both
+        // signers and non-signers. This is why we create three vectors from user's input `sign_participants`:
+        // 1. crimial_list -> holds the tofnd index of every criminal
+        // 2. malicious_types -> holds the behaviour of every party (not just signers) and is alligned with tofnd party uids
+        // 3. signer_indices -> holds the tofnd index of every signer
         let mut signer_indices = Vec::new();
         let mut signer_behaviours = Vec::new();
         let mut criminal_list = Vec::new();
