@@ -228,7 +228,7 @@ async fn basic_keygen_and_sign() {
 
         // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
-        let sign_output = execute_sign(
+        let (parties, results) = execute_sign(
             parties,
             &party_uids,
             sign_participant_indices,
@@ -238,12 +238,9 @@ async fn basic_keygen_and_sign() {
         )
         .await;
 
-        let parties = sign_output.0;
-
         delete_dbs(&parties);
         shutdown_parties(parties).await;
 
-        let results = sign_output.1;
         check_results(results, &sign_participant_indices, &expected_criminals);
     }
 }
@@ -316,7 +313,7 @@ async fn restart_one_party() {
 
         // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
-        let sign_output = execute_sign(
+        let (parties, results) = execute_sign(
             parties,
             &party_uids,
             &sign_participant_indices,
@@ -326,12 +323,9 @@ async fn restart_one_party() {
         )
         .await;
 
-        let parties = sign_output.0;
-
         delete_dbs(&parties);
         shutdown_parties(parties).await;
 
-        let results = sign_output.1;
         check_results(results, &sign_participant_indices, &expected_criminals);
     }
 }
