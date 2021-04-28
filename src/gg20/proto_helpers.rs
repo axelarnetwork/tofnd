@@ -60,16 +60,25 @@ impl ProtoCriminalList {
     fn from(
         criminals: Vec<Criminal>,
         participant_uids: &[String],
-        all_share_counts: &[usize],
+        participant_share_counts: &[usize],
     ) -> Self {
+        // the Criminal::index inside `criminals` is the index of tofn sign participants.
+        // tofnd keygen participants:           [A, B, C, D]
+        // tofnd keygen share_counts:           [1, 2, 3, 4]
+        // tofnd sign   participants:           [B, C, D], where C is a Criminal; this is given as [1, 2, 3] (indices to tofnd keygen participants)
+        // tofn  sign   participants:           [B, B, C, C, C, D, D, D, D], tofn finds criminal indices [2, 3, 4]. We need to return `C`.
+        //                                             ^  ^  ^
+        // To convert tofn criminal indices into tofnd uids, we need to have a vec containing all share counts for sign participants
+        // so that we can map `tofn_sign_index` to `tofnd_uid`
         Self {
             criminals: criminals
                 .into_iter()
                 .map(|c| {
                     // TODO panic
                     // TODO refactor so that map_tofn_to_tofnd_idx never fails
-                    let (criminal_index, _) = map_tofn_to_tofnd_idx(c.index, all_share_counts)
-                        .expect("failure to recover tofnd party index from tofn share index");
+                    let (criminal_index, _) =
+                        map_tofn_to_tofnd_idx(c.index, participant_share_counts)
+                            .expect("failure to recover tofnd party index from tofn share index");
                     ProtoCriminal {
                         party_uid: participant_uids[criminal_index].clone(),
                         crime_type: ProtoCrimeType::from(c.crime_type) as i32, // why `as i32`? https://github.com/danburkert/prost#enumerations
