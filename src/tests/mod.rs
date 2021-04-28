@@ -12,7 +12,13 @@ use std::convert::TryFrom;
 mod mock;
 mod tofnd_party;
 
-use crate::proto;
+use crate::proto::{
+    self,
+    message_out::{
+        sign_result::SignResultData::{Criminals, Signature},
+        SignResult,
+    },
+};
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
@@ -25,13 +31,30 @@ use tracing_test::traced_test;
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
 
+#[cfg(feature = "malicious")]
+struct Signer {
+    party_index: usize,
+    behaviour: MaliciousType,
+}
+
+#[cfg(feature = "malicious")]
+impl Signer {
+    pub fn new(party_index: usize, behaviour: MaliciousType) -> Self {
+        Signer {
+            party_index,
+            behaviour,
+        }
+    }
+}
+
 struct TestCase {
     uid_count: usize,
     share_counts: Vec<u32>,
     threshold: usize,
     signer_indices: Vec<usize>,
+    criminal_list: Vec<usize>,
     #[cfg(feature = "malicious")]
-    malicious_types: Vec<MaliciousType>,
+    malicious_types: Vec<MaliciousType>, // TODO: include CrimeType = {Malicious, NonMalicious} in the future
 }
 
 impl TestCase {
@@ -42,11 +65,13 @@ impl TestCase {
         threshold: usize,
         signer_indices: Vec<usize>,
     ) -> TestCase {
+        let criminal_list = vec![];
         TestCase {
             uid_count,
             share_counts,
             threshold,
             signer_indices,
+            criminal_list,
         }
     }
 
@@ -55,14 +80,42 @@ impl TestCase {
         uid_count: usize,
         share_counts: Vec<u32>,
         threshold: usize,
-        signer_indices: Vec<usize>,
-        malicious_types: Vec<MaliciousType>,
+        sign_participants: Vec<Signer>,
     ) -> TestCase {
+        // we use the Signer struct to allign the beaviour type with the index of each signer
+        // However, in the context of tofnd, behaviour is not only related with signers, but with
+        // init_party, as well. That is, because we need to initialize a Gg20 service for both
+        // signers and non-signers. We build these vectors from user's input `sign_participants`:
+        // 1. crimial_list -> holds the tofnd index of every criminal
+        // 2. malicious_types -> holds the behaviour of every party (not just signers) and is alligned with tofnd party uids
+        // 3. signer_indices -> holds the tofnd index of every signer
+        let mut signer_indices = Vec::new();
+        let mut signer_behaviours = Vec::new();
+        let mut criminal_list = Vec::new();
+        for sign_participant in sign_participants.iter() {
+            signer_indices.push(sign_participant.party_index);
+            signer_behaviours.push(sign_participant.behaviour.clone());
+            if !matches!(sign_participant.behaviour, Honest) {
+                criminal_list.push(sign_participant.party_index);
+            }
+        }
+
+        let mut malicious_types = Vec::new();
+        for i in 0..uid_count {
+            if !signer_indices.contains(&i) {
+                malicious_types.push(Honest);
+            } else {
+                let signer_index = signer_indices.iter().position(|&idx| idx == i).unwrap();
+                malicious_types.push(signer_behaviours[signer_index].clone());
+            }
+        }
+
         TestCase {
             uid_count,
             share_counts,
             threshold,
             signer_indices,
+            criminal_list,
             malicious_types,
         }
     }
@@ -86,22 +139,150 @@ lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
     // (number of uids, count of shares per uid, threshold, indices of sign participants, malicious types)
     static ref TEST_CASES: Vec<TestCase> = vec![
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest; 5]),    // only honest
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R1BadProof{victim:0}]),  // R1BadProof
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R1FalseAccusation{victim:0}]),  // R1FalseAccusation
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R2BadMta{victim:0}]),  // R2BadMta
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R2BadMtaWc{victim:0}]),  // R2BadMtaWc
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R2FalseAccusationMta{victim:0}]),  // R2FalseAccusationMta
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R2FalseAccusationMtaWc{victim:0}]),  // R2FalseAccusationMtaWc
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R3BadProof]),  // R3BadProof
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R3FalseAccusation{victim:0}]),  // R3FalseAccusation
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R4BadReveal]),  // R4BadReveal
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R4FalseAccusation{victim:0}]),  // R4FalseAccusation
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R5BadProof{victim:0}]),  // R5BadProof
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R5FalseAccusation{victim:0}]),  // R5FalseAccusation
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R6BadProof]),  // R6BadProof
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R6FalseAccusation{victim:0}]),  // R6FalseAccusation
-        TestCase::new(5, vec![1,2,1,3,2], 6, vec![0,1,2,3,4], vec![Honest, Honest, Honest, Honest, R7BadSigSummand]),  // R7BadSigSummand
+        TestCase::new(
+            4, vec![1,1,1,3], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, Honest),
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R1BadProof{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R1FalseAccusation{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R2BadMta{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R2BadMtaWc{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R2FalseAccusationMta{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R2FalseAccusationMtaWc{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R3BadProof)
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R3FalseAccusation{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R4BadReveal)
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R4FalseAccusation{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R5BadProof{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R5FalseAccusation{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R6BadProof)
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R6FalseAccusation{victim: 0})
+            ]
+        ),
+        TestCase::new(
+            4, vec![1,1,1,1], 3,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, R7BadSigSummand)
+            ]
+        ),
         // TODO add more complex tests for malicious behaviours
     ];
 }
@@ -128,6 +309,46 @@ impl InitParties {
     }
 }
 
+fn check_results(results: Vec<SignResult>, sign_indices: &[usize], expected_criminals: &[usize]) {
+    assert_eq!(sign_indices.len(), results.len());
+    let first = &results[sign_indices[0]];
+
+    match first.sign_result_data {
+        Some(Signature(_)) => {
+            assert_eq!(
+                expected_criminals.len(),
+                0,
+                "Expected criminals but didn't discover any",
+            );
+            for (i, result) in results.iter().enumerate() {
+                assert_eq!(
+                    first, result,
+                    "party {} didn't produce the expected result",
+                    i
+                );
+            }
+        }
+        Some(Criminals(ref criminal_list)) => {
+            // get criminal list
+            let mut criminals = criminal_list.criminals.clone();
+            // remove duplicates. We have diplicates because each share is an
+            // individual criminal, but multiple shares belong to the same uid
+            criminals.dedup();
+            // check that we are left with as many criminals as expected
+            assert!(criminals.len() == expected_criminals.len());
+            // check that every criminal was in the "expected" list
+            for res in criminals.iter().zip(expected_criminals).into_iter() {
+                let criminal_uid = format!("{}", (b'A' + *res.1 as u8) as char);
+                assert_eq!(res.0.party_uid, criminal_uid);
+            }
+            // println!("criminals: {:?}", criminals);
+        }
+        None => {
+            panic!("Result was None");
+        }
+    }
+}
+
 #[traced_test]
 #[tokio::test]
 async fn basic_keygen_and_sign() {
@@ -139,22 +360,17 @@ async fn basic_keygen_and_sign() {
         let party_share_counts = &test_case.share_counts;
         let threshold = test_case.threshold;
         let sign_participant_indices = &test_case.signer_indices;
+        let expected_criminals = &test_case.criminal_list;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
-        let malicious_types = {
-            let malicious_types = test_case.malicious_types.clone();
-            match malicious_types.len() {
-                0 => vec![Honest; uid_count],
-                _ => malicious_types,
-            }
-        };
+        let malicious_types = &test_case.malicious_types;
 
         // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
         let init_parties_t = InitParties::new(uid_count);
         #[cfg(feature = "malicious")]
-        let init_parties_t = InitParties::new(uid_count, malicious_types);
+        let init_parties_t = InitParties::new(uid_count, malicious_types.clone());
 
         let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
@@ -174,7 +390,7 @@ async fn basic_keygen_and_sign() {
 
         // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
-        let parties = execute_sign(
+        let (parties, results) = execute_sign(
             parties,
             &party_uids,
             sign_participant_indices,
@@ -186,6 +402,8 @@ async fn basic_keygen_and_sign() {
 
         delete_dbs(&parties);
         shutdown_parties(parties).await;
+
+        check_results(results, &sign_participant_indices, &expected_criminals);
     }
 }
 
@@ -199,16 +417,11 @@ async fn restart_one_party() {
         let party_share_counts = &test_case.share_counts;
         let threshold = test_case.threshold;
         let sign_participant_indices = &test_case.signer_indices;
+        let expected_criminals = &test_case.criminal_list;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
-        let malicious_types = {
-            let malicious_types = test_case.malicious_types.clone();
-            match malicious_types.len() {
-                0 => vec![Honest; uid_count],
-                _ => malicious_types,
-            }
-        };
+        let malicious_types = &test_case.malicious_types;
 
         // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
@@ -256,7 +469,7 @@ async fn restart_one_party() {
 
         // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
-        let parties = execute_sign(
+        let (parties, results) = execute_sign(
             parties,
             &party_uids,
             &sign_participant_indices,
@@ -268,6 +481,8 @@ async fn restart_one_party() {
 
         delete_dbs(&parties);
         shutdown_parties(parties).await;
+
+        check_results(results, &sign_participant_indices, &expected_criminals);
     }
 }
 
@@ -375,7 +590,7 @@ async fn execute_sign(
     key_uid: &str,
     new_sig_uid: &str,
     msg_to_sign: &[u8],
-) -> Vec<impl Party> {
+) -> (Vec<impl Party>, Vec<proto::message_out::SignResult>) {
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
         .map(|&i| party_uids[i].clone())
@@ -402,20 +617,26 @@ async fn execute_sign(
 
         // execute the protocol in a spawn
         let handle = tokio::spawn(async move {
-            party
+            let result = party
                 .execute_sign(init, channel_pair, delivery, &participant_uid)
                 .await;
-            party
+            (party, result)
         });
         sign_join_handles.push((participant_index, handle));
     }
 
+    let mut results = Vec::new();
     // move participants back into party_options
     for (i, h) in sign_join_handles {
-        party_options[i] = Some(h.await.unwrap());
+        let handle = h.await.unwrap();
+        party_options[i] = Some(handle.0);
+        results.push(handle.1);
     }
-    party_options
-        .into_iter()
-        .map(|o| o.unwrap())
-        .collect::<Vec<_>>()
+    (
+        party_options
+            .into_iter()
+            .map(|o| o.unwrap())
+            .collect::<Vec<_>>(),
+        results,
+    )
 }
