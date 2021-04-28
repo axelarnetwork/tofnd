@@ -1,8 +1,8 @@
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
 
-pub struct Signer {
-    pub party_index: usize,
-    pub behaviour: MaliciousType,
+pub(super) struct Signer {
+    pub(super) party_index: usize,
+    pub(super) behaviour: MaliciousType,
 }
 
 impl Signer {
@@ -14,18 +14,18 @@ impl Signer {
     }
 }
 
-pub struct TestCase {
-    pub uid_count: usize,
-    pub share_counts: Vec<u32>,
-    pub threshold: usize,
-    pub signer_indices: Vec<usize>,
-    pub criminal_list: Vec<usize>,
-    pub malicious_types: Vec<MaliciousType>, // TODO: include CrimeType = {Malicious, NonMalicious} in the future
+pub(super) struct TestCase {
+    pub(super) uid_count: usize,
+    pub(super) share_counts: Vec<u32>,
+    pub(super) threshold: usize,
+    pub(super) signer_indices: Vec<usize>,
+    pub(super) criminal_list: Vec<usize>,
+    pub(super) malicious_types: Vec<MaliciousType>, // TODO: include CrimeType = {Malicious, NonMalicious} in the future
 }
 
 impl TestCase {
     #[cfg(not(feature = "malicious"))]
-    pub fn new(
+    pub(super) fn new(
         uid_count: usize,
         share_counts: Vec<u32>,
         threshold: usize,
@@ -41,7 +41,7 @@ impl TestCase {
         }
     }
 
-    pub fn new(
+    pub(super) fn new(
         uid_count: usize,
         share_counts: Vec<u32>,
         threshold: usize,
@@ -57,6 +57,8 @@ impl TestCase {
         // 3. signer_indices -> holds the tofnd index of every signer
         let mut signer_indices = Vec::new();
         let mut signer_behaviours = Vec::new();
+
+        // could be more rusty but take double the LoC
         for sign_participant in sign_participants.iter() {
             signer_indices.push(sign_participant.party_index);
             signer_behaviours.push(sign_participant.behaviour.clone());
@@ -83,7 +85,7 @@ impl TestCase {
     }
 }
 
-pub fn generate_test_cases() -> Vec<TestCase> {
+pub(super) fn generate_test_cases() -> Vec<TestCase> {
     let mut test_cases: Vec<TestCase> = Vec::new();
     test_cases.extend(generate_simple_test_cases());
     test_cases.extend(generate_multiple_malicious_per_round());
@@ -91,7 +93,7 @@ pub fn generate_test_cases() -> Vec<TestCase> {
     test_cases
 }
 
-pub fn generate_simple_test_cases() -> Vec<TestCase> {
+pub(super) fn generate_simple_test_cases() -> Vec<TestCase> {
     vec![
         TestCase::new(
             4,
@@ -288,7 +290,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
     ]
 }
 
-pub fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
+pub(super) fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
     vec![
         TestCase::new(
             4,
@@ -374,7 +376,7 @@ pub fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
     ]
 }
 
-pub fn generate_with_stable_tofnd_indices() -> Vec<TestCase> {
+pub(super) fn generate_with_stable_tofnd_indices() -> Vec<TestCase> {
     vec![
         TestCase::new(
             5,

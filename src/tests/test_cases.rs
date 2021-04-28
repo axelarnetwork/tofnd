@@ -1,13 +1,13 @@
-pub struct TestCase {
-    pub uid_count: usize,
-    pub share_counts: Vec<u32>,
-    pub threshold: usize,
-    pub signer_indices: Vec<usize>,
-    pub criminal_list: Vec<usize>,
+pub(super) struct TestCase {
+    pub(super) uid_count: usize,
+    pub(super) share_counts: Vec<u32>,
+    pub(super) threshold: usize,
+    pub(super) signer_indices: Vec<usize>,
+    pub(super) criminal_list: Vec<usize>,
 }
 
 impl TestCase {
-    pub fn new(
+    pub(super) fn new(
         uid_count: usize,
         share_counts: Vec<u32>,
         threshold: usize,
@@ -25,7 +25,7 @@ impl TestCase {
 }
 
 #[rustfmt::skip] // skip formatting to make file more readable
-pub fn generate_test_cases() -> Vec<TestCase> {
+pub(super) fn generate_test_cases() -> Vec<TestCase> {
     vec![
         TestCase::new(4, vec![], 0, vec![0, 1, 2, 3]), // should initialize share_counts into [1,1,1,1,1]
         TestCase::new(5, vec![1, 1, 1, 1, 1], 3, vec![1, 4, 2, 3]), // 1 share per uid
