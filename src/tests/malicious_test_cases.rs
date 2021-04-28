@@ -46,6 +46,7 @@ impl TestCase {
         share_counts: Vec<u32>,
         threshold: usize,
         sign_participants: Vec<Signer>,
+        criminal_list: Vec<usize>,
     ) -> TestCase {
         // we use the Signer struct to allign the beaviour type with the index of each signer
         // However, in the context of tofnd, behaviour is not only related with signers, but with
@@ -56,13 +57,9 @@ impl TestCase {
         // 3. signer_indices -> holds the tofnd index of every signer
         let mut signer_indices = Vec::new();
         let mut signer_behaviours = Vec::new();
-        let mut criminal_list = Vec::new();
         for sign_participant in sign_participants.iter() {
             signer_indices.push(sign_participant.party_index);
             signer_behaviours.push(sign_participant.behaviour.clone());
-            if !matches!(sign_participant.behaviour, Honest) {
-                criminal_list.push(sign_participant.party_index);
-            }
         }
 
         let mut malicious_types = Vec::new();
@@ -105,6 +102,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, Honest),
             ],
+            vec![],
         ),
         TestCase::new(
             4,
@@ -116,6 +114,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R1BadProof { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -127,6 +126,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R1FalseAccusation { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -138,6 +138,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R2BadMta { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -149,6 +150,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R2BadMtaWc { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -160,6 +162,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R2FalseAccusationMta { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -171,6 +174,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R2FalseAccusationMtaWc { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -182,6 +186,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R3BadProof),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -193,6 +198,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R3FalseAccusation { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -204,6 +210,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R4BadReveal),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -215,6 +222,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R4FalseAccusation { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -226,6 +234,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R5BadProof { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -237,6 +246,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R5FalseAccusation { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -248,6 +258,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R6BadProof),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -259,6 +270,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R6FalseAccusation { victim: 0 }),
             ],
+            vec![3],
         ),
         TestCase::new(
             4,
@@ -270,6 +282,7 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
                 Signer::new(2, Honest),
                 Signer::new(3, R7BadSigSummand),
             ],
+            vec![3],
         ),
     ]
 }
