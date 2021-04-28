@@ -89,15 +89,15 @@ fn check_results(results: Vec<SignResult>, sign_indices: &[usize], expected_crim
             }
         }
         Some(Criminals(ref criminal_list)) => {
-            // get criminal list
-            let mut criminals = criminal_list.criminals.clone();
-            // remove duplicates. We have diplicates because each share is an
-            // individual criminal, but multiple shares belong to the same uid
-            criminals.dedup();
-            // check that we are left with as many criminals as expected
-            assert!(criminals.len() == expected_criminals.len());
+            // check that we received with as many criminals as expected
+            assert!(criminal_list.criminals.len() == expected_criminals.len());
             // check that every criminal was in the "expected" list
-            for res in criminals.iter().zip(expected_criminals).into_iter() {
+            for res in criminal_list
+                .criminals
+                .iter()
+                .zip(expected_criminals)
+                .into_iter()
+            {
                 let criminal_uid = format!("{}", (b'A' + *res.1 as u8) as char);
                 assert_eq!(res.0.party_uid, criminal_uid);
             }
