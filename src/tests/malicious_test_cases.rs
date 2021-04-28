@@ -288,14 +288,88 @@ pub fn generate_simple_test_cases() -> Vec<TestCase> {
 }
 
 pub fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
-    vec![TestCase::new(
-        4,
-        vec![1, 2, 1, 3],
-        2,
-        vec![
-            Signer::new(0, Honest),
-            Signer::new(1, R2BadMta { victim: 0 }),
-            Signer::new(2, R2BadMtaWc { victim: 0 }),
-        ],
-    )]
+    vec![
+        TestCase::new(
+            4,
+            vec![1, 2, 1, 3],
+            2,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, R1BadProof { victim: 0 }),
+                Signer::new(2, R1FalseAccusation { victim: 0 }),
+            ],
+            vec![1, 2],
+        ),
+        TestCase::new(
+            5,
+            vec![1, 2, 1, 3, 2],
+            6,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, R2BadMta { victim: 0 }),
+                Signer::new(2, R2BadMtaWc { victim: 0 }),
+                Signer::new(3, R2FalseAccusationMta { victim: 0 }),
+                Signer::new(4, R2FalseAccusationMtaWc { victim: 0 }),
+            ],
+            vec![1, 2, 3, 4],
+        ),
+        TestCase::new(
+            5,
+            vec![4, 1, 1, 1, 1],
+            6,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, R2BadMta { victim: 0 }),
+                Signer::new(2, R2BadMtaWc { victim: 1 }),
+                Signer::new(3, R2FalseAccusationMta { victim: 2 }),
+                Signer::new(4, R2FalseAccusationMtaWc { victim: 3 }),
+            ],
+            vec![1, 2, 3, 4],
+        ),
+        TestCase::new(
+            8,
+            vec![1, 1, 1, 1, 1, 1, 1, 2],
+            7,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, Honest),
+                Signer::new(4, R2BadMta { victim: 0 }),
+                Signer::new(5, R2BadMtaWc { victim: 1 }),
+                Signer::new(6, R2FalseAccusationMta { victim: 2 }),
+                Signer::new(7, R2FalseAccusationMtaWc { victim: 3 }),
+            ],
+            vec![4, 5, 6, 7],
+        ),
+        TestCase::new(
+            8,
+            vec![1, 1, 1, 1, 1, 1, 1, 2],
+            7,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, Honest),
+                Signer::new(4, R2BadMta { victim: 0 }),
+                Signer::new(5, R2BadMtaWc { victim: 1 }),
+                Signer::new(6, R3BadProof),
+                Signer::new(7, R4BadReveal),
+            ],
+            vec![4, 5],
+        ),
+        TestCase::new(
+            5,
+            vec![1, 2, 1, 3, 2],
+            3,
+            vec![
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, Honest),
+                Signer::new(4, R1BadProof { victim: 0 }),
+            ],
+            vec![4],
+        ),
+    ]
+}
 }
