@@ -87,6 +87,7 @@ pub fn generate_test_cases() -> Vec<TestCase> {
     let mut test_cases: Vec<TestCase> = Vec::new();
     test_cases.extend(generate_simple_test_cases());
     test_cases.extend(generate_multiple_malicious_per_round());
+    test_cases.extend(generate_with_stable_tofnd_indices());
     test_cases
 }
 
@@ -372,4 +373,58 @@ pub fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
         ),
     ]
 }
+
+pub fn generate_with_stable_tofnd_indices() -> Vec<TestCase> {
+    vec![
+        TestCase::new(
+            5,
+            vec![2, 1, 1, 1, 2],
+            4,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, Honest),
+                Signer::new(4, R2BadMta { victim: 0 }),
+            ],
+            vec![4],
+        ),
+        TestCase::new(
+            5,
+            vec![1, 2, 1, 1, 2],
+            4,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, Honest),
+                Signer::new(4, R2BadMta { victim: 0 }),
+            ],
+            vec![4],
+        ),
+        TestCase::new(
+            5,
+            vec![1, 1, 2, 1, 2],
+            4,
+            vec![
+                Signer::new(0, Honest),
+                Signer::new(1, Honest),
+                Signer::new(2, Honest),
+                Signer::new(3, Honest),
+                Signer::new(4, R2BadMta { victim: 0 }),
+            ],
+            vec![4],
+        ),
+        TestCase::new(
+            5,
+            vec![1, 1, 1, 2, 2],
+            2,
+            vec![
+                Signer::new(2, Honest),
+                Signer::new(3, Honest),
+                Signer::new(4, R2BadMta { victim: 0 }),
+            ],
+            vec![4],
+        ),
+    ]
 }
