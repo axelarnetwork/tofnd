@@ -83,6 +83,7 @@ impl ProtoCriminalList {
                 }
             })
             .collect();
+        // we remove duplicates because we get the same party once for each of his shares
         criminals.dedup();
         Self { criminals }
     }
