@@ -11,10 +11,8 @@ jobs:
           - ubuntu-18.04
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code and submodule
+      - name: Checkout code
         uses: actions/checkout@v2
-        with:
-          submodules: recursive
 
       - uses: webfactory/ssh-agent@v0.5.1
         with:
