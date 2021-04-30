@@ -9,6 +9,8 @@ use proto::message_out::CriminalList as ProtoCriminalList;
 
 use super::protocol::map_tofn_to_tofnd_idx;
 
+use tracing::warn;
+
 // convenience constructors
 impl proto::MessageOut {
     pub(super) fn new_bcast(bcast: &[u8]) -> Self {
@@ -85,6 +87,7 @@ impl ProtoCriminalList {
             .collect();
         // we remove duplicates because we get the same party once for each of his shares
         criminals.dedup();
+        warn!("Criminals detected: {:?}", criminals);
         Self { criminals }
     }
 }

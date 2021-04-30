@@ -3,8 +3,8 @@
 FROM rust:1.49 as builder
 
 RUN set -ex \
-    && apt-get update \
-    && apt-get install -qq --no-install-recommends ca-certificates openssh-client git make
+  && apt-get update \
+  && apt-get install -qq --no-install-recommends ca-certificates openssh-client git make
 
 WORKDIR /tofnd
 
@@ -24,11 +24,17 @@ COPY build.rs ./build.rs
 
 RUN rustup component add rustfmt
 
-# build tofnd
-RUN cargo build --release
+# read features argument. Use "default" because [ -z "$features" ] doesn't work
+ARG features="default"
+RUN echo "installing with features: ["$features"]"
 
+# install tofnd
 # use --locked for CI builds: https://doc.rust-lang.org/cargo/commands/cargo-install.html#manifest-options
-RUN --mount=type=ssh cargo install --locked --path .
+RUN --mount=type=ssh if [ "$features" = "default" ]; then \
+  cargo install --locked --path .; \
+  else \
+  cargo install --locked --features ${features} --path .; \
+  fi
 
 FROM debian:buster-slim as runner
 
