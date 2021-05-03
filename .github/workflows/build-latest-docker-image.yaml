@@ -14,8 +14,10 @@ jobs:
           - ubuntu-18.04
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code
+      - name: Checkout code and submodule
         uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - uses: nelonoel/branch-name@v1.0.1
 

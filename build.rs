@@ -6,6 +6,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
         // .build_client(false)
         // .out_dir(".") // if you want to peek at the generated code
-        .compile(&["proto/tofnd.proto"], &["proto"])?;
+        .compile(&["proto/grpc.proto"], &["proto"])?;
     Ok(())
 }
