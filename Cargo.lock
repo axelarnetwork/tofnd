@@ -2364,6 +2364,8 @@ dependencies = [
  "prost",
  "serde",
  "sled",
+ "strum",
+ "strum_macros",
  "testdir",
  "tofn",
  "tokio",
