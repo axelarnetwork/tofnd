@@ -2335,7 +2335,7 @@ dependencies = [
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+ssh://git@github.com/axelarnetwork/tofn.git#bf81a677cae92520f97a4a28f1188a7d927f428d"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git#5db7f5c2e7374d331ddf6645dbd7cb9026f4de27"
 dependencies = [
  "bincode",
  "curv 0.2.6",

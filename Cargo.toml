@@ -44,5 +44,4 @@ strum_macros = "0.20"
 
 [features]
 # when we compile tofnd with malicious build, also use malicious build for tofn
-default = ["malicious"]
 malicious = ["tofn/malicious"]
