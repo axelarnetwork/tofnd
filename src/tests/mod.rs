@@ -72,14 +72,19 @@ impl InitParties {
 }
 
 fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
-
     // get the first non-empty result. We can't simply take results[0] because some behaviours
     // don't return results and we pad them with `None`s
-    let first = results.iter().find(|r| r.sign_result_data.is_some()).unwrap();
+    let first = results
+        .iter()
+        .find(|r| r.sign_result_data.is_some())
+        .unwrap();
     match first.sign_result_data {
         Some(Signature(_)) => {
             assert_eq!(
-                expected_crimes.iter().filter(|inner_crime_list| inner_crime_list.len() != 0).count(),
+                expected_crimes
+                    .iter()
+                    .filter(|inner_crime_list| inner_crime_list.len() != 0)
+                    .count(),
                 0,
                 "Expected crimes but didn't discover any",
             );
@@ -93,7 +98,10 @@ fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
         }
         Some(Criminals(ref criminal_list)) => {
             // chack that we have the correct number of criminals
-            let expected_criminal_count = expected_crimes.iter().filter(|list| !list.is_empty()).count();
+            let expected_criminal_count = expected_crimes
+                .iter()
+                .filter(|list| !list.is_empty())
+                .count();
             let actual_criminal_count = criminal_list.criminals.len();
             assert_eq!(expected_criminal_count, actual_criminal_count);
             println!("criminals: {:?}", criminal_list.criminals);
@@ -118,9 +126,9 @@ async fn basic_keygen_and_sign() {
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
-        let malicious_types= &test_case.malicious_types;
+        let malicious_types = &test_case.malicious_types;
         #[cfg(feature = "malicious")]
-        let expected_crimes= &test_case.expected_crimes;
+        let expected_crimes = &test_case.expected_crimes;
         #[cfg(feature = "malicious")]
         println!("======= Expected crimes: {:?}", expected_crimes);
 
@@ -195,13 +203,14 @@ async fn restart_one_party() {
         let party_share_counts = &test_case.share_counts;
         let threshold = test_case.threshold;
         let sign_participant_indices = &test_case.signer_indices;
-        let expected_criminals = &test_case.criminal_list;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
         let malicious_types = &test_case.malicious_types;
         #[cfg(feature = "malicious")]
-        println!("======= Malicious types: {:?}", malicious_types);
+        let expected_crimes = &test_case.expected_crimes;
+        #[cfg(feature = "malicious")]
+        println!("======= Expected crimes: {:?}", expected_crimes);
 
         // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
@@ -282,7 +291,7 @@ async fn restart_one_party() {
         delete_dbs(&parties);
         shutdown_parties(parties).await;
 
-        check_results(results, &sign_participant_indices, &expected_criminals);
+        check_results(results, &expected_crimes);
     }
 }
 
@@ -393,7 +402,6 @@ async fn execute_sign(
     msg_to_sign: &[u8],
     expect_results: &[bool],
 ) -> (Vec<impl Party>, Vec<proto::message_out::SignResult>) {
-
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
         .map(|&i| party_uids[i].clone())
