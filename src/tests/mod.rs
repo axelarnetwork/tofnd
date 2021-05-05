@@ -83,7 +83,7 @@ fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
             assert_eq!(
                 expected_crimes
                     .iter()
-                    .filter(|inner_crime_list| inner_crime_list.len() != 0)
+                    .filter(|inner_crime_list| !inner_crime_list.is_empty())
                     .count(),
                 0,
                 "Expected crimes but didn't discover any",
@@ -332,7 +332,7 @@ async fn init_parties(
         let init_party = InitParty::new(i);
         #[cfg(feature = "malicious")]
         let init_party = InitParty::new(i, init_parties.malicious_types.get(i).unwrap().clone());
-        parties.push(TofndParty::new(init_party, testdir, expect_results[i]).await);
+        parties.push(TofndParty::new(init_party, testdir, *expect_results.get(i).unwrap()).await);
     }
 
     let party_uids: Vec<String> = (0..init_parties.party_count)
