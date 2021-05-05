@@ -70,7 +70,6 @@ impl InitParties {
 }
 
 fn check_results(results: Vec<SignResult>, sign_indices: &[usize], expected_criminals: &[usize]) {
-
     let first = &results[sign_indices[0]];
 
     match first.sign_result_data {
@@ -191,84 +190,107 @@ async fn basic_keygen_and_sign() {
     }
 }
 
-// #[traced_test]
-// #[tokio::test]
-// async fn restart_one_party() {
-//     let dir = testdir!();
+#[traced_test]
+#[tokio::test]
+async fn restart_one_party() {
+    let dir = testdir!();
 
-//     for test_case in TEST_CASES.iter() {
-//         let uid_count = test_case.uid_count;
-//         let party_share_counts = &test_case.share_counts;
-//         let threshold = test_case.threshold;
-//         let sign_participant_indices = &test_case.signer_indices;
-//         let expected_criminals = &test_case.criminal_list;
+    // for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
+    for test_case in TEST_CASES.iter() {
+        let uid_count = test_case.uid_count;
+        let party_share_counts = &test_case.share_counts;
+        let threshold = test_case.threshold;
+        let sign_participant_indices = &test_case.signer_indices;
+        let expected_criminals = &test_case.criminal_list;
 
-//         // get malicious types only when we are in malicious mode
-//         #[cfg(feature = "malicious")]
-//         let malicious_types = &test_case.malicious_types;
+        // get malicious types only when we are in malicious mode
+        #[cfg(feature = "malicious")]
+        let malicious_types = &test_case.malicious_types;
+        #[cfg(feature = "malicious")]
+        println!("======= Malicious types: {:?}", malicious_types);
 
-//         // initialize parties with malicious_types when we are in malicious mode
-//         #[cfg(not(feature = "malicious"))]
-//         let init_parties_t = InitParties::new(uid_count);
-//         #[cfg(feature = "malicious")]
-//         let init_parties_t = InitParties::new(uid_count, malicious_types.clone());
+        // initialize parties with malicious_types when we are in malicious mode
+        #[cfg(not(feature = "malicious"))]
+        let init_parties_t = InitParties::new(uid_count);
+        #[cfg(feature = "malicious")]
+        let init_parties_t = InitParties::new(uid_count, malicious_types.clone());
 
-//         let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
+        #[cfg(not(feature = "malicious"))]
+        let expect_results = vec![true; uid_count];
+        #[cfg(feature = "malicious")]
+        let expect_results = {
+            let mut expect_results = vec![true; uid_count];
+            for (i, t) in malicious_types.iter().enumerate() {
+                if matches!(
+                    t,
+                    MaliciousType::R3BadProof
+                        | MaliciousType::R4BadReveal
+                        | MaliciousType::R6BadProof
+                ) {
+                    expect_results[i] = false;
+                }
+            }
+            expect_results
+        };
 
-//         // println!(
-//         //     "keygen: share_count:{}, threshold: {}",
-//         //     share_count, threshold
-//         // );
-//         let new_key_uid = "Gus-test-key";
-//         let parties = execute_keygen(
-//             parties,
-//             &party_uids,
-//             party_share_counts,
-//             new_key_uid,
-//             threshold,
-//         )
-//         .await;
+        let (parties, party_uids) = init_parties(&init_parties_t, &dir, &expect_results).await;
 
-//         let shutdown_index = sign_participant_indices[0];
-//         println!("restart party {}", shutdown_index);
-//         // use Option to temporarily transfer ownership of individual parties to a spawn
-//         let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
-//         let shutdown_party = party_options[shutdown_index].take().unwrap();
-//         shutdown_party.shutdown().await;
+        // println!(
+        //     "keygen: share_count:{}, threshold: {}",
+        //     share_count, threshold
+        // );
+        let new_key_uid = "Gus-test-key";
+        let parties = execute_keygen(
+            parties,
+            &party_uids,
+            party_share_counts,
+            new_key_uid,
+            threshold,
+        )
+        .await;
 
-//         // initialize restarted party with malicious_type when we are in malicious mode
-//         #[cfg(not(feature = "malicious"))]
-//         let init_party = InitParty::new(shutdown_index);
-//         #[cfg(feature = "malicious")]
-//         let init_party = InitParty::new(
-//             shutdown_index,
-//             malicious_types.get(shutdown_index).unwrap().clone(),
-//         );
+        let shutdown_index = sign_participant_indices[0];
+        println!("restart party {}", shutdown_index);
+        // use Option to temporarily transfer ownership of individual parties to a spawn
+        let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
+        let shutdown_party = party_options[shutdown_index].take().unwrap();
+        shutdown_party.shutdown().await;
 
-//         party_options[shutdown_index] = Some(TofndParty::new(init_party, &dir).await);
-//         let parties = party_options
-//             .into_iter()
-//             .map(|o| o.unwrap())
-//             .collect::<Vec<_>>();
+        // initialize restarted party with malicious_type when we are in malicious mode
+        #[cfg(not(feature = "malicious"))]
+        let init_party = InitParty::new(shutdown_index);
+        #[cfg(feature = "malicious")]
+        let init_party = InitParty::new(
+            shutdown_index,
+            malicious_types.get(shutdown_index).unwrap().clone(),
+        );
 
-//         // println!("sign: participants {:?}", sign_participant_indices);
-//         let new_sig_uid = "Gus-test-sig";
-//         let (parties, results) = execute_sign(
-//             parties,
-//             &party_uids,
-//             &sign_participant_indices,
-//             new_key_uid,
-//             new_sig_uid,
-//             &MSG_TO_SIGN,
-//         )
-//         .await;
+        party_options[shutdown_index] =
+            Some(TofndParty::new(init_party, &dir, expect_results[shutdown_index]).await);
+        let parties = party_options
+            .into_iter()
+            .map(|o| o.unwrap())
+            .collect::<Vec<_>>();
 
-//         delete_dbs(&parties);
-//         shutdown_parties(parties).await;
+        // println!("sign: participants {:?}", sign_participant_indices);
+        let new_sig_uid = "Gus-test-sig";
+        let (parties, results) = execute_sign(
+            parties,
+            &party_uids,
+            &sign_participant_indices,
+            new_key_uid,
+            new_sig_uid,
+            &MSG_TO_SIGN,
+            &expect_results,
+        )
+        .await;
 
-//         check_results(results, &sign_participant_indices, &expected_criminals);
-//     }
-// }
+        delete_dbs(&parties);
+        shutdown_parties(parties).await;
+
+        check_results(results, &sign_participant_indices, &expected_criminals);
+    }
+}
 
 // struct to pass in TofndParty constructor.
 // needs to include malicious when we are running in malicious mode
@@ -377,8 +399,6 @@ async fn execute_sign(
     msg_to_sign: &[u8],
     expect_results: &[bool],
 ) -> (Vec<impl Party>, Vec<proto::message_out::SignResult>) {
-    // sanity check and avoid unused variable warning
-    assert!(expect_results.iter().filter(|&r| *r == true).count() == expect_results.len());
 
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
