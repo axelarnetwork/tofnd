@@ -2335,7 +2335,7 @@ dependencies = [
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=make-crimes-public#869e7272d0be9ab14d9e25f48720c773fe2b0b0a"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git#bf81a677cae92520f97a4a28f1188a7d927f428d"
 dependencies = [
  "bincode",
  "curv 0.2.6",
