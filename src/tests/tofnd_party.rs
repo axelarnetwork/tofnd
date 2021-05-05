@@ -20,8 +20,6 @@ pub(super) struct TofndParty {
 
 impl TofndParty {
     pub(super) async fn new(init_party: InitParty, testdir: &Path, expect_result: bool) -> Self {
-        // sanity check and avoid unused variable warning
-        assert!(expect_result == true);
 
         let db_name = format!("test-key-{:02}", init_party.party_index);
         let db_path = testdir.join(db_name);
