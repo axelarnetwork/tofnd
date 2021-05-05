@@ -120,7 +120,7 @@ pub(super) fn generate_test_cases() -> Vec<TestCase> {
 
 pub(super) fn generate_basic_cases() -> Vec<TestCase> {
     let mut cases = vec![];
-    for m in MaliciousType::iter().skip(1) {
+    for m in MaliciousType::iter() {
         cases.push(TestCase::new(
             4,
             vec![1, 2, 1, 3],
@@ -132,7 +132,6 @@ pub(super) fn generate_basic_cases() -> Vec<TestCase> {
                 Signer::new(3, m.clone(), map_type_to_crime(&m)),
             ],
         ));
-        break;
     }
     cases
 }
