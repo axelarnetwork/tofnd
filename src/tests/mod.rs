@@ -22,6 +22,8 @@ mod malicious_test_cases;
 #[cfg(feature = "malicious")]
 use malicious_test_cases::*;
 
+use tofn::protocol::gg20::sign::crimes::Crime;
+
 use crate::proto::{
     self,
     message_out::{
@@ -69,20 +71,19 @@ impl InitParties {
     }
 }
 
-fn check_results(results: Vec<SignResult>, sign_indices: &[usize], expected_criminals: &[usize]) {
-    let first = &results[sign_indices[0]];
+fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
 
+    // get the first non-empty result. We can't simply take results[0] because some behaviours
+    // don't return results and we pad them with `None`s
+    let first = results.iter().find(|r| r.sign_result_data.is_some()).unwrap();
     match first.sign_result_data {
         Some(Signature(_)) => {
             assert_eq!(
-                expected_criminals.len(),
+                expected_crimes.iter().filter(|inner_crime_list| inner_crime_list.len() != 0).count(),
                 0,
-                "Expected criminals but didn't discover any",
+                "Expected crimes but didn't discover any",
             );
             for (i, result) in results.iter().enumerate() {
-                if expected_criminals.contains(&i) {
-                    continue;
-                }
                 assert_eq!(
                     first, result,
                     "party {} didn't produce the expected result",
@@ -91,19 +92,11 @@ fn check_results(results: Vec<SignResult>, sign_indices: &[usize], expected_crim
             }
         }
         Some(Criminals(ref criminal_list)) => {
-            // check that we received with as many criminals as expected
-            assert!(criminal_list.criminals.len() == expected_criminals.len());
-            // check that every criminal was in the "expected" list
-            for res in criminal_list
-                .criminals
-                .iter()
-                .zip(expected_criminals)
-                .into_iter()
-            {
-                let criminal_uid = format!("{}", (b'A' + *res.1 as u8) as char);
-                assert_eq!(res.0.party_uid, criminal_uid);
-            }
-            // println!("criminals: {:?}", criminals);
+            // chack that we have the correct number of criminals
+            let expected_criminal_count = expected_crimes.iter().filter(|list| !list.is_empty()).count();
+            let actual_criminal_count = criminal_list.criminals.len();
+            assert_eq!(expected_criminal_count, actual_criminal_count);
+            println!("criminals: {:?}", criminal_list.criminals);
         }
         None => {
             panic!("Result was None");
@@ -122,13 +115,14 @@ async fn basic_keygen_and_sign() {
         let party_share_counts = &test_case.share_counts;
         let threshold = test_case.threshold;
         let sign_participant_indices = &test_case.signer_indices;
-        let expected_criminals = &test_case.criminal_list;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
-        let malicious_types = &test_case.malicious_types;
+        let malicious_types= &test_case.malicious_types;
         #[cfg(feature = "malicious")]
-        println!("======= Malicious types: {:?}", malicious_types);
+        let expected_crimes= &test_case.expected_crimes;
+        #[cfg(feature = "malicious")]
+        println!("======= Expected crimes: {:?}", expected_crimes);
 
         // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
@@ -186,7 +180,7 @@ async fn basic_keygen_and_sign() {
         delete_dbs(&parties);
         shutdown_parties(parties).await;
 
-        check_results(results, &sign_participant_indices, &expected_criminals);
+        check_results(results, &expected_crimes);
     }
 }
 
@@ -436,7 +430,7 @@ async fn execute_sign(
         sign_join_handles.push((participant_index, handle));
     }
 
-    let mut results = Vec::new();
+    let mut results = vec![SignResult::default(); sign_join_handles.len()];
     #[cfg(feature = "malicious")]
     let mut blocked_parties = Vec::new();
     for (i, h) in sign_join_handles {
@@ -450,7 +444,7 @@ async fn execute_sign(
         }
         let handle = h.await.unwrap();
         party_options[i] = Some(handle.0);
-        results.push(handle.1);
+        results[i] = handle.1;
     }
 
     #[cfg(feature = "malicious")]
@@ -471,6 +465,7 @@ async fn execute_sign(
             .await;
         let handle = handle.await.unwrap();
         party_options[party_index] = Some(handle.0);
+        results[party_index] = handle.1;
         println!("Party {} is unblocked :)", party_index);
     }
     (
