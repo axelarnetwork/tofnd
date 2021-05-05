@@ -1,6 +1,6 @@
-use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
-use tofn::protocol::gg20::sign::crimes::Crime;
 use strum::IntoEnumIterator;
+use tofn::protocol::gg20::sign::crimes::Crime;
+use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
 
 // TODO import that from tofn
 pub(super) fn map_type_to_crime(t: &MaliciousType) -> Vec<Crime> {
@@ -38,11 +38,15 @@ pub(super) struct Signer {
 }
 
 impl Signer {
-    pub(super) fn new(party_index: usize, behaviour: MaliciousType, expected_crimes: Vec<Crime>) -> Self {
+    pub(super) fn new(
+        party_index: usize,
+        behaviour: MaliciousType,
+        expected_crimes: Vec<Crime>,
+    ) -> Self {
         Signer {
             party_index,
             behaviour,
-            expected_crimes
+            expected_crimes,
         }
     }
 }
@@ -72,7 +76,7 @@ impl TestCase {
         // 3. signer_indices -> holds the tofnd index of every signer
         let mut signer_indices = Vec::new();
         let mut signer_behaviours = Vec::new();
-        let mut signer_crimes= Vec::new();
+        let mut signer_crimes = Vec::new();
 
         // could be more rusty but take double the LoC
         for sign_participant in sign_participants.iter() {
@@ -81,7 +85,7 @@ impl TestCase {
             signer_crimes.push(sign_participant.expected_crimes.clone());
         }
 
-        let mut malicious_types= Vec::new();
+        let mut malicious_types = Vec::new();
         let mut expected_crimes = Vec::new();
         for i in 0..uid_count {
             if !signer_indices.contains(&i) {
@@ -166,13 +170,11 @@ pub(super) fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
             vec![],
         )];
         for (i, fault) in round_faults.into_iter().enumerate() {
-            participants.push(
-                Signer::new(
-                    i,
-                    fault.clone(), // behaviour data initialized with Default:default()
-                    map_type_to_crime(&fault),
-                ),
-            );
+            participants.push(Signer::new(
+                i,
+                fault.clone(), // behaviour data initialized with Default:default()
+                map_type_to_crime(&fault),
+            ));
         }
         cases.push(TestCase::new(
             5,
