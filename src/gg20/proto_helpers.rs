@@ -1,4 +1,7 @@
-use tofn::protocol::{gg20::sign::SignOutput, CrimeType, Criminal};
+use tofn::protocol::{
+    gg20::sign::{crimes::Crime, SignOutput},
+    CrimeType, Criminal,
+};
 
 use crate::proto;
 use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;
@@ -10,6 +13,24 @@ use proto::message_out::CriminalList as ProtoCriminalList;
 use super::protocol::map_tofn_to_tofnd_idx;
 
 use tracing::warn;
+
+// TODO delete this when Crimes are incorporated by axlear-core
+pub(super) fn to_criminals(criminals: &[Vec<Crime>]) -> Vec<Criminal> {
+    criminals
+        .iter()
+        .enumerate()
+        .filter_map(|(i, v)| {
+            if v.is_empty() {
+                None
+            } else {
+                Some(Criminal {
+                    index: i,
+                    crime_type: CrimeType::Malicious,
+                })
+            }
+        })
+        .collect()
+}
 
 // convenience constructors
 impl proto::MessageOut {
@@ -40,8 +61,8 @@ impl proto::MessageOut {
     ) -> Self {
         let result = match result {
             Ok(signature) => ProtoSignature(signature),
-            Err(criminals) => ProtoCriminals(ProtoCriminalList::from(
-                criminals,
+            Err(crimes) => ProtoCriminals(ProtoCriminalList::from(
+                to_criminals(&crimes), // TODO remove later
                 participant_uids,
                 all_share_counts,
             )),
