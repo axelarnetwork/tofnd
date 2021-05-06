@@ -55,31 +55,40 @@ lazy_static::lazy_static! {
 // needs to include malicious when we are running in malicious mode
 struct InitParties {
     party_count: usize,
+    timeout: Option<usize>,
     #[cfg(feature = "malicious")]
     malicious_types: Vec<MaliciousType>,
 }
 
 impl InitParties {
     #[cfg(not(feature = "malicious"))]
-    fn new(party_count: usize) -> InitParties {
-        InitParties { party_count }
-    }
-    #[cfg(feature = "malicious")]
-    fn new(party_count: usize, malicious_types: Vec<MaliciousType>) -> InitParties {
+    fn new(party_count: usize, timeout: Option<usize>) -> InitParties {
         InitParties {
             party_count,
+            timeout,
+        }
+    }
+    #[cfg(feature = "malicious")]
+    fn new(
+        party_count: usize,
+        timeout: Option<usize>,
+        malicious_types: Vec<MaliciousType>,
+    ) -> InitParties {
+        InitParties {
+            party_count,
+            timeout,
             malicious_types,
         }
     }
 }
 
-fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>], timeout: bool) {
+fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>], timeout: Option<usize>) {
     // get the first non-empty result. We can't simply take results[0] because some behaviours
     // don't return results and we pad them with `None`s
     let first = results.iter().find(|r| r.sign_result_data.is_some());
 
-    // If we don't expect for any party to return, check if all response were `None`
-    if timeout {
+    // If we created a timeout, check that all response were `None`
+    if timeout.is_some() {
         assert!(first.is_none());
         return;
     }
@@ -153,9 +162,9 @@ async fn basic_keygen_and_sign() {
 
         // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
-        let init_parties_t = InitParties::new(uid_count);
+        let init_parties_t = InitParties::new(uid_count, timeout);
         #[cfg(feature = "malicious")]
-        let init_parties_t = InitParties::new(uid_count, malicious_types.clone());
+        let init_parties_t = InitParties::new(uid_count, timeout, malicious_types.clone());
 
         #[cfg(not(feature = "malicious"))]
         let expect_results = vec![true; uid_count];
@@ -235,9 +244,9 @@ async fn restart_one_party() {
 
         // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
-        let init_parties_t = InitParties::new(uid_count);
+        let init_parties_t = InitParties::new(uid_count, timeout);
         #[cfg(feature = "malicious")]
-        let init_parties_t = InitParties::new(uid_count, malicious_types.clone());
+        let init_parties_t = InitParties::new(uid_count, timeout, malicious_types.clone());
 
         #[cfg(not(feature = "malicious"))]
         let expect_results = vec![true; uid_count];
@@ -280,12 +289,16 @@ async fn restart_one_party() {
         let shutdown_party = party_options[shutdown_index].take().unwrap();
         shutdown_party.shutdown().await;
 
+        let will_timeout =
+            test_case.timeout.is_some() && test_case.timeout.unwrap() == shutdown_index;
+
         // initialize restarted party with malicious_type when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
-        let init_party = InitParty::new(shutdown_index);
+        let init_party = InitParty::new(shutdown_index, will_timeout);
         #[cfg(feature = "malicious")]
         let init_party = InitParty::new(
             shutdown_index,
+            will_timeout,
             malicious_types.get(shutdown_index).unwrap().clone(),
         );
 
@@ -321,20 +334,25 @@ async fn restart_one_party() {
 // needs to include malicious when we are running in malicious mode
 struct InitParty {
     party_index: usize,
+    timeout: bool,
     #[cfg(feature = "malicious")]
     malicious_type: MaliciousType,
 }
 
 impl InitParty {
     #[cfg(not(feature = "malicious"))]
-    fn new(party_index: usize) -> InitParty {
-        InitParty { party_index }
+    fn new(party_index: usize, timeout: bool) -> InitParty {
+        InitParty {
+            party_index,
+            timeout,
+        }
     }
 
     #[cfg(feature = "malicious")]
-    fn new(party_index: usize, malicious_type: MaliciousType) -> InitParty {
+    fn new(party_index: usize, timeout: bool, malicious_type: MaliciousType) -> InitParty {
         InitParty {
             party_index,
+            timeout,
             malicious_type,
         }
     }
@@ -349,11 +367,16 @@ async fn init_parties(
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     for i in 0..init_parties.party_count {
+        let will_timeout = { init_parties.timeout.is_some() && init_parties.timeout.unwrap() == i };
         // initialize party with respect to current build
         #[cfg(not(feature = "malicious"))]
-        let init_party = InitParty::new(i);
+        let init_party = InitParty::new(i, will_timeout);
         #[cfg(feature = "malicious")]
-        let init_party = InitParty::new(i, init_parties.malicious_types.get(i).unwrap().clone());
+        let init_party = InitParty::new(
+            i,
+            will_timeout,
+            init_parties.malicious_types.get(i).unwrap().clone(),
+        );
         parties.push(TofndParty::new(init_party, testdir, *expect_results.get(i).unwrap()).await);
     }
 

@@ -15,6 +15,7 @@ pub(super) struct TofndParty {
     server_shutdown_sender: oneshot::Sender<()>,
     server_port: u16,
     pub expect_result: bool,
+    timeout: bool,
 }
 
 impl TofndParty {
@@ -70,6 +71,7 @@ impl TofndParty {
             server_shutdown_sender,
             server_port,
             expect_result,
+            timeout: init_party.timeout,
         }
     }
 }
@@ -147,8 +149,14 @@ impl Party for TofndParty {
 
         // use Option of SignResult to avoid giving a default value to SignResult
         let mut result: Option<SignResult> = None;
+        let mut msg_count: usize = 0;
         while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
+
+            if self.timeout {
+                msg_count += 1;
+                check_for_timeout(msg_count, &mut delivery).await;
+            }
 
             match msg_type {
                 proto::message_out::Data::Traffic(_) => {
@@ -173,6 +181,13 @@ impl Party for TofndParty {
         }
 
         // fail test if socket was closed before I received the result
+        if result.is_none() {
+            println!(
+                "party [{}] sign execution was not completed",
+                my_display_name
+            );
+            return SignResult::default();
+        }
         assert!(result.is_some(), "sign failure to complete");
         println!("party [{}] sign execution complete", my_display_name);
 
@@ -187,5 +202,12 @@ impl Party for TofndParty {
 
     fn get_db_path(&self) -> std::path::PathBuf {
         gg20::tests::get_db_path(&self.db_name)
+    }
+}
+
+async fn check_for_timeout(msg_count: usize, deliverer: &mut Deliverer) {
+    if msg_count == 10 {
+        println!("*** sending timeout");
+        deliverer.send_timeouts().await;
     }
 }
