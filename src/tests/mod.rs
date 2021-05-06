@@ -459,16 +459,14 @@ async fn execute_sign(
     let mut results = vec![SignResult::default(); sign_join_handles.len()];
     let mut blocked_parties = Vec::new();
     for (i, h) in sign_join_handles {
-        // if handle belongs to a party that we don't expect to return a result,
-        // don't wait for it and don't retrieve its result either
-        if !expect_results[sign_participant_indices[i]] {
+        if expect_results[sign_participant_indices[i]] {
+            let handle = h.await.unwrap();
+            party_options[sign_participant_indices[i]] = Some(handle.0);
+            results[i] = handle.1;
+        } else {
             println!("Party {} is blocked :(", i);
             blocked_parties.push((i, h));
-            continue;
         }
-        let handle = h.await.unwrap();
-        party_options[sign_participant_indices[i]] = Some(handle.0);
-        results[i] = handle.1;
     }
 
     // unblock all blocked party. In the absense of better solutions, we send
