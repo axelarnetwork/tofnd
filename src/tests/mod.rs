@@ -426,7 +426,7 @@ async fn execute_sign(
         .map(|&i| party_uids[i].clone())
         .collect();
     let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&participant_uids);
-    let mut extra_delivery = sign_delivery.clone();
+    let mut admin = sign_delivery.clone();
 
     // use Option to temporarily transfer ownership of individual parties to a spawn
     let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
@@ -459,6 +459,8 @@ async fn execute_sign(
     let mut results = vec![SignResult::default(); sign_join_handles.len()];
     let mut blocked_parties = Vec::new();
     for (i, h) in sign_join_handles {
+        // if we expect for a party to return, reclaim its resources and store result
+        // else store its handler and reclaim its resources later (after timeout msg)
         if expect_results[sign_participant_indices[i]] {
             let handle = h.await.unwrap();
             party_options[sign_participant_indices[i]] = Some(handle.0);
@@ -469,28 +471,12 @@ async fn execute_sign(
         }
     }
 
-    // unblock all blocked party. In the absense of better solutions, we send
-    // a message to the server that cannot be properlly deserialized. This
-    // results into creating an error at the server, and in turn closes the socket.
-    // (the socket that closes is the pair of the one returned from gg20::mods.rs::execute_sign)
-    // When the socket closes, blocked parties stop waiting for the next message and are no longer blocked
+    // unblock all blocked parties by broadcasting a timeout
+    if !blocked_parties.is_empty() {
+        admin.send_timeouts().await;
+    }
     for (party_index, handle) in blocked_parties {
-        // create and send dummy data to unblock any blocked parties
-        let dummy_data = proto::message_out::Data::Traffic(proto::TrafficOut {
-            to_party_uid: "blocked".to_string(),
-            payload: Vec::<u8>::with_capacity(1),
-            is_broadcast: true,
-        });
-        // send dummy message
-        extra_delivery
-            .deliver(
-                &proto::MessageOut {
-                    data: Some(dummy_data),
-                },
-                "ghost",
-            )
-            .await;
-        // now we can retrieve previously unblocked threads
+        // now we can retrieve previously blocked threads
         let handle = handle.await.unwrap();
         party_options[sign_participant_indices[party_index]] = Some(handle.0);
         results[party_index] = handle.1;
