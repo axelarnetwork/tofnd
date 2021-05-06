@@ -34,6 +34,8 @@ use crate::proto::{
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
+use crate::gg20::proto_helpers::to_criminals;
+
 use std::path::Path;
 use testdir::testdir;
 

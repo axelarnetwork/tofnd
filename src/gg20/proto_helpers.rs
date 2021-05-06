@@ -15,7 +15,7 @@ use super::protocol::map_tofn_to_tofnd_idx;
 use tracing::warn;
 
 // TODO delete this when Crimes are incorporated by axlear-core
-pub(super) fn to_criminals(criminals: &[Vec<Crime>]) -> Vec<Criminal> {
+pub fn to_criminals(criminals: &[Vec<Crime>]) -> Vec<Criminal> {
     criminals
         .iter()
         .enumerate()

@@ -167,7 +167,9 @@ impl Gg20Service {
 }
 
 mod keygen;
-mod proto_helpers;
+// TODO remove pub after API changes are incorporated by axelar-core
+// until then we need to_crimes for tests
+pub mod proto_helpers;
 mod protocol;
 mod sign;
 
