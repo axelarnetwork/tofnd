@@ -65,4 +65,13 @@ impl Deliverer {
             sender.send(msg_in.clone()).unwrap();
         }
     }
+    pub async fn send_timeouts(&mut self) {
+        let abort = proto::message_in::Data::Abort(proto::Abort::default());
+        let msg_in = proto::MessageIn { data: Some(abort) };
+
+        // deliver to all parties
+        for (_, sender) in self.senders.iter_mut() {
+            sender.send(msg_in.clone()).unwrap();
+        }
+    }
 }
