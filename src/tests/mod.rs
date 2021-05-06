@@ -135,14 +135,14 @@ async fn basic_keygen_and_sign() {
         let party_share_counts = &test_case.share_counts;
         let threshold = test_case.threshold;
         let sign_participant_indices = &test_case.signer_indices;
+        let expected_crimes = &test_case.expected_crimes;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
-        let malicious_types = &test_case.malicious_types;
-        // #[cfg(feature = "malicious")]
-        let expected_crimes = &test_case.expected_crimes;
-        #[cfg(feature = "malicious")]
-        println!("======= Expected crimes: {:?}", expected_crimes);
+        let malicious_types = {
+            println!("======= Expected crimes: {:?}", expected_crimes);
+            &test_case.malicious_types
+        };
 
         // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
@@ -216,14 +216,14 @@ async fn restart_one_party() {
         let party_share_counts = &test_case.share_counts;
         let threshold = test_case.threshold;
         let sign_participant_indices = &test_case.signer_indices;
+        let expected_crimes = &test_case.expected_crimes;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
-        let malicious_types = &test_case.malicious_types;
-        // #[cfg(feature = "malicious")]
-        let expected_crimes = &test_case.expected_crimes;
-        #[cfg(feature = "malicious")]
-        println!("======= Expected crimes: {:?}", expected_crimes);
+        let malicious_types = {
+            println!("======= Expected crimes: {:?}", expected_crimes);
+            &test_case.malicious_types
+        };
 
         // initialize parties with malicious_types when we are in malicious mode
         #[cfg(not(feature = "malicious"))]
