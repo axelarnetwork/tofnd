@@ -62,7 +62,10 @@ impl Deliverer {
 
         // deliver all msgs to all parties (even p2p msgs)
         for (_, sender) in self.senders.iter_mut() {
-            sender.send(msg_in.clone()).unwrap();
+            // we need to catch for errors in case the receiver's channel closes unexpectedly
+            if let Err(err) = sender.send(msg_in.clone()) {
+                println!("Error in deliverer while sending message: {:?}", err);
+            }
         }
     }
     pub async fn send_timeouts(&mut self) {
