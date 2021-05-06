@@ -453,7 +453,7 @@ async fn execute_sign(
                 .await;
             (party, result)
         });
-        sign_join_handles.push((participant_index, handle));
+        sign_join_handles.push((i, handle));
     }
 
     let mut results = vec![SignResult::default(); sign_join_handles.len()];
@@ -467,7 +467,7 @@ async fn execute_sign(
             continue;
         }
         let handle = h.await.unwrap();
-        party_options[i] = Some(handle.0);
+        party_options[sign_participant_indices[i]] = Some(handle.0);
         results[i] = handle.1;
     }
 
@@ -492,7 +492,7 @@ async fn execute_sign(
             )
             .await;
         let handle = handle.await.unwrap();
-        party_options[party_index] = Some(handle.0);
+        party_options[sign_participant_indices[party_index]] = Some(handle.0);
         results[party_index] = handle.1;
         println!("Party {} is unblocked :)", party_index);
     }
