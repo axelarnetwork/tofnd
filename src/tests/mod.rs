@@ -288,13 +288,13 @@ async fn restart_one_party() {
             .map(|o| o.unwrap())
             .collect::<Vec<_>>();
 
-        // println!("sign: participants {:?}", sign_participant_indices);
         let expect_results: Vec<bool> = parties.iter().map(|p| p.expect_result).collect();
+        // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
         let (parties, results) = execute_sign(
             parties,
             &party_uids,
-            &sign_participant_indices,
+            sign_participant_indices,
             new_key_uid,
             new_sig_uid,
             &MSG_TO_SIGN,
