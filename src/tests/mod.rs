@@ -98,15 +98,25 @@ fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
                 );
             }
         }
-        Some(Criminals(ref criminal_list)) => {
-            // chack that we have the correct number of criminals
-            let expected_criminal_count = expected_crimes
+        Some(Criminals(ref actual_criminals)) => {
+            // Check that we got all criminals
+            // that's a temporary hack, but will be soon replaced after result
+            // type is replaced with Vec<Vec<Crimes>>; then, we will simple do
+            // assert_eq(expected_crimes, actual_crimes);
+            // When this happens, also remove pub from mod gg20::proto_helpers 
+            // because we no longer need to use to_crimes
+            let expected_criminals = to_criminals(expected_crimes);
+            for (actual_criminal, expected_criminal) in actual_criminals
+                .criminals
                 .iter()
-                .filter(|list| !list.is_empty())
-                .count();
-            let actual_criminal_count = criminal_list.criminals.len();
-            assert_eq!(expected_criminal_count, actual_criminal_count);
-            println!("criminals: {:?}", criminal_list.criminals);
+                .zip(expected_criminals.iter())
+            {
+                // use the convention that party names are constructed from ints converted to chars.
+                let criminal_index =
+                    actual_criminal.party_uid.chars().next().unwrap() as usize - 'A' as usize;
+                assert_eq!(expected_criminal.index, criminal_index);
+            }
+            println!("criminals: {:?}", actual_criminals.criminals);
         }
         None => {
             panic!("Result was None");
