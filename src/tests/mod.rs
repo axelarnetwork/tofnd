@@ -139,7 +139,7 @@ async fn basic_keygen_and_sign() {
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
         let malicious_types = &test_case.malicious_types;
-        #[cfg(feature = "malicious")]
+        // #[cfg(feature = "malicious")]
         let expected_crimes = &test_case.expected_crimes;
         #[cfg(feature = "malicious")]
         println!("======= Expected crimes: {:?}", expected_crimes);
@@ -184,6 +184,7 @@ async fn basic_keygen_and_sign() {
         )
         .await;
 
+        let expect_results: Vec<bool> = parties.iter().map(|p| p.expect_result).collect();
         // println!("sign: participants {:?}", sign_participant_indices);
         let new_sig_uid = "Gus-test-sig";
         let (parties, results) = execute_sign(
@@ -219,7 +220,7 @@ async fn restart_one_party() {
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
         let malicious_types = &test_case.malicious_types;
-        #[cfg(feature = "malicious")]
+        // #[cfg(feature = "malicious")]
         let expected_crimes = &test_case.expected_crimes;
         #[cfg(feature = "malicious")]
         println!("======= Expected crimes: {:?}", expected_crimes);
@@ -288,6 +289,7 @@ async fn restart_one_party() {
             .collect::<Vec<_>>();
 
         // println!("sign: participants {:?}", sign_participant_indices);
+        let expect_results: Vec<bool> = parties.iter().map(|p| p.expect_result).collect();
         let new_sig_uid = "Gus-test-sig";
         let (parties, results) = execute_sign(
             parties,
@@ -414,12 +416,16 @@ async fn execute_sign(
     msg_to_sign: &[u8],
     expect_results: &[bool],
 ) -> (Vec<impl Party>, Vec<proto::message_out::SignResult>) {
+    // do a acc&=expect_result[i] and check if the final result is true
+    if !expect_results.iter().fold(true, |acc, r| acc & r) {
+        println!("Some parties are not expected to return a result");
+    }
+
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
         .map(|&i| party_uids[i].clone())
         .collect();
     let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&participant_uids);
-    #[cfg(feature = "malicious")]
     let mut extra_delivery = sign_delivery.clone();
 
     // use Option to temporarily transfer ownership of individual parties to a spawn
@@ -451,13 +457,11 @@ async fn execute_sign(
     }
 
     let mut results = vec![SignResult::default(); sign_join_handles.len()];
-    #[cfg(feature = "malicious")]
     let mut blocked_parties = Vec::new();
     for (i, h) in sign_join_handles {
         // if handle belongs to a party that we don't expect to return a result,
         // don't wait for it and don't retrieve its result either
-        #[cfg(feature = "malicious")]
-        if !expect_results[i] {
+        if !expect_results[sign_participant_indices[i]] {
             println!("Party {} is blocked :(", i);
             blocked_parties.push((i, h));
             continue;
@@ -467,7 +471,11 @@ async fn execute_sign(
         results[i] = handle.1;
     }
 
-    #[cfg(feature = "malicious")]
+    // unblock all blocked party. In the absense of better solutions, we send
+    // a message to the server that cannot be properlly deserialized. This
+    // results into creating an error at the server, and in turn closes the socket.
+    // (the socket that closes is the pair of the one returned from gg20::mods.rs::execute_sign)
+    // When the socket closes, blocked parties stop waiting for the next message and are no longer blocked
     for (party_index, handle) in blocked_parties {
         // create and send dummy data to unblock any blocked parties
         let dummy_data = proto::message_out::Data::Traffic(proto::TrafficOut {

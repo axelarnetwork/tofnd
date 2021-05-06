@@ -14,7 +14,6 @@ pub(super) struct TofndParty {
     server_handle: JoinHandle<()>,
     server_shutdown_sender: oneshot::Sender<()>,
     server_port: u16,
-    #[cfg(feature = "malicious")]
     pub expect_result: bool,
 }
 
@@ -70,7 +69,6 @@ impl TofndParty {
             server_handle,
             server_shutdown_sender,
             server_port,
-            #[cfg(feature = "malicious")]
             expect_result,
         }
     }
