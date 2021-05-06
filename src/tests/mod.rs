@@ -73,13 +73,19 @@ impl InitParties {
     }
 }
 
-fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
+fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>], timeout: bool) {
     // get the first non-empty result. We can't simply take results[0] because some behaviours
     // don't return results and we pad them with `None`s
-    let first = results
-        .iter()
-        .find(|r| r.sign_result_data.is_some())
-        .unwrap();
+    let first = results.iter().find(|r| r.sign_result_data.is_some());
+
+    // If we don't expect for any party to return, check if all response were `None`
+    if timeout {
+        assert!(first.is_none());
+        return;
+    }
+
+    // else we have at least one result
+    let first = first.unwrap();
     match first.sign_result_data {
         Some(Signature(_)) => {
             assert_eq!(
@@ -136,6 +142,7 @@ async fn basic_keygen_and_sign() {
         let threshold = test_case.threshold;
         let sign_participant_indices = &test_case.signer_indices;
         let expected_crimes = &test_case.expected_crimes;
+        let timeout = test_case.timeout;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
@@ -201,7 +208,7 @@ async fn basic_keygen_and_sign() {
         delete_dbs(&parties);
         shutdown_parties(parties).await;
 
-        check_results(results, &expected_crimes);
+        check_results(results, &expected_crimes, timeout);
     }
 }
 
@@ -217,6 +224,7 @@ async fn restart_one_party() {
         let threshold = test_case.threshold;
         let sign_participant_indices = &test_case.signer_indices;
         let expected_crimes = &test_case.expected_crimes;
+        let timeout = test_case.timeout;
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
@@ -305,7 +313,7 @@ async fn restart_one_party() {
         delete_dbs(&parties);
         shutdown_parties(parties).await;
 
-        check_results(results, &expected_crimes);
+        check_results(results, &expected_crimes, timeout);
     }
 }
 

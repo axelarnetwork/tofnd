@@ -6,6 +6,7 @@ pub(super) struct TestCase {
     pub(super) threshold: usize,
     pub(super) signer_indices: Vec<usize>,
     pub(super) expected_crimes: Vec<Vec<Crime>>,
+    pub(super) timeout: bool,
 }
 
 impl TestCase {
@@ -22,7 +23,11 @@ impl TestCase {
             threshold,
             signer_indices,
             expected_crimes,
+            timeout: false,
         }
+    }
+    pub(super) fn with_timeout(&mut self) {
+        self.timeout = true;
     }
 }
 

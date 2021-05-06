@@ -130,7 +130,8 @@ pub(super) fn lonely_case() -> Vec<TestCase> {
             Signer::new(2, Honest, vec![]),
             Signer::new(3, Honest, vec![]),
         ],
-    )]
+    )
+    .with_timeout()]
 }
 
 pub(super) fn generate_basic_cases() -> Vec<TestCase> {
