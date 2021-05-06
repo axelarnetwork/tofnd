@@ -14,10 +14,11 @@ pub(super) struct TofndParty {
     server_handle: JoinHandle<()>,
     server_shutdown_sender: oneshot::Sender<()>,
     server_port: u16,
+    pub expect_result: bool,
 }
 
 impl TofndParty {
-    pub(super) async fn new(init_party: InitParty, testdir: &Path) -> Self {
+    pub(super) async fn new(init_party: InitParty, testdir: &Path, expect_result: bool) -> Self {
         let db_name = format!("test-key-{:02}", init_party.party_index);
         let db_path = testdir.join(db_name);
         let db_path = db_path.to_str().unwrap();
@@ -68,6 +69,7 @@ impl TofndParty {
             server_handle,
             server_shutdown_sender,
             server_port,
+            expect_result,
         }
     }
 }
@@ -136,7 +138,7 @@ impl Party for TofndParty {
             .unwrap()
             .into_inner();
 
-        // the first outbound message is keygen init info
+        // the first outbound message is sign init info
         sign_server_incoming
             .send(proto::MessageIn {
                 data: Some(proto::message_in::Data::SignInit(init)),
@@ -163,6 +165,13 @@ impl Party for TofndParty {
                 ),
             };
         }
+
+        // if we are not expecting a result, create a dummy result and return it
+        #[cfg(feature = "malicious")]
+        if !self.expect_result {
+            result = Some(SignResult::default());
+        }
+
         // fail test if socket was closed before I received the result
         assert!(result.is_some(), "sign failure to complete");
         println!("party [{}] sign execution complete", my_display_name);

@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 tonic = "0.3"
 tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git" }
-# tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "feat/malicious-build-2"}
+# tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "make-crimes-public"}
 # tofn = { path = "../tofn" }
 bincode = "1.2.1"
 sled = "0.34"
@@ -38,6 +38,9 @@ tonic-build = "0.3"
 lazy_static = "1.4"
 # enable logging for tests
 tracing-test = "0.1.0"
+# iterate enums
+strum = "0.20"
+strum_macros = "0.20"
 
 [features]
 # when we compile tofnd with malicious build, also use malicious build for tofn

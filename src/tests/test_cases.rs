@@ -1,9 +1,11 @@
+use tofn::protocol::gg20::sign::crimes::Crime;
+
 pub(super) struct TestCase {
     pub(super) uid_count: usize,
     pub(super) share_counts: Vec<u32>,
     pub(super) threshold: usize,
     pub(super) signer_indices: Vec<usize>,
-    pub(super) criminal_list: Vec<usize>,
+    pub(super) expected_crimes: Vec<Vec<Crime>>,
 }
 
 impl TestCase {
@@ -13,13 +15,13 @@ impl TestCase {
         threshold: usize,
         signer_indices: Vec<usize>,
     ) -> TestCase {
-        let criminal_list = vec![];
+        let expected_crimes = vec![vec![]; uid_count];
         TestCase {
             uid_count,
             share_counts,
             threshold,
             signer_indices,
-            criminal_list,
+            expected_crimes,
         }
     }
 }
