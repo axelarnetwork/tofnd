@@ -103,7 +103,7 @@ fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
             // that's a temporary hack, but will be soon replaced after result
             // type is replaced with Vec<Vec<Crimes>>; then, we will simple do
             // assert_eq(expected_crimes, actual_crimes);
-            // When this happens, also remove pub from mod gg20::proto_helpers 
+            // When this happens, also remove pub from mod gg20::proto_helpers
             // because we no longer need to use to_crimes
             let expected_criminals = to_criminals(expected_crimes);
             for (actual_criminal, expected_criminal) in actual_criminals
@@ -483,6 +483,7 @@ async fn execute_sign(
             payload: Vec::<u8>::with_capacity(1),
             is_broadcast: true,
         });
+        // send dummy message
         extra_delivery
             .deliver(
                 &proto::MessageOut {
@@ -491,6 +492,7 @@ async fn execute_sign(
                 "ghost",
             )
             .await;
+        // now we can retrieve previously unblocked threads
         let handle = handle.await.unwrap();
         party_options[sign_participant_indices[party_index]] = Some(handle.0);
         results[party_index] = handle.1;
