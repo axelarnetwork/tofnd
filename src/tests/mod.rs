@@ -457,7 +457,7 @@ async fn execute_sign(
         .map(|&i| party_uids[i].clone())
         .collect();
     let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&participant_uids);
-    let mut admin = sign_delivery.clone();
+    let mut unblocker = sign_delivery.clone();
 
     // use Option to temporarily transfer ownership of individual parties to a spawn
     let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
@@ -504,7 +504,7 @@ async fn execute_sign(
 
     // unblock all blocked parties by broadcasting a timeout
     if !blocked_parties.is_empty() {
-        admin.send_timeouts().await;
+        unblocker.send_timeouts().await;
     }
     for (party_index, handle) in blocked_parties {
         // now we can retrieve previously blocked threads
