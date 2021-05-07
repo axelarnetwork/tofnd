@@ -57,6 +57,7 @@ pub(super) struct TestCase {
     pub(super) signer_indices: Vec<usize>,
     pub(super) malicious_types: Vec<MaliciousType>,
     pub(super) expected_crimes: Vec<Vec<Crime>>,
+    pub(super) timeout: Option<usize>,
 }
 
 impl TestCase {
@@ -106,7 +107,13 @@ impl TestCase {
             signer_indices,
             malicious_types,
             expected_crimes,
+            timeout: None,
         }
+    }
+
+    pub(super) fn with_timeout(mut self, index: usize) -> Self {
+        self.timeout = Some(index);
+        self
     }
 }
 
@@ -114,7 +121,24 @@ pub(super) fn generate_test_cases() -> Vec<TestCase> {
     let mut test_cases: Vec<TestCase> = Vec::new();
     test_cases.extend(generate_basic_cases());
     test_cases.extend(generate_multiple_malicious_per_round());
+    test_cases.extend(lonely_case());
     test_cases
+}
+
+// have an easily adjustable case for easier debugging
+pub(super) fn lonely_case() -> Vec<TestCase> {
+    vec![TestCase::new(
+        4,
+        vec![1, 1, 1, 1],
+        3,
+        vec![
+            Signer::new(0, Honest, vec![]),
+            Signer::new(1, Honest, vec![]),
+            Signer::new(2, Honest, vec![]),
+            Signer::new(3, Honest, vec![]),
+        ],
+    )
+    .with_timeout(0)]
 }
 
 pub(super) fn generate_basic_cases() -> Vec<TestCase> {

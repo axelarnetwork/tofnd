@@ -208,6 +208,10 @@ pub(super) async fn route_messages(
         }
         let traffic = match msg_data.unwrap() {
             proto::message_in::Data::Traffic(t) => t,
+            proto::message_in::Data::Abort(_) => {
+                warn!("received abort message");
+                break;
+            }
             _ => {
                 warn!("ignore incoming msg: expect `data` to be TrafficIn type");
                 continue;

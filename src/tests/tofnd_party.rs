@@ -15,6 +15,7 @@ pub(super) struct TofndParty {
     server_shutdown_sender: oneshot::Sender<()>,
     server_port: u16,
     pub expect_result: bool,
+    timeout: bool,
 }
 
 impl TofndParty {
@@ -70,6 +71,7 @@ impl TofndParty {
             server_shutdown_sender,
             server_port,
             expect_result,
+            timeout: init_party.timeout,
         }
     }
 }
@@ -147,8 +149,15 @@ impl Party for TofndParty {
 
         // use Option of SignResult to avoid giving a default value to SignResult
         let mut result: Option<SignResult> = None;
+        let mut msg_count: usize = 0;
         while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
+
+            // check if I want to send abort message. This is for timeout tests
+            msg_count += 1;
+            if self.timeout && msg_count == 5 {
+                delivery.send_timeouts().await;
+            }
 
             match msg_type {
                 proto::message_out::Data::Traffic(_) => {
@@ -172,8 +181,14 @@ impl Party for TofndParty {
             result = Some(SignResult::default());
         }
 
-        // fail test if socket was closed before I received the result
-        assert!(result.is_some(), "sign failure to complete");
+        // return default value for SignResult if socket closed before I received the result
+        if result.is_none() {
+            println!(
+                "party [{}] sign execution was not completed",
+                my_display_name
+            );
+            return SignResult::default();
+        }
         println!("party [{}] sign execution complete", my_display_name);
 
         result.unwrap() // it's safe to unwrap here
