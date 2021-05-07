@@ -153,9 +153,10 @@ impl Party for TofndParty {
         while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
-            if self.timeout {
-                msg_count += 1;
-                check_for_timeout(msg_count, &mut delivery).await;
+            // check if I want to send abort message. This is for timeout tests
+            msg_count += 1;
+            if self.timeout && msg_count == 5 {
+                delivery.send_timeouts().await;
             }
 
             match msg_type {
@@ -202,12 +203,5 @@ impl Party for TofndParty {
 
     fn get_db_path(&self) -> std::path::PathBuf {
         gg20::tests::get_db_path(&self.db_name)
-    }
-}
-
-async fn check_for_timeout(msg_count: usize, deliverer: &mut Deliverer) {
-    if msg_count == 10 {
-        println!("*** sending timeout");
-        deliverer.send_timeouts().await;
     }
 }
