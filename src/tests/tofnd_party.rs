@@ -189,7 +189,6 @@ impl Party for TofndParty {
             );
             return SignResult::default();
         }
-        assert!(result.is_some(), "sign failure to complete");
         println!("party [{}] sign execution complete", my_display_name);
 
         result.unwrap() // it's safe to unwrap here
