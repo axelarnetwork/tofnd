@@ -69,7 +69,7 @@ impl Deliverer {
         }
     }
     pub async fn send_timeouts(&mut self) {
-        let abort = proto::message_in::Data::Abort(proto::Abort::default());
+        let abort = proto::message_in::Data::Abort(false);
         let msg_in = proto::MessageIn { data: Some(abort) };
 
         // deliver to all parties
