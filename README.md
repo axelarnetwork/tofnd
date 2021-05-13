@@ -8,6 +8,11 @@ Under active development.
 
 ## Setup
 
+The gRPC protobuf file is a separate [submodule](https://github.com/axelarnetwork/grpc-protobuf/). Be sure you clone `tofnd` using the `--recursive` flag:
+```
+git clone git@github.com:axelarnetwork/tofnd.git --recursive
+```
+
 `tofnd` uses the [hyperium/tonic](https://github.com/hyperium/tonic) Rust gRPC implementation, which requires:
 * Rust `1.39` or greater for the `async_await` feature
     ```
