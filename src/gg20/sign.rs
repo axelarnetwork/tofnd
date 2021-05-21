@@ -64,8 +64,7 @@ impl Gg20Service {
 
             // make copies to pass to execute sign thread
             let stream_out = stream_out_sender.clone();
-            let all_party_uids = party_info.tofnd.party_uids.clone();
-            let all_share_counts = party_info.tofnd.share_counts.clone();
+            let sign_party_uids = sign_init.participant_uids.clone();
             let participant_tofn_indices: Vec<usize> = get_signer_tofn_indices(
                 &party_info.tofnd.share_counts,
                 &sign_init.participant_indices,
@@ -73,6 +72,24 @@ impl Gg20Service {
             let secret_key_share = get_secret_key_share(&party_info, my_tofnd_subindex)?;
             let message_to_sign = sign_init.message_to_sign.clone();
             let gg20 = self.clone();
+
+            // from keygen we have
+            //  party uids:         [A, B, C, D]
+            //  share counts:       [1, 2, 3, 4]
+            // in sign we receive
+            //  sign uids:          [D, B]
+            // we need to construct an array of share counts that is alligned with sign uids
+            //  sign share counts:  [4, 2]
+            let mut sign_share_counts = vec![];
+            for sign_uid in &sign_party_uids {
+                let keygen_index = party_info
+                    .tofnd
+                    .party_uids
+                    .iter()
+                    .position(|uid| uid == sign_uid)
+                    .ok_or("Signer uid was not found")?;
+                sign_share_counts.push(party_info.tofnd.share_counts[keygen_index]);
+            }
 
             // set up log prefix
             let log_prefix = format!(
@@ -100,8 +117,8 @@ impl Gg20Service {
                             receiver: sign_receiver,
                             sender: stream_out,
                         },
-                        &all_party_uids,
-                        &all_share_counts,
+                        &sign_party_uids,
+                        &sign_share_counts,
                         &participant_tofn_indices,
                         secret_key_share,
                         message_to_sign,
@@ -191,7 +208,6 @@ impl Gg20Service {
             chan,
             &party_uids,
             &party_share_counts,
-            &participant_tofn_indices,
             handle_span,
         )
         .await?;
