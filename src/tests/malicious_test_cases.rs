@@ -6,6 +6,16 @@ use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
 pub(super) fn map_type_to_crime(t: &MaliciousType) -> Vec<Crime> {
     match t {
         Honest => vec![],
+        Staller { msg_type: mt } => vec![Crime::StalledMessage {
+            msg_type: mt.clone(),
+        }],
+        UnauthenticatedSender {
+            victim: v,
+            status: s,
+        } => vec![Crime::SpoofedMessage {
+            victim: *v,
+            status: s.clone(),
+        }],
         R1BadProof { victim: v } => vec![Crime::R3FailBadRangeProof { victim: *v }],
         R2FalseAccusation { victim: v } => vec![Crime::R3FailFalseAccusation { victim: *v }],
         R2BadMta { victim: v } => vec![Crime::R4FailBadRangeProof { victim: *v }],
@@ -18,16 +28,17 @@ pub(super) fn map_type_to_crime(t: &MaliciousType) -> Vec<Crime> {
         R6FalseAccusation { victim: v } => vec![Crime::R7FailFalseAccusation { victim: *v }],
         R6BadProof => vec![Crime::R7BadRangeProof],
         R7BadSigSummand => vec![Crime::R8BadSigSummand],
-        R3BadNonceXBlindSummand => vec![Crime::R7FailRandomizerBadNonceXBlindSummand],
-        R3BadEcdsaNonceSummand => vec![Crime::R7FailRandomizerBadNonceSummand],
-        R1BadSecretBlindSummand => vec![Crime::R7FailRandomizerBadBlindSummand],
+        R3BadNonceXBlindSummand => vec![Crime::R7FailType5BadNonceXBlindSummand],
+        R3BadEcdsaNonceSummand => vec![Crime::R7FailType5BadNonceSummand],
+        R1BadSecretBlindSummand => vec![Crime::R7FailType5BadBlindSummand],
         R3BadMtaBlindSummandRhs { victim: v } => {
-            vec![Crime::R7FailRandomizerMtaBlindSummandRhs { victim: *v }]
+            vec![Crime::R7FailType5MtaBlindSummandRhs { victim: *v }]
         }
         R3BadMtaBlindSummandLhs { victim: v } => {
-            vec![Crime::R7FailRandomizerMtaBlindSummandLhs { victim: *v }]
+            vec![Crime::R7FailType5MtaBlindSummandLhs { victim: *v }]
         }
-        R6FalseFailRandomizer => vec![Crime::R7FailRandomizerFalseComplaint],
+        R6FalseFailRandomizer => vec![Crime::R7FailType5FalseComplaint],
+        R3BadNonceXKeyshareSummand => vec![Crime::R8FailType7BadZkp],
     }
 }
 pub(super) struct Signer {
@@ -143,7 +154,16 @@ pub(super) fn lonely_case() -> Vec<TestCase> {
 
 pub(super) fn generate_basic_cases() -> Vec<TestCase> {
     let mut cases = vec![];
-    for m in MaliciousType::iter() {
+    for m in MaliciousType::iter().filter(|m| {
+        // don't include malicious types that happen on the routing level
+        !matches!(
+            m,
+            UnauthenticatedSender {
+                victim: _,
+                status: _
+            } | Staller { msg_type: _ }
+        )
+    }) {
         cases.push(TestCase::new(
             4,
             vec![1, 2, 1, 3],
