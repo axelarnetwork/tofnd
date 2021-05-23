@@ -155,7 +155,7 @@ pub(super) fn lonely_case() -> Vec<TestCase> {
 pub(super) fn generate_basic_cases() -> Vec<TestCase> {
     let mut cases = vec![];
     for m in MaliciousType::iter().filter(|m| {
-        // don't include malicious types that happen on the routing level
+        // don't include malicious types that happen at the routing level
         !matches!(
             m,
             UnauthenticatedSender {

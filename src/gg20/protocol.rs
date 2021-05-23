@@ -112,7 +112,7 @@ pub(super) async fn execute_protocol(
             }
             let traffic = traffic.unwrap();
 
-            // get the first and last share of sender
+            // get the first and last share idx of sender
             let tofnd_idx = party_uids
                 .iter()
                 .position(|uid| *uid == traffic.from_party_uid)
@@ -121,7 +121,7 @@ pub(super) async fn execute_protocol(
             let first_tofn_idx = map_tofnd_to_tofn_idx(tofnd_idx, 0, party_share_counts);
             let last_tofn_idx = first_tofn_idx + share_count - 1; // range is inclusive, so we have to subtract one
 
-            // set message and declare our share indices
+            // set message and declare sender's share indices
             protocol.set_msg_in(
                 &traffic.payload,
                 &IndexRange {

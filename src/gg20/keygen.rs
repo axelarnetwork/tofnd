@@ -273,7 +273,8 @@ async fn aggregate_messages(
     }
     let keygen_outputs = keygen_outputs.unwrap();
 
-    // TODO: TEMPORARILY ASSUME SUCCESS HERE. WHEN CLIENT CAN RECEIVE CRIMES WE WILL HAVE TO CHANGE THAT
+    // TODO: TEMPORARILY ASSUME SUCCESS HERE. WHEN CLIENT WILL BE ABLE
+    // TO RECEIVE A CRIME VEC FOR KEYGEN WE WILL HAVE TO CHANGE THAT
     // get secret key shares from keygen outputs unconditionally
     let secret_key_shares: Vec<SecretKeyShare> =
         keygen_outputs.into_iter().map(|ko| ko.unwrap()).collect();
