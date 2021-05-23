@@ -70,7 +70,6 @@ pub async fn handle_keygen(
         let stream_out = stream_out_sender.clone();
         let uids = keygen_init.party_uids.clone();
         let shares = keygen_init.party_share_counts.clone();
-        let party_indices: Vec<usize> = (0..shares.iter().sum()).collect();
         let threshold = keygen_init.threshold;
         let my_tofn_index = my_starting_tofn_index + my_tofnd_subindex;
         let span = handle_span.clone();
@@ -85,7 +84,6 @@ pub async fn handle_keygen(
                 },
                 &uids,
                 &shares,
-                &party_indices,
                 threshold,
                 my_tofn_index,
                 span,
@@ -240,7 +238,6 @@ async fn execute_keygen(
     chan: ProtocolCommunication<Option<proto::TrafficIn>, Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
     party_share_counts: &[usize],
-    _party_indices: &[usize],
     threshold: usize,
     my_index: usize,
     keygen_span: Span,
