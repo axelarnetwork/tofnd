@@ -482,6 +482,7 @@ async fn execute_sign(
         sign_join_handles.push((i, handle));
     }
 
+    // send an abort message if protocol is taking too much time
     use std::thread;
     println!("I will send an abort message in 10 seconds");
     thread::spawn(move || {
@@ -490,30 +491,11 @@ async fn execute_sign(
     println!("Continue for now");
 
     let mut results = vec![SignResult::default(); sign_join_handles.len()];
-    let mut blocked_parties = Vec::new();
     for (i, h) in sign_join_handles {
-        // if we expect for a party to return, reclaim its resources and store result
-        // else store its handler and reclaim its resources later (after timeout msg)
-        if expect_results[sign_participant_indices[i]] {
-            let handle = h.await.unwrap();
-            party_options[sign_participant_indices[i]] = Some(handle.0);
-            results[i] = handle.1;
-        } else {
-            println!("Party {} is blocked :(", i);
-            blocked_parties.push((i, h));
-        }
-    }
-
-    // unblock all blocked parties by broadcasting a timeout
-    if !blocked_parties.is_empty() {
-        unblocker.send_timeouts().await;
-    }
-    for (party_index, handle) in blocked_parties {
-        // now we can retrieve previously blocked threads
-        let handle = handle.await.unwrap();
-        party_options[sign_participant_indices[party_index]] = Some(handle.0);
-        results[party_index] = handle.1;
-        println!("Party {} is unblocked :)", party_index);
+        println!("Running party {}", i);
+        let handle = h.await.unwrap();
+        party_options[sign_participant_indices[i]] = Some(handle.0);
+        results[i] = handle.1;
     }
     (
         party_options
