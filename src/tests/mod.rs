@@ -144,8 +144,10 @@ async fn basic_keygen_and_sign() {
         let sign_participant_indices = &test_case.signer_indices;
         let expected_crimes = &test_case.expected_crimes;
 
+        #[cfg(not(feature = "malicious"))]
+        let expect_timeout = false;
         #[cfg(feature = "malicious")]
-        let timeout = &test_case.timeout;
+        let expect_timeout = test_case.timeout.is_some();
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
@@ -158,7 +160,11 @@ async fn basic_keygen_and_sign() {
         #[cfg(not(feature = "malicious"))]
         let init_parties_t = InitParties::new(uid_count);
         #[cfg(feature = "malicious")]
-        let init_parties_t = InitParties::new(uid_count, timeout.clone(), malicious_types.clone());
+        let init_parties_t = InitParties::new(
+            uid_count,
+            test_case.timeout.clone(),
+            malicious_types.clone(),
+        );
 
         let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
@@ -185,6 +191,7 @@ async fn basic_keygen_and_sign() {
             new_key_uid,
             new_sig_uid,
             &MSG_TO_SIGN,
+            expect_timeout,
         )
         .await;
 
@@ -208,8 +215,12 @@ async fn restart_one_party() {
         let sign_participant_indices = &test_case.signer_indices;
         let expected_crimes = &test_case.expected_crimes;
 
+        #[cfg(not(feature = "malicious"))]
+        let expect_timeout = false;
         #[cfg(feature = "malicious")]
-        let timeout = &test_case.timeout;
+        let expect_timeout = test_case.timeout.is_some();
+        #[cfg(feature = "malicious")]
+        let timeout = test_case.timeout.clone();
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
@@ -274,6 +285,7 @@ async fn restart_one_party() {
             new_key_uid,
             new_sig_uid,
             &MSG_TO_SIGN,
+            expect_timeout,
         )
         .await;
 
@@ -405,7 +417,9 @@ async fn execute_sign(
     key_uid: &str,
     new_sig_uid: &str,
     msg_to_sign: &[u8],
+    timeout: bool,
 ) -> (Vec<impl Party>, Vec<proto::message_out::SignResult>) {
+    println!("Expecting timeout: [{}]", timeout);
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
         .map(|&i| party_uids[i].clone())
@@ -442,8 +456,11 @@ async fn execute_sign(
 
     #[cfg(feature = "malicious")]
     {
-        let unblocker = sign_delivery.clone();
-        kick_off_parties(unblocker, 10);
+        // if we are expecting a timeout, abort parties after a reasonable amount of time
+        if timeout {
+            let unblocker = sign_delivery.clone();
+            abort_parties(unblocker, 10);
+        }
     }
 
     let mut results = vec![SignResult::default(); sign_join_handles.len()];
@@ -463,7 +480,7 @@ async fn execute_sign(
 }
 
 #[cfg(feature = "malicious")]
-fn kick_off_parties(mut unblocker: Deliverer, time: u64) {
+fn abort_parties(mut unblocker: Deliverer, time: u64) {
     // send an abort message if protocol is taking too much time
     println!("I will send an abort message in 10 seconds");
     std::thread::spawn(move || {
