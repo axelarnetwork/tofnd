@@ -11,7 +11,7 @@ use futures_util::StreamExt;
 use tokio::sync::mpsc;
 use tonic::Status;
 
-use tracing::{error, info, span, Level, Span};
+use tracing::{error, info, span, warn, Level, Span};
 
 #[allow(dead_code)] // allow dead code because participant_uids is not used
 struct SignInitSanitized {
@@ -203,14 +203,22 @@ impl Gg20Service {
             &message_to_sign,
         )?;
 
-        protocol::execute_protocol(
+        let res = protocol::execute_protocol(
             &mut sign,
             chan,
             &party_uids,
             &party_share_counts,
             handle_span,
         )
-        .await?;
+        .await;
+
+        if let Err(err) = res {
+            warn!("Protocol execution was aborted: {}", err);
+            let criminals = sign.waiting_on();
+            warn!("Party expects more messages from {:?}", criminals);
+            // Return the parties we are waiting on
+            return Ok(Err(criminals));
+        }
 
         Ok(sign.clone_output().ok_or("sign output is `None`")?)
     }
