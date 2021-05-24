@@ -143,12 +143,11 @@ pub(super) fn generate_test_cases() -> Vec<TestCase> {
     let mut test_cases: Vec<TestCase> = Vec::new();
     test_cases.extend(generate_basic_cases());
     test_cases.extend(generate_multiple_malicious_per_round());
-    test_cases.extend(lonely_case());
+    test_cases.extend(timeout_cases());
     test_cases
 }
 
-// have an easily adjustable case for easier debugging
-pub(super) fn lonely_case() -> Vec<TestCase> {
+pub(super) fn timeout_cases() -> Vec<TestCase> {
     let t = MaliciousType::Staller {
         msg_type: tofn::protocol::gg20::sign::MsgType::R1Bcast,
     };
