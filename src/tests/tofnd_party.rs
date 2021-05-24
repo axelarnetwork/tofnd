@@ -199,7 +199,6 @@ impl Party for TofndParty {
             };
         }
 
-
         // return default value for SignResult if socket closed before I received the result
         if result.is_none() {
             println!(
