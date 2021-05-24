@@ -175,11 +175,6 @@ impl Party for TofndParty {
             };
         }
 
-        // if we are not expecting a result, create a dummy result and return it
-        #[cfg(feature = "malicious")]
-        if !self.expect_result {
-            result = Some(SignResult::default());
-        }
 
         // return default value for SignResult if socket closed before I received the result
         if result.is_none() {
