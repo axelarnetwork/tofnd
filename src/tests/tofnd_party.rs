@@ -26,8 +26,10 @@ pub(super) struct TofndParty {
 impl TofndParty {
     #[cfg(feature = "malicious")]
     pub(crate) fn should_timeout(&self, msg_type: &MsgType) -> bool {
-        if self.timeout.is_some() && matches!(msg_type, MsgType::R3Bcast) {
-            return true;
+        if let Some(timeout) = &self.timeout {
+            if msg_type == &timeout.msg_type {
+                return true;
+            }
         }
         false
     }
