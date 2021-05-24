@@ -82,16 +82,11 @@ impl InitParties {
     }
 }
 
-fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>], timeout: Option<usize>) {
+fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
     // get the first non-empty result. We can't simply take results[0] because some behaviours
     // don't return results and we pad them with `None`s
     let first = results.iter().find(|r| r.sign_result_data.is_some());
 
-    // If we created a timeout, check that all response were `None`
-    if timeout.is_some() {
-        assert!(first.is_none());
-        return;
-    }
 
     // else we have at least one result
     let first = first.unwrap();
@@ -217,7 +212,7 @@ async fn basic_keygen_and_sign() {
         delete_dbs(&parties);
         shutdown_parties(parties).await;
 
-        check_results(results, &expected_crimes, timeout);
+        check_results(results, &expected_crimes);
     }
 }
 
@@ -326,7 +321,7 @@ async fn restart_one_party() {
         delete_dbs(&parties);
         shutdown_parties(parties).await;
 
-        check_results(results, &expected_crimes, timeout);
+        check_results(results, &expected_crimes);
     }
 }
 
