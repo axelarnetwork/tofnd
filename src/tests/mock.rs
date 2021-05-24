@@ -68,6 +68,7 @@ impl Deliverer {
             }
         }
     }
+    #[cfg(feature = "malicious")]
     pub fn send_timeouts(&mut self, secs: u64) {
         let abort = proto::message_in::Data::Abort(false);
         let msg_in = proto::MessageIn { data: Some(abort) };

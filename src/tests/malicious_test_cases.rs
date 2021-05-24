@@ -1,6 +1,6 @@
 use strum::IntoEnumIterator;
-use tofn::protocol::gg20::sign::crimes::Crime;
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
+use tofn::protocol::gg20::sign::{crimes::Crime, MsgType};
 
 // TODO import that from tofn
 pub(super) fn map_type_to_crime(t: &MaliciousType) -> Vec<Crime> {
@@ -68,7 +68,13 @@ pub(super) struct TestCase {
     pub(super) signer_indices: Vec<usize>,
     pub(super) malicious_types: Vec<MaliciousType>,
     pub(super) expected_crimes: Vec<Vec<Crime>>,
-    pub(super) timeout: Option<usize>,
+    pub(super) timeout: Option<Timeout>,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct Timeout {
+    pub(super) index: usize,
+    pub(super) msg_type: MsgType,
 }
 
 impl TestCase {
@@ -111,6 +117,16 @@ impl TestCase {
             }
         }
 
+        let mut timeout: Option<Timeout> = None;
+        for (i, t) in malicious_types.iter().enumerate() {
+            if let Staller { msg_type } = t {
+                timeout = Some(Timeout {
+                    index: i,
+                    msg_type: msg_type.clone(),
+                });
+            }
+        }
+
         TestCase {
             uid_count,
             share_counts,
@@ -118,13 +134,8 @@ impl TestCase {
             signer_indices,
             malicious_types,
             expected_crimes,
-            timeout: None,
+            timeout,
         }
-    }
-
-    pub(super) fn with_timeout(mut self, index: usize) -> Self {
-        self.timeout = Some(index);
-        self
     }
 }
 
@@ -138,18 +149,20 @@ pub(super) fn generate_test_cases() -> Vec<TestCase> {
 
 // have an easily adjustable case for easier debugging
 pub(super) fn lonely_case() -> Vec<TestCase> {
+    let t = MaliciousType::Staller {
+        msg_type: tofn::protocol::gg20::sign::MsgType::R1Bcast,
+    };
     vec![TestCase::new(
         4,
         vec![1, 1, 1, 1],
         3,
         vec![
-            Signer::new(0, Honest, vec![]),
+            Signer::new(0, t.clone(), map_type_to_crime(&t)),
             Signer::new(1, Honest, vec![]),
             Signer::new(2, Honest, vec![]),
             Signer::new(3, Honest, vec![]),
         ],
-    )
-    .with_timeout(0)]
+    )]
 }
 
 pub(super) fn generate_basic_cases() -> Vec<TestCase> {
