@@ -487,6 +487,13 @@ async fn execute_sign(
         sign_join_handles.push((i, handle));
     }
 
+    use std::thread;
+    println!("I will send an abort message in 10 seconds");
+    thread::spawn(move || {
+        unblocker.send_timeouts(10);
+    });
+    println!("Continue for now");
+
     let mut results = vec![SignResult::default(); sign_join_handles.len()];
     let mut blocked_parties = Vec::new();
     for (i, h) in sign_join_handles {
