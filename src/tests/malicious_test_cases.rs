@@ -148,20 +148,41 @@ pub(super) fn generate_test_cases() -> Vec<TestCase> {
 }
 
 pub(super) fn timeout_cases() -> Vec<TestCase> {
-    let t = MaliciousType::Staller {
-        msg_type: tofn::protocol::gg20::sign::MsgType::R1Bcast,
-    };
-    vec![TestCase::new(
-        4,
-        vec![1, 1, 1, 1],
-        3,
-        vec![
-            Signer::new(0, t.clone(), map_type_to_crime(&t)),
-            Signer::new(1, Honest, vec![]),
-            Signer::new(2, Honest, vec![]),
-            Signer::new(3, Honest, vec![]),
-        ],
-    )]
+    use MsgType::*;
+    let stallers = MsgType::iter()
+        .filter(|msg_type| {
+            matches!(
+                msg_type,
+                R1Bcast
+                    | R1P2p { to: _ }
+                    | R2P2p { to: _ }
+                    | R3Bcast
+                    | R4Bcast
+                    | R5Bcast
+                    | R5P2p { to: _ }
+                    | R6Bcast
+                    | R7Bcast
+            )
+        }) // don't match fail types
+        .map(|msg_type| Staller { msg_type })
+        .collect::<Vec<MaliciousType>>();
+
+    // staller always targets party 0
+    stallers
+        .iter()
+        .map(|staller| {
+            TestCase::new(
+                4,
+                vec![1, 1, 1, 1],
+                2,
+                vec![
+                    Signer::new(0, Honest, vec![]),
+                    Signer::new(1, staller.clone(), map_type_to_crime(&staller)),
+                    Signer::new(2, Honest, vec![]),
+                ],
+            )
+        })
+        .collect()
 }
 
 pub(super) fn generate_basic_cases() -> Vec<TestCase> {
