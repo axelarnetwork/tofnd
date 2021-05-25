@@ -53,11 +53,9 @@ impl TofndParty {
 
         let msg_type = &msg_meta.msg_type;
 
-        if self.spoof.is_none() {
-            return None;
-        }
-        let spoof = self.spoof.clone().unwrap();
-        if Spoof::to_status(msg_type) != spoof.status {
+        // if I an not a spoofer, return none. I dislike that I have to clone this
+        let spoof = self.spoof.clone()?;
+        if Spoof::msg_to_status(msg_type) != spoof.status {
             return None;
         }
 
@@ -71,7 +69,7 @@ impl TofndParty {
         let spoofed_payload = bincode::serialize(&msg_meta).unwrap();
         spoofed_traffic.payload = spoofed_payload;
 
-        Some(spoofed_traffic.clone())
+        Some(spoofed_traffic)
     }
 
     pub(super) async fn new(init_party: InitParty, testdir: &Path) -> Self {

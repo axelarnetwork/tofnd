@@ -92,7 +92,7 @@ pub(super) struct TestCase {
 }
 
 impl Spoof {
-    pub(super) fn to_status(msg_type: &MsgType) -> Status {
+    pub(super) fn msg_to_status(msg_type: &MsgType) -> Status {
         match msg_type {
             MsgType::R1Bcast => Status::R1,
             MsgType::R1P2p { to: _ } => Status::R1,
@@ -167,7 +167,7 @@ impl TestCase {
             if let UnauthenticatedSender { victim, status } = t {
                 spoof = Some(Spoof {
                     index: i,
-                    victim: victim.clone(),
+                    victim: *victim,
                     status: status.clone(),
                 });
             }
@@ -238,11 +238,10 @@ pub(super) fn spoof_cases() -> Vec<TestCase> {
     let victim = 0;
     let spoofers = Status::iter()
         .filter(|status| matches!(status, R1 | R2 | R3 | R4 | R5 | R6 | R7)) // don't match fail types
-        // .filter(|status| matches!(status, R4 | R5 | R6)) // don't match fail types
         .map(|status| UnauthenticatedSender { victim, status })
         .collect::<Vec<MaliciousType>>();
 
-    // staller always targets party 0
+    // spoofer always targets party 0
     spoofers
         .iter()
         .map(|spoofer| {
