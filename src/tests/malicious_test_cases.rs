@@ -188,9 +188,9 @@ impl TestCase {
 
 pub(super) fn generate_test_cases() -> Vec<TestCase> {
     let mut test_cases: Vec<TestCase> = Vec::new();
-    // test_cases.extend(generate_basic_cases());
-    // test_cases.extend(generate_multiple_malicious_per_round());
-    // test_cases.extend(timeout_cases());
+    test_cases.extend(generate_basic_cases());
+    test_cases.extend(generate_multiple_malicious_per_round());
+    test_cases.extend(timeout_cases());
     test_cases.extend(spoof_cases());
     test_cases
 }
