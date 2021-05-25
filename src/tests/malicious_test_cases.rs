@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
 use tofn::protocol::gg20::sign::{crimes::Crime, MsgType, Status};
@@ -61,6 +62,12 @@ impl Signer {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub(super) struct MsgMeta {
+    pub(super) msg_type: MsgType,
+    pub(super) from: usize,
+    pub(super) payload: Vec<u8>,
+}
 
 #[derive(Clone, Debug)]
 pub(super) struct Timeout {
@@ -81,6 +88,7 @@ pub(super) struct TestCase {
     pub(super) malicious_types: Vec<MaliciousType>,
     pub(super) expected_crimes: Vec<Vec<Crime>>,
     pub(super) timeout: Option<Timeout>,
+    pub(super) spoof: Option<Spoof>,
 }
 
 impl Spoof {
@@ -180,9 +188,10 @@ impl TestCase {
 
 pub(super) fn generate_test_cases() -> Vec<TestCase> {
     let mut test_cases: Vec<TestCase> = Vec::new();
-    test_cases.extend(generate_basic_cases());
-    test_cases.extend(generate_multiple_malicious_per_round());
-    test_cases.extend(timeout_cases());
+    // test_cases.extend(generate_basic_cases());
+    // test_cases.extend(generate_multiple_malicious_per_round());
+    // test_cases.extend(timeout_cases());
+    test_cases.extend(spoof_cases());
     test_cases
 }
 
@@ -218,6 +227,35 @@ pub(super) fn timeout_cases() -> Vec<TestCase> {
                     Signer::new(0, Honest, vec![]),
                     Signer::new(1, staller.clone(), map_type_to_crime(&staller)),
                     Signer::new(2, Honest, vec![]),
+                ],
+            )
+        })
+        .collect()
+}
+
+pub(super) fn spoof_cases() -> Vec<TestCase> {
+    use Status::*;
+    let victim = 0;
+    let spoofers = Status::iter()
+        .filter(|status| matches!(status, R1 | R2 | R3 | R4 | R5 | R6 | R7)) // don't match fail types
+        // .filter(|status| matches!(status, R4 | R5 | R6)) // don't match fail types
+        .map(|status| UnauthenticatedSender { victim, status })
+        .collect::<Vec<MaliciousType>>();
+
+    // staller always targets party 0
+    spoofers
+        .iter()
+        .map(|spoofer| {
+            TestCase::new(
+                5,
+                vec![1, 1, 1, 1, 1],
+                3,
+                vec![
+                    Signer::new(0, Honest, vec![]),
+                    Signer::new(1, spoofer.clone(), map_type_to_crime(&spoofer)),
+                    Signer::new(2, Honest, vec![]),
+                    Signer::new(3, Honest, vec![]),
+                    Signer::new(4, Honest, vec![]),
                 ],
             )
         })

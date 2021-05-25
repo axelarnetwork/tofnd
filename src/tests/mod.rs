@@ -59,6 +59,8 @@ struct InitParties {
     #[cfg(feature = "malicious")]
     timeout: Option<Timeout>,
     #[cfg(feature = "malicious")]
+    spoof: Option<Spoof>,
+    #[cfg(feature = "malicious")]
     malicious_types: Vec<MaliciousType>,
 }
 
@@ -71,11 +73,13 @@ impl InitParties {
     fn new(
         party_count: usize,
         timeout: Option<Timeout>,
+        spoof: Option<Spoof>,
         malicious_types: Vec<MaliciousType>,
     ) -> InitParties {
         InitParties {
             party_count,
             timeout,
+            spoof,
             malicious_types,
         }
     }
@@ -148,7 +152,7 @@ async fn basic_keygen_and_sign() {
         #[cfg(not(feature = "malicious"))]
         let expect_timeout = false;
         #[cfg(feature = "malicious")]
-        let expect_timeout = test_case.timeout.is_some();
+        let expect_timeout = test_case.timeout.is_some() || test_case.spoof.is_some();
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
@@ -164,6 +168,7 @@ async fn basic_keygen_and_sign() {
         let init_parties_t = InitParties::new(
             uid_count,
             test_case.timeout.clone(),
+            test_case.spoof.clone(),
             malicious_types.clone(),
         );
 
@@ -219,9 +224,11 @@ async fn restart_one_party() {
         #[cfg(not(feature = "malicious"))]
         let expect_timeout = false;
         #[cfg(feature = "malicious")]
-        let expect_timeout = test_case.timeout.is_some();
+        let expect_timeout = test_case.timeout.is_some() || test_case.spoof.is_some();
         #[cfg(feature = "malicious")]
         let timeout = test_case.timeout.clone();
+        #[cfg(feature = "malicious")]
+        let spoof = test_case.spoof.clone();
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
@@ -234,7 +241,12 @@ async fn restart_one_party() {
         #[cfg(not(feature = "malicious"))]
         let init_parties_t = InitParties::new(uid_count);
         #[cfg(feature = "malicious")]
-        let init_parties_t = InitParties::new(uid_count, timeout.clone(), malicious_types.clone());
+        let init_parties_t = InitParties::new(
+            uid_count,
+            timeout.clone(),
+            spoof.clone(),
+            malicious_types.clone(),
+        );
 
         let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
@@ -268,6 +280,7 @@ async fn restart_one_party() {
         let init_party = InitParty::new(
             shutdown_index,
             timeout,
+            spoof,
             malicious_types.get(shutdown_index).unwrap().clone(),
         );
 
@@ -304,6 +317,8 @@ struct InitParty {
     #[cfg(feature = "malicious")]
     timeout: Option<Timeout>,
     #[cfg(feature = "malicious")]
+    spoof: Option<Spoof>,
+    #[cfg(feature = "malicious")]
     malicious_type: MaliciousType,
 }
 
@@ -317,6 +332,7 @@ impl InitParty {
     fn new(
         party_index: usize,
         timeout: Option<Timeout>,
+        spoof: Option<Spoof>,
         malicious_type: MaliciousType,
     ) -> InitParty {
         let mut my_timeout = None;
@@ -325,9 +341,18 @@ impl InitParty {
                 my_timeout = Some(timeout);
             }
         }
+
+        let mut my_spoof = None;
+        if let Some(spoof) = spoof {
+            if spoof.index == party_index {
+                my_spoof = Some(spoof);
+            }
+        }
+
         InitParty {
             party_index,
             timeout: my_timeout,
+            spoof: my_spoof,
             malicious_type,
         }
     }
@@ -348,6 +373,7 @@ async fn init_parties(
         let init_party = InitParty::new(
             i,
             init_parties.timeout.clone(),
+            init_parties.spoof.clone(),
             init_parties.malicious_types.get(i).unwrap().clone(),
         );
         parties.push(TofndParty::new(init_party, testdir).await);
