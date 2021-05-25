@@ -1,6 +1,6 @@
 use tofn::protocol::gg20::keygen::ECPoint;
 use tofn::protocol::gg20::keygen::{
-    validate_params, CommonInfo, Keygen, SecretKeyShare, ShareInfo,
+    validate_params, CommonInfo, Keygen, KeygenOutput, SecretKeyShare, ShareInfo,
 };
 
 use protocol::map_tofnd_to_tofn_idx;
@@ -70,7 +70,6 @@ pub async fn handle_keygen(
         let stream_out = stream_out_sender.clone();
         let uids = keygen_init.party_uids.clone();
         let shares = keygen_init.party_share_counts.clone();
-        let party_indices: Vec<usize> = (0..shares.iter().sum()).collect();
         let threshold = keygen_init.threshold;
         let my_tofn_index = my_starting_tofn_index + my_tofnd_subindex;
         let span = handle_span.clone();
@@ -85,7 +84,6 @@ pub async fn handle_keygen(
                 },
                 &uids,
                 &shares,
-                &party_indices,
                 threshold,
                 my_tofn_index,
                 span,
@@ -240,50 +238,46 @@ async fn execute_keygen(
     chan: ProtocolCommunication<Option<proto::TrafficIn>, Result<proto::MessageOut, tonic::Status>>,
     party_uids: &[String],
     party_share_counts: &[usize],
-    party_indices: &[usize],
     threshold: usize,
     my_index: usize,
     keygen_span: Span,
-) -> Result<SecretKeyShare, TofndError> {
+) -> Result<KeygenOutput, TofndError> {
     let mut keygen = Keygen::new(party_share_counts.iter().sum(), threshold, my_index)?;
-    let secret_key_share = protocol::execute_protocol(
+    protocol::execute_protocol(
         &mut keygen,
         chan,
         &party_uids,
         &party_share_counts,
-        &party_indices,
         keygen_span,
     )
-    .await
-    .and_then(|_| {
-        keygen
-            .get_result()
-            .ok_or_else(|| From::from("keygen output is `None`"))
-    });
+    .await?;
 
-    if let Err(e) = secret_key_share {
-        return Err(e);
-    }
-    return Ok(secret_key_share.unwrap().clone());
+    Ok(keygen.clone_output().ok_or("keygen output is `None`")?)
 }
 
 // aggregate messages from all keygen workers, create a single record and insert it in the KVStore
 async fn aggregate_messages(
-    aggregator_receivers: Vec<oneshot::Receiver<Result<SecretKeyShare, TofndError>>>,
+    aggregator_receivers: Vec<oneshot::Receiver<Result<KeygenOutput, TofndError>>>,
     stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     kv: &mut Kv<PartyInfo>,
     key_uid_reservation: KeyReservation,
     keygen_init: KeygenInitSanitized,
 ) -> Result<(), TofndError> {
     //  wait all keygen threads and aggregate secret key shares
-    let secret_key_shares = aggregate_secret_key_shares(aggregator_receivers).await;
-    if secret_key_shares.is_err() {
+    let keygen_outputs = aggregate_keygen_outputs(aggregator_receivers).await;
+    if keygen_outputs.is_err() {
         kv.unreserve_key(key_uid_reservation).await;
         return Err(From::from(
-            "Error at Keygen secret key aggregation. Unreserving key",
+            "Error at Keygen output aggregation. Unreserving key",
         ));
     }
-    let secret_key_shares = secret_key_shares.unwrap();
+    let keygen_outputs = keygen_outputs.unwrap();
+
+    // TODO: TEMPORARILY ASSUME SUCCESS HERE. WHEN CLIENT WILL BE ABLE
+    // TO RECEIVE A CRIME VEC FOR KEYGEN WE WILL HAVE TO CHANGE THAT
+    // get secret key shares from keygen outputs unconditionally
+    let secret_key_shares: Vec<SecretKeyShare> =
+        keygen_outputs.into_iter().map(|ko| ko.unwrap()).collect();
 
     // get public key and put all secret key shares inside kv store
     let secret_key_share = secret_key_shares[0].clone();
@@ -308,15 +302,16 @@ async fn aggregate_messages(
 
 // TODO: This is essentially a waiting group. Since what we are doing is trivial
 // for now, we can keep as such but consider using a library in the future.
-async fn aggregate_secret_key_shares(
-    aggregator_receivers: Vec<Receiver<Result<SecretKeyShare, TofndError>>>,
-) -> Result<Vec<SecretKeyShare>, TofndError> {
-    let mut secret_key_shares = Vec::with_capacity(aggregator_receivers.len());
+async fn aggregate_keygen_outputs(
+    aggregator_receivers: Vec<Receiver<Result<KeygenOutput, TofndError>>>,
+) -> Result<Vec<KeygenOutput>, TofndError> {
+    //  wait all keygen threads and get keygen output
+    let mut keygen_outputs = Vec::with_capacity(aggregator_receivers.len());
     for aggregator in aggregator_receivers {
         let res = aggregator.await??;
-        secret_key_shares.push(res);
+        keygen_outputs.push(res);
     }
-    Ok(secret_key_shares)
+    Ok(keygen_outputs)
 }
 
 // TODO: Use CommonInfo and ShareInfo instead of SecretKeyShare in tofn.

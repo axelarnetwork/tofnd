@@ -1,5 +1,5 @@
 //! Abstract functionality used by keygen, sign, etc.
-use tofn::protocol::Protocol;
+use tofn::protocol::{IndexRange, Protocol};
 
 use super::{proto, ProtocolCommunication};
 use crate::TofndError;
@@ -44,7 +44,6 @@ pub(super) async fn execute_protocol(
     >,
     party_uids: &[String],
     party_share_counts: &[usize],
-    party_indices: &[usize],
     span: Span,
 ) -> Result<(), TofndError> {
     let mut round = 0;
@@ -92,8 +91,7 @@ pub(super) async fn execute_protocol(
         if let Some(p2ps) = p2ps {
             for (i, p2p) in p2ps.iter().enumerate() {
                 if let Some(p2p) = p2p {
-                    let (tofnd_idx, _) =
-                        map_tofn_to_tofnd_idx(party_indices[i], party_share_counts)?;
+                    let (tofnd_idx, _) = map_tofn_to_tofnd_idx(i, party_share_counts)?;
                     protocol_info!("out p2p to [{}]", party_uids[tofnd_idx]);
                     chan.sender
                         .send(Ok(proto::MessageOut::new_p2p(&party_uids[tofnd_idx], &p2p)))?;
@@ -113,7 +111,24 @@ pub(super) async fn execute_protocol(
                 continue;
             }
             let traffic = traffic.unwrap();
-            protocol.set_msg_in(&traffic.payload)?;
+
+            // get the first and last share idx of sender
+            let tofnd_idx = party_uids
+                .iter()
+                .position(|uid| *uid == traffic.from_party_uid)
+                .unwrap();
+            let share_count = party_share_counts[tofnd_idx];
+            let first_tofn_idx = map_tofnd_to_tofn_idx(tofnd_idx, 0, party_share_counts);
+            let last_tofn_idx = first_tofn_idx + share_count - 1; // range is inclusive, so we have to subtract one
+
+            // set message and declare sender's share indices
+            protocol.set_msg_in(
+                &traffic.payload,
+                &IndexRange {
+                    first: first_tofn_idx,
+                    last: last_tofn_idx,
+                },
+            )?;
         }
         protocol_info!("got all incoming messages");
         protocol_info!("end");
