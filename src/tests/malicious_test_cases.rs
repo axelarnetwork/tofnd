@@ -1,6 +1,6 @@
 use strum::IntoEnumIterator;
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
-use tofn::protocol::gg20::sign::{crimes::Crime, MsgType};
+use tofn::protocol::gg20::sign::{crimes::Crime, MsgType, Status};
 
 // TODO import that from tofn
 pub(super) fn map_type_to_crime(t: &MaliciousType) -> Vec<Crime> {
@@ -61,6 +61,18 @@ impl Signer {
     }
 }
 
+
+#[derive(Clone, Debug)]
+pub(super) struct Timeout {
+    pub(super) index: usize,
+    pub(super) msg_type: MsgType,
+}
+#[derive(Clone, Debug)]
+pub(super) struct Spoof {
+    pub(super) index: usize,
+    pub(super) victim: usize,
+    pub(super) status: Status,
+}
 pub(super) struct TestCase {
     pub(super) uid_count: usize,
     pub(super) share_counts: Vec<u32>,
@@ -71,10 +83,25 @@ pub(super) struct TestCase {
     pub(super) timeout: Option<Timeout>,
 }
 
-#[derive(Clone, Debug)]
-pub(super) struct Timeout {
-    pub(super) index: usize,
-    pub(super) msg_type: MsgType,
+impl Spoof {
+    pub(super) fn to_status(msg_type: &MsgType) -> Status {
+        match msg_type {
+            MsgType::R1Bcast => Status::R1,
+            MsgType::R1P2p { to: _ } => Status::R1,
+            MsgType::R2P2p { to: _ } => Status::R2,
+            MsgType::R2FailBcast => Status::R2,
+            MsgType::R3Bcast => Status::R3,
+            MsgType::R3FailBcast => Status::R3,
+            MsgType::R4Bcast => Status::R4,
+            MsgType::R5Bcast => Status::R5,
+            MsgType::R5P2p { to: _ } => Status::R5,
+            MsgType::R6Bcast => Status::R6,
+            MsgType::R6FailBcast => Status::R6,
+            MsgType::R6FailType5Bcast => Status::R6,
+            MsgType::R7Bcast => Status::R7,
+            MsgType::R7FailType7Bcast => Status::R7,
+        }
+    }
 }
 
 impl TestCase {
@@ -127,6 +154,17 @@ impl TestCase {
             }
         }
 
+        let mut spoof: Option<Spoof> = None;
+        for (i, t) in malicious_types.iter().enumerate() {
+            if let UnauthenticatedSender { victim, status } = t {
+                spoof = Some(Spoof {
+                    index: i,
+                    victim: victim.clone(),
+                    status: status.clone(),
+                });
+            }
+        }
+
         TestCase {
             uid_count,
             share_counts,
@@ -135,6 +173,7 @@ impl TestCase {
             malicious_types,
             expected_crimes,
             timeout,
+            spoof,
         }
     }
 }

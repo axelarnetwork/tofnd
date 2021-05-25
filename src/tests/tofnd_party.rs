@@ -21,6 +21,8 @@ pub(super) struct TofndParty {
     server_port: u16,
     #[cfg(feature = "malicious")]
     pub(crate) timeout: Option<Timeout>,
+    #[cfg(feature = "malicious")]
+    pub(crate) spoof: Option<Spoof>,
 }
 
 impl TofndParty {
@@ -32,6 +34,37 @@ impl TofndParty {
             }
         }
         false
+    }
+
+    #[cfg(feature = "malicious")]
+    pub(crate) fn spoof(&mut self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
+        let payload = traffic.clone().payload;
+        let mut msg_meta: MsgMeta = bincode::deserialize(&payload).unwrap();
+
+        // this also works!!!
+        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
+
+        let msg_type = &msg_meta.msg_type;
+
+        if self.spoof.is_none() {
+            return None;
+        }
+        let spoof = self.spoof.clone().unwrap();
+        if Spoof::to_status(msg_type) != spoof.status {
+            return None;
+        }
+
+        println!(
+            "I am spoofing message {:?}. Changing from [{}] -> [{}]",
+            msg_type, msg_meta.from, spoof.victim
+        );
+
+        msg_meta.from = spoof.victim;
+        let mut spoofed_traffic = traffic.clone();
+        let spoofed_payload = bincode::serialize(&msg_meta).unwrap();
+        spoofed_traffic.payload = spoofed_payload;
+
+        Some(spoofed_traffic.clone())
     }
 
     pub(super) async fn new(init_party: InitParty, testdir: &Path) -> Self {
@@ -87,6 +120,8 @@ impl TofndParty {
             server_port,
             #[cfg(feature = "malicious")]
             timeout: init_party.timeout,
+            #[cfg(feature = "malicious")]
+            spoof: init_party.spoof,
         }
     }
 }
