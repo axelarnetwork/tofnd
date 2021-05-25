@@ -220,6 +220,12 @@ impl Party for TofndParty {
                         println!("I am stalling message {:?}", msg_type);
                     } else {
                         delivery.deliver(&msg, &my_uid).await;
+                        // if I am a spoofer, create a duplicate message and spoof it
+                        if let Some(traffic) = self.spoof(&traffic) {
+                            let mut spoofed_msg = msg.clone();
+                            spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
+                            delivery.deliver(&spoofed_msg, &my_uid).await;
+                        }
                     }
                 }
                 proto::message_out::Data::SignResult(res) => {
