@@ -40,6 +40,7 @@ use std::path::Path;
 use testdir::testdir;
 
 // enable logs in tests
+use tracing::info;
 use tracing_test::traced_test;
 
 #[cfg(feature = "malicious")]
@@ -482,7 +483,7 @@ async fn execute_sign(
 #[cfg(feature = "malicious")]
 fn abort_parties(mut unblocker: Deliverer, time: u64) {
     // send an abort message if protocol is taking too much time
-    println!("I will send an abort message in 10 seconds");
+    info!("I will send an abort message in {} seconds", time);
     std::thread::spawn(move || {
         unblocker.send_timeouts(time);
     });
