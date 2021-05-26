@@ -68,9 +68,14 @@ impl Deliverer {
             }
         }
     }
-    pub async fn send_timeouts(&mut self) {
+    #[cfg(feature = "malicious")]
+    pub fn send_timeouts(&mut self, secs: u64) {
         let abort = proto::message_in::Data::Abort(false);
         let msg_in = proto::MessageIn { data: Some(abort) };
+
+        // allow honest parties to exchange messages for this round
+        let t = std::time::Duration::from_secs(secs);
+        std::thread::sleep(t);
 
         // deliver to all parties
         for (_, sender) in self.senders.iter_mut() {

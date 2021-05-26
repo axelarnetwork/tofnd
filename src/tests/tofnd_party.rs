@@ -6,6 +6,11 @@ use std::path::Path;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
+#[cfg(feature = "malicious")]
+use crate::tests::malicious_test_cases::Timeout;
+#[cfg(feature = "malicious")]
+use tofn::protocol::gg20::sign::MsgType;
+
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
 pub(super) struct TofndParty {
@@ -14,12 +19,22 @@ pub(super) struct TofndParty {
     server_handle: JoinHandle<()>,
     server_shutdown_sender: oneshot::Sender<()>,
     server_port: u16,
-    pub expect_result: bool,
-    timeout: bool,
+    #[cfg(feature = "malicious")]
+    pub(crate) timeout: Option<Timeout>,
 }
 
 impl TofndParty {
-    pub(super) async fn new(init_party: InitParty, testdir: &Path, expect_result: bool) -> Self {
+    #[cfg(feature = "malicious")]
+    pub(crate) fn should_timeout(&self, msg_type: &MsgType) -> bool {
+        if let Some(timeout) = &self.timeout {
+            if msg_type == &timeout.msg_type {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub(super) async fn new(init_party: InitParty, testdir: &Path) -> Self {
         let db_name = format!("test-key-{:02}", init_party.party_index);
         let db_path = testdir.join(db_name);
         let db_path = db_path.to_str().unwrap();
@@ -70,7 +85,7 @@ impl TofndParty {
             server_handle,
             server_shutdown_sender,
             server_port,
-            expect_result,
+            #[cfg(feature = "malicious")]
             timeout: init_party.timeout,
         }
     }
@@ -149,19 +164,28 @@ impl Party for TofndParty {
 
         // use Option of SignResult to avoid giving a default value to SignResult
         let mut result: Option<SignResult> = None;
-        let mut msg_count: usize = 0;
         while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
-            // check if I want to send abort message. This is for timeout tests
-            msg_count += 1;
-            if self.timeout && msg_count == 5 {
-                delivery.send_timeouts().await;
-            }
-
             match msg_type {
+                // in honest case, we always send the message
+                #[cfg(not(feature = "malicious"))]
                 proto::message_out::Data::Traffic(_) => {
                     delivery.deliver(&msg, &my_uid).await;
+                }
+                // in malicous case, if we are stallers we skip the message
+                #[cfg(feature = "malicious")]
+                proto::message_out::Data::Traffic(traffic) => {
+                    // read message
+                    let payload = traffic.clone().payload;
+                    let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
+
+                    // check if I want to send abort message. This is for timeout tests
+                    if self.should_timeout(&msg_type) {
+                        println!("I am stalling message {:?}", msg_type);
+                    } else {
+                        delivery.deliver(&msg, &my_uid).await;
+                    }
                 }
                 proto::message_out::Data::SignResult(res) => {
                     result = Some(res.clone());
@@ -173,12 +197,6 @@ impl Party for TofndParty {
                     my_display_name
                 ),
             };
-        }
-
-        // if we are not expecting a result, create a dummy result and return it
-        #[cfg(feature = "malicious")]
-        if !self.expect_result {
-            result = Some(SignResult::default());
         }
 
         // return default value for SignResult if socket closed before I received the result

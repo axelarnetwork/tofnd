@@ -1,6 +1,6 @@
 use strum::IntoEnumIterator;
-use tofn::protocol::gg20::sign::crimes::Crime;
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
+use tofn::protocol::gg20::sign::{crimes::Crime, MsgType};
 
 // TODO import that from tofn
 pub(super) fn map_type_to_crime(t: &MaliciousType) -> Vec<Crime> {
@@ -68,7 +68,13 @@ pub(super) struct TestCase {
     pub(super) signer_indices: Vec<usize>,
     pub(super) malicious_types: Vec<MaliciousType>,
     pub(super) expected_crimes: Vec<Vec<Crime>>,
-    pub(super) timeout: Option<usize>,
+    pub(super) timeout: Option<Timeout>,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct Timeout {
+    pub(super) index: usize,
+    pub(super) msg_type: MsgType,
 }
 
 impl TestCase {
@@ -111,6 +117,16 @@ impl TestCase {
             }
         }
 
+        let mut timeout: Option<Timeout> = None;
+        for (i, t) in malicious_types.iter().enumerate() {
+            if let Staller { msg_type } = t {
+                timeout = Some(Timeout {
+                    index: i,
+                    msg_type: msg_type.clone(),
+                });
+            }
+        }
+
         TestCase {
             uid_count,
             share_counts,
@@ -118,13 +134,8 @@ impl TestCase {
             signer_indices,
             malicious_types,
             expected_crimes,
-            timeout: None,
+            timeout,
         }
-    }
-
-    pub(super) fn with_timeout(mut self, index: usize) -> Self {
-        self.timeout = Some(index);
-        self
     }
 }
 
@@ -132,24 +143,46 @@ pub(super) fn generate_test_cases() -> Vec<TestCase> {
     let mut test_cases: Vec<TestCase> = Vec::new();
     test_cases.extend(generate_basic_cases());
     test_cases.extend(generate_multiple_malicious_per_round());
-    test_cases.extend(lonely_case());
+    test_cases.extend(timeout_cases());
     test_cases
 }
 
-// have an easily adjustable case for easier debugging
-pub(super) fn lonely_case() -> Vec<TestCase> {
-    vec![TestCase::new(
-        4,
-        vec![1, 1, 1, 1],
-        3,
-        vec![
-            Signer::new(0, Honest, vec![]),
-            Signer::new(1, Honest, vec![]),
-            Signer::new(2, Honest, vec![]),
-            Signer::new(3, Honest, vec![]),
-        ],
-    )
-    .with_timeout(0)]
+pub(super) fn timeout_cases() -> Vec<TestCase> {
+    use MsgType::*;
+    let stallers = MsgType::iter()
+        .filter(|msg_type| {
+            matches!(
+                msg_type,
+                R1Bcast
+                    | R1P2p { to: _ }
+                    | R2P2p { to: _ }
+                    | R3Bcast
+                    | R4Bcast
+                    | R5Bcast
+                    | R5P2p { to: _ }
+                    | R6Bcast
+                    | R7Bcast
+            )
+        }) // don't match fail types
+        .map(|msg_type| Staller { msg_type })
+        .collect::<Vec<MaliciousType>>();
+
+    // staller always targets party 0
+    stallers
+        .iter()
+        .map(|staller| {
+            TestCase::new(
+                4,
+                vec![1, 1, 1, 1],
+                2,
+                vec![
+                    Signer::new(0, Honest, vec![]),
+                    Signer::new(1, staller.clone(), map_type_to_crime(&staller)),
+                    Signer::new(2, Honest, vec![]),
+                ],
+            )
+        })
+        .collect()
 }
 
 pub(super) fn generate_basic_cases() -> Vec<TestCase> {
@@ -191,16 +224,13 @@ pub(super) fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
             R3FalseAccusationMta { victim },
             R3FalseAccusationMtaWc { victim },
         ],
-        // round 3 faults
-        vec![R3BadProof],
-        // round 4 faults
-        vec![R4BadReveal],
         // round 5 faults
         vec![R5BadProof { victim }, R6FalseAccusation { victim }],
-        // round 6 faults
-        vec![R6BadProof],
         // round 7 faults
         vec![R7BadSigSummand],
+        // vec![R3BadProof], // exclude round 3 faults because they stall
+        // vec![R4BadReveal], // exclude round 4 faults because they stall
+        // vec![R6BadProof], // exclude round 6 faults because they stall
     ];
     // create test cases for all rounds
     let mut cases = Vec::new();

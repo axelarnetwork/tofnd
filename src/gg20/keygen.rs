@@ -19,7 +19,7 @@ use tokio::sync::{mpsc, oneshot::Receiver};
 
 use futures_util::StreamExt;
 
-use tracing::{error, info, span, Level, Span};
+use tracing::{error, info, span, warn, Level, Span};
 
 // we wrap the functionality of keygen gRPC here because we can't handle errors
 // conveniently when spawning theads.
@@ -243,14 +243,23 @@ async fn execute_keygen(
     keygen_span: Span,
 ) -> Result<KeygenOutput, TofndError> {
     let mut keygen = Keygen::new(party_share_counts.iter().sum(), threshold, my_index)?;
-    protocol::execute_protocol(
+
+    // execute protocol
+    let res = protocol::execute_protocol(
         &mut keygen,
         chan,
         &party_uids,
         &party_share_counts,
         keygen_span,
     )
-    .await?;
+    .await;
+
+    if let Err(err) = res {
+        let waiting_on = keygen.waiting_on();
+        warn!("Protocol execution was aborted: {}", err);
+        // Return the parties we are waiting on
+        return Ok(Err(waiting_on));
+    }
 
     Ok(keygen.clone_output().ok_or("keygen output is `None`")?)
 }
