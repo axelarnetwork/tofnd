@@ -152,7 +152,7 @@ async fn basic_keygen_and_sign() {
         #[cfg(not(feature = "malicious"))]
         let expect_timeout = false;
         #[cfg(feature = "malicious")]
-        let expect_timeout = test_case.timeout.is_some() || test_case.spoof.is_some();
+        let expect_timeout = test_case.timeout.is_some();
 
         // get malicious types only when we are in malicious mode
         #[cfg(feature = "malicious")]
@@ -224,7 +224,7 @@ async fn restart_one_party() {
         #[cfg(not(feature = "malicious"))]
         let expect_timeout = false;
         #[cfg(feature = "malicious")]
-        let expect_timeout = test_case.timeout.is_some() || test_case.spoof.is_some();
+        let expect_timeout = test_case.timeout.is_some();
         #[cfg(feature = "malicious")]
         let timeout = test_case.timeout.clone();
         #[cfg(feature = "malicious")]
