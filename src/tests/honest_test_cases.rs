@@ -1,11 +1,20 @@
-use tofn::protocol::gg20::sign::crimes::Crime;
+#[cfg(feature = "malicious")]
+use super::malicious_test_cases::MaliciousTestCase;
+use crate::tests::TestCase;
+use crate::tests::{run_test_cases, run_test_cases_with_restart};
 
-pub(super) struct TestCase {
-    pub(super) uid_count: usize,
-    pub(super) share_counts: Vec<u32>,
-    pub(super) threshold: usize,
-    pub(super) signer_indices: Vec<usize>,
-    pub(super) expected_crimes: Vec<Vec<Crime>>,
+use tracing_test::traced_test; // logs for tests
+
+#[traced_test]
+#[tokio::test]
+async fn honest_test_cases() {
+    run_test_cases(&generate_honest_cases()).await;
+}
+
+#[traced_test]
+#[tokio::test]
+async fn honest_test_cases_with_restart() {
+    run_test_cases_with_restart(&generate_honest_cases()).await;
 }
 
 impl TestCase {
@@ -27,7 +36,7 @@ impl TestCase {
 }
 
 #[rustfmt::skip] // skip formatting to make file more readable
-pub(super) fn generate_test_cases() -> Vec<TestCase> {
+pub(super) fn generate_honest_cases() -> Vec<TestCase> {
     vec![
         TestCase::new(4, vec![], 0, vec![0, 1, 2, 3]), // should initialize share_counts into [1,1,1,1,1]
         TestCase::new(5, vec![1, 1, 1, 1, 1], 3, vec![1, 4, 2, 3]), // 1 share per uid

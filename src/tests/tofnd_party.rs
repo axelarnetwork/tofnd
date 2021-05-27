@@ -218,7 +218,6 @@ impl Party for TofndParty {
                 proto::message_out::Data::Traffic(traffic) => {
                     // check if I want to send abort message. This is for timeout tests
                     if self.should_timeout(&traffic) {
-                        println!("I am stalling message");
                     } else {
                         // if I am a spoofer, create a duplicate message and spoof it
                         if let Some(traffic) = self.spoof(&traffic) {
