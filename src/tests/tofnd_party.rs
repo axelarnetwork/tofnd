@@ -7,9 +7,7 @@ use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
 #[cfg(feature = "malicious")]
-use crate::tests::malicious_test_cases::Timeout;
-#[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::MsgType;
+use crate::tests::malicious_test_cases::{MsgMeta, Spoof, Timeout};
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -21,17 +19,57 @@ pub(super) struct TofndParty {
     server_port: u16,
     #[cfg(feature = "malicious")]
     pub(crate) timeout: Option<Timeout>,
+    #[cfg(feature = "malicious")]
+    pub(crate) spoof: Option<Spoof>,
 }
 
 impl TofndParty {
     #[cfg(feature = "malicious")]
-    pub(crate) fn should_timeout(&self, msg_type: &MsgType) -> bool {
+    pub(crate) fn should_timeout(&self, traffic: &proto::TrafficOut) -> bool {
+        let payload = traffic.clone().payload;
+        let msg_meta: MsgMeta = bincode::deserialize(&payload).unwrap();
+
+        // this would also work!!!
+        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
+
+        let msg_type = &msg_meta.msg_type;
+
         if let Some(timeout) = &self.timeout {
             if msg_type == &timeout.msg_type {
+                println!("I am stalling message {:?}", msg_type);
                 return true;
             }
         }
         false
+    }
+
+    #[cfg(feature = "malicious")]
+    pub(crate) fn spoof(&mut self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
+        let payload = traffic.clone().payload;
+        let mut msg_meta: MsgMeta = bincode::deserialize(&payload).unwrap();
+
+        // this also works!!!
+        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
+
+        let msg_type = &msg_meta.msg_type;
+
+        // if I an not a spoofer, return none. I dislike that I have to clone this
+        let spoof = self.spoof.clone()?;
+        if Spoof::msg_to_status(msg_type) != spoof.status {
+            return None;
+        }
+
+        println!(
+            "I am spoofing message {:?}. Changing from [{}] -> [{}]",
+            msg_type, msg_meta.from, spoof.victim
+        );
+
+        msg_meta.from = spoof.victim;
+        let mut spoofed_traffic = traffic.clone();
+        let spoofed_payload = bincode::serialize(&msg_meta).unwrap();
+        spoofed_traffic.payload = spoofed_payload;
+
+        Some(spoofed_traffic)
     }
 
     pub(super) async fn new(init_party: InitParty, testdir: &Path) -> Self {
@@ -87,6 +125,8 @@ impl TofndParty {
             server_port,
             #[cfg(feature = "malicious")]
             timeout: init_party.timeout,
+            #[cfg(feature = "malicious")]
+            spoof: init_party.spoof,
         }
     }
 }
@@ -176,14 +216,16 @@ impl Party for TofndParty {
                 // in malicous case, if we are stallers we skip the message
                 #[cfg(feature = "malicious")]
                 proto::message_out::Data::Traffic(traffic) => {
-                    // read message
-                    let payload = traffic.clone().payload;
-                    let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
                     // check if I want to send abort message. This is for timeout tests
-                    if self.should_timeout(&msg_type) {
-                        println!("I am stalling message {:?}", msg_type);
+                    if self.should_timeout(&traffic) {
+                        println!("I am stalling message");
                     } else {
+                        // if I am a spoofer, create a duplicate message and spoof it
+                        if let Some(traffic) = self.spoof(&traffic) {
+                            let mut spoofed_msg = msg.clone();
+                            spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
+                            delivery.deliver(&spoofed_msg, &my_uid).await;
+                        }
                         delivery.deliver(&msg, &my_uid).await;
                     }
                 }

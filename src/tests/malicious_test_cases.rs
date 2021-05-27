@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use tofn::protocol::gg20::sign::malicious::MaliciousType::{self, *};
-use tofn::protocol::gg20::sign::{crimes::Crime, MsgType};
+use tofn::protocol::gg20::sign::{crimes::Crime, MsgType, Status};
 
 // TODO import that from tofn
 pub(super) fn map_type_to_crime(t: &MaliciousType) -> Vec<Crime> {
@@ -61,6 +62,24 @@ impl Signer {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub(super) struct MsgMeta {
+    pub(super) msg_type: MsgType,
+    pub(super) from: usize,
+    pub(super) payload: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct Timeout {
+    pub(super) index: usize,
+    pub(super) msg_type: MsgType,
+}
+#[derive(Clone, Debug)]
+pub(super) struct Spoof {
+    pub(super) index: usize,
+    pub(super) victim: usize,
+    pub(super) status: Status,
+}
 pub(super) struct TestCase {
     pub(super) uid_count: usize,
     pub(super) share_counts: Vec<u32>,
@@ -69,12 +88,28 @@ pub(super) struct TestCase {
     pub(super) malicious_types: Vec<MaliciousType>,
     pub(super) expected_crimes: Vec<Vec<Crime>>,
     pub(super) timeout: Option<Timeout>,
+    pub(super) spoof: Option<Spoof>,
 }
 
-#[derive(Clone, Debug)]
-pub(super) struct Timeout {
-    pub(super) index: usize,
-    pub(super) msg_type: MsgType,
+impl Spoof {
+    pub(super) fn msg_to_status(msg_type: &MsgType) -> Status {
+        match msg_type {
+            MsgType::R1Bcast => Status::R1,
+            MsgType::R1P2p { to: _ } => Status::R1,
+            MsgType::R2P2p { to: _ } => Status::R2,
+            MsgType::R2FailBcast => Status::R2,
+            MsgType::R3Bcast => Status::R3,
+            MsgType::R3FailBcast => Status::R3,
+            MsgType::R4Bcast => Status::R4,
+            MsgType::R5Bcast => Status::R5,
+            MsgType::R5P2p { to: _ } => Status::R5,
+            MsgType::R6Bcast => Status::R6,
+            MsgType::R6FailBcast => Status::R6,
+            MsgType::R6FailType5Bcast => Status::R6,
+            MsgType::R7Bcast => Status::R7,
+            MsgType::R7FailType7Bcast => Status::R7,
+        }
+    }
 }
 
 impl TestCase {
@@ -127,6 +162,17 @@ impl TestCase {
             }
         }
 
+        let mut spoof: Option<Spoof> = None;
+        for (i, t) in malicious_types.iter().enumerate() {
+            if let UnauthenticatedSender { victim, status } = t {
+                spoof = Some(Spoof {
+                    index: i,
+                    victim: *victim,
+                    status: status.clone(),
+                });
+            }
+        }
+
         TestCase {
             uid_count,
             share_counts,
@@ -135,6 +181,7 @@ impl TestCase {
             malicious_types,
             expected_crimes,
             timeout,
+            spoof,
         }
     }
 }
@@ -144,6 +191,7 @@ pub(super) fn generate_test_cases() -> Vec<TestCase> {
     test_cases.extend(generate_basic_cases());
     test_cases.extend(generate_multiple_malicious_per_round());
     test_cases.extend(timeout_cases());
+    test_cases.extend(spoof_cases());
     test_cases
 }
 
@@ -179,6 +227,34 @@ pub(super) fn timeout_cases() -> Vec<TestCase> {
                     Signer::new(0, Honest, vec![]),
                     Signer::new(1, staller.clone(), map_type_to_crime(&staller)),
                     Signer::new(2, Honest, vec![]),
+                ],
+            )
+        })
+        .collect()
+}
+
+pub(super) fn spoof_cases() -> Vec<TestCase> {
+    use Status::*;
+    let victim = 0;
+    let spoofers = Status::iter()
+        .filter(|status| matches!(status, R1 | R2 | R3 | R4 | R5 | R6 | R7)) // don't match fail types
+        .map(|status| UnauthenticatedSender { victim, status })
+        .collect::<Vec<MaliciousType>>();
+
+    // spoofer always targets party 0
+    spoofers
+        .iter()
+        .map(|spoofer| {
+            TestCase::new(
+                5,
+                vec![1, 1, 1, 1, 1],
+                3,
+                vec![
+                    Signer::new(0, Honest, vec![]),
+                    Signer::new(1, spoofer.clone(), map_type_to_crime(&spoofer)),
+                    Signer::new(2, Honest, vec![]),
+                    Signer::new(3, Honest, vec![]),
+                    Signer::new(4, Honest, vec![]),
                 ],
             )
         })
