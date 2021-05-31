@@ -7,7 +7,9 @@ use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
 #[cfg(feature = "malicious")]
-use crate::tests::malicious_test_cases::{MsgMeta, Spoof, Timeout};
+use super::PartyMaliciousData;
+#[cfg(feature = "malicious")]
+use crate::tests::malicious_test_cases::{MsgMeta, Spoof};
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -18,9 +20,7 @@ pub(super) struct TofndParty {
     server_shutdown_sender: oneshot::Sender<()>,
     server_port: u16,
     #[cfg(feature = "malicious")]
-    pub(crate) timeout: Option<Timeout>,
-    #[cfg(feature = "malicious")]
-    pub(crate) spoof: Option<Spoof>,
+    pub(super) malicious_data: PartyMaliciousData,
 }
 
 impl TofndParty {
@@ -34,7 +34,7 @@ impl TofndParty {
 
         let msg_type = &msg_meta.msg_type;
 
-        if let Some(timeout) = &self.timeout {
+        if let Some(timeout) = &self.malicious_data.timeout {
             if msg_type == &timeout.msg_type {
                 println!("I am stalling message {:?}", msg_type);
                 return true;
@@ -53,8 +53,8 @@ impl TofndParty {
 
         let msg_type = &msg_meta.msg_type;
 
-        // if I an not a spoofer, return none. I dislike that I have to clone this
-        let spoof = self.spoof.clone()?;
+        // if I am not a spoofer, return none. I dislike that I have to clone this
+        let spoof = self.malicious_data.spoof.clone()?;
         if Spoof::msg_to_status(msg_type) != spoof.status {
             return None;
         }
@@ -84,7 +84,10 @@ impl TofndParty {
         #[cfg(not(feature = "malicious"))]
         let my_service = gg20::tests::with_db_name(&db_path);
         #[cfg(feature = "malicious")]
-        let my_service = gg20::tests::with_db_name_malicious(&db_path, init_party.malicious_type);
+        let my_service = gg20::tests::with_db_name_malicious(
+            &db_path,
+            init_party.malicious_data.malicious_type.clone(),
+        );
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
@@ -124,9 +127,7 @@ impl TofndParty {
             server_shutdown_sender,
             server_port,
             #[cfg(feature = "malicious")]
-            timeout: init_party.timeout,
-            #[cfg(feature = "malicious")]
-            spoof: init_party.spoof,
+            malicious_data: init_party.malicious_data,
         }
     }
 }
@@ -216,16 +217,15 @@ impl Party for TofndParty {
                 // in malicous case, if we are stallers we skip the message
                 #[cfg(feature = "malicious")]
                 proto::message_out::Data::Traffic(traffic) => {
-                    // check if I want to send abort message. This is for timeout tests
-                    if self.should_timeout(&traffic) {
-                        println!("I am stalling message");
-                    } else {
-                        // if I am a spoofer, create a duplicate message and spoof it
+                    // check if I am not a staller, send the message. This is for timeout tests
+                    if !self.should_timeout(&traffic) {
+                        // if I am a spoofer, create a _duplicate_ message and spoof it. This is for spoof tests
                         if let Some(traffic) = self.spoof(&traffic) {
                             let mut spoofed_msg = msg.clone();
                             spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
                             delivery.deliver(&spoofed_msg, &my_uid).await;
                         }
+                        // finally, act norally and send the correct message
                         delivery.deliver(&msg, &my_uid).await;
                     }
                 }

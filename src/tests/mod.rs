@@ -8,14 +8,13 @@
 // 3. src/gg20/mod::with_db_name
 
 use std::convert::TryFrom;
+use std::path::Path;
+use testdir::testdir;
 
 mod mock;
 mod tofnd_party;
 
-#[cfg(not(feature = "malicious"))]
-mod test_cases;
-#[cfg(not(feature = "malicious"))]
-use test_cases::*;
+mod honest_test_cases;
 
 #[cfg(feature = "malicious")]
 mod malicious_test_cases;
@@ -23,6 +22,7 @@ mod malicious_test_cases;
 use malicious_test_cases::*;
 
 use tofn::protocol::gg20::sign::crimes::Crime;
+use tracing::info;
 
 use crate::proto::{
     self,
@@ -36,20 +36,21 @@ use tofnd_party::TofndParty;
 
 use crate::gg20::proto_helpers::to_criminals;
 
-use std::path::Path;
-use testdir::testdir;
-
-// enable logs in tests
-use tracing::info;
-use tracing_test::traced_test;
-
 #[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::malicious::MaliciousType::{self};
+use tofn::protocol::gg20::sign::malicious::MaliciousType;
+
+struct TestCase {
+    uid_count: usize,
+    share_counts: Vec<u32>,
+    threshold: usize,
+    signer_indices: Vec<usize>,
+    expected_crimes: Vec<Vec<Crime>>,
+    #[cfg(feature = "malicious")]
+    malicious_data: MaliciousData,
+}
 
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
-    // (number of uids, count of shares per uid, threshold, indices of sign participants, malicious types)
-    static ref TEST_CASES: Vec<TestCase> = generate_test_cases();
 }
 
 // struct to pass in init_parties function.
@@ -57,11 +58,7 @@ lazy_static::lazy_static! {
 struct InitParties {
     party_count: usize,
     #[cfg(feature = "malicious")]
-    timeout: Option<Timeout>,
-    #[cfg(feature = "malicious")]
-    spoof: Option<Spoof>,
-    #[cfg(feature = "malicious")]
-    malicious_types: Vec<MaliciousType>,
+    malicious_data: MaliciousData,
 }
 
 impl InitParties {
@@ -70,18 +67,18 @@ impl InitParties {
         InitParties { party_count }
     }
     #[cfg(feature = "malicious")]
-    fn new(
-        party_count: usize,
-        timeout: Option<Timeout>,
-        spoof: Option<Spoof>,
-        malicious_types: Vec<MaliciousType>,
-    ) -> InitParties {
+    fn new(party_count: usize, malicious_data: &MaliciousData) -> InitParties {
         InitParties {
             party_count,
-            timeout,
-            spoof,
-            malicious_types,
+            malicious_data: malicious_data.clone(),
         }
+    }
+}
+
+async fn run_test_cases(test_cases: &[TestCase], restart: bool) {
+    let dir = testdir!();
+    for test_case in test_cases {
+        basic_keygen_and_sign(test_case, &dir, restart).await;
     }
 }
 
@@ -136,178 +133,87 @@ fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
     }
 }
 
-#[traced_test]
-#[tokio::test]
-async fn basic_keygen_and_sign() {
-    let dir = testdir!();
+// async fn restart_one_party(test_case: &TestCase, dir: &Path, restart: bool) {
+async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) {
+    let uid_count = test_case.uid_count;
+    let party_share_counts = &test_case.share_counts;
+    let threshold = test_case.threshold;
+    let sign_participant_indices = &test_case.signer_indices;
+    let expected_crimes = &test_case.expected_crimes;
 
-    // for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
-    for test_case in TEST_CASES.iter() {
-        let uid_count = test_case.uid_count;
-        let party_share_counts = &test_case.share_counts;
-        let threshold = test_case.threshold;
-        let sign_participant_indices = &test_case.signer_indices;
-        let expected_crimes = &test_case.expected_crimes;
+    info!("======= Expected crimes: {:?}", expected_crimes);
 
-        #[cfg(not(feature = "malicious"))]
-        let expect_timeout = false;
-        #[cfg(feature = "malicious")]
-        let expect_timeout = test_case.timeout.is_some();
+    #[cfg(not(feature = "malicious"))]
+    let init_parties_t = InitParties::new(uid_count);
+    #[cfg(feature = "malicious")]
+    let init_parties_t = InitParties::new(uid_count, &test_case.malicious_data);
 
-        // get malicious types only when we are in malicious mode
-        #[cfg(feature = "malicious")]
-        let malicious_types = {
-            println!("======= Expected crimes: {:?}", expected_crimes);
-            &test_case.malicious_types
-        };
+    let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
-        // initialize parties with malicious_types when we are in malicious mode
-        #[cfg(not(feature = "malicious"))]
-        let init_parties_t = InitParties::new(uid_count);
-        #[cfg(feature = "malicious")]
-        let init_parties_t = InitParties::new(
-            uid_count,
-            test_case.timeout.clone(),
-            test_case.spoof.clone(),
-            malicious_types.clone(),
-        );
+    // println!(
+    //     "keygen: share_count:{}, threshold: {}",
+    //     share_count, threshold
+    // );
+    let new_key_uid = "Gus-test-key";
+    let mut parties = execute_keygen(
+        parties,
+        &party_uids,
+        party_share_counts,
+        new_key_uid,
+        threshold,
+    )
+    .await;
 
-        let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
-
-        // println!(
-        //     "keygen: share_count:{}, threshold: {}",
-        //     share_count, threshold
-        // );
-        let new_key_uid = "Gus-test-key";
-        let parties = execute_keygen(
-            parties,
-            &party_uids,
-            party_share_counts,
-            new_key_uid,
-            threshold,
-        )
-        .await;
-
-        // println!("sign: participants {:?}", sign_participant_indices);
-        let new_sig_uid = "Gus-test-sig";
-        let (parties, results) = execute_sign(
-            parties,
-            &party_uids,
-            sign_participant_indices,
-            new_key_uid,
-            new_sig_uid,
-            &MSG_TO_SIGN,
-            expect_timeout,
-        )
-        .await;
-
-        delete_dbs(&parties);
-        shutdown_parties(parties).await;
-
-        check_results(results, &expected_crimes);
-    }
-}
-
-#[traced_test]
-#[tokio::test]
-async fn restart_one_party() {
-    let dir = testdir!();
-
-    // for (uid_count, party_share_counts, threshold, sign_participant_indices, malicious_types) in
-    for test_case in TEST_CASES.iter() {
-        let uid_count = test_case.uid_count;
-        let party_share_counts = &test_case.share_counts;
-        let threshold = test_case.threshold;
-        let sign_participant_indices = &test_case.signer_indices;
-        let expected_crimes = &test_case.expected_crimes;
-
-        #[cfg(not(feature = "malicious"))]
-        let expect_timeout = false;
-        #[cfg(feature = "malicious")]
-        let expect_timeout = test_case.timeout.is_some();
-        #[cfg(feature = "malicious")]
-        let timeout = test_case.timeout.clone();
-        #[cfg(feature = "malicious")]
-        let spoof = test_case.spoof.clone();
-
-        // get malicious types only when we are in malicious mode
-        #[cfg(feature = "malicious")]
-        let malicious_types = {
-            println!("======= Expected crimes: {:?}", expected_crimes);
-            &test_case.malicious_types
-        };
-
-        // initialize parties with malicious_types when we are in malicious mode
-        #[cfg(not(feature = "malicious"))]
-        let init_parties_t = InitParties::new(uid_count);
-        #[cfg(feature = "malicious")]
-        let init_parties_t = InitParties::new(
-            uid_count,
-            timeout.clone(),
-            spoof.clone(),
-            malicious_types.clone(),
-        );
-
-        let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
-
-        // println!(
-        //     "keygen: share_count:{}, threshold: {}",
-        //     share_count, threshold
-        // );
-        let new_key_uid = "Gus-test-key";
-        let parties = execute_keygen(
-            parties,
-            &party_uids,
-            party_share_counts,
-            new_key_uid,
-            threshold,
-        )
-        .await;
-
+    if restart {
         let shutdown_index = sign_participant_indices[0];
         println!("restart party {}", shutdown_index);
         // use Option to temporarily transfer ownership of individual parties to a spawn
         let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
         let shutdown_party = party_options[shutdown_index].take().unwrap();
-        #[cfg(feature = "malicious")]
-        let timeout = shutdown_party.timeout.clone();
         shutdown_party.shutdown().await;
 
         // initialize restarted party with malicious_type when we are in malicious mode
-        #[cfg(not(feature = "malicious"))]
-        let init_party = InitParty::new(shutdown_index);
-        #[cfg(feature = "malicious")]
         let init_party = InitParty::new(
             shutdown_index,
-            timeout,
-            spoof,
-            malicious_types.get(shutdown_index).unwrap().clone(),
+            #[cfg(feature = "malicious")]
+            &test_case.malicious_data,
         );
-
         party_options[shutdown_index] = Some(TofndParty::new(init_party, &dir).await);
-        let parties = party_options
+
+        parties = party_options
             .into_iter()
             .map(|o| o.unwrap())
             .collect::<Vec<_>>();
-
-        // println!("sign: participants {:?}", sign_participant_indices);
-        let new_sig_uid = "Gus-test-sig";
-        let (parties, results) = execute_sign(
-            parties,
-            &party_uids,
-            sign_participant_indices,
-            new_key_uid,
-            new_sig_uid,
-            &MSG_TO_SIGN,
-            expect_timeout,
-        )
-        .await;
-
-        delete_dbs(&parties);
-        shutdown_parties(parties).await;
-
-        check_results(results, &expected_crimes);
     }
+
+    // println!("sign: participants {:?}", sign_participant_indices);
+    let new_sig_uid = "Gus-test-sig";
+    let (parties, results) = execute_sign(
+        parties,
+        &party_uids,
+        sign_participant_indices,
+        new_key_uid,
+        new_sig_uid,
+        &MSG_TO_SIGN,
+        #[cfg(not(feature = "malicious"))]
+        false,
+        #[cfg(feature = "malicious")]
+        test_case.malicious_data.timeout.is_some(),
+    )
+    .await;
+
+    delete_dbs(&parties);
+    shutdown_parties(parties).await;
+
+    check_results(results, &expected_crimes);
+}
+
+#[cfg(feature = "malicious")]
+#[derive(Clone, Debug)]
+struct PartyMaliciousData {
+    timeout: Option<Timeout>,
+    spoof: Option<Spoof>,
+    malicious_type: MaliciousType,
 }
 
 // struct to pass in TofndParty constructor.
@@ -315,45 +221,47 @@ async fn restart_one_party() {
 struct InitParty {
     party_index: usize,
     #[cfg(feature = "malicious")]
-    timeout: Option<Timeout>,
-    #[cfg(feature = "malicious")]
-    spoof: Option<Spoof>,
-    #[cfg(feature = "malicious")]
-    malicious_type: MaliciousType,
+    malicious_data: PartyMaliciousData,
 }
 
 impl InitParty {
     #[cfg(not(feature = "malicious"))]
-    fn new(party_index: usize) -> InitParty {
-        InitParty { party_index }
+    fn new(my_index: usize) -> InitParty {
+        InitParty {
+            party_index: my_index,
+        }
     }
-
     #[cfg(feature = "malicious")]
-    fn new(
-        party_index: usize,
-        timeout: Option<Timeout>,
-        spoof: Option<Spoof>,
-        malicious_type: MaliciousType,
-    ) -> InitParty {
+    fn new(my_index: usize, all_malicious_data: &MaliciousData) -> InitParty {
         let mut my_timeout = None;
-        if let Some(timeout) = timeout {
-            if timeout.index == party_index {
+        if let Some(timeout) = all_malicious_data.timeout.clone() {
+            if timeout.index == my_index {
                 my_timeout = Some(timeout);
             }
         }
 
         let mut my_spoof = None;
-        if let Some(spoof) = spoof {
-            if spoof.index == party_index {
+        if let Some(spoof) = all_malicious_data.spoof.clone() {
+            if spoof.index == my_index {
                 my_spoof = Some(spoof);
             }
         }
 
-        InitParty {
-            party_index,
+        let my_malicious_type = all_malicious_data
+            .malicious_types
+            .get(my_index)
+            .unwrap()
+            .clone();
+
+        let my_malicious_data = PartyMaliciousData {
             timeout: my_timeout,
             spoof: my_spoof,
-            malicious_type,
+            malicious_type: my_malicious_type,
+        };
+
+        InitParty {
+            party_index: my_index,
+            malicious_data: my_malicious_data,
         }
     }
 }
@@ -366,16 +274,10 @@ async fn init_parties(
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     for i in 0..init_parties.party_count {
-        // initialize party with respect to current build
         #[cfg(not(feature = "malicious"))]
         let init_party = InitParty::new(i);
         #[cfg(feature = "malicious")]
-        let init_party = InitParty::new(
-            i,
-            init_parties.timeout.clone(),
-            init_parties.spoof.clone(),
-            init_parties.malicious_types.get(i).unwrap().clone(),
-        );
+        let init_party = InitParty::new(i, &init_parties.malicious_data);
         parties.push(TofndParty::new(init_party, testdir).await);
     }
 
@@ -444,9 +346,9 @@ async fn execute_sign(
     key_uid: &str,
     new_sig_uid: &str,
     msg_to_sign: &[u8],
-    timeout: bool,
+    expect_timeout: bool,
 ) -> (Vec<impl Party>, Vec<proto::message_out::SignResult>) {
-    println!("Expecting timeout: [{}]", timeout);
+    println!("Expecting timeout: [{}]", expect_timeout);
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
         .map(|&i| party_uids[i].clone())
@@ -481,13 +383,10 @@ async fn execute_sign(
         sign_join_handles.push((i, handle));
     }
 
-    #[cfg(feature = "malicious")]
-    {
-        // if we are expecting a timeout, abort parties after a reasonable amount of time
-        if timeout {
-            let unblocker = sign_delivery.clone();
-            abort_parties(unblocker, 10);
-        }
+    // if we are expecting a timeout, abort parties after a reasonable amount of time
+    if expect_timeout {
+        let unblocker = sign_delivery.clone();
+        abort_parties(unblocker, 10);
     }
 
     let mut results = vec![SignResult::default(); sign_join_handles.len()];
@@ -506,7 +405,6 @@ async fn execute_sign(
     )
 }
 
-#[cfg(feature = "malicious")]
 fn abort_parties(mut unblocker: Deliverer, time: u64) {
     // send an abort message if protocol is taking too much time
     info!("I will send an abort message in {} seconds", time);
