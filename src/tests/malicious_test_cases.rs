@@ -119,12 +119,6 @@ pub(super) struct Spoof {
     pub(super) status: Status,
 }
 
-pub(super) struct MaliciousData {
-    pub(super) malicious_types: Vec<MaliciousType>,
-    pub(super) timeout: Option<Timeout>,
-    pub(super) spoof: Option<Spoof>,
-}
-
 impl Spoof {
     pub(super) fn msg_to_status(msg_type: &MsgType) -> Status {
         match msg_type {
@@ -146,8 +140,25 @@ impl Spoof {
     }
 }
 
+#[derive(Clone, Debug)]
+pub(super) struct MaliciousData {
+    pub(super) malicious_types: Vec<MaliciousType>,
+    pub(super) timeout: Option<Timeout>,
+    pub(super) spoof: Option<Spoof>,
+}
+
+impl MaliciousData {
+    pub(super) fn empty(party_count: usize) -> MaliciousData {
+        MaliciousData {
+            malicious_types: vec![Honest; party_count],
+            timeout: None,
+            spoof: None,
+        }
+    }
+}
+
 impl TestCase {
-    pub(super) fn new(
+    pub(super) fn new_malicious(
         uid_count: usize,
         share_counts: Vec<u32>,
         threshold: usize,
@@ -248,7 +259,7 @@ pub(super) fn timeout_cases() -> Vec<TestCase> {
     stallers
         .iter()
         .map(|staller| {
-            TestCase::new(
+            TestCase::new_malicious(
                 4,
                 vec![1, 1, 1, 1],
                 2,
@@ -274,7 +285,7 @@ pub(super) fn spoof_cases() -> Vec<TestCase> {
     spoofers
         .iter()
         .map(|spoofer| {
-            TestCase::new(
+            TestCase::new_malicious(
                 5,
                 vec![1, 1, 1, 1, 1],
                 3,
@@ -302,7 +313,7 @@ pub(super) fn generate_basic_cases() -> Vec<TestCase> {
             } | Staller { msg_type: _ }
         )
     }) {
-        cases.push(TestCase::new(
+        cases.push(TestCase::new_malicious(
             4,
             vec![1, 2, 1, 3],
             3,
@@ -360,7 +371,7 @@ pub(super) fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
                 map_type_to_crime(&fault),
             ));
         }
-        cases.push(TestCase::new(
+        cases.push(TestCase::new_malicious(
             5,
             vec![1, 1, 1, 1, 3],
             participants.len() - 1, // threshold < #parties

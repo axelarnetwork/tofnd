@@ -1,7 +1,9 @@
-#[cfg(feature = "malicious")]
-use super::malicious_test_cases::MaliciousTestCase;
+use crate::tests::run_test_cases;
 use crate::tests::TestCase;
-use crate::tests::{run_test_cases, run_test_cases_with_restart};
+
+#[cfg(feature = "malicious")]
+use super::malicious_test_cases::MaliciousData;
+use super::run_test_cases_with_restart;
 
 use tracing_test::traced_test; // logs for tests
 
@@ -31,6 +33,8 @@ impl TestCase {
             threshold,
             signer_indices,
             expected_crimes,
+            #[cfg(feature = "malicious")]
+            malicious_data: MaliciousData::empty(uid_count),
         }
     }
 }
