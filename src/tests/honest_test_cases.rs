@@ -3,20 +3,19 @@ use crate::tests::TestCase;
 
 #[cfg(feature = "malicious")]
 use super::malicious_test_cases::MaliciousData;
-use super::run_test_cases_with_restart;
 
 use tracing_test::traced_test; // logs for tests
 
 #[traced_test]
 #[tokio::test]
 async fn honest_test_cases() {
-    run_test_cases(&generate_honest_cases()).await;
+    run_test_cases(&generate_honest_cases(), false).await;
 }
 
 #[traced_test]
 #[tokio::test]
 async fn honest_test_cases_with_restart() {
-    run_test_cases_with_restart(&generate_honest_cases()).await;
+    run_test_cases(&generate_honest_cases(), true).await;
 }
 
 impl TestCase {
