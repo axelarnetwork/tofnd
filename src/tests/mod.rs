@@ -51,7 +51,6 @@ struct TestCase {
 
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42];
-
 }
 
 // struct to pass in init_parties function.
@@ -384,13 +383,10 @@ async fn execute_sign(
         sign_join_handles.push((i, handle));
     }
 
-    #[cfg(feature = "malicious")]
-    {
-        // if we are expecting a timeout, abort parties after a reasonable amount of time
-        if expect_timeout {
-            let unblocker = sign_delivery.clone();
-            abort_parties(unblocker, 10);
-        }
+    // if we are expecting a timeout, abort parties after a reasonable amount of time
+    if expect_timeout {
+        let unblocker = sign_delivery.clone();
+        abort_parties(unblocker, 10);
     }
 
     let mut results = vec![SignResult::default(); sign_join_handles.len()];
@@ -409,7 +405,6 @@ async fn execute_sign(
     )
 }
 
-#[cfg(feature = "malicious")]
 fn abort_parties(mut unblocker: Deliverer, time: u64) {
     // send an abort message if protocol is taking too much time
     info!("I will send an abort message in {} seconds", time);
