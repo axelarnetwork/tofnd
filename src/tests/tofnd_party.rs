@@ -53,7 +53,7 @@ impl TofndParty {
 
         let msg_type = &msg_meta.msg_type;
 
-        // if I an not a spoofer, return none. I dislike that I have to clone this
+        // if I am not a spoofer, return none. I dislike that I have to clone this
         let spoof = self.malicious_data.spoof.clone()?;
         if Spoof::msg_to_status(msg_type) != spoof.status {
             return None;
@@ -217,15 +217,15 @@ impl Party for TofndParty {
                 // in malicous case, if we are stallers we skip the message
                 #[cfg(feature = "malicious")]
                 proto::message_out::Data::Traffic(traffic) => {
-                    // check if I want to send abort message. This is for timeout tests
-                    if self.should_timeout(&traffic) {
-                    } else {
-                        // if I am a spoofer, create a duplicate message and spoof it
+                    // check if I am not a staller, send the message. This is for timeout tests
+                    if !self.should_timeout(&traffic) {
+                        // if I am a spoofer, create a _duplicate_ message and spoof it. This is for spoof tests
                         if let Some(traffic) = self.spoof(&traffic) {
                             let mut spoofed_msg = msg.clone();
                             spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
                             delivery.deliver(&spoofed_msg, &my_uid).await;
                         }
+                        // finally, act norally and send the correct message
                         delivery.deliver(&msg, &my_uid).await;
                     }
                 }
