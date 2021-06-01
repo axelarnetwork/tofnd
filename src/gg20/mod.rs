@@ -98,14 +98,14 @@ impl proto::gg20_server::Gg20 for Gg20Service {
     ) -> Result<Response<Self::KeygenStream>, Status> {
         let stream_in = request.into_inner();
         let (msg_sender, rx) = mpsc::unbounded_channel();
-        let kv = self.kv.clone();
 
         let span = span!(Level::INFO, "Keygen");
         let _enter = span.enter();
         let s = span.clone();
+        let mut gg20 = self.clone();
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = keygen::handle_keygen(kv, stream_in, msg_sender, s).await {
+            if let Err(e) = gg20.handle_keygen(stream_in, msg_sender, s).await {
                 error!("keygen failure: {:?}", e);
                 return;
             }
