@@ -1,5 +1,4 @@
 use super::{mock::SenderReceiver, Deliverer, InitParty, Party};
-use crate::tests::malicious::Spoof;
 use crate::{addr, gg20, proto};
 use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
@@ -9,7 +8,7 @@ use tonic::Request;
 
 #[cfg(feature = "malicious")]
 use super::malicious::{
-    KeygenMsgMeta, KeygenSpoof, MsgType, PartyMaliciousData, SignMsgMeta, SignSpoof,
+    KeygenMsgMeta, KeygenSpoof, MsgType, PartyMaliciousData, SignMsgMeta, SignSpoof, Spoof::*,
 };
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
@@ -25,6 +24,8 @@ pub(super) struct TofndParty {
 }
 
 impl TofndParty {
+    // we have to have different functions for keygen and sign because sign messages can be
+    // desirialized as keygen messages and vice versa. So we call the approriate function for each phase.
     #[cfg(feature = "malicious")]
     pub(crate) fn should_timeout_keygen(&self, traffic: &proto::TrafficOut) -> bool {
         let payload = traffic.clone().payload;
@@ -71,6 +72,8 @@ impl TofndParty {
         false
     }
 
+    // we have to have different functions for keygen and sign because sign messages can be
+    // desirialized as keygen messages and vice versa. So we call the approriate function for each phase.
     #[cfg(feature = "malicious")]
     pub(crate) fn spoof_keygen(
         &mut self,
@@ -86,7 +89,7 @@ impl TofndParty {
 
         // if I am not a spoofer, return none. I dislike that I have to clone this
         let spoof = self.malicious_data.spoof.clone()?;
-        if let Spoof::KeygenSpoof { spoof } = spoof {
+        if let KeygenSpoofType { spoof } = spoof {
             if KeygenSpoof::msg_to_status(msg_type) != spoof.status {
                 return None;
             }
@@ -116,7 +119,7 @@ impl TofndParty {
 
         // if I am not a spoofer, return none. I dislike that I have to clone this
         let spoof = self.malicious_data.spoof.clone()?;
-        if let Spoof::SignSpoof { spoof } = spoof {
+        if let SignSpoofType { spoof } = spoof {
             if SignSpoof::msg_to_status(msg_type) != spoof.status {
                 return None;
             }

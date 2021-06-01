@@ -19,7 +19,7 @@ mod honest_test_cases;
 #[cfg(feature = "malicious")]
 mod malicious;
 #[cfg(feature = "malicious")]
-use malicious::{MaliciousData, PartyMaliciousData, Spoof};
+use malicious::{MaliciousData, PartyMaliciousData, Spoof::*};
 
 use tofn::protocol::gg20::keygen::crimes::Crime as KeygenCrime;
 use tofn::protocol::gg20::sign::crimes::Crime as SignCrime;
@@ -308,11 +308,11 @@ impl InitParty {
         let mut my_spoof = None;
         if let Some(spoof) = all_malicious_data.sign_data.spoof.clone() {
             if spoof.index == my_index {
-                my_spoof = Some(Spoof::SignSpoof { spoof });
+                my_spoof = Some(SignSpoofType { spoof });
             }
         } else if let Some(spoof) = all_malicious_data.keygen_data.spoof.clone() {
             if spoof.index == my_index {
-                my_spoof = Some(Spoof::KeygenSpoof { spoof });
+                my_spoof = Some(KeygenSpoofType { spoof });
             }
         }
 

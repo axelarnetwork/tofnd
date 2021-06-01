@@ -50,8 +50,8 @@ impl MaliciousData {
 
 #[derive(Clone, Debug)]
 pub(crate) enum Spoof {
-    KeygenSpoof { spoof: KeygenSpoof },
-    SignSpoof { spoof: SignSpoof },
+    KeygenSpoofType { spoof: KeygenSpoof },
+    SignSpoofType { spoof: SignSpoof },
 }
 
 #[derive(Clone, Debug)]
