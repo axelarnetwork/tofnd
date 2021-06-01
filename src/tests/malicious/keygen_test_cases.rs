@@ -19,12 +19,6 @@ async fn keygen_malicious_general_cases() {
 
 #[traced_test]
 #[tokio::test]
-async fn keygen_malicious_general_cases_with_restart() {
-    run_test_cases(&generate_basic_cases(), true).await;
-}
-
-#[traced_test]
-#[tokio::test]
 async fn keygen_malicious_multiple_per_round() {
     run_test_cases(&generate_multiple_malicious_per_round(), false).await;
 }
