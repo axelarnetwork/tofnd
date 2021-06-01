@@ -82,7 +82,7 @@ async fn run_test_cases(test_cases: &[TestCase], restart: bool) {
     }
 }
 
-// Horrible code duplication indeed. Don't think we should spent time here though
+// Horrible code duplication indeed. Don't think we should spend time here though
 // because this will be deleted when axelar-core accommodates crimes
 fn check_keygen_results(results: Vec<KeygenResult>, expected_crimes: &[Vec<KeygenCrime>]) -> bool {
     // get the first non-empty result. We can't simply take results[0] because some behaviours
@@ -137,7 +137,7 @@ fn check_keygen_results(results: Vec<KeygenResult>, expected_crimes: &[Vec<Keyge
     false
 }
 
-// Horrible code duplication indeed. Don't think we should spent time here though
+// Horrible code duplication indeed. Don't think we should spend time here though
 // because this will be deleted when axelar-core accommodates crimes
 fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<SignCrime>]) {
     // get the first non-empty result. We can't simply take results[0] because some behaviours

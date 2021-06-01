@@ -354,6 +354,7 @@ fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
         // vec![R3BadProof], // exclude round 3 faults because they stall
         // vec![R4BadReveal], // exclude round 4 faults because they stall
         // vec![R6BadProof], // exclude round 6 faults because they stall
+
         // Why do the above test cases stall?
         // All of the above behaviours result to a crime that is captured at the same round it occurs.
         // This means that honest parties immediately stop the protocol, but criminals do not receive
