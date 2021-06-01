@@ -1,4 +1,5 @@
 use super::{mock::SenderReceiver, Deliverer, InitParty, Party};
+use crate::tests::malicious::Spoof;
 use crate::{addr, gg20, proto};
 use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
@@ -7,7 +8,9 @@ use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
 #[cfg(feature = "malicious")]
-use super::malicious::{KeygenMsgMeta, MsgType, PartyMaliciousData, SignMsgMeta, SignSpoof};
+use super::malicious::{
+    KeygenMsgMeta, KeygenSpoof, MsgType, PartyMaliciousData, SignMsgMeta, SignSpoof,
+};
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -69,7 +72,40 @@ impl TofndParty {
     }
 
     #[cfg(feature = "malicious")]
-    pub(crate) fn spoof(&mut self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
+    pub(crate) fn spoof_keygen(
+        &mut self,
+        traffic: &proto::TrafficOut,
+    ) -> Option<proto::TrafficOut> {
+        let payload = traffic.clone().payload;
+        let mut msg_meta: KeygenMsgMeta = bincode::deserialize(&payload).unwrap();
+
+        // this also works!!!
+        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
+
+        let msg_type = &msg_meta.msg_type;
+
+        // if I am not a spoofer, return none. I dislike that I have to clone this
+        let spoof = self.malicious_data.spoof.clone()?;
+        if let Spoof::KeygenSpoof { spoof } = spoof {
+            if KeygenSpoof::msg_to_status(msg_type) != spoof.status {
+                return None;
+            }
+            println!(
+                "I am spoofing keygen message {:?}. Changing from [{}] -> [{}]",
+                msg_type, msg_meta.from, spoof.victim
+            );
+            msg_meta.from = spoof.victim;
+        }
+
+        let mut spoofed_traffic = traffic.clone();
+        let spoofed_payload = bincode::serialize(&msg_meta).unwrap();
+        spoofed_traffic.payload = spoofed_payload;
+
+        Some(spoofed_traffic)
+    }
+
+    #[cfg(feature = "malicious")]
+    pub(crate) fn spoof_sign(&mut self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
         let payload = traffic.clone().payload;
         let mut msg_meta: SignMsgMeta = bincode::deserialize(&payload).unwrap();
 
@@ -80,16 +116,17 @@ impl TofndParty {
 
         // if I am not a spoofer, return none. I dislike that I have to clone this
         let spoof = self.malicious_data.spoof.clone()?;
-        if SignSpoof::msg_to_status(msg_type) != spoof.status {
-            return None;
+        if let Spoof::SignSpoof { spoof } = spoof {
+            if SignSpoof::msg_to_status(msg_type) != spoof.status {
+                return None;
+            }
+            println!(
+                "I am spoofing sign message {:?}. Changing from [{}] -> [{}]",
+                msg_type, msg_meta.from, spoof.victim
+            );
+            msg_meta.from = spoof.victim;
         }
 
-        println!(
-            "I am spoofing message {:?}. Changing from [{}] -> [{}]",
-            msg_type, msg_meta.from, spoof.victim
-        );
-
-        msg_meta.from = spoof.victim;
         let mut spoofed_traffic = traffic.clone();
         let spoofed_payload = bincode::serialize(&msg_meta).unwrap();
         spoofed_traffic.payload = spoofed_payload;
@@ -196,9 +233,9 @@ impl Party for TofndParty {
                 #[cfg(feature = "malicious")]
                 proto::message_out::Data::Traffic(traffic) => {
                     // check if I am not a staller, send the message. This is for timeout tests
-                    if !self.should_timeout(&traffic) {
+                    if !self.should_timeout_keygen(&traffic) {
                         // if I am a spoofer, create a _duplicate_ message and spoof it. This is for spoof tests
-                        if let Some(traffic) = self.spoof(&traffic) {
+                        if let Some(traffic) = self.spoof_keygen(&traffic) {
                             let mut spoofed_msg = msg.clone();
                             spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
                             delivery.deliver(&spoofed_msg, &my_uid).await;
@@ -270,9 +307,9 @@ impl Party for TofndParty {
                 #[cfg(feature = "malicious")]
                 proto::message_out::Data::Traffic(traffic) => {
                     // check if I am not a staller, send the message. This is for timeout tests
-                    if !self.should_timeout(&traffic) {
+                    if !self.should_timeout_sign(&traffic) {
                         // if I am a spoofer, create a _duplicate_ message and spoof it. This is for spoof tests
-                        if let Some(traffic) = self.spoof(&traffic) {
+                        if let Some(traffic) = self.spoof_sign(&traffic) {
                             let mut spoofed_msg = msg.clone();
                             spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
                             delivery.deliver(&spoofed_msg, &my_uid).await;

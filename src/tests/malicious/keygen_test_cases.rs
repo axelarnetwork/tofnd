@@ -29,6 +29,12 @@ async fn malicious_timeout_cases() {
     run_test_cases(&timeout_cases(), false).await;
 }
 
+#[traced_test]
+#[tokio::test]
+async fn malicious_spoof_cases() {
+    run_test_cases(&spoof_cases(), false).await;
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct Spoof {
     pub(crate) index: usize,
@@ -37,7 +43,7 @@ pub(crate) struct Spoof {
 }
 
 impl Spoof {
-    pub(super) fn _msg_to_status(msg_type: &MsgType) -> Status {
+    pub(crate) fn msg_to_status(msg_type: &MsgType) -> Status {
         match msg_type {
             MsgType::R1Bcast => Status::R1,
             MsgType::R2Bcast => Status::R2,
@@ -252,6 +258,34 @@ fn timeout_cases() -> Vec<TestCase> {
                 vec![
                     Keygener::new(Honest, vec![]),
                     Keygener::new(staller.clone(), vec![to_crime(&staller)]),
+                    Keygener::new(Honest, vec![]),
+                    Keygener::new(Honest, vec![]),
+                ],
+            )
+        })
+        .collect()
+}
+
+fn spoof_cases() -> Vec<TestCase> {
+    use Status::*;
+    let victim = 0;
+    let spoofers = Status::iter()
+        .filter(|status| matches!(status, R1 | R2 | R3)) // don't match fail types
+        .map(|status| UnauthenticatedSender { victim, status })
+        .collect::<Vec<Behaviour>>();
+
+    // spoofer always targets party 0
+    spoofers
+        .iter()
+        .map(|spoofer| {
+            TestCase::new_malicious_keygen(
+                5,
+                vec![1, 1, 1, 1, 1],
+                3,
+                vec![
+                    Keygener::new(Honest, vec![]),
+                    Keygener::new(spoofer.clone(), vec![to_crime(&spoofer)]),
+                    Keygener::new(Honest, vec![]),
                     Keygener::new(Honest, vec![]),
                     Keygener::new(Honest, vec![]),
                 ],

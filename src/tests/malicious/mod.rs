@@ -4,6 +4,7 @@ pub mod sign_test_cases;
 use keygen_test_cases::KeygenData;
 use sign_test_cases::SignData;
 
+pub(super) type KeygenSpoof = keygen_test_cases::Spoof;
 pub(super) type SignSpoof = sign_test_cases::Spoof;
 pub(super) type KeygenMsgMeta = keygen_test_cases::MsgMeta;
 pub(super) type SignMsgMeta = sign_test_cases::MsgMeta;
@@ -48,9 +49,15 @@ impl MaliciousData {
 }
 
 #[derive(Clone, Debug)]
+pub(crate) enum Spoof {
+    KeygenSpoof { spoof: KeygenSpoof },
+    SignSpoof { spoof: SignSpoof },
+}
+
+#[derive(Clone, Debug)]
 pub(super) struct PartyMaliciousData {
     pub(super) timeout: Option<Timeout>,
-    pub(super) spoof: Option<SignSpoof>,
+    pub(super) spoof: Option<Spoof>,
     pub(super) keygen_malicious_type: KeygenBehaviour,
     pub(super) sign_malicious_type: SignBehaviour,
 }
