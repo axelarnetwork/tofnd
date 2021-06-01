@@ -17,6 +17,18 @@ async fn keygen_malicious_general_cases() {
     run_test_cases(&generate_basic_cases(), false).await;
 }
 
+#[traced_test]
+#[tokio::test]
+async fn keygen_malicious_general_cases_with_restart() {
+    run_test_cases(&generate_basic_cases(), true).await;
+}
+
+#[traced_test]
+#[tokio::test]
+async fn keygen_malicious_multiple_per_round() {
+    run_test_cases(&generate_multiple_malicious_per_round(), false).await;
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct Timeout {
     pub(crate) index: usize,
@@ -182,6 +194,44 @@ fn generate_basic_cases() -> Vec<TestCase> {
                 Keygener::new(Honest, vec![]),
                 Keygener::new(m.clone(), vec![to_crime(&m)]),
             ],
+        ));
+    }
+    cases
+}
+
+fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
+    let victim = 0;
+    let all_rounds_faults = vec![
+        // round 2 faults
+        vec![R2BadEncryption { victim }, R2BadShare { victim }],
+        // round 3 faults
+        vec![R3FalseAccusation { victim }],
+        // round 1 faults
+        // vec![R1BadCommit], // exclude round 1 faults because they stall
+
+        // Why do the above test cases stall?
+        // All of the above behaviours result to a crime that is captured at the same round it occurs.
+        // This means that honest parties immediately stop the protocol, but criminals do not receive
+        // all messages they expect for that round.
+        // If we want to make the protocol finish successfully for all parties in these test cases, we
+        // can assign multiple shares to these types, so that each malicious share will to notify the
+        // rest of the shares that the protocol has ended, or trigger the timeout mechanism.
+    ];
+    // create test cases for all rounds
+    let mut cases = Vec::new();
+    for round_faults in all_rounds_faults {
+        let mut participants = vec![Keygener::new(Honest, vec![])];
+        for fault in round_faults.into_iter() {
+            participants.push(Keygener::new(
+                fault.clone(), // behaviour data initialized with Default:default()
+                vec![to_crime(&fault)],
+            ));
+        }
+        cases.push(TestCase::new_malicious_keygen(
+            participants.len(),
+            vec![1; participants.len()],
+            participants.len() - 1, // threshold < #parties
+            participants,
         ));
     }
     cases
