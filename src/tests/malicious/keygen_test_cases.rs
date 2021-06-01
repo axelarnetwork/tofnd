@@ -136,7 +136,7 @@ impl TestCase {
             threshold,
             signer_indices: vec![],
             expected_keygen_crimes,
-            expected_crimes: vec![],
+            expected_sign_crimes: vec![],
             malicious_data,
         }
     }

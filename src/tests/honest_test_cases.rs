@@ -33,7 +33,7 @@ impl TestCase {
             threshold,
             signer_indices,
             expected_keygen_crimes,
-            expected_crimes,
+            expected_sign_crimes: expected_crimes,
             #[cfg(feature = "malicious")]
             malicious_data: MaliciousData::empty(uid_count),
         }

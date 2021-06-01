@@ -220,8 +220,6 @@ impl TestCase {
             }
         }
 
-        let expected_keygen_crimes = vec![vec![]; uid_count];
-
         let mut malicious_data = MaliciousData::empty(uid_count);
         malicious_data.set_sign_data(SignData {
             malicious_types,
@@ -234,8 +232,8 @@ impl TestCase {
             share_counts,
             threshold,
             signer_indices,
-            expected_keygen_crimes,
-            expected_crimes,
+            expected_keygen_crimes: vec![],
+            expected_sign_crimes: expected_crimes,
             malicious_data,
         }
     }

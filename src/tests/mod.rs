@@ -43,8 +43,8 @@ struct TestCase {
     share_counts: Vec<u32>,
     threshold: usize,
     signer_indices: Vec<usize>,
-    expected_crimes: Vec<Vec<SignCrime>>,
     expected_keygen_crimes: Vec<Vec<KeygenCrime>>,
+    expected_sign_crimes: Vec<Vec<SignCrime>>,
     #[cfg(feature = "malicious")]
     malicious_data: MaliciousData,
 }
@@ -197,7 +197,7 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
     let threshold = test_case.threshold;
     let sign_participant_indices = &test_case.signer_indices;
     let expected_keygen_crimes = &test_case.expected_keygen_crimes;
-    let expected_crimes = &test_case.expected_crimes;
+    let expected_crimes = &test_case.expected_sign_crimes;
 
     info!("======= Expected crimes: {:?}", expected_crimes);
 
