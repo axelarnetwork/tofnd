@@ -208,6 +208,12 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
 
     let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
+    #[cfg(not(feature = "malicious"))]
+    let expect_timeout = false;
+    #[cfg(feature = "malicious")]
+    let expect_timeout = test_case.malicious_data.keygen_data.timeout.is_some()
+        || test_case.malicious_data.sign_data.timeout.is_some();
+
     // println!(
     //     "keygen: share_count:{}, threshold: {}",
     //     share_count, threshold
@@ -219,6 +225,7 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
         party_share_counts,
         new_key_uid,
         threshold,
+        expect_timeout,
     )
     .await;
 
@@ -260,10 +267,7 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
         new_key_uid,
         new_sig_uid,
         &MSG_TO_SIGN,
-        #[cfg(not(feature = "malicious"))]
-        false,
-        #[cfg(feature = "malicious")]
-        test_case.malicious_data.sign_data.timeout.is_some(),
+        expect_timeout,
     )
     .await;
 
@@ -291,7 +295,11 @@ impl InitParty {
     #[cfg(feature = "malicious")]
     fn new(my_index: usize, all_malicious_data: &MaliciousData) -> InitParty {
         let mut my_timeout = None;
-        if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
+        if let Some(timeout) = all_malicious_data.keygen_data.timeout.clone() {
+            if timeout.index == my_index {
+                my_timeout = Some(timeout);
+            }
+        } else if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
             if timeout.index == my_index {
                 my_timeout = Some(timeout);
             }
@@ -374,7 +382,9 @@ async fn execute_keygen(
     party_share_counts: &[u32],
     new_key_uid: &str,
     threshold: usize,
+    expect_timeout: bool,
 ) -> (Vec<TofndParty>, Vec<KeygenResult>) {
+    println!("Expecting timeout: [{}]", expect_timeout);
     let share_count = parties.len();
     let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
     let mut keygen_join_handles = Vec::with_capacity(share_count);
@@ -397,6 +407,13 @@ async fn execute_keygen(
         });
         keygen_join_handles.push(handle);
     }
+
+    // if we are expecting a timeout, abort parties after a reasonable amount of time
+    if expect_timeout {
+        let unblocker = keygen_delivery.clone();
+        abort_parties(unblocker, 10);
+    }
+
     let mut parties = Vec::with_capacity(share_count); // async closures are unstable https://github.com/rust-lang/rust/issues/62290
     let mut results = vec![];
     for h in keygen_join_handles {

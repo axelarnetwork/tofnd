@@ -5,7 +5,7 @@ use tofn::protocol::gg20::sign::{
 };
 
 use super::super::{run_test_cases, TestCase};
-use super::MaliciousData;
+use super::{MaliciousData, MsgType::SignMsgType, Timeout};
 
 use serde::{Deserialize, Serialize}; // we assume bad guys know how to (de)serialize
 use strum::IntoEnumIterator; // iterate malicious types, message types and statuses
@@ -110,11 +110,6 @@ pub(crate) struct MsgMeta {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Timeout {
-    pub(crate) index: usize,
-    pub(crate) msg_type: MsgType,
-}
-#[derive(Clone, Debug)]
 pub(crate) struct Spoof {
     pub(crate) index: usize,
     pub(crate) victim: usize,
@@ -204,7 +199,9 @@ impl TestCase {
             if let Staller { msg_type } = t {
                 timeout = Some(Timeout {
                     index: i,
-                    msg_type: msg_type.clone(),
+                    msg_type: SignMsgType {
+                        msg_type: msg_type.clone(),
+                    },
                 });
             }
         }

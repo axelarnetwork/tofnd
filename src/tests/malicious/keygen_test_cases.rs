@@ -5,7 +5,7 @@ use tofn::protocol::gg20::keygen::{
 };
 
 use super::super::{run_test_cases, TestCase};
-use super::MaliciousData;
+use super::{MaliciousData, MsgType::KeygenMsgType, Timeout};
 
 use serde::{Deserialize, Serialize}; // we assume bad guys know how to (de)serialize
 use strum::IntoEnumIterator; // iterate malicious types, message types and statuses
@@ -23,11 +23,12 @@ async fn keygen_malicious_multiple_per_round() {
     run_test_cases(&generate_multiple_malicious_per_round(), false).await;
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct Timeout {
-    pub(crate) index: usize,
-    pub(crate) msg_type: MsgType,
+#[traced_test]
+#[tokio::test]
+async fn malicious_timeout_cases() {
+    run_test_cases(&timeout_cases(), false).await;
 }
+
 #[derive(Clone, Debug)]
 pub(crate) struct Spoof {
     pub(crate) index: usize,
@@ -79,10 +80,10 @@ impl Keygener {
 }
 
 #[derive(Serialize, Deserialize)]
-pub(super) struct MsgMeta {
-    pub(super) msg_type: MsgType,
-    pub(super) from: usize,
-    pub(super) payload: Vec<u8>,
+pub(crate) struct MsgMeta {
+    pub(crate) msg_type: MsgType,
+    pub(crate) from: usize,
+    pub(crate) payload: Vec<u8>,
 }
 
 impl TestCase {
@@ -107,7 +108,9 @@ impl TestCase {
             if let Staller { msg_type } = t {
                 timeout = Some(Timeout {
                     index: i,
-                    msg_type: msg_type.clone(),
+                    msg_type: KeygenMsgType {
+                        msg_type: msg_type.clone(),
+                    },
                 });
             }
         }
@@ -229,4 +232,30 @@ fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
         ));
     }
     cases
+}
+
+fn timeout_cases() -> Vec<TestCase> {
+    use MsgType::*;
+    let stallers = MsgType::iter()
+        .filter(|msg_type| matches!(msg_type, R1Bcast | R2Bcast | R2P2p { to: _ } | R3Bcast,)) // don't match fail types
+        .map(|msg_type| Staller { msg_type })
+        .collect::<Vec<Behaviour>>();
+
+    // staller always targets party 0
+    stallers
+        .iter()
+        .map(|staller| {
+            TestCase::new_malicious_keygen(
+                4,
+                vec![1, 1, 1, 1],
+                2,
+                vec![
+                    Keygener::new(Honest, vec![]),
+                    Keygener::new(staller.clone(), vec![to_crime(&staller)]),
+                    Keygener::new(Honest, vec![]),
+                    Keygener::new(Honest, vec![]),
+                ],
+            )
+        })
+        .collect()
 }

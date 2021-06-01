@@ -7,7 +7,7 @@ use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
 #[cfg(feature = "malicious")]
-use super::malicious::{PartyMaliciousData, SignMsgMeta, SignSpoof};
+use super::malicious::{KeygenMsgMeta, MsgType, PartyMaliciousData, SignMsgMeta, SignSpoof};
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -23,19 +23,46 @@ pub(super) struct TofndParty {
 
 impl TofndParty {
     #[cfg(feature = "malicious")]
-    pub(crate) fn should_timeout(&self, traffic: &proto::TrafficOut) -> bool {
+    pub(crate) fn should_timeout_keygen(&self, traffic: &proto::TrafficOut) -> bool {
         let payload = traffic.clone().payload;
-        let msg_meta: SignMsgMeta = bincode::deserialize(&payload).unwrap();
 
         // this would also work!!!
         // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
 
-        let msg_type = &msg_meta.msg_type;
+        // check if we need to stall keygen msg
+        if let Ok(msg_meta) = bincode::deserialize::<KeygenMsgMeta>(&payload) {
+            let keygen_msg_type = &msg_meta.msg_type;
+            if let Some(timeout) = &self.malicious_data.timeout {
+                let in_msg = MsgType::KeygenMsgType {
+                    msg_type: keygen_msg_type.clone(),
+                };
+                if timeout.msg_type == in_msg {
+                    println!("I am stalling keygen message {:?}", keygen_msg_type);
+                    return true;
+                }
+            }
+        }
+        false
+    }
 
-        if let Some(timeout) = &self.malicious_data.timeout {
-            if msg_type == &timeout.msg_type {
-                println!("I am stalling message {:?}", msg_type);
-                return true;
+    #[cfg(feature = "malicious")]
+    pub(crate) fn should_timeout_sign(&self, traffic: &proto::TrafficOut) -> bool {
+        let payload = traffic.clone().payload;
+
+        // this would also work!!!
+        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
+
+        // check if we need to stall sign msg
+        if let Ok(msg_meta) = bincode::deserialize::<SignMsgMeta>(&payload) {
+            let sign_msg_type = &msg_meta.msg_type;
+            if let Some(timeout) = &self.malicious_data.timeout {
+                let in_msg = MsgType::SignMsgType {
+                    msg_type: sign_msg_type.clone(),
+                };
+                if timeout.msg_type == in_msg {
+                    println!("I am stalling sign message {:?}", sign_msg_type);
+                    return true;
+                }
             }
         }
         false
@@ -161,8 +188,24 @@ impl Party for TofndParty {
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
+                #[cfg(not(feature = "malicious"))]
                 proto::message_out::Data::Traffic(_) => {
                     delivery.deliver(&msg, &my_uid).await;
+                }
+                // in malicous case, if we are stallers we skip the message
+                #[cfg(feature = "malicious")]
+                proto::message_out::Data::Traffic(traffic) => {
+                    // check if I am not a staller, send the message. This is for timeout tests
+                    if !self.should_timeout(&traffic) {
+                        // if I am a spoofer, create a _duplicate_ message and spoof it. This is for spoof tests
+                        if let Some(traffic) = self.spoof(&traffic) {
+                            let mut spoofed_msg = msg.clone();
+                            spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
+                            delivery.deliver(&spoofed_msg, &my_uid).await;
+                        }
+                        // finally, act normally and send the correct message
+                        delivery.deliver(&msg, &my_uid).await;
+                    }
                 }
                 proto::message_out::Data::KeygenResult(res) => {
                     result = Some(res.clone());
@@ -234,7 +277,7 @@ impl Party for TofndParty {
                             spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
                             delivery.deliver(&spoofed_msg, &my_uid).await;
                         }
-                        // finally, act norally and send the correct message
+                        // finally, act normally and send the correct message
                         delivery.deliver(&msg, &my_uid).await;
                     }
                 }

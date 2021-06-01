@@ -5,10 +5,26 @@ use keygen_test_cases::KeygenData;
 use sign_test_cases::SignData;
 
 pub(super) type SignSpoof = sign_test_cases::Spoof;
-pub(super) type SignTimeout = sign_test_cases::Timeout;
+pub(super) type KeygenMsgMeta = keygen_test_cases::MsgMeta;
 pub(super) type SignMsgMeta = sign_test_cases::MsgMeta;
 pub(super) type KeygenBehaviour = tofn::protocol::gg20::keygen::malicious::Behaviour;
 pub(super) type SignBehaviour = tofn::protocol::gg20::sign::malicious::MaliciousType;
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum MsgType {
+    KeygenMsgType {
+        msg_type: tofn::protocol::gg20::keygen::MsgType,
+    },
+    SignMsgType {
+        msg_type: tofn::protocol::gg20::sign::MsgType,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Timeout {
+    pub(crate) index: usize,
+    pub(crate) msg_type: MsgType,
+}
 
 #[derive(Clone, Debug)]
 pub(super) struct MaliciousData {
@@ -33,7 +49,7 @@ impl MaliciousData {
 
 #[derive(Clone, Debug)]
 pub(super) struct PartyMaliciousData {
-    pub(super) timeout: Option<SignTimeout>,
+    pub(super) timeout: Option<Timeout>,
     pub(super) spoof: Option<SignSpoof>,
     pub(super) keygen_malicious_type: KeygenBehaviour,
     pub(super) sign_malicious_type: SignBehaviour,
