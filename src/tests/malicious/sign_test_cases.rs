@@ -4,8 +4,8 @@ use tofn::protocol::gg20::sign::{
     MsgType, Status,
 };
 
-use crate::tests::run_test_cases;
-use crate::tests::TestCase;
+use super::super::{run_test_cases, TestCase};
+use super::MaliciousData;
 
 use serde::{Deserialize, Serialize}; // we assume bad guys know how to (de)serialize
 use strum::IntoEnumIterator; // iterate malicious types, message types and statuses
@@ -42,7 +42,7 @@ async fn malicious_spoof_cases() {
 }
 
 // TODO import that from tofn
-pub(super) fn map_type_to_crime(t: &MaliciousType) -> Vec<Crime> {
+fn to_crime(t: &MaliciousType) -> Vec<Crime> {
     match t {
         Honest => vec![],
         Staller { msg_type: mt } => vec![Crime::StalledMessage {
@@ -55,6 +55,8 @@ pub(super) fn map_type_to_crime(t: &MaliciousType) -> Vec<Crime> {
             victim: *v,
             status: s.clone(),
         }],
+        // TODO: add tests for Disrupting sender
+        DisrupringSender { msg_type: _ } => vec![Crime::DisruptedMessage],
         R1BadProof { victim: v } => vec![Crime::R3FailBadRangeProof { victim: *v }],
         R2FalseAccusation { victim: v } => vec![Crime::R3FailFalseAccusation { victim: *v }],
         R2BadMta { victim: v } => vec![Crime::R4FailBadRangeProof { victim: *v }],
@@ -101,26 +103,26 @@ impl Signer {
 }
 
 #[derive(Serialize, Deserialize)]
-pub(super) struct MsgMeta {
-    pub(super) msg_type: MsgType,
-    pub(super) from: usize,
-    pub(super) payload: Vec<u8>,
+pub(crate) struct MsgMeta {
+    pub(crate) msg_type: MsgType,
+    pub(crate) from: usize,
+    pub(crate) payload: Vec<u8>,
 }
 
 #[derive(Clone, Debug)]
-pub(super) struct Timeout {
-    pub(super) index: usize,
-    pub(super) msg_type: MsgType,
+pub(crate) struct Timeout {
+    pub(crate) index: usize,
+    pub(crate) msg_type: MsgType,
 }
 #[derive(Clone, Debug)]
-pub(super) struct Spoof {
-    pub(super) index: usize,
-    pub(super) victim: usize,
-    pub(super) status: Status,
+pub(crate) struct Spoof {
+    pub(crate) index: usize,
+    pub(crate) victim: usize,
+    pub(crate) status: Status,
 }
 
 impl Spoof {
-    pub(super) fn msg_to_status(msg_type: &MsgType) -> Status {
+    pub(crate) fn msg_to_status(msg_type: &MsgType) -> Status {
         match msg_type {
             MsgType::R1Bcast => Status::R1,
             MsgType::R1P2p { to: _ } => Status::R1,
@@ -141,15 +143,15 @@ impl Spoof {
 }
 
 #[derive(Clone, Debug)]
-pub(super) struct MaliciousData {
-    pub(super) malicious_types: Vec<MaliciousType>,
-    pub(super) timeout: Option<Timeout>,
-    pub(super) spoof: Option<Spoof>,
+pub(crate) struct SignData {
+    pub(crate) malicious_types: Vec<MaliciousType>,
+    pub(crate) timeout: Option<Timeout>,
+    pub(crate) spoof: Option<Spoof>,
 }
 
-impl MaliciousData {
-    pub(super) fn empty(party_count: usize) -> MaliciousData {
-        MaliciousData {
+impl SignData {
+    pub(crate) fn empty(party_count: usize) -> SignData {
+        SignData {
             malicious_types: vec![Honest; party_count],
             timeout: None,
             spoof: None,
@@ -158,7 +160,7 @@ impl MaliciousData {
 }
 
 impl TestCase {
-    pub(super) fn new_malicious(
+    fn new_malicious(
         uid_count: usize,
         share_counts: Vec<u32>,
         threshold: usize,
@@ -218,24 +220,28 @@ impl TestCase {
             }
         }
 
-        let malicious_data = MaliciousData {
+        let expected_keygen_crimes = vec![vec![]; uid_count];
+
+        let mut malicious_data = MaliciousData::empty(uid_count);
+        malicious_data.set_sign_data(SignData {
             malicious_types,
             timeout,
             spoof,
-        };
+        });
 
         TestCase {
             uid_count,
             share_counts,
             threshold,
             signer_indices,
+            expected_keygen_crimes,
             expected_crimes,
             malicious_data,
         }
     }
 }
 
-pub(super) fn timeout_cases() -> Vec<TestCase> {
+fn timeout_cases() -> Vec<TestCase> {
     use MsgType::*;
     let stallers = MsgType::iter()
         .filter(|msg_type| {
@@ -265,7 +271,7 @@ pub(super) fn timeout_cases() -> Vec<TestCase> {
                 2,
                 vec![
                     Signer::new(0, Honest, vec![]),
-                    Signer::new(1, staller.clone(), map_type_to_crime(&staller)),
+                    Signer::new(1, staller.clone(), to_crime(&staller)),
                     Signer::new(2, Honest, vec![]),
                 ],
             )
@@ -273,7 +279,7 @@ pub(super) fn timeout_cases() -> Vec<TestCase> {
         .collect()
 }
 
-pub(super) fn spoof_cases() -> Vec<TestCase> {
+fn spoof_cases() -> Vec<TestCase> {
     use Status::*;
     let victim = 0;
     let spoofers = Status::iter()
@@ -291,7 +297,7 @@ pub(super) fn spoof_cases() -> Vec<TestCase> {
                 3,
                 vec![
                     Signer::new(0, Honest, vec![]),
-                    Signer::new(1, spoofer.clone(), map_type_to_crime(&spoofer)),
+                    Signer::new(1, spoofer.clone(), to_crime(&spoofer)),
                     Signer::new(2, Honest, vec![]),
                     Signer::new(3, Honest, vec![]),
                     Signer::new(4, Honest, vec![]),
@@ -301,7 +307,7 @@ pub(super) fn spoof_cases() -> Vec<TestCase> {
         .collect()
 }
 
-pub(super) fn generate_basic_cases() -> Vec<TestCase> {
+fn generate_basic_cases() -> Vec<TestCase> {
     let mut cases = vec![];
     for m in MaliciousType::iter().filter(|m| {
         // don't include malicious types that happen at the routing level
@@ -311,6 +317,7 @@ pub(super) fn generate_basic_cases() -> Vec<TestCase> {
                 victim: _,
                 status: _
             } | Staller { msg_type: _ }
+                | DisrupringSender { msg_type: _ }
         )
     }) {
         cases.push(TestCase::new_malicious(
@@ -321,14 +328,14 @@ pub(super) fn generate_basic_cases() -> Vec<TestCase> {
                 Signer::new(0, Honest, vec![]),
                 Signer::new(1, Honest, vec![]),
                 Signer::new(2, Honest, vec![]),
-                Signer::new(3, m.clone(), map_type_to_crime(&m)),
+                Signer::new(3, m.clone(), to_crime(&m)),
             ],
         ));
     }
     cases
 }
 
-pub(super) fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
+fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
     let victim = 0;
     let all_rounds_faults = vec![
         // round 1 faults
@@ -368,7 +375,7 @@ pub(super) fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
             participants.push(Signer::new(
                 i,
                 fault.clone(), // behaviour data initialized with Default:default()
-                map_type_to_crime(&fault),
+                to_crime(&fault),
             ));
         }
         cases.push(TestCase::new_malicious(

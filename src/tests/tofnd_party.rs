@@ -1,15 +1,13 @@
 use super::{mock::SenderReceiver, Deliverer, InitParty, Party};
 use crate::{addr, gg20, proto};
-use proto::message_out::SignResult;
+use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
 use std::path::Path;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
 #[cfg(feature = "malicious")]
-use super::PartyMaliciousData;
-#[cfg(feature = "malicious")]
-use crate::tests::malicious_test_cases::{MsgMeta, Spoof};
+use super::malicious::{PartyMaliciousData, SignMsgMeta, SignSpoof};
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -27,7 +25,7 @@ impl TofndParty {
     #[cfg(feature = "malicious")]
     pub(crate) fn should_timeout(&self, traffic: &proto::TrafficOut) -> bool {
         let payload = traffic.clone().payload;
-        let msg_meta: MsgMeta = bincode::deserialize(&payload).unwrap();
+        let msg_meta: SignMsgMeta = bincode::deserialize(&payload).unwrap();
 
         // this would also work!!!
         // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
@@ -46,7 +44,7 @@ impl TofndParty {
     #[cfg(feature = "malicious")]
     pub(crate) fn spoof(&mut self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
         let payload = traffic.clone().payload;
-        let mut msg_meta: MsgMeta = bincode::deserialize(&payload).unwrap();
+        let mut msg_meta: SignMsgMeta = bincode::deserialize(&payload).unwrap();
 
         // this also works!!!
         // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
@@ -55,7 +53,7 @@ impl TofndParty {
 
         // if I am not a spoofer, return none. I dislike that I have to clone this
         let spoof = self.malicious_data.spoof.clone()?;
-        if Spoof::msg_to_status(msg_type) != spoof.status {
+        if SignSpoof::msg_to_status(msg_type) != spoof.status {
             return None;
         }
 
@@ -86,7 +84,8 @@ impl TofndParty {
         #[cfg(feature = "malicious")]
         let my_service = gg20::tests::with_db_name_malicious(
             &db_path,
-            init_party.malicious_data.malicious_type.clone(),
+            init_party.malicious_data.keygen_malicious_type.clone(),
+            init_party.malicious_data.sign_malicious_type.clone(),
         );
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
@@ -139,7 +138,7 @@ impl Party for TofndParty {
         init: proto::KeygenInit,
         channels: SenderReceiver,
         mut delivery: Deliverer,
-    ) {
+    ) -> KeygenResult {
         let my_uid = init.party_uids[usize::try_from(init.my_party_index).unwrap()].clone();
         let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
         let (keygen_server_incoming, rx) = channels;
@@ -157,7 +156,7 @@ impl Party for TofndParty {
             })
             .unwrap();
 
-        let mut keygen_completed = false;
+        let mut result: Option<KeygenResult> = None;
         while let Some(msg) = keygen_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
@@ -165,9 +164,9 @@ impl Party for TofndParty {
                 proto::message_out::Data::Traffic(_) => {
                     delivery.deliver(&msg, &my_uid).await;
                 }
-                proto::message_out::Data::KeygenResult(_) => {
+                proto::message_out::Data::KeygenResult(res) => {
+                    result = Some(res.clone());
                     println!("party [{}] keygen finished!", my_display_name);
-                    keygen_completed = true;
                     break;
                 }
                 _ => panic!(
@@ -176,8 +175,18 @@ impl Party for TofndParty {
                 ),
             };
         }
-        assert!(keygen_completed, "keygen failure to complete");
+
+        if result.is_none() {
+            println!(
+                "party [{}] keygen execution was not completed",
+                my_display_name
+            );
+            return KeygenResult::default();
+        }
+
         println!("party [{}] keygen execution complete", my_display_name);
+
+        result.unwrap()
     }
 
     async fn execute_sign(

@@ -1,5 +1,5 @@
 use crate::proto;
-use proto::message_out::SignResult;
+use proto::message_out::{KeygenResult, SignResult};
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 
@@ -10,7 +10,7 @@ pub(super) trait Party: Sync + Send {
         init: proto::KeygenInit,
         channels: SenderReceiver,
         delivery: Deliverer,
-    );
+    ) -> KeygenResult;
     async fn execute_sign(
         &mut self,
         init: proto::SignInit,
