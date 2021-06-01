@@ -160,7 +160,7 @@ impl SignData {
 }
 
 impl TestCase {
-    fn new_malicious(
+    fn new_malicious_sign(
         uid_count: usize,
         share_counts: Vec<u32>,
         threshold: usize,
@@ -265,7 +265,7 @@ fn timeout_cases() -> Vec<TestCase> {
     stallers
         .iter()
         .map(|staller| {
-            TestCase::new_malicious(
+            TestCase::new_malicious_sign(
                 4,
                 vec![1, 1, 1, 1],
                 2,
@@ -291,7 +291,7 @@ fn spoof_cases() -> Vec<TestCase> {
     spoofers
         .iter()
         .map(|spoofer| {
-            TestCase::new_malicious(
+            TestCase::new_malicious_sign(
                 5,
                 vec![1, 1, 1, 1, 1],
                 3,
@@ -320,7 +320,7 @@ fn generate_basic_cases() -> Vec<TestCase> {
                 | DisrupringSender { msg_type: _ }
         )
     }) {
-        cases.push(TestCase::new_malicious(
+        cases.push(TestCase::new_malicious_sign(
             4,
             vec![1, 2, 1, 3],
             3,
@@ -379,7 +379,7 @@ fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
                 to_crime(&fault),
             ));
         }
-        cases.push(TestCase::new_malicious(
+        cases.push(TestCase::new_malicious_sign(
             5,
             vec![1, 1, 1, 1, 3],
             participants.len() - 1, // threshold < #parties
