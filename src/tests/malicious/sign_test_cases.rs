@@ -117,6 +117,7 @@ pub(crate) struct Spoof {
 }
 
 impl Spoof {
+    // TODO import that from tofn
     pub(crate) fn msg_to_status(msg_type: &MsgType) -> Status {
         match msg_type {
             MsgType::R1Bcast => Status::R1,

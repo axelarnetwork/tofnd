@@ -15,7 +15,6 @@ mod mock;
 mod tofnd_party;
 
 mod honest_test_cases;
-
 #[cfg(feature = "malicious")]
 mod malicious;
 #[cfg(feature = "malicious")]
@@ -38,6 +37,10 @@ use tofnd_party::TofndParty;
 
 use crate::gg20::proto_helpers::to_criminals;
 
+lazy_static::lazy_static! {
+    static ref MSG_TO_SIGN: Vec<u8> = vec![42];
+}
+
 struct TestCase {
     uid_count: usize,
     share_counts: Vec<u32>,
@@ -47,32 +50,6 @@ struct TestCase {
     expected_sign_crimes: Vec<Vec<SignCrime>>,
     #[cfg(feature = "malicious")]
     malicious_data: MaliciousData,
-}
-
-lazy_static::lazy_static! {
-    static ref MSG_TO_SIGN: Vec<u8> = vec![42];
-}
-
-// struct to pass in init_parties function.
-// needs to include malicious when we are running in malicious mode
-struct InitParties {
-    party_count: usize,
-    #[cfg(feature = "malicious")]
-    malicious_data: MaliciousData,
-}
-
-impl InitParties {
-    #[cfg(not(feature = "malicious"))]
-    fn new(party_count: usize) -> InitParties {
-        InitParties { party_count }
-    }
-    #[cfg(feature = "malicious")]
-    fn new(party_count: usize, malicious_data: &MaliciousData) -> InitParties {
-        InitParties {
-            party_count,
-            malicious_data: malicious_data.clone(),
-        }
-    }
 }
 
 async fn run_test_cases(test_cases: &[TestCase], restart: bool) {
@@ -294,6 +271,7 @@ impl InitParty {
     }
     #[cfg(feature = "malicious")]
     fn new(my_index: usize, all_malicious_data: &MaliciousData) -> InitParty {
+        // register timeouts
         let mut my_timeout = None;
         if let Some(timeout) = all_malicious_data.keygen_data.timeout.clone() {
             if timeout.index == my_index {
@@ -305,6 +283,7 @@ impl InitParty {
             }
         }
 
+        // register spoofs
         let mut my_spoof = None;
         if let Some(spoof) = all_malicious_data.sign_data.spoof.clone() {
             if spoof.index == my_index {
@@ -340,6 +319,28 @@ impl InitParty {
         InitParty {
             party_index: my_index,
             malicious_data: my_malicious_data,
+        }
+    }
+}
+
+// struct to pass in init_parties function.
+// needs to include malicious when we are running in malicious mode
+struct InitParties {
+    party_count: usize,
+    #[cfg(feature = "malicious")]
+    malicious_data: MaliciousData,
+}
+
+impl InitParties {
+    #[cfg(not(feature = "malicious"))]
+    fn new(party_count: usize) -> InitParties {
+        InitParties { party_count }
+    }
+    #[cfg(feature = "malicious")]
+    fn new(party_count: usize, malicious_data: &MaliciousData) -> InitParties {
+        InitParties {
+            party_count,
+            malicious_data: malicious_data.clone(),
         }
     }
 }
