@@ -40,7 +40,9 @@ type KeySharesKv = Kv<PartyInfo>;
 struct Gg20Service {
     kv: KeySharesKv,
     #[cfg(feature = "malicious")]
-    malicious_type: MaliciousType,
+    keygen_malicious_type: Behaviour,
+    #[cfg(feature = "malicious")]
+    sign_malicious_type: MaliciousType,
 }
 
 #[cfg(not(feature = "malicious"))]
@@ -51,10 +53,14 @@ pub fn new_service() -> impl proto::gg20_server::Gg20 {
 }
 
 #[cfg(feature = "malicious")]
-pub fn new_service(malicious_type: MaliciousType) -> impl proto::gg20_server::Gg20 {
+pub fn new_service(
+    keygen_malicious_type: Behaviour,
+    sign_malicious_type: MaliciousType,
+) -> impl proto::gg20_server::Gg20 {
     Gg20Service {
         kv: KeySharesKv::new(),
-        malicious_type,
+        keygen_malicious_type,
+        sign_malicious_type,
     }
 }
 
@@ -92,14 +98,14 @@ impl proto::gg20_server::Gg20 for Gg20Service {
     ) -> Result<Response<Self::KeygenStream>, Status> {
         let stream_in = request.into_inner();
         let (msg_sender, rx) = mpsc::unbounded_channel();
-        let kv = self.kv.clone();
 
         let span = span!(Level::INFO, "Keygen");
         let _enter = span.enter();
         let s = span.clone();
+        let mut gg20 = self.clone();
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = keygen::handle_keygen(kv, stream_in, msg_sender, s).await {
+            if let Err(e) = gg20.handle_keygen(stream_in, msg_sender, s).await {
                 error!("keygen failure: {:?}", e);
                 return;
             }
@@ -131,13 +137,44 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 }
 
 #[cfg(feature = "malicious")]
+use tofn::protocol::gg20::keygen::malicious::Behaviour;
+use tofn::protocol::gg20::keygen::Keygen;
+
+#[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::BadSign;
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::MaliciousType;
 #[cfg(not(feature = "malicious"))]
 use tofn::protocol::gg20::sign::Sign;
-use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::ParamsError};
+use tofn::protocol::gg20::{
+    keygen::{ParamsError as KeygenErr, SecretKeyShare},
+    sign::ParamsError as SignErr,
+};
 impl Gg20Service {
+    // get regular keygen
+    #[cfg(not(feature = "malicious"))]
+    fn get_keygen(
+        &self,
+        party_share_counts: usize,
+        threshold: usize,
+        my_index: usize,
+    ) -> Result<Keygen, KeygenErr> {
+        Keygen::new(party_share_counts, threshold, my_index)
+    }
+
+    // get malicious keygen
+    #[cfg(feature = "malicious")]
+    fn get_keygen(
+        &self,
+        party_share_counts: usize,
+        threshold: usize,
+        my_index: usize,
+    ) -> Result<Keygen, KeygenErr> {
+        let mut k = Keygen::new(party_share_counts, threshold, my_index)?;
+        k.set_behaviour(self.keygen_malicious_type.clone());
+        Ok(k)
+    }
+
     // get regular sign
     #[cfg(not(feature = "malicious"))]
     fn get_sign(
@@ -145,18 +182,19 @@ impl Gg20Service {
         my_secret_key_share: &SecretKeyShare,
         participant_indices: &[usize],
         msg_to_sign: &[u8],
-    ) -> Result<Sign, ParamsError> {
+    ) -> Result<Sign, SignErr> {
         Sign::new(my_secret_key_share, participant_indices, msg_to_sign)
     }
 
+    // get malicious sign
     #[cfg(feature = "malicious")]
     fn get_sign(
         &self,
         my_secret_key_share: &SecretKeyShare,
         participant_indices: &[usize],
         msg_to_sign: &[u8],
-    ) -> Result<BadSign, ParamsError> {
-        let behaviour = self.malicious_type.clone();
+    ) -> Result<BadSign, SignErr> {
+        let behaviour = self.sign_malicious_type.clone();
         BadSign::new(
             my_secret_key_share,
             participant_indices,
@@ -237,6 +275,8 @@ pub(super) mod tests {
     use crate::proto;
 
     #[cfg(feature = "malicious")]
+    use tofn::protocol::gg20::keygen::malicious::Behaviour;
+    #[cfg(feature = "malicious")]
     use tofn::protocol::gg20::sign::malicious::MaliciousType;
 
     #[cfg(not(feature = "malicious"))]
@@ -249,11 +289,13 @@ pub(super) mod tests {
     #[cfg(feature = "malicious")]
     pub fn with_db_name_malicious(
         db_name: &str,
-        malicious_type: MaliciousType,
+        keygen_malicious_type: Behaviour,
+        sign_malicious_type: MaliciousType,
     ) -> impl proto::gg20_server::Gg20 {
         Gg20Service {
             kv: KeySharesKv::with_db_name(db_name),
-            malicious_type,
+            keygen_malicious_type,
+            sign_malicious_type,
         }
     }
 

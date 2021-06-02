@@ -15,20 +15,21 @@ mod mock;
 mod tofnd_party;
 
 mod honest_test_cases;
-
 #[cfg(feature = "malicious")]
-mod malicious_test_cases;
+mod malicious;
 #[cfg(feature = "malicious")]
-use malicious_test_cases::*;
+use malicious::{MaliciousData, PartyMaliciousData, Spoof::*};
 
-use tofn::protocol::gg20::sign::crimes::Crime;
+use tofn::protocol::gg20::keygen::crimes::Crime as KeygenCrime;
+use tofn::protocol::gg20::sign::crimes::Crime as SignCrime;
 use tracing::info;
 
 use crate::proto::{
     self,
     message_out::{
-        sign_result::SignResultData::{Criminals, Signature},
-        SignResult,
+        keygen_result::KeygenResultData::{Criminals as KeygenCriminals, PubKey},
+        sign_result::SignResultData::{Criminals as SignCriminals, Signature},
+        KeygenResult, SignResult,
     },
 };
 use mock::{Deliverer, Party};
@@ -36,43 +37,19 @@ use tofnd_party::TofndParty;
 
 use crate::gg20::proto_helpers::to_criminals;
 
-#[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::malicious::MaliciousType;
+lazy_static::lazy_static! {
+    static ref MSG_TO_SIGN: Vec<u8> = vec![42];
+}
 
 struct TestCase {
     uid_count: usize,
     share_counts: Vec<u32>,
     threshold: usize,
     signer_indices: Vec<usize>,
-    expected_crimes: Vec<Vec<Crime>>,
+    expected_keygen_crimes: Vec<Vec<KeygenCrime>>,
+    expected_sign_crimes: Vec<Vec<SignCrime>>,
     #[cfg(feature = "malicious")]
     malicious_data: MaliciousData,
-}
-
-lazy_static::lazy_static! {
-    static ref MSG_TO_SIGN: Vec<u8> = vec![42];
-}
-
-// struct to pass in init_parties function.
-// needs to include malicious when we are running in malicious mode
-struct InitParties {
-    party_count: usize,
-    #[cfg(feature = "malicious")]
-    malicious_data: MaliciousData,
-}
-
-impl InitParties {
-    #[cfg(not(feature = "malicious"))]
-    fn new(party_count: usize) -> InitParties {
-        InitParties { party_count }
-    }
-    #[cfg(feature = "malicious")]
-    fn new(party_count: usize, malicious_data: &MaliciousData) -> InitParties {
-        InitParties {
-            party_count,
-            malicious_data: malicious_data.clone(),
-        }
-    }
 }
 
 async fn run_test_cases(test_cases: &[TestCase], restart: bool) {
@@ -82,7 +59,64 @@ async fn run_test_cases(test_cases: &[TestCase], restart: bool) {
     }
 }
 
-fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
+// Horrible code duplication indeed. Don't think we should spend time here though
+// because this will be deleted when axelar-core accommodates crimes
+fn check_keygen_results(results: Vec<KeygenResult>, expected_crimes: &[Vec<KeygenCrime>]) -> bool {
+    // get the first non-empty result. We can't simply take results[0] because some behaviours
+    // don't return results and we pad them with `None`s
+    let first = results.iter().find(|r| r.keygen_result_data.is_some());
+
+    // else we have at least one result
+    let first = first.unwrap();
+    match first.keygen_result_data {
+        Some(PubKey(_)) => {
+            assert_eq!(
+                expected_crimes
+                    .iter()
+                    .filter(|inner_crime_list| !inner_crime_list.is_empty())
+                    .count(),
+                0,
+                "Expected crimes but didn't discover any",
+            );
+            for (i, result) in results.iter().enumerate() {
+                assert_eq!(
+                    first, result,
+                    "party {} didn't produce the expected result",
+                    i
+                );
+            }
+        }
+        Some(KeygenCriminals(ref actual_criminals)) => {
+            // Check that we got all criminals
+            // that's a temporary hack, but will be soon replaced after result
+            // type is replaced with Vec<Vec<Crimes>>; then, we will simple do
+            // assert_eq(expected_crimes, actual_crimes);
+            // When this happens, also remove pub from mod gg20::proto_helpers
+            // because we no longer need to use to_crimes
+            let expected_criminals = to_criminals::<KeygenCrime>(expected_crimes);
+            for (actual_criminal, expected_criminal) in actual_criminals
+                .criminals
+                .iter()
+                .zip(expected_criminals.iter())
+            {
+                // use the convention that party names are constructed from ints converted to chars.
+                let criminal_index =
+                    actual_criminal.party_uid.chars().next().unwrap() as usize - 'A' as usize;
+                assert_eq!(expected_criminal.index, criminal_index);
+            }
+            println!("criminals: {:?}", actual_criminals.criminals);
+            return true;
+        }
+        None => {
+            panic!("Result was None");
+        }
+    }
+    false
+}
+
+// Horrible code duplication indeed. Don't think we should spend time here though
+// because this will be deleted when axelar-core accommodates crimes
+fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<SignCrime>]) {
     // get the first non-empty result. We can't simply take results[0] because some behaviours
     // don't return results and we pad them with `None`s
     let first = results.iter().find(|r| r.sign_result_data.is_some());
@@ -107,14 +141,14 @@ fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<Crime>]) {
                 );
             }
         }
-        Some(Criminals(ref actual_criminals)) => {
+        Some(SignCriminals(ref actual_criminals)) => {
             // Check that we got all criminals
             // that's a temporary hack, but will be soon replaced after result
             // type is replaced with Vec<Vec<Crimes>>; then, we will simple do
             // assert_eq(expected_crimes, actual_crimes);
             // When this happens, also remove pub from mod gg20::proto_helpers
             // because we no longer need to use to_crimes
-            let expected_criminals = to_criminals(expected_crimes);
+            let expected_criminals = to_criminals::<SignCrime>(expected_crimes);
             for (actual_criminal, expected_criminal) in actual_criminals
                 .criminals
                 .iter()
@@ -139,7 +173,8 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
     let party_share_counts = &test_case.share_counts;
     let threshold = test_case.threshold;
     let sign_participant_indices = &test_case.signer_indices;
-    let expected_crimes = &test_case.expected_crimes;
+    let expected_keygen_crimes = &test_case.expected_keygen_crimes;
+    let expected_crimes = &test_case.expected_sign_crimes;
 
     info!("======= Expected crimes: {:?}", expected_crimes);
 
@@ -150,17 +185,24 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
 
     let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
+    #[cfg(not(feature = "malicious"))]
+    let expect_timeout = false;
+    #[cfg(feature = "malicious")]
+    let expect_timeout = test_case.malicious_data.keygen_data.timeout.is_some()
+        || test_case.malicious_data.sign_data.timeout.is_some();
+
     // println!(
     //     "keygen: share_count:{}, threshold: {}",
     //     share_count, threshold
     // );
     let new_key_uid = "Gus-test-key";
-    let mut parties = execute_keygen(
+    let (mut parties, results) = execute_keygen(
         parties,
         &party_uids,
         party_share_counts,
         new_key_uid,
         threshold,
+        expect_timeout,
     )
     .await;
 
@@ -186,6 +228,13 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
             .collect::<Vec<_>>();
     }
 
+    let stop = check_keygen_results(results, &expected_keygen_crimes);
+    if stop {
+        delete_dbs(&parties);
+        shutdown_parties(parties).await;
+        return;
+    }
+
     // println!("sign: participants {:?}", sign_participant_indices);
     let new_sig_uid = "Gus-test-sig";
     let (parties, results) = execute_sign(
@@ -195,10 +244,7 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
         new_key_uid,
         new_sig_uid,
         &MSG_TO_SIGN,
-        #[cfg(not(feature = "malicious"))]
-        false,
-        #[cfg(feature = "malicious")]
-        test_case.malicious_data.timeout.is_some(),
+        expect_timeout,
     )
     .await;
 
@@ -206,14 +252,6 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
     shutdown_parties(parties).await;
 
     check_results(results, &expected_crimes);
-}
-
-#[cfg(feature = "malicious")]
-#[derive(Clone, Debug)]
-struct PartyMaliciousData {
-    timeout: Option<Timeout>,
-    spoof: Option<Spoof>,
-    malicious_type: MaliciousType,
 }
 
 // struct to pass in TofndParty constructor.
@@ -233,21 +271,39 @@ impl InitParty {
     }
     #[cfg(feature = "malicious")]
     fn new(my_index: usize, all_malicious_data: &MaliciousData) -> InitParty {
+        // register timeouts
         let mut my_timeout = None;
-        if let Some(timeout) = all_malicious_data.timeout.clone() {
+        if let Some(timeout) = all_malicious_data.keygen_data.timeout.clone() {
+            if timeout.index == my_index {
+                my_timeout = Some(timeout);
+            }
+        } else if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
             if timeout.index == my_index {
                 my_timeout = Some(timeout);
             }
         }
 
+        // register spoofs
         let mut my_spoof = None;
-        if let Some(spoof) = all_malicious_data.spoof.clone() {
+        if let Some(spoof) = all_malicious_data.sign_data.spoof.clone() {
             if spoof.index == my_index {
-                my_spoof = Some(spoof);
+                my_spoof = Some(SignSpoofType { spoof });
+            }
+        } else if let Some(spoof) = all_malicious_data.keygen_data.spoof.clone() {
+            if spoof.index == my_index {
+                my_spoof = Some(KeygenSpoofType { spoof });
             }
         }
 
-        let my_malicious_type = all_malicious_data
+        let my_keygen_malicious_type = all_malicious_data
+            .keygen_data
+            .behaviours
+            .get(my_index)
+            .unwrap()
+            .clone();
+
+        let my_sign_malicious_type = all_malicious_data
+            .sign_data
             .malicious_types
             .get(my_index)
             .unwrap()
@@ -256,12 +312,35 @@ impl InitParty {
         let my_malicious_data = PartyMaliciousData {
             timeout: my_timeout,
             spoof: my_spoof,
-            malicious_type: my_malicious_type,
+            keygen_malicious_type: my_keygen_malicious_type,
+            sign_malicious_type: my_sign_malicious_type,
         };
 
         InitParty {
             party_index: my_index,
             malicious_data: my_malicious_data,
+        }
+    }
+}
+
+// struct to pass in init_parties function.
+// needs to include malicious when we are running in malicious mode
+struct InitParties {
+    party_count: usize,
+    #[cfg(feature = "malicious")]
+    malicious_data: MaliciousData,
+}
+
+impl InitParties {
+    #[cfg(not(feature = "malicious"))]
+    fn new(party_count: usize) -> InitParties {
+        InitParties { party_count }
+    }
+    #[cfg(feature = "malicious")]
+    fn new(party_count: usize, malicious_data: &MaliciousData) -> InitParties {
+        InitParties {
+            party_count,
+            malicious_data: malicious_data.clone(),
         }
     }
 }
@@ -308,7 +387,9 @@ async fn execute_keygen(
     party_share_counts: &[u32],
     new_key_uid: &str,
     threshold: usize,
-) -> Vec<TofndParty> {
+    expect_timeout: bool,
+) -> (Vec<TofndParty>, Vec<KeygenResult>) {
+    println!("Expecting timeout: [{}]", expect_timeout);
     let share_count = parties.len();
     let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
     let mut keygen_join_handles = Vec::with_capacity(share_count);
@@ -326,16 +407,26 @@ async fn execute_keygen(
         };
         let delivery = keygen_delivery.clone();
         let handle = tokio::spawn(async move {
-            party.execute_keygen(init, channel_pair, delivery).await;
-            party
+            let result = party.execute_keygen(init, channel_pair, delivery).await;
+            (party, result)
         });
         keygen_join_handles.push(handle);
     }
-    let mut parties = Vec::with_capacity(share_count); // async closures are unstable https://github.com/rust-lang/rust/issues/62290
-    for h in keygen_join_handles {
-        parties.push(h.await.unwrap());
+
+    // if we are expecting a timeout, abort parties after a reasonable amount of time
+    if expect_timeout {
+        let unblocker = keygen_delivery.clone();
+        abort_parties(unblocker, 10);
     }
-    parties
+
+    let mut parties = Vec::with_capacity(share_count); // async closures are unstable https://github.com/rust-lang/rust/issues/62290
+    let mut results = vec![];
+    for h in keygen_join_handles {
+        let handle = h.await.unwrap();
+        parties.push(handle.0);
+        results.push(handle.1);
+    }
+    (parties, results)
 }
 
 // need to take ownership of parties `parties` and return it on completion

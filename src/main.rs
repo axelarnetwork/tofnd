@@ -42,7 +42,7 @@ async fn main() -> Result<(), TofndError> {
     warn_for_malicious_build();
 
     #[cfg(feature = "malicious")]
-    let (port, malicious_type) = parse_args()?;
+    let (port, keygen_malicious_type, sign_malicious_type) = parse_args()?;
 
     #[cfg(not(feature = "malicious"))]
     let port = parse_args()?;
@@ -60,7 +60,7 @@ async fn main() -> Result<(), TofndError> {
     #[cfg(not(feature = "malicious"))]
     let my_service = gg20::new_service();
     #[cfg(feature = "malicious")]
-    let my_service = gg20::new_service(malicious_type);
+    let my_service = gg20::new_service(keygen_malicious_type, sign_malicious_type);
 
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 

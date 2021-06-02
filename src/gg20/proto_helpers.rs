@@ -1,11 +1,14 @@
 use tofn::protocol::{
-    gg20::sign::{crimes::Crime, SignOutput},
+    gg20::keygen::{crimes::Crime as KeygenCrime, KeygenOutput},
+    gg20::sign::{crimes::Crime as SignCrime, SignOutput},
     CrimeType, Criminal,
 };
 
 use crate::proto;
 use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;
 use proto::message_out::criminal_list::Criminal as ProtoCriminal;
+use proto::message_out::keygen_result::KeygenResultData::Criminals as ProtoKeygenCriminals;
+use proto::message_out::keygen_result::KeygenResultData::PubKey as ProtoPubKey;
 use proto::message_out::sign_result::SignResultData::Criminals as ProtoCriminals;
 use proto::message_out::sign_result::SignResultData::Signature as ProtoSignature;
 use proto::message_out::CriminalList as ProtoCriminalList;
@@ -15,7 +18,7 @@ use super::protocol::map_tofn_to_tofnd_idx;
 use tracing::warn;
 
 // TODO delete this when Crimes are incorporated by axlear-core
-pub fn to_criminals(criminals: &[Vec<Crime>]) -> Vec<Criminal> {
+pub fn to_criminals<C>(criminals: &[Vec<C>]) -> Vec<Criminal> {
     criminals
         .iter()
         .enumerate()
@@ -49,9 +52,33 @@ impl proto::MessageOut {
             })),
         }
     }
-    pub(super) fn new_keygen_result(result: &[u8]) -> Self {
+    pub(super) fn new_keygen_result(
+        participant_uids: &[String],
+        all_share_counts: &[usize],
+        result: KeygenOutput,
+    ) -> Self {
+        use tofn::protocol::gg20::keygen::ECPoint;
+        let result = match result {
+            Ok(secret_key_share) => ProtoPubKey(
+                secret_key_share
+                    .ecdsa_public_key
+                    .get_element()
+                    .serialize()
+                    .to_vec(),
+            ),
+            Err(crimes) => ProtoKeygenCriminals(ProtoCriminalList::from(
+                to_criminals::<KeygenCrime>(&crimes), // TODO remove later
+                participant_uids,
+                all_share_counts,
+            )),
+        };
+
         proto::MessageOut {
-            data: Some(proto::message_out::Data::KeygenResult(result.to_vec())),
+            data: Some(proto::message_out::Data::KeygenResult(
+                proto::message_out::KeygenResult {
+                    keygen_result_data: Some(result),
+                },
+            )),
         }
     }
     pub(super) fn new_sign_result(
@@ -62,7 +89,7 @@ impl proto::MessageOut {
         let result = match result {
             Ok(signature) => ProtoSignature(signature),
             Err(crimes) => ProtoCriminals(ProtoCriminalList::from(
-                to_criminals(&crimes), // TODO remove later
+                to_criminals::<SignCrime>(&crimes), // TODO remove later
                 participant_uids,
                 all_share_counts,
             )),
