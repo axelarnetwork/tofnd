@@ -5,7 +5,7 @@ use tofn::protocol::gg20::sign::{
 };
 
 use super::super::{run_test_cases, TestCase};
-use super::{MaliciousData, MsgType::SignMsgType, Timeout};
+use super::{Disrupt, MaliciousData, MsgType::SignMsgType, Timeout};
 
 use serde::{Deserialize, Serialize}; // we assume bad guys know how to (de)serialize
 use strum::IntoEnumIterator; // iterate malicious types, message types and statuses
@@ -37,6 +37,12 @@ async fn malicious_timeout_cases() {
 
 #[traced_test]
 #[tokio::test]
+async fn malicious_disrupt_cases() {
+    run_test_cases(&disrupt_cases(), false).await;
+}
+
+#[traced_test]
+#[tokio::test]
 async fn malicious_spoof_cases() {
     run_test_cases(&spoof_cases(), false).await;
 }
@@ -55,6 +61,7 @@ fn to_crime(t: &MaliciousType) -> Vec<Crime> {
             victim: *v,
             status: s.clone(),
         }],
+        // TODO: delete the todo comment
         // TODO: add tests for Disrupting sender
         DisrupringSender { msg_type: _ } => vec![Crime::DisruptedMessage],
         R1BadProof { victim: v } => vec![Crime::R3FailBadRangeProof { victim: *v }],
@@ -144,6 +151,7 @@ impl Spoof {
 pub(crate) struct SignData {
     pub(crate) malicious_types: Vec<MaliciousType>,
     pub(crate) timeout: Option<Timeout>,
+    pub(crate) disrupt: Option<Disrupt>,
     pub(crate) spoof: Option<Spoof>,
 }
 
@@ -152,6 +160,7 @@ impl SignData {
         SignData {
             malicious_types: vec![Honest; party_count],
             timeout: None,
+            disrupt: None,
             spoof: None,
         }
     }
@@ -198,6 +207,8 @@ impl TestCase {
         }
 
         let mut timeout: Option<Timeout> = None;
+        let mut disrupt: Option<Disrupt> = None;
+        let mut spoof: Option<Spoof> = None;
         for (i, t) in malicious_types.iter().enumerate() {
             if let Staller { msg_type } = t {
                 timeout = Some(Timeout {
@@ -207,10 +218,14 @@ impl TestCase {
                     },
                 });
             }
-        }
-
-        let mut spoof: Option<Spoof> = None;
-        for (i, t) in malicious_types.iter().enumerate() {
+            if let DisrupringSender { msg_type } = t {
+                disrupt = Some(Disrupt {
+                    index: i,
+                    msg_type: SignMsgType {
+                        msg_type: msg_type.clone(),
+                    },
+                });
+            }
             if let UnauthenticatedSender { victim, status } = t {
                 spoof = Some(Spoof {
                     index: i,
@@ -224,6 +239,7 @@ impl TestCase {
         malicious_data.set_sign_data(SignData {
             malicious_types,
             timeout,
+            disrupt,
             spoof,
         });
 
@@ -270,6 +286,44 @@ fn timeout_cases() -> Vec<TestCase> {
                 vec![
                     Signer::new(0, Honest, vec![]),
                     Signer::new(1, staller.clone(), to_crime(&staller)),
+                    Signer::new(2, Honest, vec![]),
+                ],
+            )
+        })
+        .collect()
+}
+
+fn disrupt_cases() -> Vec<TestCase> {
+    use MsgType::*;
+    let disrupters = MsgType::iter()
+        .filter(|msg_type| {
+            matches!(
+                msg_type,
+                R1Bcast
+                    | R1P2p { to: _ }
+                    | R2P2p { to: _ }
+                    | R3Bcast
+                    | R4Bcast
+                    | R5Bcast
+                    | R5P2p { to: _ }
+                    | R6Bcast
+                    | R7Bcast
+            )
+        }) // don't match fail types
+        .map(|msg_type| DisrupringSender { msg_type })
+        .collect::<Vec<MaliciousType>>();
+
+    // disrupter always targets party 0
+    disrupters
+        .iter()
+        .map(|disrupter| {
+            TestCase::new_malicious_sign(
+                4,
+                vec![1, 1, 1, 1],
+                2,
+                vec![
+                    Signer::new(0, Honest, vec![]),
+                    Signer::new(1, disrupter.clone(), to_crime(&disrupter)),
                     Signer::new(2, Honest, vec![]),
                 ],
             )

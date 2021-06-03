@@ -28,6 +28,12 @@ pub(crate) struct Timeout {
 }
 
 #[derive(Clone, Debug)]
+pub(crate) struct Disrupt {
+    pub(crate) index: usize,
+    pub(crate) msg_type: MsgType,
+}
+
+#[derive(Clone, Debug)]
 pub(super) struct MaliciousData {
     pub(super) keygen_data: KeygenData,
     pub(super) sign_data: SignData,
@@ -57,6 +63,7 @@ pub(crate) enum Spoof {
 #[derive(Clone, Debug)]
 pub(super) struct PartyMaliciousData {
     pub(super) timeout: Option<Timeout>,
+    pub(super) disrupt: Option<Disrupt>,
     pub(super) spoof: Option<Spoof>,
     pub(super) keygen_malicious_type: KeygenBehaviour,
     pub(super) sign_malicious_type: SignBehaviour,
