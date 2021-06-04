@@ -18,8 +18,6 @@ use futures_util::StreamExt;
 // ethereum use sha256. In the future, other chains may not produce 32-byte messages.
 type SignMessage = [u8; 32];
 
-// TODO add test for messages smaller and larger than 32 bytes
-
 use tracing::{error, info, span, warn, Level, Span};
 
 // Struct to hold `tonfd` info. This consists of information we need to

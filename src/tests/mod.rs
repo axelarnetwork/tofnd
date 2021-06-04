@@ -39,6 +39,7 @@ use crate::gg20::proto_helpers::to_criminals;
 
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42; 32];
+    // TODO add test for messages smaller and larger than 32 bytes
 }
 
 struct TestCase {
