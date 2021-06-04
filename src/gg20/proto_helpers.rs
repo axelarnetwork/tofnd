@@ -57,15 +57,8 @@ impl proto::MessageOut {
         all_share_counts: &[usize],
         result: KeygenOutput,
     ) -> Self {
-        use tofn::protocol::gg20::keygen::ECPoint;
         let result = match result {
-            Ok(secret_key_share) => ProtoPubKey(
-                secret_key_share
-                    .ecdsa_public_key
-                    .get_element()
-                    .serialize()
-                    .to_vec(),
-            ),
+            Ok(secret_key_share) => ProtoPubKey(secret_key_share.group.pubkey_bytes()),
             Err(crimes) => ProtoKeygenCriminals(ProtoCriminalList::from(
                 to_criminals::<KeygenCrime>(&crimes), // TODO remove later
                 participant_uids,

@@ -1,4 +1,4 @@
-use tofn::protocol::gg20::keygen::{CommonInfo, ShareInfo};
+use tofn::protocol::gg20::{KeyGroup, KeyShare, SecretKeyShare};
 
 use super::proto;
 use crate::kv_manager::Kv;
@@ -13,6 +13,13 @@ use serde::{Deserialize, Serialize};
 use crate::TofndError;
 use futures_util::StreamExt;
 
+// TODO: k256 needs the message-to-sign to be 32 bytes.
+// For now that's ok because our messages are blockchain hashes and both bitcoin and
+// ethereum use sha256. In the future, other chains may not produce 32-byte messages.
+type SignMessage = [u8; 32];
+
+// TODO add test for messages smaller and larger than 32 bytes
+
 use tracing::{error, info, span, warn, Level, Span};
 
 // Struct to hold `tonfd` info. This consists of information we need to
@@ -26,14 +33,10 @@ pub struct TofndInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartyInfo {
-    pub common: CommonInfo,
-    pub shares: Vec<ShareInfo>,
+    pub common: KeyGroup,
+    pub shares: Vec<KeyShare>,
     pub tofnd: TofndInfo,
 }
-// use std::pin::Pin;
-// use futures_core::Stream;
-// use futures_util::StreamExt;
-
 // TODO don't store party_uids in this daemon!
 type KeySharesKv = Kv<PartyInfo>;
 #[derive(Clone)]
@@ -146,10 +149,7 @@ use tofn::protocol::gg20::sign::malicious::BadSign;
 use tofn::protocol::gg20::sign::malicious::MaliciousType;
 #[cfg(not(feature = "malicious"))]
 use tofn::protocol::gg20::sign::Sign;
-use tofn::protocol::gg20::{
-    keygen::{ParamsError as KeygenErr, SecretKeyShare},
-    sign::ParamsError as SignErr,
-};
+use tofn::protocol::gg20::{keygen::ParamsError as KeygenErr, sign::ParamsError as SignErr};
 impl Gg20Service {
     // get regular keygen
     #[cfg(not(feature = "malicious"))]
@@ -181,9 +181,14 @@ impl Gg20Service {
         &self,
         my_secret_key_share: &SecretKeyShare,
         participant_indices: &[usize],
-        msg_to_sign: &[u8],
+        msg_to_sign: &SignMessage,
     ) -> Result<Sign, SignErr> {
-        Sign::new(my_secret_key_share, participant_indices, msg_to_sign)
+        Sign::new(
+            &my_secret_key_share.group,
+            &my_secret_key_share.share,
+            participant_indices,
+            msg_to_sign,
+        )
     }
 
     // get malicious sign
@@ -192,11 +197,12 @@ impl Gg20Service {
         &self,
         my_secret_key_share: &SecretKeyShare,
         participant_indices: &[usize],
-        msg_to_sign: &[u8],
+        msg_to_sign: &SignMessage,
     ) -> Result<BadSign, SignErr> {
         let behaviour = self.sign_malicious_type.clone();
         BadSign::new(
-            my_secret_key_share,
+            &my_secret_key_share.group,
+            &my_secret_key_share.share,
             participant_indices,
             msg_to_sign,
             behaviour,
