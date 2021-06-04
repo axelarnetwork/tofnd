@@ -38,7 +38,7 @@ use tofnd_party::TofndParty;
 use crate::gg20::proto_helpers::to_criminals;
 
 lazy_static::lazy_static! {
-    static ref MSG_TO_SIGN: Vec<u8> = vec![42];
+    static ref MSG_TO_SIGN: Vec<u8> = vec![42; 32];
 }
 
 struct TestCase {
