@@ -74,7 +74,7 @@ impl Gg20Service {
                 &sign_init.participant_indices,
             );
             let secret_key_share = get_secret_key_share(&party_info, my_tofnd_subindex)?;
-            let message_to_sign = sign_init.message_to_sign.clone();
+            let message_to_sign = sign_init.message_to_sign;
             let gg20 = self.clone();
 
             // from keygen we have
@@ -256,24 +256,22 @@ fn sign_sanitize_args(
         })
         .collect::<Result<Vec<usize>, _>>()?;
 
-    // TODO assume message_to_sign is already raw bytes of a field element
-
-    // if the message is not 32 bytes, then abort sign
-    let message_to_sign = sign_init
-        .message_to_sign
-        .try_into()
-        .unwrap_or_else(|v: Vec<u8>| {
-            panic!(
-                "Message is {} bytes but only 32-byte messages are supported",
-                v.len()
-            )
-        });
+    if sign_init.message_to_sign.len() != 32 {
+        return Err(format!(
+            "message_to_sign byte length {}, expect 32",
+            sign_init.message_to_sign.len()
+        )
+        .into());
+    }
 
     Ok(SignInitSanitized {
         new_sig_uid: sign_init.new_sig_uid,
         participant_uids: sign_init.party_uids,
         participant_indices,
-        message_to_sign,
+        message_to_sign: sign_init
+            .message_to_sign
+            .try_into()
+            .expect("failure to convert 32-byte length Vec<u8> into [u8; 32]"),
     })
 }
 
