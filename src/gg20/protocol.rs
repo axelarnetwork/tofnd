@@ -128,7 +128,7 @@ pub(super) async fn execute_protocol(
                     first: first_tofn_idx,
                     last: last_tofn_idx,
                 },
-            )?;
+            );
         }
         protocol_info!("got all incoming messages");
         protocol_info!("end");

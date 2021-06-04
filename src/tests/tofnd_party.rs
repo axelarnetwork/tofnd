@@ -75,6 +75,60 @@ impl TofndParty {
     // we have to have different functions for keygen and sign because sign messages can be
     // desirialized as keygen messages and vice versa. So we call the approriate function for each phase.
     #[cfg(feature = "malicious")]
+    pub(crate) fn disrupt_keygen(&self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
+        let payload = traffic.clone().payload;
+        let msg_meta: KeygenMsgMeta = bincode::deserialize(&payload).unwrap();
+
+        // this also works!!!
+        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
+
+        // wrap incoming msg_type into our general MsgType enum
+        let msg_type = MsgType::KeygenMsgType {
+            msg_type: msg_meta.msg_type.clone(),
+        };
+
+        // if I am not disrupting, return none. I dislike that I have to clone this
+        let disrupt = self.malicious_data.disrupt.clone()?;
+        if disrupt.msg_type != msg_type {
+            return None;
+        }
+        println!("I am disrupting keygen message {:?}", msg_type);
+
+        let mut disrupt_traffic = traffic.clone();
+        disrupt_traffic.payload = payload[0..payload.len() / 2].to_vec();
+
+        Some(disrupt_traffic)
+    }
+
+    #[cfg(feature = "malicious")]
+    pub(crate) fn disrupt_sign(&self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
+        let payload = traffic.clone().payload;
+        let msg_meta: SignMsgMeta = bincode::deserialize(&payload).unwrap();
+
+        // this also works!!!
+        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
+
+        // wrap incoming msg_type into our general MsgType enum
+        let msg_type = MsgType::SignMsgType {
+            msg_type: msg_meta.msg_type.clone(),
+        };
+
+        // if I am not disrupting, return none. I dislike that I have to clone this
+        let disrupt = self.malicious_data.disrupt.clone()?;
+        if disrupt.msg_type != msg_type {
+            return None;
+        }
+        println!("I am disrupting sign message {:?}", msg_type);
+
+        let mut disrupt_traffic = traffic.clone();
+        disrupt_traffic.payload = payload[0..payload.len() / 2].to_vec();
+
+        Some(disrupt_traffic)
+    }
+
+    // we have to have different functions for keygen and sign because sign messages can be
+    // desirialized as keygen messages and vice versa. So we call the approriate function for each phase.
+    #[cfg(feature = "malicious")]
     pub(crate) fn spoof_keygen(
         &mut self,
         traffic: &proto::TrafficOut,
@@ -230,21 +284,27 @@ impl Party for TofndParty {
             match msg_type {
                 #[cfg(not(feature = "malicious"))]
                 proto::message_out::Data::Traffic(_) => {
-                    delivery.deliver(&msg, &my_uid).await;
+                    delivery.deliver(&msg, &my_uid);
                 }
                 // in malicous case, if we are stallers we skip the message
                 #[cfg(feature = "malicious")]
                 proto::message_out::Data::Traffic(traffic) => {
                     // check if I am not a staller, send the message. This is for timeout tests
                     if !self.should_timeout_keygen(&traffic) {
+                        // if I am a disrupting, create a _duplicate_ message and disrupt it. This is for disrupt tests
+                        if let Some(traffic) = self.disrupt_keygen(&traffic) {
+                            let mut disrupt_msg = msg.clone();
+                            disrupt_msg.data = Some(proto::message_out::Data::Traffic(traffic));
+                            delivery.deliver(&disrupt_msg, &my_uid);
+                        }
                         // if I am a spoofer, create a _duplicate_ message and spoof it. This is for spoof tests
                         if let Some(traffic) = self.spoof_keygen(&traffic) {
                             let mut spoofed_msg = msg.clone();
                             spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
-                            delivery.deliver(&spoofed_msg, &my_uid).await;
+                            delivery.deliver(&spoofed_msg, &my_uid);
                         }
                         // finally, act normally and send the correct message
-                        delivery.deliver(&msg, &my_uid).await;
+                        delivery.deliver(&msg, &my_uid);
                     }
                 }
                 proto::message_out::Data::KeygenResult(res) => {
@@ -304,21 +364,27 @@ impl Party for TofndParty {
                 // in honest case, we always send the message
                 #[cfg(not(feature = "malicious"))]
                 proto::message_out::Data::Traffic(_) => {
-                    delivery.deliver(&msg, &my_uid).await;
+                    delivery.deliver(&msg, &my_uid);
                 }
                 // in malicous case, if we are stallers we skip the message
                 #[cfg(feature = "malicious")]
                 proto::message_out::Data::Traffic(traffic) => {
                     // check if I am not a staller, send the message. This is for timeout tests
                     if !self.should_timeout_sign(&traffic) {
+                        // if I am a disrupting, create a _duplicate_ message and disrupt it. This is for disrupt tests
+                        if let Some(traffic) = self.disrupt_sign(&traffic) {
+                            let mut disrupt_msg = msg.clone();
+                            disrupt_msg.data = Some(proto::message_out::Data::Traffic(traffic));
+                            delivery.deliver(&disrupt_msg, &my_uid);
+                        }
                         // if I am a spoofer, create a _duplicate_ message and spoof it. This is for spoof tests
                         if let Some(traffic) = self.spoof_sign(&traffic) {
                             let mut spoofed_msg = msg.clone();
                             spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
-                            delivery.deliver(&spoofed_msg, &my_uid).await;
+                            delivery.deliver(&spoofed_msg, &my_uid);
                         }
                         // finally, act normally and send the correct message
-                        delivery.deliver(&msg, &my_uid).await;
+                        delivery.deliver(&msg, &my_uid);
                     }
                 }
                 proto::message_out::Data::SignResult(res) => {
