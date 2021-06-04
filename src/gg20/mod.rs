@@ -1,4 +1,4 @@
-use tofn::protocol::gg20::{KeyGroup, KeyShare, SecretKeyShare};
+use tofn::protocol::gg20::{KeyGroup, KeyShare, MessageDigest, SecretKeyShare};
 
 use super::proto;
 use crate::kv_manager::Kv;
@@ -12,11 +12,6 @@ use serde::{Deserialize, Serialize};
 // for routing messages
 use crate::TofndError;
 use futures_util::StreamExt;
-
-// TODO: k256 needs the message-to-sign to be 32 bytes.
-// For now that's ok because our messages are blockchain hashes and both bitcoin and
-// ethereum use sha256. In the future, other chains may not produce 32-byte messages.
-type SignMessage = [u8; 32];
 
 use tracing::{error, info, span, warn, Level, Span};
 
@@ -179,7 +174,7 @@ impl Gg20Service {
         &self,
         my_secret_key_share: &SecretKeyShare,
         participant_indices: &[usize],
-        msg_to_sign: &SignMessage,
+        msg_to_sign: &MessageDigest,
     ) -> Result<Sign, SignErr> {
         Sign::new(
             &my_secret_key_share.group,
@@ -195,7 +190,7 @@ impl Gg20Service {
         &self,
         my_secret_key_share: &SecretKeyShare,
         participant_indices: &[usize],
-        msg_to_sign: &SignMessage,
+        msg_to_sign: &MessageDigest,
     ) -> Result<BadSign, SignErr> {
         let behaviour = self.sign_malicious_type.clone();
         BadSign::new(

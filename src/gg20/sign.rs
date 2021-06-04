@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use tofn::protocol::gg20::{sign::SignOutput, SecretKeyShare};
 
 use super::{
-    proto, protocol, route_messages, Gg20Service, PartyInfo, ProtocolCommunication, SignMessage,
+    proto, protocol, route_messages, Gg20Service, MessageDigest, PartyInfo, ProtocolCommunication,
 };
 use crate::TofndError;
 
@@ -23,7 +23,7 @@ struct SignInitSanitized {
     // key_uid: String,
     participant_uids: Vec<String>,
     participant_indices: Vec<usize>,
-    message_to_sign: SignMessage,
+    message_to_sign: MessageDigest,
 }
 
 impl Gg20Service {
@@ -197,7 +197,7 @@ impl Gg20Service {
         party_share_counts: &[usize],
         participant_tofn_indices: &[usize],
         secret_key_share: SecretKeyShare,
-        message_to_sign: &SignMessage,
+        message_to_sign: &MessageDigest,
         handle_span: Span,
     ) -> Result<SignOutput, TofndError> {
         // Sign::new() needs 'tofn' information:
