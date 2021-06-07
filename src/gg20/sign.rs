@@ -216,29 +216,23 @@ impl Gg20Service {
         )
         .await;
 
-        // if protocol failed to complete, return crimes (timeouts or deserialization faults)
-        if let Err(err) = res {
-            // if there are disrupting parties, return crimes from protocol's result
-            if sign.found_disrupting() {
-                warn!(
-                    "Protocol execution was aborted due to failed deserialization: {}",
-                    err
-                );
-                let output = sign.clone_output().ok_or("keygen output is `None`")?;
-                println!("{:?}", output);
-                return Ok(output);
+        let res = match res {
+            Ok(()) => {
+                info!("Sign completed successfully");
+                sign.clone_output().ok_or("sign output is `None`")?
             }
-            // else return parties we are waiting on
-            warn!(
-                "Protocol execution was aborted due to abort message: {}",
-                err
-            );
-            let waiting_on = sign.waiting_on();
-            return Ok(Err(waiting_on));
-        }
-
-        // return sign's result
-        Ok(sign.clone_output().ok_or("sign output is `None`")?)
+            Err(err) => match sign.found_disrupting() {
+                true => {
+                    warn!("Party failed due to deserialization error: {}", err);
+                    sign.clone_output().ok_or("sign output is `None`")?
+                }
+                false => {
+                    warn!("Connection closed by client: {}", err);
+                    Err(sign.waiting_on())
+                }
+            },
+        };
+        Ok(res)
     }
 }
 
