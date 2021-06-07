@@ -256,23 +256,11 @@ fn sign_sanitize_args(
         })
         .collect::<Result<Vec<usize>, _>>()?;
 
-    if sign_init.message_to_sign.len() != 32 {
-        return Err(format!(
-            "message_to_sign byte length {}, expect 32",
-            sign_init.message_to_sign.len()
-        )
-        .into());
-    }
-
     Ok(SignInitSanitized {
         new_sig_uid: sign_init.new_sig_uid,
         participant_uids: sign_init.party_uids,
         participant_indices,
-        message_to_sign: sign_init
-            .message_to_sign
-            .as_slice()
-            .try_into()
-            .expect("failure to convert 32-byte length Vec<u8> into [u8; 32]"),
+        message_to_sign: sign_init.message_to_sign.as_slice().try_into()?,
     })
 }
 
