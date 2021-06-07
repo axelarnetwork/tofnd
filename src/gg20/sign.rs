@@ -74,7 +74,7 @@ impl Gg20Service {
                 &sign_init.participant_indices,
             );
             let secret_key_share = get_secret_key_share(&party_info, my_tofnd_subindex)?;
-            let message_to_sign = sign_init.message_to_sign;
+            let message_to_sign = sign_init.message_to_sign.clone();
             let gg20 = self.clone();
 
             // from keygen we have
@@ -270,6 +270,7 @@ fn sign_sanitize_args(
         participant_indices,
         message_to_sign: sign_init
             .message_to_sign
+            .as_slice()
             .try_into()
             .expect("failure to convert 32-byte length Vec<u8> into [u8; 32]"),
     })
