@@ -74,7 +74,7 @@ impl Gg20Service {
                 &sign_init.participant_indices,
             );
             let secret_key_share = get_secret_key_share(&party_info, my_tofnd_subindex)?;
-            let message_to_sign = sign_init.message_to_sign.clone();
+            let message_to_sign = sign_init.message_to_sign;
             let gg20 = self.clone();
 
             // from keygen we have
