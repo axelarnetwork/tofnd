@@ -291,7 +291,7 @@ impl Party for TofndParty {
                 proto::message_out::Data::Traffic(traffic) => {
                     // check if I am not a staller, send the message. This is for timeout tests
                     if !self.should_timeout_keygen(&traffic) {
-                        // if I am a disrupting, create a _duplicate_ message and disrupt it. This is for disrupt tests
+                        // if I am disrupting, create a _duplicate_ message and disrupt it. This is for disrupt tests
                         if let Some(traffic) = self.disrupt_keygen(&traffic) {
                             let mut disrupt_msg = msg.clone();
                             disrupt_msg.data = Some(proto::message_out::Data::Traffic(traffic));
@@ -371,7 +371,7 @@ impl Party for TofndParty {
                 proto::message_out::Data::Traffic(traffic) => {
                     // check if I am not a staller, send the message. This is for timeout tests
                     if !self.should_timeout_sign(&traffic) {
-                        // if I am a disrupting, create a _duplicate_ message and disrupt it. This is for disrupt tests
+                        // if I am disrupting, create a _duplicate_ message and disrupt it. This is for disrupt tests
                         if let Some(traffic) = self.disrupt_sign(&traffic) {
                             let mut disrupt_msg = msg.clone();
                             disrupt_msg.data = Some(proto::message_out::Data::Traffic(traffic));

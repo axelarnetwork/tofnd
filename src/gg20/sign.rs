@@ -112,7 +112,7 @@ impl Gg20Service {
                 sign_init.participant_indices
             );
 
-            // spawn keygen threads
+            // spawn sign threads
             tokio::spawn(async move {
                 // get result of sign
                 let signature = gg20
@@ -178,7 +178,7 @@ impl Gg20Service {
         let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
 
         info!(
-            "Starting Keygen with uids: {:?}, party_shares: {:?}",
+            "Starting Sign with uids: {:?}, party_shares: {:?}",
             party_info.tofnd.party_uids, party_info.tofnd.share_counts
         );
 
