@@ -84,7 +84,7 @@ impl TofndParty {
 
         // wrap incoming msg_type into our general MsgType enum
         let msg_type = MsgType::KeygenMsgType {
-            msg_type: msg_meta.msg_type.clone(),
+            msg_type: msg_meta.msg_type,
         };
 
         // if I am not disrupting, return none. I dislike that I have to clone this
@@ -110,7 +110,7 @@ impl TofndParty {
 
         // wrap incoming msg_type into our general MsgType enum
         let msg_type = MsgType::SignMsgType {
-            msg_type: msg_meta.msg_type.clone(),
+            msg_type: msg_meta.msg_type,
         };
 
         // if I am not disrupting, return none. I dislike that I have to clone this
