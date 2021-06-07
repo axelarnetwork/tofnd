@@ -296,7 +296,7 @@ fn disrupt_cases() -> Vec<TestCase> {
         .map(|disrupter| {
             TestCase::new_malicious_keygen(
                 5,
-                vec![1, 1, 1, 1, 1],
+                vec![1, 2, 1, 1, 1],
                 3,
                 vec![
                     Keygener::new(Honest, vec![]),

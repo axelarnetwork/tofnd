@@ -319,7 +319,7 @@ fn disrupt_cases() -> Vec<TestCase> {
         .map(|disrupter| {
             TestCase::new_malicious_sign(
                 4,
-                vec![1, 1, 1, 1],
+                vec![1, 2, 1, 1],
                 2,
                 vec![
                     Signer::new(0, Honest, vec![]),
