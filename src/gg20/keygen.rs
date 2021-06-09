@@ -173,8 +173,9 @@ impl Gg20Service {
         .await;
 
         if let Err(err) = res {
-            let waiting_on = keygen.waiting_on();
             warn!("Protocol execution was aborted: {}", err);
+            let waiting_on = keygen.waiting_on();
+            warn!("Party expects more messages from {:?}", waiting_on);
             // Return the parties we are waiting on
             return Ok(Err(waiting_on));
         }

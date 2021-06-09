@@ -101,14 +101,14 @@ impl Gg20Service {
                 sign_init.new_sig_uid,
                 party_info.tofnd.party_uids[party_info.tofnd.index],
                 party_info.shares[my_tofnd_subindex].index() + 1,
-                party_info.shares.len(),
+                party_info.common.share_count(),
             );
             let state = log_prefix.as_str();
             let handle_span = span!(parent: &sign_span, Level::INFO, "", state);
             info!(
                 "with (t,n)=({},{}), participant indices: {:?}",
                 party_info.common.threshold(),
-                party_info.shares.len(),
+                party_info.common.share_count(),
                 sign_init.participant_indices
             );
 
