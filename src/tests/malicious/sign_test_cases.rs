@@ -1,6 +1,6 @@
 use tofn::protocol::gg20::sign::{
     crimes::Crime,
-    malicious::MaliciousType::{self, *},
+    malicious::Behaviour::{self, *},
     MsgType, Status,
 };
 
@@ -48,7 +48,7 @@ async fn malicious_spoof_cases() {
 }
 
 // TODO import that from tofn
-fn to_crime(t: &MaliciousType) -> Vec<Crime> {
+fn to_crime(t: &Behaviour) -> Vec<Crime> {
     match t {
         Honest => vec![],
         Staller { msg_type: mt } => vec![Crime::StalledMessage {
@@ -91,14 +91,14 @@ fn to_crime(t: &MaliciousType) -> Vec<Crime> {
 }
 pub(super) struct Signer {
     pub(super) party_index: usize,
-    pub(super) behaviour: MaliciousType,
+    pub(super) behaviour: Behaviour,
     pub(super) expected_crimes: Vec<Crime>,
 }
 
 impl Signer {
     pub(super) fn new(
         party_index: usize,
-        behaviour: MaliciousType,
+        behaviour: Behaviour,
         expected_crimes: Vec<Crime>,
     ) -> Self {
         Signer {
@@ -147,7 +147,7 @@ impl Spoof {
 
 #[derive(Clone, Debug)]
 pub(crate) struct SignData {
-    pub(crate) malicious_types: Vec<MaliciousType>,
+    pub(crate) behaviours: Vec<Behaviour>,
     pub(crate) timeout: Option<Timeout>,
     pub(crate) disrupt: Option<Disrupt>,
     pub(crate) spoof: Option<Spoof>,
@@ -156,7 +156,7 @@ pub(crate) struct SignData {
 impl SignData {
     pub(crate) fn empty(party_count: usize) -> SignData {
         SignData {
-            malicious_types: vec![Honest; party_count],
+            behaviours: vec![Honest; party_count],
             timeout: None,
             disrupt: None,
             spoof: None,
@@ -176,7 +176,7 @@ impl TestCase {
         // init_party, as well. That is, because we need to initialize a Gg20 service for both
         // signers and non-signers. We build these vectors from user's input `sign_participants`:
         // 1. crimial_list -> holds the tofnd index of every criminal
-        // 2. malicious_types -> holds the behaviour of every party (not just signers) and is alligned with tofnd party uids
+        // 2. behaviours -> holds the behaviour of every party (not just signers) and is alligned with tofnd party uids
         // 3. signer_indices -> holds the tofnd index of every signer
         let mut signer_indices = Vec::new();
         let mut signer_behaviours = Vec::new();
@@ -189,16 +189,16 @@ impl TestCase {
             signer_crimes.push(sign_participant.expected_crimes.clone());
         }
 
-        let mut malicious_types = Vec::new();
+        let mut behaviours = Vec::new();
         let mut expected_crimes = Vec::new();
         for i in 0..uid_count {
             if !signer_indices.contains(&i) {
                 expected_crimes.push(vec![]);
-                malicious_types.push(Honest);
+                behaviours.push(Honest);
             } else {
                 let signer_index = signer_indices.iter().position(|&idx| idx == i).unwrap();
                 let signer_type = signer_behaviours[signer_index].clone();
-                malicious_types.push(signer_type);
+                behaviours.push(signer_type);
                 let signer_crimes = signer_crimes[signer_index].clone();
                 expected_crimes.push(signer_crimes);
             }
@@ -207,7 +207,7 @@ impl TestCase {
         let mut timeout: Option<Timeout> = None;
         let mut disrupt: Option<Disrupt> = None;
         let mut spoof: Option<Spoof> = None;
-        for (i, t) in malicious_types.iter().enumerate() {
+        for (i, t) in behaviours.iter().enumerate() {
             if let Staller { msg_type } = t {
                 timeout = Some(Timeout {
                     index: i,
@@ -235,7 +235,7 @@ impl TestCase {
 
         let mut malicious_data = MaliciousData::empty(uid_count);
         malicious_data.set_sign_data(SignData {
-            malicious_types,
+            behaviours,
             timeout,
             disrupt,
             spoof,
@@ -271,7 +271,7 @@ fn timeout_cases() -> Vec<TestCase> {
             )
         }) // don't match fail types
         .map(|msg_type| Staller { msg_type })
-        .collect::<Vec<MaliciousType>>();
+        .collect::<Vec<Behaviour>>();
 
     // staller always targets party 0
     stallers
@@ -309,7 +309,7 @@ fn disrupt_cases() -> Vec<TestCase> {
             )
         }) // don't match fail types
         .map(|msg_type| DisrupringSender { msg_type })
-        .collect::<Vec<MaliciousType>>();
+        .collect::<Vec<Behaviour>>();
 
     // disrupter always targets party 0
     disrupters
@@ -335,7 +335,7 @@ fn spoof_cases() -> Vec<TestCase> {
     let spoofers = Status::iter()
         .filter(|status| matches!(status, R1 | R2 | R3 | R4 | R5 | R6 | R7)) // don't match fail types
         .map(|status| UnauthenticatedSender { victim, status })
-        .collect::<Vec<MaliciousType>>();
+        .collect::<Vec<Behaviour>>();
 
     // spoofer always targets party 0
     spoofers
@@ -359,7 +359,7 @@ fn spoof_cases() -> Vec<TestCase> {
 
 fn generate_basic_cases() -> Vec<TestCase> {
     let mut cases = vec![];
-    for m in MaliciousType::iter().filter(|m| {
+    for m in Behaviour::iter().filter(|m| {
         // don't include malicious types that happen at the routing level
         !matches!(
             m,

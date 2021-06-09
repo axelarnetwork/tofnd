@@ -219,7 +219,7 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
         let shutdown_party = party_options[shutdown_index].take().unwrap();
         shutdown_party.shutdown().await;
 
-        // initialize restarted party with malicious_type when we are in malicious mode
+        // initialize restarted party with behaviour when we are in malicious mode
         let init_party = InitParty::new(
             shutdown_index,
             #[cfg(feature = "malicious")]
@@ -312,16 +312,16 @@ impl InitParty {
             }
         }
 
-        let my_keygen_malicious_type = all_malicious_data
+        let my_keygen_behaviour = all_malicious_data
             .keygen_data
             .behaviours
             .get(my_index)
             .unwrap()
             .clone();
 
-        let my_sign_malicious_type = all_malicious_data
+        let my_sign_behaviour = all_malicious_data
             .sign_data
-            .malicious_types
+            .behaviours
             .get(my_index)
             .unwrap()
             .clone();
@@ -330,8 +330,8 @@ impl InitParty {
             timeout: my_timeout,
             disrupt: my_disrupt,
             spoof: my_spoof,
-            keygen_malicious_type: my_keygen_malicious_type,
-            sign_malicious_type: my_sign_malicious_type,
+            keygen_behaviour: my_keygen_behaviour,
+            sign_behaviour: my_sign_behaviour,
         };
 
         InitParty {

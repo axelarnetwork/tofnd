@@ -36,9 +36,9 @@ type KeySharesKv = Kv<PartyInfo>;
 struct Gg20Service {
     kv: KeySharesKv,
     #[cfg(feature = "malicious")]
-    keygen_malicious_type: Behaviour,
+    keygen_behaviour: KeygenBehaviour,
     #[cfg(feature = "malicious")]
-    sign_malicious_type: MaliciousType,
+    sign_behaviour: SignBehaviour,
 }
 
 #[cfg(not(feature = "malicious"))]
@@ -50,13 +50,13 @@ pub fn new_service() -> impl proto::gg20_server::Gg20 {
 
 #[cfg(feature = "malicious")]
 pub fn new_service(
-    keygen_malicious_type: Behaviour,
-    sign_malicious_type: MaliciousType,
+    keygen_behaviour: KeygenBehaviour,
+    sign_behaviour: SignBehaviour,
 ) -> impl proto::gg20_server::Gg20 {
     Gg20Service {
         kv: KeySharesKv::new(),
-        keygen_malicious_type,
-        sign_malicious_type,
+        keygen_behaviour,
+        sign_behaviour,
     }
 }
 
@@ -133,13 +133,13 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 }
 
 #[cfg(feature = "malicious")]
-use tofn::protocol::gg20::keygen::malicious::Behaviour;
+use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
 use tofn::protocol::gg20::keygen::Keygen;
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::BadSign;
 #[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::malicious::MaliciousType;
+use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
 #[cfg(not(feature = "malicious"))]
 use tofn::protocol::gg20::sign::Sign;
 use tofn::protocol::gg20::{keygen::ParamsError as KeygenErr, sign::ParamsError as SignErr};
@@ -164,7 +164,7 @@ impl Gg20Service {
         my_index: usize,
     ) -> Result<Keygen, KeygenErr> {
         let mut k = Keygen::new(party_share_counts, threshold, my_index)?;
-        k.set_behaviour(self.keygen_malicious_type.clone());
+        k.set_behaviour(self.keygen_behaviour.clone());
         Ok(k)
     }
 
@@ -192,7 +192,7 @@ impl Gg20Service {
         participant_indices: &[usize],
         msg_to_sign: &MessageDigest,
     ) -> Result<BadSign, SignErr> {
-        let behaviour = self.sign_malicious_type.clone();
+        let behaviour = self.sign_behaviour.clone();
         BadSign::new(
             &my_secret_key_share.group,
             &my_secret_key_share.share,
@@ -274,9 +274,9 @@ pub(super) mod tests {
     use crate::proto;
 
     #[cfg(feature = "malicious")]
-    use tofn::protocol::gg20::keygen::malicious::Behaviour;
+    use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
     #[cfg(feature = "malicious")]
-    use tofn::protocol::gg20::sign::malicious::MaliciousType;
+    use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
 
     #[cfg(not(feature = "malicious"))]
     pub fn with_db_name(db_name: &str) -> impl proto::gg20_server::Gg20 {
@@ -288,13 +288,13 @@ pub(super) mod tests {
     #[cfg(feature = "malicious")]
     pub fn with_db_name_malicious(
         db_name: &str,
-        keygen_malicious_type: Behaviour,
-        sign_malicious_type: MaliciousType,
+        keygen_behaviour: KeygenBehaviour,
+        sign_behaviour: SignBehaviour,
     ) -> impl proto::gg20_server::Gg20 {
         Gg20Service {
             kv: KeySharesKv::with_db_name(db_name),
-            keygen_malicious_type,
-            sign_malicious_type,
+            keygen_behaviour,
+            sign_behaviour,
         }
     }
 
