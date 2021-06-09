@@ -1,6 +1,5 @@
-use tofn::protocol::gg20::keygen::{
-    validate_params, CommonInfo, KeygenOutput, SecretKeyShare, ShareInfo,
-};
+use tofn::protocol::gg20::keygen::{validate_params, KeygenOutput};
+use tofn::protocol::gg20::SecretKeyShare;
 
 use protocol::map_tofnd_to_tofn_idx;
 
@@ -174,8 +173,9 @@ impl Gg20Service {
         .await;
 
         if let Err(err) = res {
-            let waiting_on = keygen.waiting_on();
             warn!("Protocol execution was aborted: {}", err);
+            let waiting_on = keygen.waiting_on();
+            warn!("Party expects more messages from {:?}", waiting_on);
             // Return the parties we are waiting on
             return Ok(Err(waiting_on));
         }
@@ -347,8 +347,7 @@ async fn aggregate_keygen_outputs(
     Ok(keygen_outputs)
 }
 
-// TODO: Use CommonInfo and ShareInfo instead of SecretKeyShare in tofn.
-// When this is done, we will not have to manually create PartyInfo.
+// Get KeyGroup and KeyShare from tofn to create PartyInfo
 fn get_party_info(
     secret_key_shares: Vec<SecretKeyShare>,
     uids: Vec<String>,
@@ -357,24 +356,11 @@ fn get_party_info(
 ) -> PartyInfo {
     // grap the first share to acquire common data
     let s = secret_key_shares[0].clone();
-    let common = CommonInfo {
-        threshold: s.threshold,
-        ecdsa_public_key: s.ecdsa_public_key,
-        all_ecdsa_public_key_shares: s.all_ecdsa_public_key_shares,
-        all_eks: s.all_eks,
-        all_zkps: s.all_zkps,
-        share_count: s.share_count,
-    };
+    let common = s.group;
     // aggregate share data into a vector
     let mut shares = Vec::new();
     for share in secret_key_shares {
-        shares.push(ShareInfo {
-            my_index: share.my_index,
-            my_dk: share.my_dk,
-            my_ek: share.my_ek,
-            my_zkp: share.my_zkp,
-            my_ecdsa_secret_key_share: share.my_ecdsa_secret_key_share,
-        });
+        shares.push(share.share);
     }
     // add tofnd data
     let tofnd = TofndInfo {

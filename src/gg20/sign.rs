@@ -1,6 +1,10 @@
-use tofn::protocol::gg20::{keygen::SecretKeyShare, sign::SignOutput};
+use std::convert::TryInto;
 
-use super::{proto, protocol, route_messages, Gg20Service, PartyInfo, ProtocolCommunication};
+use tofn::protocol::gg20::{sign::SignOutput, SecretKeyShare};
+
+use super::{
+    proto, protocol, route_messages, Gg20Service, MessageDigest, PartyInfo, ProtocolCommunication,
+};
 use crate::TofndError;
 
 use protocol::map_tofnd_to_tofn_idx;
@@ -19,7 +23,7 @@ struct SignInitSanitized {
     // key_uid: String,
     participant_uids: Vec<String>,
     participant_indices: Vec<usize>,
-    message_to_sign: Vec<u8>,
+    message_to_sign: MessageDigest,
 }
 
 impl Gg20Service {
@@ -96,15 +100,15 @@ impl Gg20Service {
                 "sign [{}] party [uid:{}, share:{}/{}]",
                 sign_init.new_sig_uid,
                 party_info.tofnd.party_uids[party_info.tofnd.index],
-                party_info.shares[my_tofnd_subindex].my_index + 1,
-                party_info.common.share_count
+                party_info.shares[my_tofnd_subindex].index() + 1,
+                party_info.common.share_count(),
             );
             let state = log_prefix.as_str();
             let handle_span = span!(parent: &sign_span, Level::INFO, "", state);
             info!(
                 "with (t,n)=({},{}), participant indices: {:?}",
-                party_info.common.threshold,
-                party_info.common.share_count,
+                party_info.common.threshold(),
+                party_info.common.share_count(),
                 sign_init.participant_indices
             );
 
@@ -121,7 +125,7 @@ impl Gg20Service {
                         &sign_share_counts,
                         &participant_tofn_indices,
                         secret_key_share,
-                        message_to_sign,
+                        &message_to_sign,
                         handle_span,
                     )
                     .await;
@@ -193,7 +197,7 @@ impl Gg20Service {
         party_share_counts: &[usize],
         participant_tofn_indices: &[usize],
         secret_key_share: SecretKeyShare,
-        message_to_sign: Vec<u8>,
+        message_to_sign: &MessageDigest,
         handle_span: Span,
     ) -> Result<SignOutput, TofndError> {
         // Sign::new() needs 'tofn' information:
@@ -252,13 +256,11 @@ fn sign_sanitize_args(
         })
         .collect::<Result<Vec<usize>, _>>()?;
 
-    // TODO assume message_to_sign is already raw bytes of a field element
-
     Ok(SignInitSanitized {
         new_sig_uid: sign_init.new_sig_uid,
         participant_uids: sign_init.party_uids,
         participant_indices,
-        message_to_sign: sign_init.message_to_sign,
+        message_to_sign: sign_init.message_to_sign.as_slice().try_into()?,
     })
 }
 
@@ -276,17 +278,8 @@ fn get_secret_key_share(
         )));
     }
     Ok(SecretKeyShare {
-        share_count: party_info.common.share_count,
-        threshold: party_info.common.threshold,
-        my_index: party_info.shares[share_index].my_index,
-        my_dk: party_info.shares[share_index].my_dk.clone(),
-        my_ek: party_info.shares[share_index].my_ek.clone(),
-        my_zkp: party_info.shares[share_index].my_zkp.clone(),
-        ecdsa_public_key: party_info.common.ecdsa_public_key,
-        my_ecdsa_secret_key_share: party_info.shares[share_index].my_ecdsa_secret_key_share,
-        all_ecdsa_public_key_shares: party_info.common.all_ecdsa_public_key_shares.clone(),
-        all_eks: party_info.common.all_eks.clone(),
-        all_zkps: party_info.common.all_zkps.clone(),
+        group: party_info.common.clone(),
+        share: party_info.shares[share_index].clone(),
     })
 }
 

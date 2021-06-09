@@ -103,7 +103,7 @@ fn match_string_to_behaviour(behaviour: &str, victim: usize) -> MaliciousType {
         "R5BadProof" => MaliciousType::R5BadProof { victim },
         "R6BadProof" => MaliciousType::R6BadProof,
         "R6FalseAccusation" => MaliciousType::R6FalseAccusation { victim },
-        "R7BadSigSummand" => MaliciousType::R7BadSigSummand,
+        "R7BadSI" => MaliciousType::R7BadSI,
         _ => panic!("Unknown behaviour"),
     }
 }

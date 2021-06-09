@@ -59,27 +59,29 @@ fn to_crime(t: &MaliciousType) -> Vec<Crime> {
         DisrupringSender { msg_type: _ } => vec![Crime::DisruptedMessage],
         R1BadProof { victim: v } => vec![Crime::R3FailBadRangeProof { victim: *v }],
         R2FalseAccusation { victim: v } => vec![Crime::R3FailFalseAccusation { victim: *v }],
-        R2BadMta { victim: v } => vec![Crime::R4FailBadRangeProof { victim: *v }],
-        R2BadMtaWc { victim: v } => vec![Crime::R4FailBadRangeProof { victim: *v }],
-        R3FalseAccusationMta { victim: v } => vec![Crime::R4FailFalseAccusation { victim: *v }],
-        R3FalseAccusationMtaWc { victim: v } => vec![Crime::R4FailFalseAccusation { victim: *v }],
+        R2BadMta { victim: v } => vec![Crime::R4FailBadMta { victim: *v }],
+        R2BadMtaWc { victim: v } => vec![Crime::R4FailBadMtaWc { victim: *v }],
+        R3FalseAccusationMta { victim: v } => vec![Crime::R4FailFalseAccusationMta { victim: *v }],
+        R3FalseAccusationMtaWc { victim: v } => {
+            vec![Crime::R4FailFalseAccusationMtaWc { victim: *v }]
+        }
         R3BadProof => vec![Crime::R4BadPedersenProof],
         R4BadReveal => vec![Crime::R5BadHashCommit],
         R5BadProof { victim: v } => vec![Crime::R7FailBadRangeProof { victim: *v }],
         R6FalseAccusation { victim: v } => vec![Crime::R7FailFalseAccusation { victim: *v }],
         R6BadProof => vec![Crime::R7BadRangeProof],
-        R7BadSigSummand => vec![Crime::R8BadSigSummand],
-        R3BadNonceXBlindSummand => vec![Crime::R7FailType5BadNonceXBlindSummand],
-        R3BadEcdsaNonceSummand => vec![Crime::R7FailType5BadNonceSummand],
-        R1BadSecretBlindSummand => vec![Crime::R7FailType5BadBlindSummand],
-        R3BadMtaBlindSummandRhs { victim: v } => {
-            vec![Crime::R7FailType5MtaBlindSummandRhs { victim: *v }]
+        R7BadSI => vec![Crime::R8SICheckFail],
+        R3BadDeltaI => vec![Crime::R7FailType5BadDeltaI],
+        R3BadKI => vec![Crime::R7FailType5BadKI],
+        R1BadGammaI => vec![Crime::R7FailType5BadGammaI],
+        R3BadBeta { victim: v } => {
+            vec![Crime::R7FailType5BadBeta { victim: *v }]
         }
-        R3BadMtaBlindSummandLhs { victim: v } => {
-            vec![Crime::R7FailType5MtaBlindSummandLhs { victim: *v }]
+        R3BadAlpha { victim: v } => {
+            vec![Crime::R7FailType5BadAlpha { victim: *v }]
         }
         R6FalseFailRandomizer => vec![Crime::R7FailType5FalseComplaint],
-        R3BadNonceXKeyshareSummand => vec![Crime::R8FailType7BadZkp],
+        R3BadSigmaI => vec![Crime::R8FailType7BadZkp],
     }
 }
 pub(super) struct Signer {
@@ -346,7 +348,7 @@ fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
         // round 5 faults
         vec![R5BadProof { victim }, R6FalseAccusation { victim }],
         // round 7 faults
-        vec![R7BadSigSummand],
+        vec![R7BadSI],
         // vec![R3BadProof], // exclude round 3 faults because they stall
         // vec![R4BadReveal], // exclude round 4 faults because they stall
         // vec![R6BadProof], // exclude round 6 faults because they stall
