@@ -112,7 +112,7 @@ impl Gg20Service {
                 sign_init.participant_indices
             );
 
-            // spawn keygen threads
+            // spawn sign threads
             tokio::spawn(async move {
                 // get result of sign
                 let signature = gg20
@@ -178,7 +178,7 @@ impl Gg20Service {
         let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
 
         info!(
-            "Starting Keygen with uids: {:?}, party_shares: {:?}",
+            "Starting Sign with uids: {:?}, party_shares: {:?}",
             party_info.tofnd.party_uids, party_info.tofnd.share_counts
         );
 
@@ -216,15 +216,23 @@ impl Gg20Service {
         )
         .await;
 
-        if let Err(err) = res {
-            warn!("Protocol execution was aborted: {}", err);
-            let criminals = sign.waiting_on();
-            warn!("Party expects more messages from {:?}", criminals);
-            // Return the parties we are waiting on
-            return Ok(Err(criminals));
-        }
-
-        Ok(sign.clone_output().ok_or("sign output is `None`")?)
+        let res = match res {
+            Ok(()) => {
+                info!("Sign completed successfully");
+                sign.clone_output().ok_or("sign output is `None`")?
+            }
+            Err(err) => match sign.found_disrupting() {
+                true => {
+                    warn!("Party failed due to deserialization error: {}", err);
+                    sign.clone_output().ok_or("sign output is `None`")?
+                }
+                false => {
+                    warn!("Connection closed by client: {}", err);
+                    Err(sign.waiting_on())
+                }
+            },
+        };
+        Ok(res)
     }
 }
 

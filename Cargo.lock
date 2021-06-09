@@ -1973,7 +1973,7 @@ dependencies = [
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=main#13ecc22f2fa2657443040c02491c249e3e160258"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=main#e838f28248c8d9c2f0c218f1c310e71d8d11dd83"
 dependencies = [
  "bincode",
  "ecdsa",

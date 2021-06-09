@@ -5,7 +5,7 @@ use tofn::protocol::gg20::keygen::{
 };
 
 use super::super::{run_test_cases, TestCase};
-use super::{MaliciousData, MsgType::KeygenMsgType, Timeout};
+use super::{Disrupt, MaliciousData, MsgType::KeygenMsgType, Timeout};
 
 use serde::{Deserialize, Serialize}; // we assume bad guys know how to (de)serialize
 use strum::IntoEnumIterator; // iterate malicious types, message types and statuses
@@ -27,6 +27,12 @@ async fn keygen_malicious_multiple_per_round() {
 #[tokio::test]
 async fn malicious_timeout_cases() {
     run_test_cases(&timeout_cases(), false).await;
+}
+
+#[traced_test]
+#[tokio::test]
+async fn malicious_disrupt_cases() {
+    run_test_cases(&disrupt_cases(), false).await;
 }
 
 #[traced_test]
@@ -58,6 +64,7 @@ impl Spoof {
 pub(crate) struct KeygenData {
     pub(crate) behaviours: Vec<Behaviour>,
     pub(crate) timeout: Option<Timeout>,
+    pub(crate) disrupt: Option<Disrupt>,
     pub(crate) spoof: Option<Spoof>,
 }
 
@@ -66,6 +73,7 @@ impl KeygenData {
         KeygenData {
             behaviours: vec![Honest; party_count],
             timeout: None,
+            disrupt: None,
             spoof: None,
         }
     }
@@ -110,6 +118,8 @@ impl TestCase {
             .collect();
 
         let mut timeout: Option<Timeout> = None;
+        let mut disrupt: Option<Disrupt> = None;
+        let mut spoof: Option<Spoof> = None;
         for (i, t) in behaviours.iter().enumerate() {
             if let Staller { msg_type } = t {
                 timeout = Some(Timeout {
@@ -119,10 +129,14 @@ impl TestCase {
                     },
                 });
             }
-        }
-
-        let mut spoof: Option<Spoof> = None;
-        for (i, t) in behaviours.iter().enumerate() {
+            if let DisruptingSender { msg_type } = t {
+                disrupt = Some(Disrupt {
+                    index: i,
+                    msg_type: KeygenMsgType {
+                        msg_type: msg_type.clone(),
+                    },
+                });
+            }
             if let UnauthenticatedSender { victim, status } = t {
                 spoof = Some(Spoof {
                     index: i,
@@ -136,6 +150,7 @@ impl TestCase {
         malicious_data.set_keygen_data(KeygenData {
             behaviours,
             timeout,
+            disrupt,
             spoof,
         });
 
@@ -259,6 +274,34 @@ fn timeout_cases() -> Vec<TestCase> {
                 vec![
                     Keygener::new(Honest, vec![]),
                     Keygener::new(staller.clone(), vec![to_crime(&staller)]),
+                    Keygener::new(Honest, vec![]),
+                    Keygener::new(Honest, vec![]),
+                ],
+            )
+        })
+        .collect()
+}
+
+fn disrupt_cases() -> Vec<TestCase> {
+    use MsgType::*;
+    let disrupters = MsgType::iter()
+        .filter(|msg_type| matches!(msg_type, R1Bcast | R2Bcast | R2P2p { to: _ } | R3Bcast,)) // don't match fail types
+        // .filter(|msg_type| matches!(msg_type, R1Bcast)) // don't match fail types
+        .map(|msg_type| DisruptingSender { msg_type })
+        .collect::<Vec<Behaviour>>();
+
+    // disrupter always targets party 0
+    disrupters
+        .iter()
+        .map(|disrupter| {
+            TestCase::new_malicious_keygen(
+                5,
+                vec![1, 2, 1, 1, 1],
+                3,
+                vec![
+                    Keygener::new(Honest, vec![]),
+                    Keygener::new(disrupter.clone(), vec![to_crime(&disrupter)]),
+                    Keygener::new(Honest, vec![]),
                     Keygener::new(Honest, vec![]),
                     Keygener::new(Honest, vec![]),
                 ],

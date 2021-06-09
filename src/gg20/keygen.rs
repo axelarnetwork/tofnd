@@ -172,15 +172,23 @@ impl Gg20Service {
         )
         .await;
 
-        if let Err(err) = res {
-            warn!("Protocol execution was aborted: {}", err);
-            let waiting_on = keygen.waiting_on();
-            warn!("Party expects more messages from {:?}", waiting_on);
-            // Return the parties we are waiting on
-            return Ok(Err(waiting_on));
-        }
-
-        Ok(keygen.clone_output().ok_or("keygen output is `None`")?)
+        let res = match res {
+            Ok(()) => {
+                info!("Keygen completed successfully");
+                keygen.clone_output().ok_or("keygen output is `None`")?
+            }
+            Err(err) => match keygen.found_disrupting() {
+                true => {
+                    warn!("Party failed due to deserialization error: {}", err);
+                    keygen.clone_output().ok_or("keygen output is `None`")?
+                }
+                false => {
+                    warn!("Connection closed by client: {}", err);
+                    Err(keygen.waiting_on())
+                }
+            },
+        };
+        Ok(res)
     }
 
     // aggregate messages from all keygen workers, create a single record and insert it in the KVStore

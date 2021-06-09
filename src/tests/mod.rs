@@ -117,7 +117,7 @@ fn check_keygen_results(results: Vec<KeygenResult>, expected_crimes: &[Vec<Keyge
 
 // Horrible code duplication indeed. Don't think we should spend time here though
 // because this will be deleted when axelar-core accommodates crimes
-fn check_results(results: Vec<SignResult>, expected_crimes: &[Vec<SignCrime>]) {
+fn check_sign_results(results: Vec<SignResult>, expected_crimes: &[Vec<SignCrime>]) {
     // get the first non-empty result. We can't simply take results[0] because some behaviours
     // don't return results and we pad them with `None`s
     let first = results.iter().find(|r| r.sign_result_data.is_some());
@@ -175,9 +175,13 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
     let threshold = test_case.threshold;
     let sign_participant_indices = &test_case.signer_indices;
     let expected_keygen_crimes = &test_case.expected_keygen_crimes;
-    let expected_crimes = &test_case.expected_sign_crimes;
+    let expected_sign_crimes = &test_case.expected_sign_crimes;
 
-    info!("======= Expected crimes: {:?}", expected_crimes);
+    info!(
+        "======= Expected keygen crimes: {:?}",
+        expected_keygen_crimes
+    );
+    info!("======= Expected sign crimes: {:?}", expected_sign_crimes);
 
     #[cfg(not(feature = "malicious"))]
     let init_parties_t = InitParties::new(uid_count);
@@ -252,7 +256,7 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
     delete_dbs(&parties);
     shutdown_parties(parties).await;
 
-    check_results(results, &expected_crimes);
+    check_sign_results(results, &expected_sign_crimes);
 }
 
 // struct to pass in TofndParty constructor.
@@ -284,6 +288,18 @@ impl InitParty {
             }
         }
 
+        // register disrupts
+        let mut my_disrupt = None;
+        if let Some(disrupt) = all_malicious_data.keygen_data.disrupt.clone() {
+            if disrupt.index == my_index {
+                my_disrupt = Some(disrupt);
+            }
+        } else if let Some(disrupt) = all_malicious_data.sign_data.disrupt.clone() {
+            if disrupt.index == my_index {
+                my_disrupt = Some(disrupt);
+            }
+        }
+
         // register spoofs
         let mut my_spoof = None;
         if let Some(spoof) = all_malicious_data.sign_data.spoof.clone() {
@@ -312,6 +328,7 @@ impl InitParty {
 
         let my_malicious_data = PartyMaliciousData {
             timeout: my_timeout,
+            disrupt: my_disrupt,
             spoof: my_spoof,
             keygen_malicious_type: my_keygen_malicious_type,
             sign_malicious_type: my_sign_malicious_type,

@@ -42,7 +42,7 @@ impl Deliverer {
             .collect();
         (Deliverer { senders }, channels)
     }
-    pub async fn deliver(&mut self, msg: &proto::MessageOut, from: &str) {
+    pub fn deliver(&mut self, msg: &proto::MessageOut, from: &str) {
         let msg = msg.data.as_ref().expect("missing data");
         let msg = match msg {
             proto::message_out::Data::Traffic(t) => t,
