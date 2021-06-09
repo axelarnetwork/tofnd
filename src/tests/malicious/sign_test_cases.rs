@@ -61,8 +61,6 @@ fn to_crime(t: &MaliciousType) -> Vec<Crime> {
             victim: *v,
             status: s.clone(),
         }],
-        // TODO: delete the todo comment
-        // TODO: add tests for Disrupting sender
         DisrupringSender { msg_type: _ } => vec![Crime::DisruptedMessage],
         R1BadProof { victim: v } => vec![Crime::R3FailBadRangeProof { victim: *v }],
         R2FalseAccusation { victim: v } => vec![Crime::R3FailFalseAccusation { victim: *v }],
