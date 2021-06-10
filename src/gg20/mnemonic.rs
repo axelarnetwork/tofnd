@@ -94,7 +94,7 @@ impl Gg20Service {
         let response = match cmd {
             // proto::mnemonic_request::Cmd::Unknown => todo!(),
             Cmd::Import => self.handle_import(msg.data).await,
-            Cmd::Update => self.handle_update(msg.data).await,
+            // Cmd::Update => self.handle_update(msg.data).await,
             // proto::mnemonic_request::Cmd::Export => handle_export(),
             // proto::mnemonic_request::Cmd::Delete => handle_delete(),
             _ => todo!(),
