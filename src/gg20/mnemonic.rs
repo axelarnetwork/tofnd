@@ -101,12 +101,14 @@ impl Gg20Service {
         let cmd = Cmd::from_i32(msg.cmd)
             .ok_or(format!("unable to convert {} to a Cmd type.", msg.cmd))?;
 
+        // TODO: check if msg.data is a valid mnemonic. Here or in tofn?
+
         // retireve response
         let response = match cmd {
             // proto::mnemonic_request::Cmd::Unknown => todo!(),
             Cmd::Import => self.handle_import(msg.data).await,
             // Cmd::Update => self.handle_update(msg.data).await,
-            // proto::mnemonic_request::Cmd::Export => handle_export(),
+            Cmd::Export => self.handle_export().await,
             // proto::mnemonic_request::Cmd::Delete => handle_delete(),
             _ => todo!(),
         };
@@ -117,7 +119,9 @@ impl Gg20Service {
         Ok(())
     }
 
-    // adds a new mnemonic; Succeeds when there is no other mnemonic already imported, fails otherwise.
+    // adds a new mnemonic; returns a MnemonicResponse with Response::Success when
+    // there is no other mnemonic already imported, or with Response::Failure otherwise.
+    // The data field of MnemonicResponse is empty
     async fn handle_import(&mut self, data: Mnemonic) -> MnemonicResponse {
         info!("Importing mnemonic");
 
@@ -143,6 +147,25 @@ impl Gg20Service {
             Err(_) => {
                 error!("Cannot reserve mnemonic");
                 MnemonicResponse::import_fail()
+            }
+        }
+    }
+
+    //gets existing mnemonic; Succeeds when there is an existing mnemonic, fails otherwise.
+    async fn handle_export(&mut self) -> MnemonicResponse {
+        info!("Exporting mnemonic");
+
+        // try to get mnemonic from kv-store
+        match self.mnemonic_kv.get(MNEMONIC_KEY).await {
+            // if get is ok return success
+            Ok(mnemonic) => {
+                info!("Mnemonic found in kv store");
+                MnemonicResponse::export_success(ResponseData(mnemonic))
+            }
+            // else return failure
+            Err(_) => {
+                error!("Did not find mnemonic in kv store");
+                MnemonicResponse::export_fail(ResponseData::empty())
             }
         }
     }
