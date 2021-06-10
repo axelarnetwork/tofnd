@@ -37,7 +37,7 @@ use tracing::{error, info};
 const MNEMONIC_KEY: &str = "mnemonic";
 
 // Mnemonic type needs to be known globaly to create/access the kv store
-// TODO: This might be better to be defined in tofn
+// TODO: It might be better to define this in tofn
 pub type Mnemonic = Vec<u8>;
 
 // Create separate type for response data bytes to avoid conflicts with other byte arrays
@@ -74,12 +74,12 @@ impl MnemonicResponse {
     fn delete_success() -> MnemonicResponse {
         Self::new(Response::Success, ResponseData::empty())
     }
-    // general fail response
     fn fail() -> MnemonicResponse {
         Self::new(Response::Failure, ResponseData::empty())
     }
 }
 
+// implement mnemonic-specific functions for Gg20Service
 impl Gg20Service {
     // async function that handles all mnemonic commands
     pub async fn handle_mnemonic(
@@ -89,7 +89,7 @@ impl Gg20Service {
     ) -> Result<(), TofndError> {
         info!("Importing mnemonic");
 
-        // read mnemonic message
+        // read mnemonic message from stream
         let msg = request_stream
             .next()
             .await
@@ -104,12 +104,12 @@ impl Gg20Service {
 
         // retireve response
         let response = match cmd {
-            // proto::mnemonic_request::Cmd::Unknown => todo!(),
+            // TODO: do we need Unknown?
+            Cmd::Unknown => todo!(),
             Cmd::Import => self.handle_import(msg.data).await,
             Cmd::Update => self.handle_update(msg.data).await,
             Cmd::Export => self.handle_export().await,
             Cmd::Delete => self.handle_delete().await,
-            _ => todo!(),
         };
 
         // send response
@@ -137,14 +137,14 @@ impl Gg20Service {
                     MnemonicResponse::import_success()
                 }
                 // else return failure
-                Err(_) => {
-                    error!("Cannot put mnemonic in kv store");
+                Err(err) => {
+                    error!("Cannot put mnemonic in kv store: {:?}", err);
                     MnemonicResponse::fail()
                 }
             },
             // if we cannot reserve, return failure
-            Err(_) => {
-                error!("Cannot reserve mnemonic");
+            Err(err) => {
+                error!("Cannot reserve mnemonic: {:?}", err);
                 MnemonicResponse::fail()
             }
         }
@@ -187,8 +187,8 @@ impl Gg20Service {
                 MnemonicResponse::export_success(ResponseData(mnemonic))
             }
             // else return failure
-            Err(_) => {
-                error!("Did not find mnemonic in kv store");
+            Err(err) => {
+                error!("Did not find mnemonic in kv store {:?}", err);
                 MnemonicResponse::fail()
             }
         }
@@ -199,7 +199,7 @@ impl Gg20Service {
     // or with Response::Failure otherwise.
     // The 'data' field of MnemonicResponse is empty
     async fn handle_delete(&mut self) -> MnemonicResponse {
-        info!("Deleting a mnemonic");
+        info!("Deleting mnemonic");
 
         // try to delete mnemonic from kv-store
         match self.mnemonic_kv.remove(MNEMONIC_KEY).await {
@@ -209,8 +209,8 @@ impl Gg20Service {
                 MnemonicResponse::delete_success()
             }
             // else return failure
-            Err(_) => {
-                error!("Did not find mnemonic in kv store");
+            Err(err) => {
+                error!("Did not find mnemonic in kv store {:?}", err);
                 MnemonicResponse::fail()
             }
         }
