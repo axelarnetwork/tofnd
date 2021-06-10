@@ -65,19 +65,18 @@ impl MnemonicResponse {
             data: response_data.to_bytes(),
         }
     }
-    // import does not return respose data
     fn import_success() -> MnemonicResponse {
         Self::new(Response::Success, ResponseData::empty())
-    }
-    // import does not return respose data
-    fn import_fail() -> MnemonicResponse {
-        Self::new(Response::Failure, ResponseData::empty())
     }
     fn export_success(response_data: ResponseData) -> MnemonicResponse {
         Self::new(Response::Success, response_data)
     }
-    fn export_fail(response_data: ResponseData) -> MnemonicResponse {
-        Self::new(Response::Failure, response_data)
+    fn delete_success() -> MnemonicResponse {
+        Self::new(Response::Success, ResponseData::empty())
+    }
+    // general fail response
+    fn fail() -> MnemonicResponse {
+        Self::new(Response::Failure, ResponseData::empty())
     }
 }
 
@@ -107,9 +106,9 @@ impl Gg20Service {
         let response = match cmd {
             // proto::mnemonic_request::Cmd::Unknown => todo!(),
             Cmd::Import => self.handle_import(msg.data).await,
-            // Cmd::Update => self.handle_update(msg.data).await,
+            Cmd::Update => self.handle_update(msg.data).await,
             Cmd::Export => self.handle_export().await,
-            // proto::mnemonic_request::Cmd::Delete => handle_delete(),
+            Cmd::Delete => self.handle_delete().await,
             _ => todo!(),
         };
 
@@ -121,7 +120,7 @@ impl Gg20Service {
 
     // adds a new mnemonic; returns a MnemonicResponse with Response::Success when
     // there is no other mnemonic already imported, or with Response::Failure otherwise.
-    // The data field of MnemonicResponse is empty
+    // The 'data' field of MnemonicResponse is empty
     async fn handle_import(&mut self, data: Mnemonic) -> MnemonicResponse {
         info!("Importing mnemonic");
 
@@ -140,18 +139,43 @@ impl Gg20Service {
                 // else return failure
                 Err(_) => {
                     error!("Cannot put mnemonic in kv store");
-                    MnemonicResponse::import_fail()
+                    MnemonicResponse::fail()
                 }
             },
             // if we cannot reserve, return failure
             Err(_) => {
                 error!("Cannot reserve mnemonic");
-                MnemonicResponse::import_fail()
+                MnemonicResponse::fail()
             }
         }
     }
 
-    //gets existing mnemonic; Succeeds when there is an existing mnemonic, fails otherwise.
+    // updates mnemonic; returns a MnemonicResponse with Response::Success a mnemonic
+    // already exists and is successfully updated, or with Response::Failure otherwise.
+    // The 'data' field of MnemonicResponse is empty
+    async fn handle_update(&mut self, mnemonic: Mnemonic) -> MnemonicResponse {
+        info!("Updating mnemonic");
+
+        // try to delete the old mnemonic
+        let removed = self.mnemonic_kv.remove(MNEMONIC_KEY).await;
+
+        match removed {
+            // if succeed, try to import and return whatever import returns
+            Ok(_) => self.handle_import(mnemonic).await,
+            // if failed, return failure
+            Err(err) => {
+                error!(
+                    "Cannot find existing mnemonic {:?} with error {:?}",
+                    mnemonic, err
+                );
+                MnemonicResponse::fail()
+            }
+        }
+    }
+
+    // gets the existing mnemonic; returns a MnemonicResponse with Response::Success when
+    // a mnemonic already exists, or with Response::Failure otherwise.
+    // The 'data' field of MnemonicResponse contains the exported mnemonic
     async fn handle_export(&mut self) -> MnemonicResponse {
         info!("Exporting mnemonic");
 
@@ -165,7 +189,29 @@ impl Gg20Service {
             // else return failure
             Err(_) => {
                 error!("Did not find mnemonic in kv store");
-                MnemonicResponse::export_fail(ResponseData::empty())
+                MnemonicResponse::fail()
+            }
+        }
+    }
+
+    // deletes the existing mnemonic from the kv-store;
+    // returns a MnemonicResponse with Response::Success when a mnemonic already exists,
+    // or with Response::Failure otherwise.
+    // The 'data' field of MnemonicResponse is empty
+    async fn handle_delete(&mut self) -> MnemonicResponse {
+        info!("Deleting a mnemonic");
+
+        // try to delete mnemonic from kv-store
+        match self.mnemonic_kv.remove(MNEMONIC_KEY).await {
+            // if deletion is ok return success
+            Ok(mnemonic) => {
+                info!("Mnemonic {:?} deleted from kv store", mnemonic);
+                MnemonicResponse::delete_success()
+            }
+            // else return failure
+            Err(_) => {
+                error!("Did not find mnemonic in kv store");
+                MnemonicResponse::fail()
             }
         }
     }
@@ -175,7 +221,6 @@ impl Gg20Service {
 mod tests {
     use super::*;
     use crate::gg20::{KeySharesKv, MnemonicKv};
-    use crate::proto::mnemonic_response::Response;
     use testdir::testdir;
     use tracing_test::traced_test; // logs for tests
 
@@ -213,19 +258,43 @@ mod tests {
 
         // add some data to the kv store
         let mnemonic: Mnemonic = vec![42; 32];
-        // import does not send data back
-        let response_data = ResponseData::empty();
 
         // first attempt should succeed
         assert_eq!(
             gg20.handle_import(mnemonic.clone()).await,
-            MnemonicResponse::new(Response::Success, response_data.clone())
+            MnemonicResponse::import_success()
         );
-
         // second attempt should succeed
+        assert_eq!(gg20.handle_import(mnemonic).await, MnemonicResponse::fail());
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn test_update() {
+        // create a service
+        let mut gg20 = get_service();
+        // add some data to the kv store
+        let mnemonic: Mnemonic = vec![42; 32];
+
+        // first attempt to update should fail
         assert_eq!(
-            gg20.handle_import(mnemonic).await,
-            MnemonicResponse::new(Response::Failure, response_data)
+            gg20.handle_update(mnemonic.clone()).await,
+            MnemonicResponse::fail()
+        );
+        // import should succeed
+        assert_eq!(
+            gg20.handle_import(mnemonic.clone()).await,
+            MnemonicResponse::import_success()
+        );
+        // second attempt to update should succeed
+        assert_eq!(
+            gg20.handle_update(mnemonic.clone()).await,
+            MnemonicResponse::import_success()
+        );
+        // export should succeed
+        assert_eq!(
+            gg20.handle_export().await,
+            MnemonicResponse::export_success(ResponseData(mnemonic))
         );
     }
 
@@ -234,26 +303,46 @@ mod tests {
     async fn test_export() {
         // create a service
         let mut gg20 = get_service();
-
         // add some data to the kv store
         let mnemonic: Mnemonic = vec![42; 32];
 
         // export should fail
-        assert_eq!(
-            gg20.handle_export().await,
-            MnemonicResponse::new(Response::Failure, ResponseData::empty())
-        );
-
+        assert_eq!(gg20.handle_export().await, MnemonicResponse::fail());
         // import should succeed
         assert_eq!(
             gg20.handle_import(mnemonic.clone()).await,
-            MnemonicResponse::new(Response::Success, ResponseData::empty())
+            MnemonicResponse::import_success()
         );
-
         // export should now succeed
         assert_eq!(
             gg20.handle_export().await,
-            MnemonicResponse::new(Response::Success, ResponseData(mnemonic))
+            MnemonicResponse::export_success(ResponseData(mnemonic))
         );
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn test_delete() {
+        // create a service
+        let mut gg20 = get_service();
+        // add some data to the kv store
+        let mnemonic: Mnemonic = vec![42; 32];
+
+        // delete should fail
+        assert_eq!(gg20.handle_delete().await, MnemonicResponse::fail());
+        // import should succeed
+        assert_eq!(
+            gg20.handle_import(mnemonic.clone()).await,
+            MnemonicResponse::import_success()
+        );
+        // delete should succeed
+        assert_eq!(
+            gg20.handle_delete().await,
+            MnemonicResponse::delete_success()
+        );
+        // export should now fail
+        assert_eq!(gg20.handle_export().await, MnemonicResponse::fail());
+        // delete should now fail
+        assert_eq!(gg20.handle_delete().await, MnemonicResponse::fail());
     }
 }
