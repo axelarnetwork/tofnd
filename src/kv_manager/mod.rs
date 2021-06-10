@@ -61,6 +61,14 @@ where
         })?;
         resp_rx.await?
     }
+    pub async fn remove(&mut self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        self.sender.send(Remove {
+            key: key.to_string(),
+            resp: resp_tx,
+        })?;
+        resp_rx.await?
+    }
 
     #[cfg(test)]
     pub fn get_db_path(name: &str) -> std::path::PathBuf {
@@ -91,6 +99,10 @@ enum Command<V> {
         resp: Responder<()>,
     },
     Get {
+        key: String, // TODO should be &str except lifetimes...
+        resp: Responder<V>,
+    },
+    Remove {
         key: String, // TODO should be &str except lifetimes...
         resp: Responder<V>,
     },
@@ -149,6 +161,11 @@ where
             }
             Get { key, resp } => {
                 if resp.send(handle_get(&kv, key)).is_err() {
+                    println!("WARN: the receiver dropped");
+                }
+            }
+            Remove { key, resp } => {
+                if resp.send(handle_remove(&kv, key)).is_err() {
                     println!("WARN: the receiver dropped");
                 }
             }
@@ -223,6 +240,26 @@ where
     let bytes = kv.get(&key)?;
 
     // check if key is valid
+    if bytes.is_none() {
+        return Err(From::from(format!("key {} did not have a value", key)));
+    }
+
+    // try to convert bytes to V
+    let value = bincode::deserialize(&bytes.unwrap())?;
+
+    // return value
+    Ok(value)
+}
+
+// helper function to delete values
+fn handle_remove<V>(kv: &sled::Db, key: String) -> Result<V, Box<dyn Error + Send + Sync>>
+where
+    V: DeserializeOwned,
+{
+    // try to remove value of 'key'
+    let bytes = kv.remove(&key)?;
+
+    // check if result was valid
     if bytes.is_none() {
         return Err(From::from(format!("key {} did not have a value", key)));
     }
