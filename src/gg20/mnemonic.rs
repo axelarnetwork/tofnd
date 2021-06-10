@@ -54,6 +54,7 @@ impl ResponseData {
     }
 }
 
+// implement convenient wrappers for responses
 impl MnemonicResponse {
     // basic constructor
     fn new(response: Response, response_data: ResponseData) -> MnemonicResponse {
@@ -64,9 +65,19 @@ impl MnemonicResponse {
             data: response_data.to_bytes(),
         }
     }
-    // convenient wrappers for import. Does not send response_data back
-    fn import(response: Response) -> MnemonicResponse {
-        Self::new(response, ResponseData::empty())
+    // import does not return respose data
+    fn import_success() -> MnemonicResponse {
+        Self::new(Response::Success, ResponseData::empty())
+    }
+    // import does not return respose data
+    fn import_fail() -> MnemonicResponse {
+        Self::new(Response::Failure, ResponseData::empty())
+    }
+    fn export_success(response_data: ResponseData) -> MnemonicResponse {
+        Self::new(Response::Success, response_data)
+    }
+    fn export_fail(response_data: ResponseData) -> MnemonicResponse {
+        Self::new(Response::Failure, response_data)
     }
 }
 
@@ -120,18 +131,18 @@ impl Gg20Service {
                 // if put is ok return success
                 Ok(()) => {
                     info!("Mnemonic successfully added in kv store");
-                    MnemonicResponse::import(Response::Success)
+                    MnemonicResponse::import_success()
                 }
                 // else return failure
                 Err(_) => {
                     error!("Cannot put mnemonic in kv store");
-                    MnemonicResponse::import(Response::Failure)
+                    MnemonicResponse::import_fail()
                 }
             },
             // if we cannot reserve, return failure
             Err(_) => {
                 error!("Cannot reserve mnemonic");
-                MnemonicResponse::import(Response::Failure)
+                MnemonicResponse::import_fail()
             }
         }
     }
