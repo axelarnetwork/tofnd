@@ -205,8 +205,8 @@ impl TofndParty {
         #[cfg(feature = "malicious")]
         let my_service = gg20::tests::with_db_name_malicious(
             &db_path,
-            init_party.malicious_data.keygen_malicious_type.clone(),
-            init_party.malicious_data.sign_malicious_type.clone(),
+            init_party.malicious_data.keygen_behaviour.clone(),
+            init_party.malicious_data.sign_behaviour.clone(),
         );
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);

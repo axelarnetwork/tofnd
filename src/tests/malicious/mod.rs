@@ -9,7 +9,7 @@ pub(super) type SignSpoof = sign_test_cases::Spoof;
 pub(super) type KeygenMsgMeta = keygen_test_cases::MsgMeta;
 pub(super) type SignMsgMeta = sign_test_cases::MsgMeta;
 pub(super) type KeygenBehaviour = tofn::protocol::gg20::keygen::malicious::Behaviour;
-pub(super) type SignBehaviour = tofn::protocol::gg20::sign::malicious::MaliciousType;
+pub(super) type SignBehaviour = tofn::protocol::gg20::sign::malicious::Behaviour;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum MsgType {
@@ -65,6 +65,6 @@ pub(super) struct PartyMaliciousData {
     pub(super) timeout: Option<Timeout>,
     pub(super) disrupt: Option<Disrupt>,
     pub(super) spoof: Option<Spoof>,
-    pub(super) keygen_malicious_type: KeygenBehaviour,
-    pub(super) sign_malicious_type: SignBehaviour,
+    pub(super) keygen_behaviour: KeygenBehaviour,
+    pub(super) sign_behaviour: SignBehaviour,
 }
