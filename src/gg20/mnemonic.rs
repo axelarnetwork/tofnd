@@ -184,9 +184,8 @@ mod tests {
     #[cfg(feature = "malicious")]
     use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
 
-    #[traced_test]
-    #[tokio::test]
-    async fn test_import() {
+    // create a service
+    fn get_service() -> Gg20Service {
         // create test dirs for kvstores
         let testdir = testdir!();
         let shares_kv_path = testdir.join("shares");
@@ -194,8 +193,7 @@ mod tests {
         let mnemonic_kv_path = testdir.join("mnemonic");
         let mnemonic_kv_path = mnemonic_kv_path.to_str().unwrap();
 
-        // create a service
-        let mut gg20 = Gg20Service {
+        Gg20Service {
             kv: KeySharesKv::with_db_name(shares_kv_path),
             mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path),
             // must enable test for all features. if we use
@@ -204,7 +202,14 @@ mod tests {
             keygen_behaviour: KeygenBehaviour::Honest,
             #[cfg(feature = "malicious")]
             sign_behaviour: SignBehaviour::Honest,
-        };
+        }
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn test_import() {
+        // create a service
+        let mut gg20 = get_service();
 
         // add some data to the kv store
         let mnemonic: Mnemonic = vec![42; 32];
@@ -221,6 +226,34 @@ mod tests {
         assert_eq!(
             gg20.handle_import(mnemonic).await,
             MnemonicResponse::new(Response::Failure, response_data)
+        );
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn test_export() {
+        // create a service
+        let mut gg20 = get_service();
+
+        // add some data to the kv store
+        let mnemonic: Mnemonic = vec![42; 32];
+
+        // export should fail
+        assert_eq!(
+            gg20.handle_export().await,
+            MnemonicResponse::new(Response::Failure, ResponseData::empty())
+        );
+
+        // import should succeed
+        assert_eq!(
+            gg20.handle_import(mnemonic.clone()).await,
+            MnemonicResponse::new(Response::Success, ResponseData::empty())
+        );
+
+        // export should now succeed
+        assert_eq!(
+            gg20.handle_export().await,
+            MnemonicResponse::new(Response::Success, ResponseData(mnemonic))
         );
     }
 }
