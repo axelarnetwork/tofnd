@@ -1,3 +1,27 @@
+//! This module handles mnemonic-related requests and responses. A kv-store is used to import, edit and export a [Mnemonic].
+//!
+//! A gRPC cliens can send a [MnemonicRequest] message.
+//!
+//! [MnemonicRequest] includes a [Cmd] field, which indicate the underlying requested command.
+//! Currently, the API supports the following [Cmd] commands:
+//!     [Cmd::Import]: adds a new mnemonic; Succeeds when there is no other mnemonic already imported, fails otherwise.
+//!     [Cmd::Export]: gets existing mnemonic; Succeeds when there is an existing mnemonic, fails otherwise.
+//!     [Cmd::Update]: updates existing mnemonic; Succeeds when there is an existing mnemonic, fails otherwise.
+//!     [Cmd::Delete]: deletes existing mnemonic; Succeeds when there is an existing mnemonic, fails otherwise.
+//! [MnemonicRequest] also includes a 'data' field.
+//!     For [Cmd::Import] and [Cmd::Update] commands, it is expected to contain a [Mnemonic] in raw bytes.
+//!     For [Cmd::Export] and [Cmd::Delete] commands, the value is ignored.
+//!
+//! The gRPC server responds with a [MnemonicResponse] message.
+//!
+//! [MnemonicResponse] includes a [Response], which indicates the state of the requested command.
+//! Currently, the API supports the following [Response] types:
+//!     [Response::Success]: if the requested command succeeds
+//!     [Response::Failure]: if the requested command fails
+//! [MnemonicResponse] also includes a 'data' field.
+//!     For successful [Cmd::Export] commands, it contains the stored [Mnemonic] in raw bytes.
+//!     For [Cmd::Import], [Cmd::Update] and [Cmd::Delete] commands, the value is an empty array of bytes.
+
 use super::{
     proto::{
         mnemonic_request::Cmd, mnemonic_response::Response, MnemonicRequest, MnemonicResponse,
@@ -31,6 +55,7 @@ impl ResponseData {
 }
 
 impl MnemonicResponse {
+    // basic constructor
     fn new(response: Response, response_data: ResponseData) -> MnemonicResponse {
         MnemonicResponse {
             // the prost way to convert enums back to i32
@@ -39,13 +64,14 @@ impl MnemonicResponse {
             data: response_data.to_bytes(),
         }
     }
-    // import does not send response_data back
+    // convenient wrappers for import. Does not send response_data back
     fn import(response: Response) -> MnemonicResponse {
         Self::new(response, ResponseData::empty())
     }
 }
 
 impl Gg20Service {
+    // async function that handles all mnemonic commands
     pub async fn handle_mnemonic(
         &mut self,
         mut request_stream: tonic::Streaming<MnemonicRequest>,
@@ -64,19 +90,23 @@ impl Gg20Service {
         let cmd = Cmd::from_i32(msg.cmd)
             .ok_or(format!("unable to convert {} to a Cmd type.", msg.cmd))?;
 
+        // retireve response
         let response = match cmd {
             // proto::mnemonic_request::Cmd::Unknown => todo!(),
             Cmd::Import => self.handle_import(msg.data).await,
-            // Cmd::Update => self.handle_update(msg.data).await,
+            Cmd::Update => self.handle_update(msg.data).await,
             // proto::mnemonic_request::Cmd::Export => handle_export(),
             // proto::mnemonic_request::Cmd::Delete => handle_delete(),
             _ => todo!(),
         };
 
+        // send response
+        // TODO: need to check for errors here?
         let _ = response_stream.send(Ok(response));
         Ok(())
     }
 
+    // adds a new mnemonic; Succeeds when there is no other mnemonic already imported, fails otherwise.
     async fn handle_import(&mut self, data: Mnemonic) -> MnemonicResponse {
         info!("Importing mnemonic");
 
