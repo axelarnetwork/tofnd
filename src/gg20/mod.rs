@@ -15,6 +15,8 @@ use futures_util::StreamExt;
 
 use tracing::{error, info, span, warn, Level, Span};
 
+mod mnemonic;
+
 // Struct to hold `tonfd` info. This consists of information we need to
 // store in the KV store that is not relevant to `tofn`
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,9 +34,12 @@ pub struct PartyInfo {
 }
 // TODO don't store party_uids in this daemon!
 type KeySharesKv = Kv<PartyInfo>;
+type MnemonicKv = Kv<mnemonic::Mnemonic>;
 #[derive(Clone)]
 struct Gg20Service {
     kv: KeySharesKv,
+    // TODO: rename kv to shares_kv or something
+    mnemonic_kv: MnemonicKv,
     #[cfg(feature = "malicious")]
     keygen_behaviour: KeygenBehaviour,
     #[cfg(feature = "malicious")]
@@ -45,6 +50,7 @@ struct Gg20Service {
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
     Gg20Service {
         kv: KeySharesKv::new(),
+        mnemonic_kv: MnemonicKv::new(),
     }
 }
 
@@ -55,6 +61,7 @@ pub fn new_service(
 ) -> impl proto::gg20_server::Gg20 {
     Gg20Service {
         kv: KeySharesKv::new(),
+        mnemonic_kv: MnemonicKv::new(),
         keygen_behaviour,
         sign_behaviour,
     }
@@ -84,9 +91,28 @@ struct ProtocolCommunication<InMsg, OutMsg> {
 
 #[tonic::async_trait]
 impl proto::gg20_server::Gg20 for Gg20Service {
+    type MnemonicStream = mpsc::UnboundedReceiver<Result<proto::MnemonicResponse, Status>>;
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
     type KeygenStream = mpsc::UnboundedReceiver<Result<proto::MessageOut, Status>>;
     type SignStream = Self::KeygenStream;
+
+    async fn mnemonic(
+        &self,
+        request: Request<tonic::Streaming<proto::MnemonicRequest>>,
+    ) -> Result<Response<Self::MnemonicStream>, Status> {
+        let stream_in = request.into_inner();
+        let (msg_sender, rx) = mpsc::unbounded_channel();
+
+        let mut gg20 = self.clone();
+        tokio::spawn(async move {
+            // can't return an error from a spawned thread
+            if let Err(e) = gg20.handle_mnemonic(stream_in, msg_sender).await {
+                error!("mnemonic import failure: {:?}", e);
+                return;
+            }
+        });
+        Ok(Response::new(rx))
+    }
 
     async fn keygen(
         &self,
@@ -270,7 +296,7 @@ pub(super) async fn route_messages(
 
 #[cfg(test)]
 pub(super) mod tests {
-    use super::{Gg20Service, KeySharesKv};
+    use super::{Gg20Service, KeySharesKv, MnemonicKv};
     use crate::proto;
 
     #[cfg(feature = "malicious")]
@@ -281,7 +307,9 @@ pub(super) mod tests {
     #[cfg(not(feature = "malicious"))]
     pub fn with_db_name(db_name: &str) -> impl proto::gg20_server::Gg20 {
         Gg20Service {
+            // TODO provide different names for the two dbs
             kv: KeySharesKv::with_db_name(db_name),
+            mnemonic_kv: MnemonicKv::with_db_name(db_name),
         }
     }
 
@@ -292,7 +320,9 @@ pub(super) mod tests {
         sign_behaviour: SignBehaviour,
     ) -> impl proto::gg20_server::Gg20 {
         Gg20Service {
+            // TODO provide different names for the two dbs
             kv: KeySharesKv::with_db_name(db_name),
+            mnemonic_kv: MnemonicKv::with_db_name(db_name),
             keygen_behaviour,
             sign_behaviour,
         }
