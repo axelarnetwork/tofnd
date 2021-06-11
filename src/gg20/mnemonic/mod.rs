@@ -22,6 +22,9 @@
 //!     For successful [Cmd::Export] commands, it contains the stored [Mnemonic] in raw bytes.
 //!     For [Cmd::Import], [Cmd::Update] and [Cmd::Delete] commands, the value is an empty array of bytes.
 
+mod bip39_bindings;
+use bip39_bindings::bip39_validate;
+
 use super::{
     proto::{
         mnemonic_request::Cmd, mnemonic_response::Response, MnemonicRequest, MnemonicResponse,
@@ -100,7 +103,8 @@ impl Gg20Service {
         let cmd = Cmd::from_i32(msg.cmd)
             .ok_or(format!("unable to convert {} to a Cmd type.", msg.cmd))?;
 
-        // TODO: check if msg.data is a valid mnemonic. Here or in tofn?
+        // check if message bytes create a valid bip39 mnemonic
+        bip39_validate(&msg.data)?;
 
         // retireve response
         let response = match cmd {
