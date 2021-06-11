@@ -159,7 +159,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
-use tofn::protocol::gg20::keygen::Keygen;
+use tofn::protocol::gg20::keygen::{Keygen, PrfSecretKey};
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::BadSign;
@@ -176,8 +176,11 @@ impl Gg20Service {
         party_share_counts: usize,
         threshold: usize,
         my_index: usize,
+        seed: &PrfSecretKey,
     ) -> Result<Keygen, KeygenErr> {
-        Keygen::new(party_share_counts, threshold, my_index)
+        // TODO: get this nonce from keygen init
+        let nonce = vec![42; 42];
+        Keygen::new(party_share_counts, threshold, my_index, &seed, &nonce)
     }
 
     // get malicious keygen
@@ -187,8 +190,11 @@ impl Gg20Service {
         party_share_counts: usize,
         threshold: usize,
         my_index: usize,
+        seed: &PrfSecretKey,
     ) -> Result<Keygen, KeygenErr> {
-        let mut k = Keygen::new(party_share_counts, threshold, my_index)?;
+        // TODO: get this nonce from keygen init
+        let nonce = vec![42; 42];
+        let mut k = Keygen::new(party_share_counts, threshold, my_index, &seed, &nonce)?;
         k.set_behaviour(self.keygen_behaviour.clone());
         Ok(k)
     }

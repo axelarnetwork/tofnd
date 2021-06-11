@@ -163,7 +163,9 @@ impl Gg20Service {
         my_index: usize,
         keygen_span: Span,
     ) -> Result<KeygenOutput, TofndError> {
-        let mut keygen = self.get_keygen(party_share_counts.iter().sum(), threshold, my_index)?;
+        let seed = self.seed().await?;
+        let keygen = self.get_keygen(party_share_counts.iter().sum(), threshold, my_index, &seed);
+        let mut keygen = keygen.unwrap();
 
         // execute protocol
         let res = protocol::execute_protocol(
