@@ -59,7 +59,7 @@ pub fn new_service(
     sign_behaviour: SignBehaviour,
 ) -> impl proto::gg20_server::Gg20 {
     Gg20Service {
-        kv: KeySharesKv::new(),
+        shares_kv: KeySharesKv::new(),
         mnemonic_kv: MnemonicKv::new(),
         keygen_behaviour,
         sign_behaviour,
