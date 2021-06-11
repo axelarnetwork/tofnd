@@ -53,7 +53,7 @@ where
         })?;
         resp_rx.await?
     }
-    pub async fn get(&mut self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
+    pub async fn get(&self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.sender.send(Get {
             key: key.to_string(),
