@@ -70,6 +70,7 @@ impl Gg20Service {
             let uids = keygen_init.party_uids.clone();
             let shares = keygen_init.party_share_counts.clone();
             let threshold = keygen_init.threshold;
+            let nonce = keygen_init.nonce.clone();
             let my_tofn_index = my_starting_tofn_index + my_tofnd_subindex;
             let span = handle_span.clone();
 
@@ -89,6 +90,7 @@ impl Gg20Service {
                         threshold,
                         my_tofn_index,
                         span,
+                        &nonce,
                     )
                     .await;
                 let _ = aggregator_sender.send(secret_key_share);
@@ -162,9 +164,16 @@ impl Gg20Service {
         threshold: usize,
         my_index: usize,
         keygen_span: Span,
+        nonce: &[u8],
     ) -> Result<KeygenOutput, TofndError> {
         let seed = self.seed().await?;
-        let keygen = self.get_keygen(party_share_counts.iter().sum(), threshold, my_index, &seed);
+        let keygen = self.get_keygen(
+            party_share_counts.iter().sum(),
+            threshold,
+            my_index,
+            &seed,
+            &nonce,
+        );
         let mut keygen = keygen.unwrap();
 
         // execute protocol
@@ -313,6 +322,7 @@ fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, 
         party_share_counts: sorted_share_counts,
         my_index: my_new_index,
         threshold,
+        nonce: args.nonce,
     })
 }
 

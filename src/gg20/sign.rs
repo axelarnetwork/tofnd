@@ -272,8 +272,7 @@ fn sign_sanitize_args(
     })
 }
 
-// TODO: Use CommonInfo and ShareInfo instead of SecretKeyShare in tofn.
-// When this is done, we will not have to manually create SecretKeyShare.
+// Get a share from PartyInfo
 fn get_secret_key_share(
     party_info: &PartyInfo,
     share_index: usize,

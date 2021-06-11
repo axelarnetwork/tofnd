@@ -72,6 +72,7 @@ pub struct KeygenInitSanitized {
     party_share_counts: Vec<usize>,
     my_index: usize,
     threshold: usize,
+    nonce: Vec<u8>,
 }
 
 impl KeygenInitSanitized {
@@ -177,9 +178,8 @@ impl Gg20Service {
         threshold: usize,
         my_index: usize,
         seed: &PrfSecretKey,
+        nonce: &[u8],
     ) -> Result<Keygen, KeygenErr> {
-        // TODO: get this nonce from keygen init
-        let nonce = vec![42; 42];
         Keygen::new(party_share_counts, threshold, my_index, &seed, &nonce)
     }
 
@@ -191,9 +191,8 @@ impl Gg20Service {
         threshold: usize,
         my_index: usize,
         seed: &PrfSecretKey,
+        nonce: &[u8],
     ) -> Result<Keygen, KeygenErr> {
-        // TODO: get this nonce from keygen init
-        let nonce = vec![42; 42];
         let mut k = Keygen::new(party_share_counts, threshold, my_index, &seed, &nonce)?;
         k.set_behaviour(self.keygen_behaviour.clone());
         Ok(k)

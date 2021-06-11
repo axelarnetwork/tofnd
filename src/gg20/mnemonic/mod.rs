@@ -41,7 +41,6 @@ use tracing::{error, info};
 const MNEMONIC_KEY: &str = "mnemonic";
 
 // Mnemonic type needs to be known globaly to create/access the kv store
-// TODO: It might be better to define this in tofn
 pub type Mnemonic = Vec<u8>;
 
 // Create separate type for response data bytes to avoid conflicts with other byte arrays
@@ -132,7 +131,6 @@ impl Gg20Service {
 
         match reservation {
             // if we can reserve, try put
-            // TODO: if put fails, do we have to unreserve the key?
             Ok(reservation) => match self.mnemonic_kv.put(reservation, data).await {
                 // if put is ok return success
                 Ok(()) => {

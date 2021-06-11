@@ -453,6 +453,7 @@ async fn execute_keygen(
             party_share_counts: party_share_counts.to_owned(),
             my_party_index: i32::try_from(i).unwrap(),
             threshold: i32::try_from(threshold).unwrap(),
+            nonce: vec![42; 5],
         };
         let delivery = keygen_delivery.clone();
         let handle = tokio::spawn(async move {
