@@ -22,7 +22,7 @@
 //!     For successful [Cmd::Export] commands, it contains the stored [Mnemonic] in raw bytes.
 //!     For [Cmd::Import], [Cmd::Update] and [Cmd::Delete] commands, the value is an empty array of bytes.
 
-mod bip39_bindings;
+pub mod bip39_bindings;
 use bip39_bindings::bip39_validate;
 
 use super::{

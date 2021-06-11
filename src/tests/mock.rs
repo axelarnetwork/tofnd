@@ -5,6 +5,7 @@ use tokio::sync::mpsc;
 
 #[tonic::async_trait]
 pub(super) trait Party: Sync + Send {
+    async fn import_mnemonic(&mut self, party_uid: String) -> bool;
     async fn execute_keygen(
         &mut self,
         init: proto::KeygenInit,

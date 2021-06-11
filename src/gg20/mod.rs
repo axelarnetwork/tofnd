@@ -15,7 +15,7 @@ use futures_util::StreamExt;
 
 use tracing::{error, info, span, warn, Level, Span};
 
-mod mnemonic;
+pub mod mnemonic;
 
 // Struct to hold `tonfd` info. This consists of information we need to
 // store in the KV store that is not relevant to `tofn`

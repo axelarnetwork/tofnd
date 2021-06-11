@@ -7,7 +7,7 @@ use bip39::{Language, Mnemonic, Seed};
 
 const DEFAUT_LANG: Language = Language::English;
 
-pub(super) fn bip39_create() -> Vec<u8> {
+pub(crate) fn bip39_new_w12() -> Vec<u8> {
     let mnemonic = Mnemonic::new(bip39::MnemonicType::Words12, DEFAUT_LANG);
     mnemonic.entropy().to_owned()
 }
@@ -36,7 +36,7 @@ mod tests {
 
     #[test]
     fn test_create() {
-        let entropy = bip39_create();
+        let entropy = bip39_new_w12();
         let mnemonic = Mnemonic::from_entropy(&entropy, DEFAUT_LANG).unwrap();
         let passphrase = mnemonic.phrase();
         println!(

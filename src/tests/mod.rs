@@ -196,6 +196,11 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
     let expect_timeout = test_case.malicious_data.keygen_data.timeout.is_some()
         || test_case.malicious_data.sign_data.timeout.is_some();
 
+    let (parties, results) = import_mnemonic(parties, party_uids.clone()).await;
+
+    let result = results.iter().fold(true, |acc, r| acc && *r);
+    assert_eq!(result, true);
+
     // println!(
     //     "keygen: share_count:{}, threshold: {}",
     //     share_count, threshold
@@ -396,6 +401,30 @@ fn delete_dbs(parties: &[impl Party]) {
         // Sled creates a directory for the database and its configuration
         std::fs::remove_dir_all(p.get_db_path()).unwrap();
     }
+}
+
+// need to take ownership of parties `parties` and return it on completion
+async fn import_mnemonic(
+    parties: Vec<TofndParty>,
+    party_uids: Vec<String>,
+) -> (Vec<TofndParty>, Vec<bool>) {
+    let mut mnemonic_join_handles = Vec::with_capacity(party_uids.len());
+    for (mut party, party_uid) in parties.into_iter().zip(party_uids).into_iter() {
+        let handle = tokio::spawn(async move {
+            let result = party.import_mnemonic(party_uid).await;
+            (party, result)
+        });
+        mnemonic_join_handles.push(handle);
+    }
+
+    let mut parties = Vec::with_capacity(mnemonic_join_handles.len()); // async closures are unstable https://github.com/rust-lang/rust/issues/62290
+    let mut results = vec![];
+    for h in mnemonic_join_handles {
+        let handle = h.await.unwrap();
+        parties.push(handle.0);
+        results.push(handle.1);
+    }
+    (parties, results)
 }
 
 // need to take ownership of parties `parties` and return it on completion
