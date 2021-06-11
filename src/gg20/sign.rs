@@ -174,7 +174,7 @@ impl Gg20Service {
             _ => return Err(From::from("Expected sign init message")),
         };
 
-        let party_info = self.kv.get(&sign_init.key_uid).await?;
+        let party_info = self.shares_kv.get(&sign_init.key_uid).await?;
         let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
 
         info!(

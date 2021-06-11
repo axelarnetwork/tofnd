@@ -137,7 +137,10 @@ impl Gg20Service {
 
         // sanitize arguments and reserve key
         let keygen_init = keygen_sanitize_args(keygen_init)?;
-        let key_uid_reservation = self.kv.reserve_key(keygen_init.new_key_uid.clone()).await?;
+        let key_uid_reservation = self
+            .shares_kv
+            .reserve_key(keygen_init.new_key_uid.clone())
+            .await?;
 
         info!(
             "Starting Keygen with uids: {:?}, party_shares: {:?}",
@@ -202,7 +205,7 @@ impl Gg20Service {
         //  wait all keygen threads and aggregate secret key shares
         let keygen_outputs = aggregate_keygen_outputs(aggregator_receivers).await;
         if keygen_outputs.is_err() {
-            self.kv.unreserve_key(key_uid_reservation).await;
+            self.shares_kv.unreserve_key(key_uid_reservation).await;
             return Err(From::from(
                 "Error at Keygen output aggregation. Unreserving key",
             ));
@@ -241,7 +244,7 @@ impl Gg20Service {
         );
 
         // try to put data inside kv store
-        self.kv.put(key_uid_reservation, kv_data).await?;
+        self.shares_kv.put(key_uid_reservation, kv_data).await?;
 
         // serialize generated public key and send to client
         stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(

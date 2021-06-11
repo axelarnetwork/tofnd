@@ -37,8 +37,7 @@ type KeySharesKv = Kv<PartyInfo>;
 type MnemonicKv = Kv<mnemonic::Mnemonic>;
 #[derive(Clone)]
 struct Gg20Service {
-    kv: KeySharesKv,
-    // TODO: rename kv to shares_kv or something
+    shares_kv: KeySharesKv,
     mnemonic_kv: MnemonicKv,
     #[cfg(feature = "malicious")]
     keygen_behaviour: KeygenBehaviour,
@@ -49,7 +48,7 @@ struct Gg20Service {
 #[cfg(not(feature = "malicious"))]
 pub fn new_service() -> impl proto::gg20_server::Gg20 {
     Gg20Service {
-        kv: KeySharesKv::new(),
+        shares_kv: KeySharesKv::new(),
         mnemonic_kv: MnemonicKv::new(),
     }
 }
@@ -307,9 +306,8 @@ pub(super) mod tests {
     #[cfg(not(feature = "malicious"))]
     pub fn with_db_name(db_name: &str) -> impl proto::gg20_server::Gg20 {
         Gg20Service {
-            // TODO provide different names for the two dbs
-            kv: KeySharesKv::with_db_name(db_name),
-            mnemonic_kv: MnemonicKv::with_db_name(db_name),
+            shares_kv: KeySharesKv::with_db_name(&shares_db_name),
+            mnemonic_kv: MnemonicKv::with_db_name(&mnemonic_db_name),
         }
     }
 
@@ -321,8 +319,8 @@ pub(super) mod tests {
     ) -> impl proto::gg20_server::Gg20 {
         Gg20Service {
             // TODO provide different names for the two dbs
-            kv: KeySharesKv::with_db_name(db_name),
-            mnemonic_kv: MnemonicKv::with_db_name(db_name),
+            shares_kv: KeySharesKv::with_db_name(&shares_db_name),
+            mnemonic_kv: MnemonicKv::with_db_name(&mnemonic_db_name),
             keygen_behaviour,
             sign_behaviour,
         }
