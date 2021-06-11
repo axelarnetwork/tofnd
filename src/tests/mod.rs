@@ -198,10 +198,11 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
 
     let (parties, results) = import_mnemonic(parties, party_uids.clone()).await;
 
-    let result = results.iter().all(|r| *r);
+    // check that all parties returned 'true' from import_mnemonics
+    let success = results.iter().all(|r| *r);
+    assert!(success, "Parties failed to import mnemonics");
+
     println!("results of mnemonics {:?}", results);
-    // TODO: clean up if this fails
-    assert_eq!(result, true);
 
     // println!(
     //     "keygen: share_count:{}, threshold: {}",

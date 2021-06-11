@@ -332,7 +332,6 @@ pub(super) mod tests {
     ) -> impl proto::gg20_server::Gg20 {
         let (shares_db_name, mnemonic_db_name) = create_db_names(db_name);
         Gg20Service {
-            // TODO provide different names for the two dbs
             shares_kv: KeySharesKv::with_db_name(&shares_db_name),
             mnemonic_kv: MnemonicKv::with_db_name(&mnemonic_db_name),
             keygen_behaviour,
