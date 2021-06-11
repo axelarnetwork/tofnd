@@ -303,8 +303,16 @@ pub(super) mod tests {
     #[cfg(feature = "malicious")]
     use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
 
+    fn create_db_names(db_path: &str) -> (String, String) {
+        (
+            db_path.to_owned() + "/shares",
+            db_path.to_owned() + "/mnemonic",
+        )
+    }
+
     #[cfg(not(feature = "malicious"))]
-    pub fn with_db_name(db_name: &str) -> impl proto::gg20_server::Gg20 {
+    pub fn with_db_name(db_path: &str) -> impl proto::gg20_server::Gg20 {
+        let (shares_db_name, mnemonic_db_name) = create_db_names(db_path);
         Gg20Service {
             shares_kv: KeySharesKv::with_db_name(&shares_db_name),
             mnemonic_kv: MnemonicKv::with_db_name(&mnemonic_db_name),
@@ -317,6 +325,7 @@ pub(super) mod tests {
         keygen_behaviour: KeygenBehaviour,
         sign_behaviour: SignBehaviour,
     ) -> impl proto::gg20_server::Gg20 {
+        let (shares_db_name, mnemonic_db_name) = create_db_names(db_name);
         Gg20Service {
             // TODO provide different names for the two dbs
             shares_kv: KeySharesKv::with_db_name(&shares_db_name),
