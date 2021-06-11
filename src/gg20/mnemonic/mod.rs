@@ -23,7 +23,8 @@
 //!     For [Cmd::Import], [Cmd::Update] and [Cmd::Delete] commands, the value is an empty array of bytes.
 
 pub mod bip39_bindings;
-use bip39_bindings::bip39_validate;
+use bip39_bindings::{bip39_new_w12, bip39_seed, bip39_validate};
+use std::convert::TryInto;
 
 use super::{
     proto::{
@@ -90,8 +91,6 @@ impl Gg20Service {
         mut request_stream: tonic::Streaming<MnemonicRequest>,
         response_stream: mpsc::UnboundedSender<Result<MnemonicResponse, Status>>,
     ) -> Result<(), TofndError> {
-        info!("Importing mnemonic");
-
         // read mnemonic message from stream
         let msg = request_stream
             .next()
@@ -110,6 +109,7 @@ impl Gg20Service {
         let response = match cmd {
             // TODO: do we need Unknown?
             Cmd::Unknown => todo!(),
+            Cmd::Create => self.handle_create().await,
             Cmd::Import => self.handle_import(msg.data).await,
             Cmd::Update => self.handle_update(msg.data).await,
             Cmd::Export => self.handle_export().await,
@@ -117,14 +117,13 @@ impl Gg20Service {
         };
 
         // send response
-        // TODO: need to check for errors here?
         let _ = response_stream.send(Ok(response));
         Ok(())
     }
 
     // adds a new mnemonic; returns a MnemonicResponse with Response::Success when
     // there is no other mnemonic already imported, or with Response::Failure otherwise.
-    // The 'data' field of MnemonicResponse is empty
+    // The 'data' field of MnemonicResponse is empty. Also caches mneminic seed into Self
     async fn handle_import(&mut self, data: Mnemonic) -> MnemonicResponse {
         info!("Importing mnemonic");
 
@@ -152,6 +151,16 @@ impl Gg20Service {
                 MnemonicResponse::fail()
             }
         }
+    }
+
+    // create a new mnemonic; returns a MnemonicResponse with Response::Success when
+    // there is no other mnemonic already imported, or with Response::Failure otherwise.
+    // The 'data' field of MnemonicResponse contain the new mnemonic.
+    // Caches mneminic seed into Self.
+    async fn handle_create(&mut self) -> MnemonicResponse {
+        info!("Creating mnemonic");
+        let mnemonic = bip39_new_w12();
+        self.handle_import(mnemonic).await
     }
 
     // updates mnemonic; returns a MnemonicResponse with Response::Success a mnemonic
@@ -221,6 +230,15 @@ impl Gg20Service {
     }
 }
 
+use tofn::protocol::gg20::keygen::PrfSecretKey;
+// ease tofn API
+impl Gg20Service {
+    pub async fn seed(&self) -> Result<PrfSecretKey, TofndError> {
+        let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
+        Ok(bip39_seed(&mnemonic, "")?.as_bytes().try_into()?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,6 +288,21 @@ mod tests {
         );
         // second attempt should succeed
         assert_eq!(gg20.handle_import(mnemonic).await, MnemonicResponse::fail());
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn test_create() {
+        // create a service
+        let mut gg20 = get_service();
+
+        // first attempt should succeed
+        assert_eq!(
+            gg20.handle_create().await,
+            MnemonicResponse::import_success()
+        );
+        // second attempt should succeed
+        assert_eq!(gg20.handle_create().await, MnemonicResponse::fail());
     }
 
     #[traced_test]
