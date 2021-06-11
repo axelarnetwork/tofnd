@@ -153,6 +153,7 @@ impl Gg20Service {
     }
 
     // execute keygen protocol and write the result into the internal channel
+    #[allow(clippy::too_many_arguments)]
     async fn execute_keygen(
         &self,
         chan: ProtocolCommunication<

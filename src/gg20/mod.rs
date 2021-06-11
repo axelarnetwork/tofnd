@@ -308,6 +308,8 @@ pub(super) mod tests {
     #[cfg(feature = "malicious")]
     use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
 
+    // append a subfolder name to db path.
+    // this will allows the creaton of two distict kv stores under 'dp_path'
     fn create_db_names(db_path: &str) -> (String, String) {
         (
             db_path.to_owned() + "/shares",

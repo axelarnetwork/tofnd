@@ -4,6 +4,7 @@
 //!
 //! [MnemonicRequest] includes a [Cmd] field, which indicate the underlying requested command.
 //! Currently, the API supports the following [Cmd] commands:
+//!     [Cmd::Create]: creates a new mnemonic; Succeeds when there is no other mnemonic already imported, fails otherwise.
 //!     [Cmd::Import]: adds a new mnemonic; Succeeds when there is no other mnemonic already imported, fails otherwise.
 //!     [Cmd::Export]: gets existing mnemonic; Succeeds when there is an existing mnemonic, fails otherwise.
 //!     [Cmd::Update]: updates existing mnemonic; Succeeds when there is an existing mnemonic, fails otherwise.
@@ -20,7 +21,7 @@
 //!     [Response::Failure]: if the requested command fails
 //! [MnemonicResponse] also includes a 'data' field.
 //!     For successful [Cmd::Export] commands, it contains the stored [Mnemonic] in raw bytes.
-//!     For [Cmd::Import], [Cmd::Update] and [Cmd::Delete] commands, the value is an empty array of bytes.
+//!     For [Cmd::Import], [Cmd::Import], [Cmd::Update] and [Cmd::Delete] commands, the value is an empty array of bytes.
 
 pub mod bip39_bindings;
 use bip39_bindings::{bip39_new_w12, bip39_seed, bip39_validate};
@@ -233,6 +234,8 @@ use tofn::protocol::gg20::keygen::PrfSecretKey;
 impl Gg20Service {
     pub async fn seed(&self) -> Result<PrfSecretKey, TofndError> {
         let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
+        // A user may decide to protect their mnemonic with a passphrase. If not, pass an empty password
+        // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
         Ok(bip39_seed(&mnemonic, "")?.as_bytes().try_into()?)
     }
 }

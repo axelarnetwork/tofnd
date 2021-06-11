@@ -7,11 +7,13 @@ use bip39::{Language, Mnemonic, Seed};
 
 const DEFAUT_LANG: Language = Language::English;
 
+// create a new 12 word mnemonic
 pub(crate) fn bip39_new_w12() -> Vec<u8> {
     let mnemonic = Mnemonic::new(bip39::MnemonicType::Words12, DEFAUT_LANG);
     mnemonic.entropy().to_owned()
 }
 
+// create a mnemonic from entropy
 fn bip39_from_entropy(entropy: &[u8]) -> Result<Mnemonic, TofndError> {
     let res = Mnemonic::from_entropy(&entropy, DEFAUT_LANG);
     match res {
@@ -20,11 +22,13 @@ fn bip39_from_entropy(entropy: &[u8]) -> Result<Mnemonic, TofndError> {
     }
 }
 
+// validate mnemonic
 pub(super) fn bip39_validate(bytes: &[u8]) -> Result<(), TofndError> {
     let _ = bip39_from_entropy(bytes)?;
     Ok(())
 }
 
+// extrace seed from mnemonic
 pub(super) fn bip39_seed(entropy: &[u8], password: &str) -> Result<Seed, TofndError> {
     let mnemonic = bip39_from_entropy(&entropy)?;
     Ok(Seed::new(&mnemonic, password))
