@@ -1,6 +1,6 @@
 //! mnemonic tests at the TofndParty level
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::{InitParty, MaliciousData, TofndParty};
 use crate::{gg20::mnemonic::Cmd, tests::mock::Party};
@@ -20,7 +20,7 @@ fn dummy_init_party() -> InitParty {
 // Now that we restart the party, we need to import the mnemonic from "import" file.
 fn copy_export_to_import(dir: &Path, party_index: usize) {
     let p = format!("test-key-{:02}", party_index);
-    let path = dir.clone();
+    let path = dir.to_path_buf();
     let path = path.join(p);
     let export_path = format!("{}/export", path.to_str().unwrap());
     let import_path = format!("{}/import", path.to_str().unwrap());
@@ -29,9 +29,9 @@ fn copy_export_to_import(dir: &Path, party_index: usize) {
 }
 
 // check if export, export_2 and export_3 files exist and are the same
-fn compare_export_files(dir: &PathBuf, party_index: usize) -> bool {
+fn compare_export_files(dir: &Path, party_index: usize) -> bool {
     let p = format!("test-key-{:02}", party_index);
-    let path = dir.clone();
+    let path = dir.to_path_buf();
     let path = path.join(p);
 
     let export_filename = format!("{}/export", path.to_str().unwrap());

@@ -8,7 +8,6 @@ use std::{
 use tracing::info;
 
 use super::super::{mnemonic::bip39_bindings::bip39_from_entropy, TofndError};
-use super::Entropy;
 
 /// Standard names
 const EXPORT_FILE: &str = "export";
@@ -41,7 +40,7 @@ impl FileIo {
     }
 
     /// Creates a file that contains an entropy in it's human-readable form
-    pub(super) fn entropy_to_next_file(&self, entropy: &Entropy) -> Result<(), TofndError> {
+    pub(super) fn entropy_to_next_file(&self, entropy: &[u8]) -> Result<(), TofndError> {
         let mnemonic = bip39_from_entropy(&entropy)?;
         let phrase = mnemonic.phrase();
         info!("Phrase from entropy: {}", phrase);
@@ -59,7 +58,7 @@ impl FileIo {
         let mut file = std::fs::File::open(filepath)?;
         let mut mnemonic_phrase = String::new();
         file.read_to_string(&mut mnemonic_phrase)?;
-        Ok(mnemonic_phrase.to_owned())
+        Ok(mnemonic_phrase)
     }
 }
 

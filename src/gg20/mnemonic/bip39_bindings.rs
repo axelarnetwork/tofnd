@@ -34,7 +34,7 @@ pub(super) fn bip39_from_phrase(phrase: &str) -> Result<Entropy, TofndError> {
 
 /// extrace seed from mnemonic
 pub(super) fn bip39_seed(entropy: &[u8], password: &str) -> Result<Seed, TofndError> {
-    let mnemonic = bip39_from_entropy(&entropy)?;
+    let mnemonic = bip39_from_entropy(entropy)?;
     Ok(Seed::new(&mnemonic, password))
 }
 

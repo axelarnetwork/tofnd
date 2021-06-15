@@ -49,11 +49,11 @@ impl Gg20Service {
     }
 
     /// inserts entropy to the kv-store and writes inserted value to an "export" file
-    async fn handle_insert(&mut self, entropy: &Entropy) -> Result<(), TofndError> {
+    async fn handle_insert(&mut self, entropy: &[u8]) -> Result<(), TofndError> {
         let reservation = self.mnemonic_kv.reserve_key(MNEMONIC_KEY.to_owned()).await;
         match reservation {
             // if we can reserve, try put
-            Ok(reservation) => match self.mnemonic_kv.put(reservation, entropy.clone()).await {
+            Ok(reservation) => match self.mnemonic_kv.put(reservation, entropy.to_owned()).await {
                 // if put is, ok write the phrase to a file
                 Ok(()) => {
                     info!("Mnemonic successfully added in kv store");
