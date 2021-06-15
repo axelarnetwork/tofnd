@@ -9,214 +9,139 @@
 //!     In [Cmd::Create], [Cmd::Export] commands, a new "export" file is created that contains the current phrase.
 //!     In [Cmd::Update] command, a new "export" file is created that contains the replaced pasphrase.
 
-pub mod bip39_bindings;
-use bip39_bindings::{bip39_new_w12, bip39_seed, bip39_validate};
-use std::convert::TryInto;
+pub mod bip39_bindings; // this also needed in tests
+use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed};
 
-use super::{
-    proto::{
-        mnemonic_request::Cmd, mnemonic_response::Response, MnemonicRequest, MnemonicResponse,
-    },
-    Gg20Service, TofndError,
-};
-use futures_util::StreamExt;
-use tokio::sync::mpsc;
-use tonic::Status;
+pub(super) mod file_io;
+use file_io::IMPORT_FILE;
+
+use super::{Gg20Service, TofndError};
+use std::convert::TryInto;
 use tracing::{error, info};
 
 // default key to store mnemonic
 const MNEMONIC_KEY: &str = "mnemonic";
 
 // Mnemonic type needs to be known globaly to create/access the kv store
-pub type Mnemonic = Vec<u8>;
+pub type Entropy = Vec<u8>;
 
-// Create separate type for response data bytes to avoid conflicts with other byte arrays
-#[derive(Clone)]
-struct ResponseData(Vec<u8>);
-impl ResponseData {
-    // return empty ResponseData
-    fn empty() -> ResponseData {
-        ResponseData(Vec::<u8>::with_capacity(0))
-    }
-    // convert ResponseData into raw bytes. Used to create eventual MnemonicResponse
-    fn to_bytes(&self) -> Vec<u8> {
-        self.0.clone()
-    }
+// TODO: when main reads commands from command line, dead_code can be removed
+#[allow(dead_code)]
+pub enum Cmd {
+    Noop,
+    Create,
+    Import,
+    Update,
+    Export,
 }
 
-// implement convenient wrappers for responses
-impl MnemonicResponse {
-    // basic constructor
-    fn new(response: Response, response_data: ResponseData) -> MnemonicResponse {
-        MnemonicResponse {
-            // the prost way to convert enums back to i32
-            // https://github.com/danburkert/prost/blob/master/README.md#enumerations
-            response: response as i32,
-            data: response_data.to_bytes(),
+/// implement mnemonic-specific functions for Gg20Service
+impl Gg20Service {
+    /// async function that handles all mnemonic commands
+    pub async fn handle_mnemonic(&mut self, cmd: Cmd) -> Result<(), TofndError> {
+        match cmd {
+            Cmd::Noop => Ok(()),
+            Cmd::Create => self.handle_create().await,
+            Cmd::Import => self.handle_import().await,
+            Cmd::Update => self.handle_update().await,
+            Cmd::Export => self.handle_export().await,
         }
     }
-    fn import_success() -> MnemonicResponse {
-        Self::new(Response::Success, ResponseData::empty())
-    }
-    fn export_success(response_data: ResponseData) -> MnemonicResponse {
-        Self::new(Response::Success, response_data)
-    }
-    fn delete_success() -> MnemonicResponse {
-        Self::new(Response::Success, ResponseData::empty())
-    }
-    fn fail() -> MnemonicResponse {
-        Self::new(Response::Failure, ResponseData::empty())
-    }
-}
 
-// implement mnemonic-specific functions for Gg20Service
-impl Gg20Service {
-    // async function that handles all mnemonic commands
-    pub async fn handle_mnemonic(
-        &mut self,
-        mut request_stream: tonic::Streaming<MnemonicRequest>,
-        response_stream: mpsc::UnboundedSender<Result<MnemonicResponse, Status>>,
-    ) -> Result<(), TofndError> {
-        // read mnemonic message from stream
-        let msg = request_stream
-            .next()
-            .await
-            .ok_or("keygen: stream closed by client without sending a message")??;
-
-        // prost way to get an enum type from i32
-        // https://github.com/danburkert/prost/blob/master/README.md#enumerations
-        let cmd = Cmd::from_i32(msg.cmd)
-            .ok_or(format!("unable to convert {} to a Cmd type.", msg.cmd))?;
-
-        // check if message bytes create a valid bip39 mnemonic
-        bip39_validate(&msg.data)?;
-
-        // retireve response
-        let response = match cmd {
-            // TODO: do we need Unknown?
-            Cmd::Unknown => todo!(),
-            Cmd::Create => self.handle_create().await,
-            Cmd::Import => self.handle_import(msg.data).await,
-            Cmd::Update => self.handle_update(msg.data).await,
-            Cmd::Export => self.handle_export().await,
-            Cmd::Delete => self.handle_delete().await,
-        };
-
-        // send response
-        let _ = response_stream.send(Ok(response));
-        Ok(())
-    }
-
-    // adds a new mnemonic; returns a MnemonicResponse with Response::Success when
-    // there is no other mnemonic already imported, or with Response::Failure otherwise.
-    // The 'data' field of MnemonicResponse is empty. Also caches mneminic seed into Self
-    async fn handle_import(&mut self, data: Mnemonic) -> MnemonicResponse {
-        info!("Importing mnemonic");
-
-        // try to reserve the mnemonic value
+    /// inserts entropy to the kv-store and writes inserted value to an "export" file
+    async fn handle_insert(&mut self, entropy: &Entropy) -> Result<(), TofndError> {
         let reservation = self.mnemonic_kv.reserve_key(MNEMONIC_KEY.to_owned()).await;
-
         match reservation {
             // if we can reserve, try put
-            Ok(reservation) => match self.mnemonic_kv.put(reservation, data).await {
-                // if put is ok return success
+            Ok(reservation) => match self.mnemonic_kv.put(reservation, entropy.clone()).await {
+                // if put is, ok write the phrase to a file
                 Ok(()) => {
                     info!("Mnemonic successfully added in kv store");
-                    MnemonicResponse::import_success()
+                    Ok(self.io.entropy_to_next_file(&entropy)?)
                 }
                 // else return failure
                 Err(err) => {
                     error!("Cannot put mnemonic in kv store: {:?}", err);
-                    MnemonicResponse::fail()
+                    Err(err)
                 }
             },
             // if we cannot reserve, return failure
             Err(err) => {
                 error!("Cannot reserve mnemonic: {:?}", err);
-                MnemonicResponse::fail()
+                Err(err)
             }
         }
     }
 
-    // create a new mnemonic; returns a MnemonicResponse with Response::Success when
-    // there is no other mnemonic already imported, or with Response::Failure otherwise.
-    // The 'data' field of MnemonicResponse contain the new mnemonic.
-    // Caches mneminic seed into Self.
-    async fn handle_create(&mut self) -> MnemonicResponse {
+    /// Creates a new entropy and delegates 1) insertion to the kv-store, and 2) write to an "export" file
+    /// Fails if a mnemonic already exists in the kv store
+    async fn handle_create(&mut self) -> Result<(), TofndError> {
         info!("Creating mnemonic");
-        let mnemonic = bip39_new_w12();
-        self.handle_import(mnemonic).await
+        // create an entropy
+        let new_entropy = bip39_new_w24();
+        Ok(self.handle_insert(&new_entropy).await?)
     }
 
-    // updates mnemonic; returns a MnemonicResponse with Response::Success a mnemonic
-    // already exists and is successfully updated, or with Response::Failure otherwise.
-    // The 'data' field of MnemonicResponse is empty
-    async fn handle_update(&mut self, mnemonic: Mnemonic) -> MnemonicResponse {
+    // Inserts a new mnemonic to the kv-store, and writes the phrase to an "export" file
+    // Fails if a mnemonic already exists in the kv store
+    async fn handle_import(&mut self) -> Result<(), TofndError> {
+        info!("Importing mnemonic");
+        let imported_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
+        let imported_entropy = bip39_from_phrase(&imported_phrase)?;
+        Ok(self.handle_insert(&imported_entropy).await?)
+    }
+
+    /// Updates a mnemonic.
+    // 1. deletes the existing one
+    // 2. writes an "export" file with the deleted key
+    // 3. reads a new mnemonic from "import" file
+    // 4. delegates the insertions of the new mnemonics to the kv-store, and writes the phrase to an "export" file
+    // Fails if a mnemonic already exists in the kv store, of if no "import" file exists
+    async fn handle_update(&mut self) -> Result<(), TofndError> {
         info!("Updating mnemonic");
 
-        // try to delete the old mnemonic
-        let removed = self.mnemonic_kv.remove(MNEMONIC_KEY).await;
+        let new_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
+        let new_entropy = bip39_from_phrase(&new_phrase)?;
 
-        match removed {
-            // if succeed, try to import and return whatever import returns
-            Ok(_) => self.handle_import(mnemonic).await,
-            // if failed, return failure
+        // try to delete the old mnemonic
+        let deleted_entropy = self.mnemonic_kv.remove(MNEMONIC_KEY).await;
+
+        let deleted_entropy = match deleted_entropy {
+            Ok(entropy) => entropy,
             Err(err) => {
-                error!(
-                    "Cannot find existing mnemonic {:?} with error {:?}",
-                    mnemonic, err
-                );
-                MnemonicResponse::fail()
+                error!("Delete error: {}", err);
+                return Err(err);
             }
-        }
+        };
+
+        // if succeed, write mnemonic to a new file
+        self.io.entropy_to_next_file(&deleted_entropy)?;
+        // insert new mnemonic
+        Ok(self.handle_insert(&new_entropy).await?)
     }
 
-    // gets the existing mnemonic; returns a MnemonicResponse with Response::Success when
-    // a mnemonic already exists, or with Response::Failure otherwise.
-    // The 'data' field of MnemonicResponse contains the exported mnemonic
-    async fn handle_export(&mut self) -> MnemonicResponse {
+    /// Exports the current mnemonic to an "export" file
+    async fn handle_export(&mut self) -> Result<(), TofndError> {
         info!("Exporting mnemonic");
 
         // try to get mnemonic from kv-store
         match self.mnemonic_kv.get(MNEMONIC_KEY).await {
             // if get is ok return success
-            Ok(mnemonic) => {
+            Ok(entropy) => {
                 info!("Mnemonic found in kv store");
-                MnemonicResponse::export_success(ResponseData(mnemonic))
+                Ok(self.io.entropy_to_next_file(&entropy)?)
             }
             // else return failure
             Err(err) => {
                 error!("Did not find mnemonic in kv store {:?}", err);
-                MnemonicResponse::fail()
-            }
-        }
-    }
-
-    // deletes the existing mnemonic from the kv-store;
-    // returns a MnemonicResponse with Response::Success when a mnemonic already exists,
-    // or with Response::Failure otherwise.
-    // The 'data' field of MnemonicResponse is empty
-    async fn handle_delete(&mut self) -> MnemonicResponse {
-        info!("Deleting mnemonic");
-
-        // try to delete mnemonic from kv-store
-        match self.mnemonic_kv.remove(MNEMONIC_KEY).await {
-            // if deletion is ok return success
-            Ok(mnemonic) => {
-                info!("Mnemonic {:?} deleted from kv store", mnemonic);
-                MnemonicResponse::delete_success()
-            }
-            // else return failure
-            Err(err) => {
-                error!("Did not find mnemonic in kv store {:?}", err);
-                MnemonicResponse::fail()
+                Err(err)
             }
         }
     }
 }
 
 use tofn::protocol::gg20::keygen::PrfSecretKey;
-// ease tofn API
+/// ease tofn API
 impl Gg20Service {
     pub async fn seed(&self) -> Result<PrfSecretKey, TofndError> {
         let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
@@ -229,7 +154,10 @@ impl Gg20Service {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gg20::mnemonic::{bip39_bindings::tests::bip39_to_phrase, file_io::FileIo};
     use crate::gg20::{KeySharesKv, MnemonicKv};
+    use std::io::Write;
+    use std::path::PathBuf;
     use testdir::testdir;
     use tracing_test::traced_test; // logs for tests
 
@@ -239,9 +167,8 @@ mod tests {
     use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
 
     // create a service
-    fn get_service() -> Gg20Service {
+    fn get_service(testdir: PathBuf) -> Gg20Service {
         // create test dirs for kvstores
-        let testdir = testdir!();
         let shares_kv_path = testdir.join("shares");
         let shares_kv_path = shares_kv_path.to_str().unwrap();
         let mnemonic_kv_path = testdir.join("mnemonic");
@@ -250,6 +177,7 @@ mod tests {
         Gg20Service {
             shares_kv: KeySharesKv::with_db_name(shares_kv_path),
             mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path),
+            io: FileIo::new(testdir),
             // must enable test for all features. if we use
             // #[cfg(not(feature = "malicious"))] tests won't be executed '--all-features' flag is on. yikes
             #[cfg(feature = "malicious")]
@@ -259,114 +187,78 @@ mod tests {
         }
     }
 
-    #[traced_test]
-    #[tokio::test]
-    async fn test_import() {
-        // create a service
-        let mut gg20 = get_service();
+    fn create_import_file(valid: bool, mut path: PathBuf) {
+        path.push(IMPORT_FILE);
+        let create = std::fs::File::create(path);
+        if create.is_err() {
+            // file already exists. Don't do anything.
+            return;
+        }
+        let mut file = create.unwrap();
 
-        // add some data to the kv store
-        let mnemonic: Mnemonic = vec![42; 32];
-
-        // first attempt should succeed
-        assert_eq!(
-            gg20.handle_import(mnemonic.clone()).await,
-            MnemonicResponse::import_success()
-        );
-        // second attempt should succeed
-        assert_eq!(gg20.handle_import(mnemonic).await, MnemonicResponse::fail());
+        let entropy = bip39_new_w24();
+        let phrase = bip39_to_phrase(&entropy).unwrap();
+        if !valid {
+            // TODO: create invalid phrase
+            // phrase = phrase[0..phrase / 2];
+        }
+        file.write_all(phrase.as_bytes()).unwrap();
     }
 
     #[traced_test]
     #[tokio::test]
     async fn test_create() {
+        let testdir = testdir!();
         // create a service
-        let mut gg20 = get_service();
-
+        let mut gg20 = get_service(testdir);
         // first attempt should succeed
-        assert_eq!(
-            gg20.handle_create().await,
-            MnemonicResponse::import_success()
-        );
-        // second attempt should succeed
-        assert_eq!(gg20.handle_create().await, MnemonicResponse::fail());
+        assert!(gg20.handle_create().await.is_ok());
+        // second attempt should fail
+        assert!(gg20.handle_create().await.is_err());
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn test_import() {
+        let testdir = testdir!();
+        // create a service
+        let mut gg20 = get_service(testdir.clone());
+        create_import_file(true, testdir);
+        // first attempt should succeed
+        assert!(gg20.handle_import().await.is_ok());
+        // second attempt should fail
+        assert!(gg20.handle_import().await.is_err())
     }
 
     #[traced_test]
     #[tokio::test]
     async fn test_update() {
+        let testdir = testdir!();
         // create a service
-        let mut gg20 = get_service();
-        // add some data to the kv store
-        let mnemonic: Mnemonic = vec![42; 32];
-
+        let mut gg20 = get_service(testdir.clone());
         // first attempt to update should fail
-        assert_eq!(
-            gg20.handle_update(mnemonic.clone()).await,
-            MnemonicResponse::fail()
-        );
+        assert!(gg20.handle_update().await.is_err());
+        create_import_file(true, testdir);
         // import should succeed
-        assert_eq!(
-            gg20.handle_import(mnemonic.clone()).await,
-            MnemonicResponse::import_success()
-        );
+        assert!(gg20.handle_import().await.is_ok());
         // second attempt to update should succeed
-        assert_eq!(
-            gg20.handle_update(mnemonic.clone()).await,
-            MnemonicResponse::import_success()
-        );
+        assert!(gg20.handle_update().await.is_ok());
         // export should succeed
-        assert_eq!(
-            gg20.handle_export().await,
-            MnemonicResponse::export_success(ResponseData(mnemonic))
-        );
+        assert!(gg20.handle_export().await.is_ok());
     }
 
     #[traced_test]
     #[tokio::test]
     async fn test_export() {
+        let testdir = testdir!();
         // create a service
-        let mut gg20 = get_service();
-        // add some data to the kv store
-        let mnemonic: Mnemonic = vec![42; 32];
-
+        let mut gg20 = get_service(testdir.clone());
         // export should fail
-        assert_eq!(gg20.handle_export().await, MnemonicResponse::fail());
+        assert!(gg20.handle_export().await.is_err());
+        create_import_file(true, testdir);
         // import should succeed
-        assert_eq!(
-            gg20.handle_import(mnemonic.clone()).await,
-            MnemonicResponse::import_success()
-        );
+        assert!(gg20.handle_import().await.is_ok());
         // export should now succeed
-        assert_eq!(
-            gg20.handle_export().await,
-            MnemonicResponse::export_success(ResponseData(mnemonic))
-        );
-    }
-
-    #[traced_test]
-    #[tokio::test]
-    async fn test_delete() {
-        // create a service
-        let mut gg20 = get_service();
-        // add some data to the kv store
-        let mnemonic: Mnemonic = vec![42; 32];
-
-        // delete should fail
-        assert_eq!(gg20.handle_delete().await, MnemonicResponse::fail());
-        // import should succeed
-        assert_eq!(
-            gg20.handle_import(mnemonic.clone()).await,
-            MnemonicResponse::import_success()
-        );
-        // delete should succeed
-        assert_eq!(
-            gg20.handle_delete().await,
-            MnemonicResponse::delete_success()
-        );
-        // export should now fail
-        assert_eq!(gg20.handle_export().await, MnemonicResponse::fail());
-        // delete should now fail
-        assert_eq!(gg20.handle_delete().await, MnemonicResponse::fail());
+        assert!(gg20.handle_export().await.is_ok());
     }
 }
