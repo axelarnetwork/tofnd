@@ -1,27 +1,13 @@
-//! This module handles mnemonic-related requests and responses. A kv-store is used to import, edit and export a [Mnemonic].
+//! This module handles mnemonic-related commands. A kv-store is used to import, edit and export an [Entropy].
 //!
-//! A gRPC cliens can send a [MnemonicRequest] message.
-//!
-//! [MnemonicRequest] includes a [Cmd] field, which indicate the underlying requested command.
 //! Currently, the API supports the following [Cmd] commands:
+//!     [Cmd::Noop]: does nothing; Always succeeds. useful when the container restarts with the same mnemonic.
 //!     [Cmd::Create]: creates a new mnemonic; Succeeds when there is no other mnemonic already imported, fails otherwise.
-//!     [Cmd::Import]: adds a new mnemonic; Succeeds when there is no other mnemonic already imported, fails otherwise.
-//!     [Cmd::Export]: gets existing mnemonic; Succeeds when there is an existing mnemonic, fails otherwise.
-//!     [Cmd::Update]: updates existing mnemonic; Succeeds when there is an existing mnemonic, fails otherwise.
-//!     [Cmd::Delete]: deletes existing mnemonic; Succeeds when there is an existing mnemonic, fails otherwise.
-//! [MnemonicRequest] also includes a 'data' field.
-//!     For [Cmd::Import] and [Cmd::Update] commands, it is expected to contain a [Mnemonic] in raw bytes.
-//!     For [Cmd::Export] and [Cmd::Delete] commands, the value is ignored.
-//!
-//! The gRPC server responds with a [MnemonicResponse] message.
-//!
-//! [MnemonicResponse] includes a [Response], which indicates the state of the requested command.
-//! Currently, the API supports the following [Response] types:
-//!     [Response::Success]: if the requested command succeeds
-//!     [Response::Failure]: if the requested command fails
-//! [MnemonicResponse] also includes a 'data' field.
-//!     For successful [Cmd::Export] commands, it contains the stored [Mnemonic] in raw bytes.
-//!     For [Cmd::Import], [Cmd::Import], [Cmd::Update] and [Cmd::Delete] commands, the value is an empty array of bytes.
+//!     [Cmd::Import]: adds a new mnemonic from "import" file; Succeeds when there is no other mnemonic already imported, fails otherwise.
+//!     [Cmd::Export]: writes the existing mnemonic to a file; Succeeds when there is an existing mnemonic, fails otherwise.
+//!     [Cmd::Update]: updates existing mnemonic from file "import"; Succeeds when there is an existing mnemonic, fails otherwise.
+//!     In [Cmd::Create], [Cmd::Export] commands, a new "export" file is created that contains the current phrase.
+//!     In [Cmd::Update] command, a new "export" file is created that contains the replaced pasphrase.
 
 pub mod bip39_bindings;
 use bip39_bindings::{bip39_new_w12, bip39_seed, bip39_validate};
