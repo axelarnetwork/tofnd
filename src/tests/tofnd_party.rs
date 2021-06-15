@@ -1,10 +1,12 @@
 use super::{mock::SenderReceiver, Deliverer, InitParty, Party};
-use crate::gg20::mnemonic::bip39_bindings::bip39_new_w12;
-use crate::{addr, gg20, proto};
+use crate::{
+    addr,
+    gg20::{self, mnemonic::Cmd},
+    proto,
+};
 use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
 use std::path::Path;
-use tokio::sync::mpsc::unbounded_channel;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
@@ -193,7 +195,7 @@ impl TofndParty {
         Some(spoofed_traffic)
     }
 
-    pub(super) async fn new(init_party: InitParty, testdir: &Path) -> Self {
+    pub(super) async fn new(init_party: InitParty, mnemonic_cmd: Cmd, testdir: &Path) -> Self {
         let db_name = format!("test-key-{:02}", init_party.party_index);
         let db_path = testdir.join(db_name);
         let db_path = db_path.to_str().unwrap();
@@ -203,13 +205,15 @@ impl TofndParty {
 
         // start service with respect to the current build
         #[cfg(not(feature = "malicious"))]
-        let my_service = gg20::tests::with_db_name(&db_path);
+        let my_service = gg20::tests::with_db_name(&db_path, mnemonic_cmd);
         #[cfg(feature = "malicious")]
         let my_service = gg20::tests::with_db_name_malicious(
             &db_path,
+            mnemonic_cmd,
             init_party.malicious_data.keygen_behaviour.clone(),
             init_party.malicious_data.sign_behaviour.clone(),
-        );
+        )
+        .await;
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
@@ -256,45 +260,6 @@ impl TofndParty {
 
 #[tonic::async_trait]
 impl Party for TofndParty {
-    async fn import_mnemonic(&mut self, party_uid: String) -> bool {
-        let (stream_requests, rx) = unbounded_channel();
-
-        let mut stream_responses = self
-            .client
-            .mnemonic(Request::new(rx))
-            .await
-            .unwrap()
-            .into_inner();
-
-        stream_requests
-            .send(proto::MnemonicRequest {
-                cmd: proto::mnemonic_request::Cmd::Import as i32,
-                data: bip39_new_w12(),
-            })
-            .unwrap();
-
-        let mut result: Option<bool> = None;
-        if let Some(msg) = stream_responses.message().await.unwrap() {
-            let response = proto::mnemonic_response::Response::from_i32(msg.response)
-                .expect("invalid response");
-
-            match response {
-                proto::mnemonic_response::Response::Unknown => todo!(),
-                proto::mnemonic_response::Response::Success => result = Some(true),
-                proto::mnemonic_response::Response::Failure => result = Some(false),
-            };
-        }
-
-        if result.is_none() {
-            println!("party [{}] mnemonicc could not be imported", party_uid);
-            return false;
-        }
-
-        println!("party [{}] keygen execution complete", party_uid);
-
-        result.unwrap()
-    }
-
     async fn execute_keygen(
         &mut self,
         init: proto::KeygenInit,

@@ -20,6 +20,8 @@ mod malicious;
 #[cfg(feature = "malicious")]
 use malicious::{MaliciousData, PartyMaliciousData, Spoof::*};
 
+mod mnemonic;
+
 use tofn::protocol::gg20::keygen::crimes::Crime as KeygenCrime;
 use tofn::protocol::gg20::sign::crimes::Crime as SignCrime;
 use tracing::info;
@@ -196,14 +198,6 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
     let expect_timeout = test_case.malicious_data.keygen_data.timeout.is_some()
         || test_case.malicious_data.sign_data.timeout.is_some();
 
-    let (parties, results) = import_mnemonic(parties, party_uids.clone()).await;
-
-    // check that all parties returned 'true' from import_mnemonics
-    let success = results.iter().all(|r| *r);
-    assert!(success, "Parties failed to import mnemonics");
-
-    println!("results of mnemonics {:?}", results);
-
     // println!(
     //     "keygen: share_count:{}, threshold: {}",
     //     share_count, threshold
@@ -233,7 +227,10 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
             #[cfg(feature = "malicious")]
             &test_case.malicious_data,
         );
-        party_options[shutdown_index] = Some(TofndParty::new(init_party, &dir).await);
+
+        // party already has a mnemonic, so we pass Cmd::Noop
+        party_options[shutdown_index] =
+            Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, &dir).await);
 
         parties = party_options
             .into_iter()
@@ -383,7 +380,8 @@ async fn init_parties(
         let init_party = InitParty::new(i);
         #[cfg(feature = "malicious")]
         let init_party = InitParty::new(i, &init_parties.malicious_data);
-        parties.push(TofndParty::new(init_party, testdir).await);
+        parties
+            .push(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Create, testdir).await);
     }
 
     let party_uids: Vec<String> = (0..init_parties.party_count)
@@ -404,30 +402,6 @@ fn delete_dbs(parties: &[impl Party]) {
         // Sled creates a directory for the database and its configuration
         std::fs::remove_dir_all(p.get_db_path()).unwrap();
     }
-}
-
-// need to take ownership of parties `parties` and return it on completion
-async fn import_mnemonic(
-    parties: Vec<TofndParty>,
-    party_uids: Vec<String>,
-) -> (Vec<TofndParty>, Vec<bool>) {
-    let mut mnemonic_join_handles = Vec::with_capacity(party_uids.len());
-    for (mut party, party_uid) in parties.into_iter().zip(party_uids).into_iter() {
-        let handle = tokio::spawn(async move {
-            let result = party.import_mnemonic(party_uid).await;
-            (party, result)
-        });
-        mnemonic_join_handles.push(handle);
-    }
-
-    let mut parties = Vec::with_capacity(mnemonic_join_handles.len()); // async closures are unstable https://github.com/rust-lang/rust/issues/62290
-    let mut results = vec![];
-    for h in mnemonic_join_handles {
-        let handle = h.await.unwrap();
-        parties.push(handle.0);
-        results.push(handle.1);
-    }
-    (parties, results)
 }
 
 // need to take ownership of parties `parties` and return it on completion
@@ -454,7 +428,6 @@ async fn execute_keygen(
             party_share_counts: party_share_counts.to_owned(),
             my_party_index: i32::try_from(i).unwrap(),
             threshold: i32::try_from(threshold).unwrap(),
-            nonce: vec![42; 5],
         };
         let delivery = keygen_delivery.clone();
         let handle = tokio::spawn(async move {
