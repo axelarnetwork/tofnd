@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use tofn::protocol::gg20::{KeyGroup, KeyShare, MessageDigest, SecretKeyShare};
 
 use super::proto;
@@ -16,6 +18,7 @@ use futures_util::StreamExt;
 use tracing::{error, info, span, warn, Level, Span};
 
 pub mod mnemonic;
+use mnemonic::file_io::FileIo;
 
 // Struct to hold `tonfd` info. This consists of information we need to
 // store in the KV store that is not relevant to `tofn`
@@ -34,11 +37,12 @@ pub struct PartyInfo {
 }
 // TODO don't store party_uids in this daemon!
 type KeySharesKv = Kv<PartyInfo>;
-type MnemonicKv = Kv<mnemonic::Mnemonic>;
+type MnemonicKv = Kv<mnemonic::Entropy>;
 #[derive(Clone)]
 struct Gg20Service {
     shares_kv: KeySharesKv,
     mnemonic_kv: MnemonicKv,
+    io: FileIo,
     #[cfg(feature = "malicious")]
     keygen_behaviour: KeygenBehaviour,
     #[cfg(feature = "malicious")]
@@ -46,24 +50,38 @@ struct Gg20Service {
 }
 
 #[cfg(not(feature = "malicious"))]
-pub fn new_service() -> impl proto::gg20_server::Gg20 {
-    Gg20Service {
+pub async fn new_service() -> impl proto::gg20_server::Gg20 {
+    let mut gg20 = Gg20Service {
         shares_kv: KeySharesKv::new(),
         mnemonic_kv: MnemonicKv::new(),
-    }
+        io: FileIo::new(PathBuf::new()),
+    };
+
+    // TODO: pass command from caller
+    gg20.handle_mnemonic(mnemonic::Cmd::Create)
+        .await
+        .expect("Unable to complete mnemonic command.");
+    gg20
 }
 
 #[cfg(feature = "malicious")]
-pub fn new_service(
+pub async fn new_service(
     keygen_behaviour: KeygenBehaviour,
     sign_behaviour: SignBehaviour,
 ) -> impl proto::gg20_server::Gg20 {
-    Gg20Service {
+    let mut gg20 = Gg20Service {
         shares_kv: KeySharesKv::new(),
         mnemonic_kv: MnemonicKv::new(),
+        io: FileIo::new(PathBuf::new()),
         keygen_behaviour,
         sign_behaviour,
-    }
+    };
+
+    // TODO: pass command from caller
+    gg20.handle_mnemonic(mnemonic::Cmd::Create)
+        .await
+        .expect("Unable to complete mnemonic command.");
+    gg20
 }
 
 pub struct KeygenInitSanitized {
@@ -72,7 +90,6 @@ pub struct KeygenInitSanitized {
     party_share_counts: Vec<usize>,
     my_index: usize,
     threshold: usize,
-    nonce: Vec<u8>,
 }
 
 impl KeygenInitSanitized {
@@ -91,28 +108,9 @@ struct ProtocolCommunication<InMsg, OutMsg> {
 
 #[tonic::async_trait]
 impl proto::gg20_server::Gg20 for Gg20Service {
-    type MnemonicStream = mpsc::UnboundedReceiver<Result<proto::MnemonicResponse, Status>>;
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
     type KeygenStream = mpsc::UnboundedReceiver<Result<proto::MessageOut, Status>>;
     type SignStream = Self::KeygenStream;
-
-    async fn mnemonic(
-        &self,
-        request: Request<tonic::Streaming<proto::MnemonicRequest>>,
-    ) -> Result<Response<Self::MnemonicStream>, Status> {
-        let stream_in = request.into_inner();
-        let (msg_sender, rx) = mpsc::unbounded_channel();
-
-        let mut gg20 = self.clone();
-        tokio::spawn(async move {
-            // can't return an error from a spawned thread
-            if let Err(e) = gg20.handle_mnemonic(stream_in, msg_sender).await {
-                error!("mnemonic import failure: {:?}", e);
-                return;
-            }
-        });
-        Ok(Response::new(rx))
-    }
 
     async fn keygen(
         &self,
@@ -300,8 +298,9 @@ pub(super) async fn route_messages(
 
 #[cfg(test)]
 pub(super) mod tests {
-    use super::{Gg20Service, KeySharesKv, MnemonicKv};
+    use super::{FileIo, Gg20Service, KeySharesKv, MnemonicKv};
     use crate::proto;
+    use std::path::PathBuf;
 
     #[cfg(feature = "malicious")]
     use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
@@ -318,27 +317,51 @@ pub(super) mod tests {
     }
 
     #[cfg(not(feature = "malicious"))]
-    pub fn with_db_name(db_path: &str) -> impl proto::gg20_server::Gg20 {
+    pub fn with_db_name(
+        db_path: &str,
+        mnemonic_cmd: super::mnemonic::Cmd,
+    ) -> impl proto::gg20_server::Gg20 {
         let (shares_db_name, mnemonic_db_name) = create_db_names(db_path);
-        Gg20Service {
+
+        let mut path = PathBuf::new();
+        path.push(db_path);
+
+        let mut gg20 = Gg20Service {
             shares_kv: KeySharesKv::with_db_name(&shares_db_name),
             mnemonic_kv: MnemonicKv::with_db_name(&mnemonic_db_name),
-        }
+            io: FileIo::new(path),
+        };
+
+        gg20.handle_mnemonic(cmd)
+            .await
+            .expect("Unable to complete mnemonic command.");
+        gg20
     }
 
     #[cfg(feature = "malicious")]
-    pub fn with_db_name_malicious(
-        db_name: &str,
+    pub async fn with_db_name_malicious(
+        db_path: &str,
+        mnemonic_cmd: super::mnemonic::Cmd,
         keygen_behaviour: KeygenBehaviour,
         sign_behaviour: SignBehaviour,
     ) -> impl proto::gg20_server::Gg20 {
-        let (shares_db_name, mnemonic_db_name) = create_db_names(db_name);
-        Gg20Service {
+        let (shares_db_name, mnemonic_db_name) = create_db_names(db_path);
+        let mut path = PathBuf::new();
+        path.push(db_path);
+
+        let mut gg20 = Gg20Service {
             shares_kv: KeySharesKv::with_db_name(&shares_db_name),
             mnemonic_kv: MnemonicKv::with_db_name(&mnemonic_db_name),
+            io: FileIo::new(path),
             keygen_behaviour,
             sign_behaviour,
-        }
+        };
+
+        // TODO:: pass cmd from caller
+        gg20.handle_mnemonic(mnemonic_cmd)
+            .await
+            .expect("Unable to complete mnemonic command.");
+        gg20
     }
 
     pub fn get_db_path(name: &str) -> std::path::PathBuf {
