@@ -2,19 +2,20 @@
 //! extraction using the tiny-bip39 https://crates.io/crates/tiny-bip39 library.
 //! Default language is English
 
-use super::TofndError;
+use super::{Entropy, TofndError};
 use bip39::{Language, Mnemonic, Seed};
 
+// TODO: we can enrich the API so that users can decide which language they want to use
 const DEFAUT_LANG: Language = Language::English;
 
-// create a new 12 word mnemonic
-pub(crate) fn bip39_new_w12() -> Vec<u8> {
-    let mnemonic = Mnemonic::new(bip39::MnemonicType::Words12, DEFAUT_LANG);
+/// create a new 24 word mnemonic
+pub(crate) fn bip39_new_w24() -> Vec<u8> {
+    let mnemonic = Mnemonic::new(bip39::MnemonicType::Words24, DEFAUT_LANG);
     mnemonic.entropy().to_owned()
 }
 
-// create a mnemonic from entropy
-fn bip39_from_entropy(entropy: &[u8]) -> Result<Mnemonic, TofndError> {
+/// create a mnemonic from entropy
+pub(super) fn bip39_from_entropy(entropy: &[u8]) -> Result<Mnemonic, TofndError> {
     let res = Mnemonic::from_entropy(&entropy, DEFAUT_LANG);
     match res {
         Ok(mnemonic) => Ok(mnemonic),
@@ -22,41 +23,43 @@ fn bip39_from_entropy(entropy: &[u8]) -> Result<Mnemonic, TofndError> {
     }
 }
 
-// validate mnemonic
-pub(super) fn bip39_validate(bytes: &[u8]) -> Result<(), TofndError> {
-    let _ = bip39_from_entropy(bytes)?;
-    Ok(())
+/// create a mnemonic from entropy
+pub(super) fn bip39_from_phrase(phrase: &str) -> Result<Entropy, TofndError> {
+    let res = Mnemonic::from_phrase(&phrase, DEFAUT_LANG);
+    match res {
+        Ok(mnemonic) => Ok(mnemonic.entropy().to_owned()),
+        Err(err) => Err(From::from(format!("Invalid entropy: {:?}", err))),
+    }
 }
 
-// extrace seed from mnemonic
+/// extrace seed from mnemonic
 pub(super) fn bip39_seed(entropy: &[u8], password: &str) -> Result<Seed, TofndError> {
     let mnemonic = bip39_from_entropy(&entropy)?;
     Ok(Seed::new(&mnemonic, password))
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
+
+    /// create a mnemonic from entropy
+    pub(crate) fn bip39_to_phrase(entropy: &[u8]) -> Result<String, TofndError> {
+        let res = Mnemonic::from_entropy(&entropy, DEFAUT_LANG);
+        match res {
+            Ok(mnemonic) => Ok(mnemonic.phrase().to_owned()),
+            Err(err) => Err(From::from(format!("Invalid entropy: {:?}", err))),
+        }
+    }
 
     #[test]
     fn test_create() {
-        let entropy = bip39_new_w12();
+        let entropy = bip39_new_w24();
         let mnemonic = Mnemonic::from_entropy(&entropy, DEFAUT_LANG).unwrap();
         let passphrase = mnemonic.phrase();
         println!(
             "created passphrase [{}] from entropy [{:?}]",
             passphrase, &entropy
         );
-        assert!(bip39_validate(&entropy).is_ok());
-    }
-
-    #[test]
-    fn test_validate() {
-        let ok_entropy = vec![42; 16];
-        let err_entropy = vec![42; 15];
-
-        assert!(bip39_validate(&ok_entropy).is_ok());
-        assert!(bip39_validate(&err_entropy).is_err());
     }
 
     #[test]
