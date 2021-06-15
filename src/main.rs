@@ -57,10 +57,11 @@ async fn main() -> Result<(), TofndError> {
         incoming.local_addr()?
     );
 
+    // TODO: pass cmd from command line
     #[cfg(not(feature = "malicious"))]
-    let my_service = gg20::new_service();
+    let my_service = gg20::new_service().await;
     #[cfg(feature = "malicious")]
-    let my_service = gg20::new_service(keygen_behaviour, sign_behaviour);
+    let my_service = gg20::new_service(keygen_behaviour, sign_behaviour).await;
 
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 

@@ -1,5 +1,9 @@
 use super::{mock::SenderReceiver, Deliverer, InitParty, Party};
-use crate::{addr, gg20, proto};
+use crate::{
+    addr,
+    gg20::{self, mnemonic::Cmd},
+    proto,
+};
 use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
 use std::path::Path;
@@ -191,7 +195,7 @@ impl TofndParty {
         Some(spoofed_traffic)
     }
 
-    pub(super) async fn new(init_party: InitParty, testdir: &Path) -> Self {
+    pub(super) async fn new(init_party: InitParty, mnemonic_cmd: Cmd, testdir: &Path) -> Self {
         let db_name = format!("test-key-{:02}", init_party.party_index);
         let db_path = testdir.join(db_name);
         let db_path = db_path.to_str().unwrap();
@@ -201,13 +205,15 @@ impl TofndParty {
 
         // start service with respect to the current build
         #[cfg(not(feature = "malicious"))]
-        let my_service = gg20::tests::with_db_name(&db_path);
+        let my_service = gg20::tests::with_db_name(&db_path, mnemonic_cmd);
         #[cfg(feature = "malicious")]
         let my_service = gg20::tests::with_db_name_malicious(
             &db_path,
+            mnemonic_cmd,
             init_party.malicious_data.keygen_behaviour.clone(),
             init_party.malicious_data.sign_behaviour.clone(),
-        );
+        )
+        .await;
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide

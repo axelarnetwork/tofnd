@@ -134,3 +134,29 @@ fn get_failure() {
 
     clean_up(kv_name.to_str().unwrap(), kv);
 }
+
+#[test]
+fn remove_success() {
+    let kv_name = testdir!();
+    let kv = sled::open(&kv_name).unwrap();
+
+    let key: String = "key".to_string();
+    let value = "value";
+    handle_reserve(&kv, key.clone()).unwrap();
+    handle_put(&kv, KeyReservation { key: key.clone() }, value).unwrap();
+    let res = handle_remove::<String>(&kv, key).unwrap();
+    assert_eq!(res, value);
+    clean_up(kv_name.to_str().unwrap(), kv);
+}
+
+#[test]
+fn remove_failure() {
+    let kv_name = testdir!();
+    let kv = sled::open(&kv_name).unwrap();
+
+    let key: String = "key".to_string();
+    let res = handle_remove::<String>(&kv, key);
+    assert!(res.is_err());
+
+    clean_up(kv_name.to_str().unwrap(), kv);
+}

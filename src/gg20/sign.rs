@@ -174,7 +174,7 @@ impl Gg20Service {
             _ => return Err(From::from("Expected sign init message")),
         };
 
-        let party_info = self.kv.get(&sign_init.key_uid).await?;
+        let party_info = self.shares_kv.get(&sign_init.key_uid).await?;
         let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
 
         info!(
@@ -272,8 +272,7 @@ fn sign_sanitize_args(
     })
 }
 
-// TODO: Use CommonInfo and ShareInfo instead of SecretKeyShare in tofn.
-// When this is done, we will not have to manually create SecretKeyShare.
+// Get a share from PartyInfo
 fn get_secret_key_share(
     party_info: &PartyInfo,
     share_index: usize,

@@ -20,6 +20,8 @@ mod malicious;
 #[cfg(feature = "malicious")]
 use malicious::{MaliciousData, PartyMaliciousData, Spoof::*};
 
+mod mnemonic;
+
 use tofn::protocol::gg20::keygen::crimes::Crime as KeygenCrime;
 use tofn::protocol::gg20::sign::crimes::Crime as SignCrime;
 use tracing::info;
@@ -225,7 +227,10 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
             #[cfg(feature = "malicious")]
             &test_case.malicious_data,
         );
-        party_options[shutdown_index] = Some(TofndParty::new(init_party, &dir).await);
+
+        // party already has a mnemonic, so we pass Cmd::Noop
+        party_options[shutdown_index] =
+            Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, &dir).await);
 
         parties = party_options
             .into_iter()
@@ -375,7 +380,8 @@ async fn init_parties(
         let init_party = InitParty::new(i);
         #[cfg(feature = "malicious")]
         let init_party = InitParty::new(i, &init_parties.malicious_data);
-        parties.push(TofndParty::new(init_party, testdir).await);
+        parties
+            .push(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Create, testdir).await);
     }
 
     let party_uids: Vec<String> = (0..init_parties.party_count)

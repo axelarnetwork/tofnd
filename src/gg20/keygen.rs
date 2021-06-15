@@ -70,6 +70,7 @@ impl Gg20Service {
             let uids = keygen_init.party_uids.clone();
             let shares = keygen_init.party_share_counts.clone();
             let threshold = keygen_init.threshold;
+            let nonce = keygen_init.new_key_uid.clone();
             let my_tofn_index = my_starting_tofn_index + my_tofnd_subindex;
             let span = handle_span.clone();
 
@@ -89,6 +90,7 @@ impl Gg20Service {
                         threshold,
                         my_tofn_index,
                         span,
+                        &nonce.as_bytes(),
                     )
                     .await;
                 let _ = aggregator_sender.send(secret_key_share);
@@ -137,7 +139,10 @@ impl Gg20Service {
 
         // sanitize arguments and reserve key
         let keygen_init = keygen_sanitize_args(keygen_init)?;
-        let key_uid_reservation = self.kv.reserve_key(keygen_init.new_key_uid.clone()).await?;
+        let key_uid_reservation = self
+            .shares_kv
+            .reserve_key(keygen_init.new_key_uid.clone())
+            .await?;
 
         info!(
             "Starting Keygen with uids: {:?}, party_shares: {:?}",
@@ -148,6 +153,7 @@ impl Gg20Service {
     }
 
     // execute keygen protocol and write the result into the internal channel
+    #[allow(clippy::too_many_arguments)]
     async fn execute_keygen(
         &self,
         chan: ProtocolCommunication<
@@ -159,8 +165,17 @@ impl Gg20Service {
         threshold: usize,
         my_index: usize,
         keygen_span: Span,
+        nonce: &[u8],
     ) -> Result<KeygenOutput, TofndError> {
-        let mut keygen = self.get_keygen(party_share_counts.iter().sum(), threshold, my_index)?;
+        let seed = self.seed().await?;
+        let keygen = self.get_keygen(
+            party_share_counts.iter().sum(),
+            threshold,
+            my_index,
+            &seed,
+            &nonce,
+        );
+        let mut keygen = keygen.unwrap();
 
         // execute protocol
         let res = protocol::execute_protocol(
@@ -202,7 +217,7 @@ impl Gg20Service {
         //  wait all keygen threads and aggregate secret key shares
         let keygen_outputs = aggregate_keygen_outputs(aggregator_receivers).await;
         if keygen_outputs.is_err() {
-            self.kv.unreserve_key(key_uid_reservation).await;
+            self.shares_kv.unreserve_key(key_uid_reservation).await;
             return Err(From::from(
                 "Error at Keygen output aggregation. Unreserving key",
             ));
@@ -241,7 +256,7 @@ impl Gg20Service {
         );
 
         // try to put data inside kv store
-        self.kv.put(key_uid_reservation, kv_data).await?;
+        self.shares_kv.put(key_uid_reservation, kv_data).await?;
 
         // serialize generated public key and send to client
         stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
