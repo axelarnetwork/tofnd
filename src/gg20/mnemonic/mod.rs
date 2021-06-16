@@ -209,7 +209,7 @@ mod tests {
         }
     }
 
-    fn create_import_file(valid: bool, mut path: PathBuf) {
+    fn create_import_file(mut path: PathBuf) {
         path.push(IMPORT_FILE);
         let create = std::fs::File::create(path);
         if create.is_err() {
@@ -220,10 +220,6 @@ mod tests {
 
         let entropy = bip39_new_w24();
         let phrase = bip39_to_phrase(&entropy).unwrap();
-        if !valid {
-            // TODO: create invalid phrase
-            // phrase = phrase[0..phrase / 2];
-        }
         file.write_all(phrase.as_bytes()).unwrap();
     }
 
@@ -245,7 +241,7 @@ mod tests {
         let testdir = testdir!();
         // create a service
         let mut gg20 = get_service(testdir.clone());
-        create_import_file(true, testdir);
+        create_import_file(testdir);
         // first attempt should succeed
         assert!(gg20.handle_import().await.is_ok());
         // second attempt should fail
@@ -260,7 +256,7 @@ mod tests {
         let mut gg20 = get_service(testdir.clone());
         // first attempt to update should fail
         assert!(gg20.handle_update().await.is_err());
-        create_import_file(true, testdir);
+        create_import_file(testdir);
         // import should succeed
         assert!(gg20.handle_import().await.is_ok());
         // second attempt to update should succeed
@@ -277,7 +273,7 @@ mod tests {
         let mut gg20 = get_service(testdir.clone());
         // export should fail
         assert!(gg20.handle_export().await.is_err());
-        create_import_file(true, testdir);
+        create_import_file(testdir);
         // import should succeed
         assert!(gg20.handle_import().await.is_ok());
         // export should now succeed

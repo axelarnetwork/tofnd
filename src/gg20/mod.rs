@@ -359,7 +359,6 @@ pub(super) mod tests {
             sign_behaviour,
         };
 
-        // TODO:: pass cmd from caller
         gg20.handle_mnemonic(mnemonic_cmd)
             .await
             .expect("Unable to complete mnemonic command.");
