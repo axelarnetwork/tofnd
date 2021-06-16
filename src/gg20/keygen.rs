@@ -370,7 +370,7 @@ async fn aggregate_keygen_outputs(
     Ok(keygen_outputs)
 }
 
-// Get KeyGroup and KeyShare from tofn to create PartyInfo
+// Get GroupPublicInfo and ShareSecretInfo from tofn to create PartyInfo
 fn get_party_info(
     secret_key_shares: Vec<SecretKeyShare>,
     uids: Vec<String>,

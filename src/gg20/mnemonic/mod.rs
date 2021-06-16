@@ -162,10 +162,10 @@ impl Gg20Service {
     }
 }
 
-use tofn::protocol::gg20::keygen::PrfSecretKey;
+use tofn::protocol::gg20::keygen::SecretRecoveryKey;
 /// ease tofn API
 impl Gg20Service {
-    pub async fn seed(&self) -> Result<PrfSecretKey, TofndError> {
+    pub async fn seed(&self) -> Result<SecretRecoveryKey, TofndError> {
         let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
         // A user may decide to protect their mnemonic with a passphrase. If not, pass an empty password
         // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed

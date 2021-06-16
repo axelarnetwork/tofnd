@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use tofn::protocol::gg20::{KeyGroup, KeyShare, MessageDigest, SecretKeyShare};
+use tofn::protocol::gg20::{GroupPublicInfo, MessageDigest, SecretKeyShare, ShareSecretInfo};
 
 use super::proto;
 use crate::kv_manager::Kv;
@@ -34,8 +34,8 @@ pub struct TofndInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartyInfo {
-    pub common: KeyGroup,
-    pub shares: Vec<KeyShare>,
+    pub common: GroupPublicInfo,
+    pub shares: Vec<ShareSecretInfo>,
     pub tofnd: TofndInfo,
 }
 // TODO don't store party_uids in this daemon!
@@ -160,7 +160,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
-use tofn::protocol::gg20::keygen::{Keygen, PrfSecretKey};
+use tofn::protocol::gg20::keygen::{Keygen, SecretRecoveryKey};
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::BadSign;
@@ -177,7 +177,7 @@ impl Gg20Service {
         party_share_counts: usize,
         threshold: usize,
         my_index: usize,
-        seed: &PrfSecretKey,
+        seed: &SecretRecoveryKey,
         nonce: &[u8],
     ) -> Result<Keygen, KeygenErr> {
         Keygen::new(party_share_counts, threshold, my_index, &seed, &nonce)
@@ -190,7 +190,7 @@ impl Gg20Service {
         party_share_counts: usize,
         threshold: usize,
         my_index: usize,
-        seed: &PrfSecretKey,
+        seed: &SecretRecoveryKey,
         nonce: &[u8],
     ) -> Result<Keygen, KeygenErr> {
         let mut k = Keygen::new(party_share_counts, threshold, my_index, &seed, &nonce)?;
