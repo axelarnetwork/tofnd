@@ -1,19 +1,19 @@
 use tofn::protocol::{
-    gg20::keygen::{crimes::Crime as KeygenCrime, KeygenOutput},
+    gg20::keygen::crimes::Crime as KeygenCrime,
     gg20::sign::{crimes::Crime as SignCrime, SignOutput},
     CrimeType, Criminal,
 };
 
+use super::keygen::KeygenResultData;
+use super::protocol::map_tofn_to_tofnd_idx;
 use crate::proto;
 use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;
 use proto::message_out::criminal_list::Criminal as ProtoCriminal;
 use proto::message_out::keygen_result::KeygenResultData::Criminals as ProtoKeygenCriminals;
-use proto::message_out::keygen_result::KeygenResultData::PubKey as ProtoPubKey;
+use proto::message_out::keygen_result::KeygenResultData::Data as ProtoKeygenData;
 use proto::message_out::sign_result::SignResultData::Criminals as ProtoCriminals;
 use proto::message_out::sign_result::SignResultData::Signature as ProtoSignature;
 use proto::message_out::CriminalList as ProtoCriminalList;
-
-use super::protocol::map_tofn_to_tofnd_idx;
 
 use tracing::warn;
 
@@ -55,10 +55,10 @@ impl proto::MessageOut {
     pub(super) fn new_keygen_result(
         participant_uids: &[String],
         all_share_counts: &[usize],
-        result: KeygenOutput,
+        result: KeygenResultData,
     ) -> Self {
         let result = match result {
-            Ok(secret_key_share) => ProtoPubKey(secret_key_share.group.pubkey_bytes()),
+            Ok(keygen_data) => ProtoKeygenData(keygen_data),
             Err(crimes) => ProtoKeygenCriminals(ProtoCriminalList::from(
                 to_criminals::<KeygenCrime>(&crimes), // TODO remove later
                 participant_uids,

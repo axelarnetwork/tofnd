@@ -29,7 +29,7 @@ use tracing::info;
 use crate::proto::{
     self,
     message_out::{
-        keygen_result::KeygenResultData::{Criminals as KeygenCriminals, PubKey},
+        keygen_result::KeygenResultData::{Criminals as KeygenCriminals, Data as KeygenData},
         sign_result::SignResultData::{Criminals as SignCriminals, Signature},
         KeygenResult, SignResult,
     },
@@ -69,10 +69,20 @@ fn check_keygen_results(results: Vec<KeygenResult>, expected_crimes: &[Vec<Keyge
     // don't return results and we pad them with `None`s
     let first = results.iter().find(|r| r.keygen_result_data.is_some());
 
+    let mut pub_keys = vec![];
+    for result in results.iter() {
+        let res = match result.keygen_result_data.clone().unwrap() {
+            KeygenData(data) => data.pub_key,
+            KeygenCriminals(_) => continue,
+        };
+        pub_keys.push(res);
+    }
+
     // else we have at least one result
-    let first = first.unwrap();
+    let first = first.unwrap().clone();
     match first.keygen_result_data {
-        Some(PubKey(_)) => {
+        Some(KeygenData(data)) => {
+            let first_pub_key = &data.pub_key;
             assert_eq!(
                 expected_crimes
                     .iter()
@@ -81,10 +91,10 @@ fn check_keygen_results(results: Vec<KeygenResult>, expected_crimes: &[Vec<Keyge
                 0,
                 "Expected crimes but didn't discover any",
             );
-            for (i, result) in results.iter().enumerate() {
+            for (i, pub_key) in pub_keys.iter().enumerate() {
                 assert_eq!(
-                    first, result,
-                    "party {} didn't produce the expected result",
+                    first_pub_key, pub_key,
+                    "party {} didn't produce the expected pub_key",
                     i
                 );
             }

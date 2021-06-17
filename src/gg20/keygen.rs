@@ -1,23 +1,26 @@
-use tofn::protocol::gg20::keygen::{validate_params, KeygenOutput};
+use futures_util::StreamExt;
+use tracing::{error, info, span, warn, Level, Span};
+
+use tofn::protocol::gg20::keygen::{crimes::Crime, validate_params, KeygenOutput};
 use tofn::protocol::gg20::SecretKeyShare;
 
-use protocol::map_tofnd_to_tofn_idx;
-
 use super::{
-    proto, protocol, route_messages, Gg20Service, KeygenInitSanitized, PartyInfo,
-    ProtocolCommunication, TofndInfo,
+    proto::{self, message_out::keygen_result},
+    protocol::{self, map_tofnd_to_tofn_idx},
+    route_messages, Gg20Service, KeygenInitSanitized, PartyInfo, ProtocolCommunication, TofndInfo,
 };
 use crate::{kv_manager::KeyReservation, TofndError};
 
-use tokio::sync::oneshot;
 use tonic::Status;
 
 // tonic cruft
-use tokio::sync::{mpsc, oneshot::Receiver};
+use tokio::sync::{
+    mpsc,
+    oneshot::{self, Receiver},
+};
 
-use futures_util::StreamExt;
-
-use tracing::{error, info, span, warn, Level, Span};
+// wrapper type for proto::message_out::new_keygen_result
+pub(super) type KeygenResultData = Result<keygen_result::KeygenOutput, Vec<Vec<Crime>>>;
 
 impl Gg20Service {
     // we wrap the functionality of keygen gRPC here because we can't handle errors
@@ -228,10 +231,18 @@ impl Gg20Service {
         let party_uids = keygen_init.party_uids.clone();
         let party_share_counts = keygen_init.party_share_counts.clone();
 
+        // create a hashmap to store pub keys of all shares to make it easier to assert uniqueness
+        let mut pub_key_map = std::collections::HashMap::new();
+
         let mut secret_key_shares = vec![];
         for keygen_output in keygen_outputs {
             match keygen_output {
-                Ok(secret_key_share) => secret_key_shares.push(secret_key_share),
+                Ok(secret_key_share) => {
+                    let pub_key = secret_key_share.group.pubkey_bytes();
+                    secret_key_shares.push(secret_key_share);
+                    // hashmap [pub key -> count] with default value 0
+                    *pub_key_map.entry(pub_key).or_insert(0) += 1;
+                }
                 Err(crimes) => {
                     // send crimes and exit
                     stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
@@ -244,8 +255,20 @@ impl Gg20Service {
             }
         }
 
-        // get public key and put all secret key shares inside kv store
-        let secret_key_share = secret_key_shares[0].clone();
+        // check that all shares returned the same public key
+        if pub_key_map.len() != 1 {
+            return Err(From::from(format!(
+                "Shares returned different public key {:?}",
+                pub_key_map
+            )));
+        }
+        let pub_key = pub_key_map.keys().last().unwrap().to_owned();
+
+        // retrieve recovery info from all shares
+        let mut share_recovery_infos = vec![];
+        for secret_key_share in secret_key_shares.iter() {
+            share_recovery_infos.push(bincode::serialize(&secret_key_share.recovery_info())?);
+        }
 
         // combine all keygen threads responses to a single struct
         let kv_data = get_party_info(
@@ -262,7 +285,10 @@ impl Gg20Service {
         stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
             &party_uids,
             &party_share_counts,
-            Ok(secret_key_share),
+            Ok(keygen_result::KeygenOutput {
+                pub_key,
+                share_recovery_infos,
+            }),
         )))?;
 
         Ok(())
