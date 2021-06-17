@@ -41,7 +41,10 @@ impl Gg20Service {
         // 4. Wait for all sign threads to finish and aggregate all responses
 
         // get SignInit message from stream and sanitize arguments
-        let (sign_init, party_info) = self.handle_sign_init(&mut stream_in).await?;
+        let mut stream_out = stream_out_sender.clone();
+        let (sign_init, party_info) = self
+            .handle_sign_init(&mut stream_in, &mut stream_out)
+            .await?;
 
         // quit now if I'm not a participant
         if !sign_init
@@ -155,13 +158,21 @@ impl Gg20Service {
         Ok(())
     }
 
+    fn send_kv_store_failure(
+        session_id: &String,
+        out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
+    ) -> Result<(), TofndError> {
+        Ok(out_stream.send(Ok(proto::MessageOut::need_recover(session_id.to_owned())))?)
+    }
+
     // makes all needed assertions on incoming data, and create structures that are
     // needed to execute the protocol
     async fn handle_sign_init(
         &mut self,
-        stream: &mut tonic::Streaming<proto::MessageIn>,
+        in_stream: &mut tonic::Streaming<proto::MessageIn>,
+        mut out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     ) -> Result<(SignInitSanitized, PartyInfo), TofndError> {
-        let msg_type = stream
+        let msg_type = in_stream
             .next()
             .await
             .ok_or("sign: stream closed by client without sending a message")??
@@ -173,7 +184,16 @@ impl Gg20Service {
             _ => return Err(From::from("Expected sign init message")),
         };
 
-        let party_info = self.shares_kv.get(&sign_init.key_uid).await?;
+        let party_info = self.shares_kv.get(&sign_init.key_uid).await;
+        let party_info = match party_info {
+            Ok(party_info) => party_info,
+            Err(err) => {
+                error!("Unable to find session-id {} in kv store. Issuing share recovery and exit sign {:?}", sign_init.key_uid, err);
+                Self::send_kv_store_failure(&sign_init.key_uid, &mut out_stream)?;
+                return Err(err);
+            }
+        };
+
         let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
 
         info!(
