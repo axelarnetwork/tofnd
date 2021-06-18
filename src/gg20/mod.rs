@@ -118,12 +118,13 @@ pub async fn new_service(
     gg20
 }
 
-pub struct KeygenInitSanitized {
-    new_key_uid: String,
-    party_uids: Vec<String>,
-    party_share_counts: Vec<usize>,
-    my_index: usize,
-    threshold: usize,
+// KeygenInitSanitized is aslo needed by recovery module
+pub(super) struct KeygenInitSanitized {
+    pub(super) new_key_uid: String,
+    pub(super) party_uids: Vec<String>,
+    pub(super) party_share_counts: Vec<usize>,
+    pub(super) my_index: usize,
+    pub(super) threshold: usize,
 }
 
 impl KeygenInitSanitized {
