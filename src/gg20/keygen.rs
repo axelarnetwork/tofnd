@@ -2,12 +2,11 @@ use futures_util::StreamExt;
 use tracing::{error, info, span, warn, Level, Span};
 
 use tofn::protocol::gg20::keygen::{crimes::Crime, validate_params, KeygenOutput};
-use tofn::protocol::gg20::SecretKeyShare;
 
 use super::{
     proto::{self, message_out::keygen_result},
     protocol::{self, map_tofnd_to_tofn_idx},
-    route_messages, Gg20Service, KeygenInitSanitized, PartyInfo, ProtocolCommunication, TofndInfo,
+    route_messages, Gg20Service, KeygenInitSanitized, PartyInfo, ProtocolCommunication,
 };
 use crate::{kv_manager::KeyReservation, TofndError};
 
@@ -271,7 +270,7 @@ impl Gg20Service {
         }
 
         // combine all keygen threads responses to a single struct
-        let kv_data = get_party_info(
+        let kv_data = PartyInfo::get_party_info(
             secret_key_shares,
             keygen_init.party_uids,
             keygen_init.party_share_counts,
@@ -394,34 +393,6 @@ async fn aggregate_keygen_outputs(
         keygen_outputs.push(res);
     }
     Ok(keygen_outputs)
-}
-
-// Get GroupPublicInfo and ShareSecretInfo from tofn to create PartyInfo
-fn get_party_info(
-    secret_key_shares: Vec<SecretKeyShare>,
-    uids: Vec<String>,
-    share_counts: Vec<usize>,
-    tofnd_index: usize,
-) -> PartyInfo {
-    // grap the first share to acquire common data
-    let s = secret_key_shares[0].clone();
-    let common = s.group;
-    // aggregate share data into a vector
-    let mut shares = Vec::new();
-    for share in secret_key_shares {
-        shares.push(share.share);
-    }
-    // add tofnd data
-    let tofnd = TofndInfo {
-        party_uids: uids,
-        share_counts,
-        index: tofnd_index,
-    };
-    PartyInfo {
-        common,
-        shares,
-        tofnd,
-    }
 }
 
 #[cfg(test)]

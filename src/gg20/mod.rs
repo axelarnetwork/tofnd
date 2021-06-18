@@ -38,6 +38,38 @@ pub struct PartyInfo {
     pub shares: Vec<ShareSecretInfo>,
     pub tofnd: TofndInfo,
 }
+
+impl PartyInfo {
+    // Get GroupPublicInfo and ShareSecretInfo from tofn to create PartyInfo
+    // Also needed in recovery
+    pub(crate) fn get_party_info(
+        secret_key_shares: Vec<SecretKeyShare>,
+        uids: Vec<String>,
+        share_counts: Vec<usize>,
+        tofnd_index: usize,
+    ) -> Self {
+        // grap the first share to acquire common data
+        let s = secret_key_shares[0].clone();
+        let common = s.group;
+        // aggregate share data into a vector
+        let mut shares = Vec::new();
+        for share in secret_key_shares {
+            shares.push(share.share);
+        }
+        // add tofnd data
+        let tofnd = TofndInfo {
+            party_uids: uids,
+            share_counts,
+            index: tofnd_index,
+        };
+        PartyInfo {
+            common,
+            shares,
+            tofnd,
+        }
+    }
+}
+
 // TODO don't store party_uids in this daemon!
 type KeySharesKv = Kv<PartyInfo>;
 type MnemonicKv = Kv<mnemonic::Entropy>;
