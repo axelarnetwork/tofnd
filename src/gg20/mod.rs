@@ -23,6 +23,8 @@ use mnemonic::{file_io::FileIo, Cmd};
 const DEFAULT_SHARE_KV_NAME: &str = "shares";
 const DEFAULT_MNEMONIC_KV_NAME: &str = "mnemonic";
 
+mod recover;
+
 // Struct to hold `tonfd` info. This consists of information we need to
 // store in the KV store that is not relevant to `tofn`
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,6 +148,31 @@ impl proto::gg20_server::Gg20 for Gg20Service {
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
     type KeygenStream = mpsc::UnboundedReceiver<Result<proto::MessageOut, Status>>;
     type SignStream = Self::KeygenStream;
+
+    async fn recover(
+        &self,
+        request: tonic::Request<proto::RecoverRequest>,
+    ) -> Result<Response<proto::RecoverResponse>, Status> {
+        let request = request.into_inner();
+
+        let mut gg20 = self.clone();
+        let response = gg20.handle_recover(request).await;
+
+        let response = match response {
+            Ok(()) => {
+                info!("Recovery completed successfully!");
+                proto::recover_response::Response::Success
+            }
+            Err(err) => {
+                error!("Unable to complete recoevery: {}", err);
+                proto::recover_response::Response::Fail
+            }
+        };
+
+        Ok(Response::new(proto::RecoverResponse {
+            response: response as i32,
+        }))
+    }
 
     async fn keygen(
         &self,
