@@ -164,12 +164,13 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 proto::recover_response::Response::Success
             }
             Err(err) => {
-                error!("Unable to complete recoevery: {}", err);
+                error!("Unable to complete recovery: {}", err);
                 proto::recover_response::Response::Fail
             }
         };
 
         Ok(Response::new(proto::RecoverResponse {
+            // the prost way to convert enums to i32 https://github.com/danburkert/prost#enumerations
             response: response as i32,
         }))
     }

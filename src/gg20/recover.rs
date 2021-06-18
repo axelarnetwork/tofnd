@@ -37,7 +37,8 @@ impl Gg20Service {
         threshold: usize,
     ) -> Result<Vec<SecretKeyShare>, TofndError> {
         // gather deserialized share recovery infos. Avoid using map() because deserialization returns Result
-        let mut deserialized_share_recovery_infos = vec![];
+        let mut deserialized_share_recovery_infos =
+            Vec::with_capacity(serialized_share_recovery_infos.len());
         for bytes in serialized_share_recovery_infos {
             deserialized_share_recovery_infos.push(bincode::deserialize(bytes)?);
         }
