@@ -127,7 +127,7 @@ pub struct KeygenInitSanitized {
 }
 
 impl KeygenInitSanitized {
-    pub fn my_shares_count(&self) -> usize {
+    fn my_shares_count(&self) -> usize {
         self.party_share_counts[self.my_index] as usize
     }
 }
