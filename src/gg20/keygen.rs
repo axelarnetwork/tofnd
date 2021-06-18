@@ -119,6 +119,66 @@ impl Gg20Service {
         Ok(())
     }
 
+    // This function is pub(super) because it is also needed in handle_recover
+    // sanitize arguments of incoming message.
+    // Example:
+    // input for party 'a':
+    //   args.party_uids = [c, b, a]
+    //   args.party_share_counts = [1, 2, 3]
+    //   args.my_party_index = 2
+    //   args.threshold = 1
+    // output for party 'a':
+    //   keygen_init.party_uids = [a, b, c]           <- sorted array
+    //   keygen_init.party_share_counts = [3, 2, 1] . <- sorted with respect to party_uids
+    //   keygen_init.my_party_index = 0 .             <- index inside sorted array
+    //   keygen_init.threshold = 1                    <- same as in input
+    pub(crate) fn keygen_sanitize_args(
+        args: proto::KeygenInit,
+    ) -> Result<KeygenInitSanitized, TofndError> {
+        // convert `u32`s to `usize`s
+        use std::convert::TryFrom;
+        let my_index = usize::try_from(args.my_party_index)?;
+        let threshold = usize::try_from(args.threshold)?;
+        let mut party_share_counts = args
+            .party_share_counts
+            .iter()
+            .map(|i| usize::try_from(*i))
+            .collect::<Result<Vec<usize>, _>>()?;
+
+        // keep backwards compatibility with axelar-core that doesn't use multiple shares
+        if party_share_counts.is_empty() {
+            party_share_counts = vec![1; args.party_uids.len()];
+        }
+
+        // store total number of shares of all parties
+        let total_shares = party_share_counts.iter().sum();
+
+        // assert that uids and party shares are alligned
+        if args.party_uids.len() != party_share_counts.len() {
+            return Err(From::from(format!(
+                "uid vector and share counts vector not alligned: {:?}, {:?}",
+                args.party_uids, party_share_counts,
+            )));
+        }
+
+        // sort uids and share counts
+        // we need to sort uids and shares because the caller (axelar-core) does not
+        // necessarily send the same vectors (in terms of order) to all tofnd instances.
+        let (my_new_index, sorted_uids, sorted_share_counts) =
+            sort_uids_and_shares(my_index, args.party_uids, party_share_counts)?;
+
+        // make tofn validation
+        validate_params(total_shares, threshold, my_index)?;
+
+        Ok(KeygenInitSanitized {
+            new_key_uid: args.new_key_uid,
+            party_uids: sorted_uids,
+            party_share_counts: sorted_share_counts,
+            my_index: my_new_index,
+            threshold,
+        })
+    }
+
     // makes all needed assertions on incoming data, and create structures that are
     // needed to execute the protocol
     async fn handle_keygen_init(
@@ -140,7 +200,7 @@ impl Gg20Service {
         };
 
         // sanitize arguments and reserve key
-        let keygen_init = keygen_sanitize_args(keygen_init)?;
+        let keygen_init = Self::keygen_sanitize_args(keygen_init)?;
         let key_uid_reservation = self
             .shares_kv
             .reserve_key(keygen_init.new_key_uid.clone())
@@ -292,63 +352,6 @@ impl Gg20Service {
 
         Ok(())
     }
-}
-
-// sanitize arguments of incoming message.
-// Example:
-// input for party 'a':
-//   args.party_uids = [c, b, a]
-//   args.party_share_counts = [1, 2, 3]
-//   args.my_party_index = 2
-//   args.threshold = 1
-// output for party 'a':
-//   keygen_init.party_uids = [a, b, c]           <- sorted array
-//   keygen_init.party_share_counts = [3, 2, 1] . <- sorted with respect to party_uids
-//   keygen_init.my_party_index = 0 .             <- index inside sorted array
-//   keygen_init.threshold = 1                    <- same as in input
-fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
-    // convert `u32`s to `usize`s
-    use std::convert::TryFrom;
-    let my_index = usize::try_from(args.my_party_index)?;
-    let threshold = usize::try_from(args.threshold)?;
-    let mut party_share_counts = args
-        .party_share_counts
-        .iter()
-        .map(|i| usize::try_from(*i))
-        .collect::<Result<Vec<usize>, _>>()?;
-
-    // keep backwards compatibility with axelar-core that doesn't use multiple shares
-    if party_share_counts.is_empty() {
-        party_share_counts = vec![1; args.party_uids.len()];
-    }
-
-    // store total number of shares of all parties
-    let total_shares = party_share_counts.iter().sum();
-
-    // assert that uids and party shares are alligned
-    if args.party_uids.len() != party_share_counts.len() {
-        return Err(From::from(format!(
-            "uid vector and share counts vector not alligned: {:?}, {:?}",
-            args.party_uids, party_share_counts,
-        )));
-    }
-
-    // sort uids and share counts
-    // we need to sort uids and shares because the caller (axelar-core) does not
-    // necessarily send the same vectors (in terms of order) to all tofnd instances.
-    let (my_new_index, sorted_uids, sorted_share_counts) =
-        sort_uids_and_shares(my_index, args.party_uids, party_share_counts)?;
-
-    // make tofn validation
-    validate_params(total_shares, threshold, my_index)?;
-
-    Ok(KeygenInitSanitized {
-        new_key_uid: args.new_key_uid,
-        party_uids: sorted_uids,
-        party_share_counts: sorted_share_counts,
-        my_index: my_new_index,
-        threshold,
-    })
 }
 
 // co-sort uids and shares with respect to uids an find new index
