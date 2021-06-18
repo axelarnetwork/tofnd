@@ -7,6 +7,7 @@ use crate::{
 use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
 use std::path::Path;
+use tofn::protocol::gg20::keygen::KeyShareRecoveryInfo;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
@@ -336,6 +337,13 @@ impl Party for TofndParty {
         println!("party [{}] keygen execution complete", my_display_name);
 
         result.unwrap()
+    }
+
+    async fn execute_recover(
+        &mut self,
+        init: proto::KeygenInit,
+        recovery_infos: Vec<KeyShareRecoveryInfo>,
+    ) {
     }
 
     async fn execute_sign(

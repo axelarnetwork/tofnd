@@ -180,6 +180,21 @@ fn check_sign_results(results: Vec<SignResult>, expected_crimes: &[Vec<SignCrime
     }
 }
 
+fn gather_recover_info(results: &[KeygenResult]) -> Vec<Vec<Vec<u8>>> {
+    // gather recover info
+    let mut recover_infos = vec![];
+    for result in results.iter() {
+        let result_data = result.keygen_result_data.clone().unwrap();
+        match result_data {
+            KeygenData(output) => {
+                recover_infos.push(output.share_recovery_infos.clone());
+            }
+            KeygenCriminals(_) => {}
+        }
+    }
+    recover_infos
+}
+
 // async fn restart_one_party(test_case: &TestCase, dir: &Path, restart: bool) {
 async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) {
     let uid_count = test_case.uid_count;
@@ -213,7 +228,7 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
     //     share_count, threshold
     // );
     let new_key_uid = "Gus-test-key";
-    let (mut parties, results) = execute_keygen(
+    let (mut parties, results, keygen_init) = execute_keygen(
         parties,
         &party_uids,
         party_share_counts,
@@ -223,9 +238,11 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
     )
     .await;
 
-    if restart {
+    let recover = true;
+    if restart || recover {
         let shutdown_index = sign_participant_indices[0];
         println!("restart party {}", shutdown_index);
+        let recovered_party_path = parties[shutdown_index].get_db_path();
         // use Option to temporarily transfer ownership of individual parties to a spawn
         let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
         let shutdown_party = party_options[shutdown_index].take().unwrap();
@@ -238,6 +255,12 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
             &test_case.malicious_data,
         );
 
+        if recover {
+            // Sled creates a directory for the database and its configuration
+            info!("removing kv-store of party {:?}", recovered_party_path);
+            std::fs::remove_dir_all(recovered_party_path).unwrap();
+        }
+
         // party already has a mnemonic, so we pass Cmd::Noop
         party_options[shutdown_index] =
             Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, &dir).await);
@@ -248,12 +271,20 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
             .collect::<Vec<_>>();
     }
 
-    let stop = check_keygen_results(results, &expected_keygen_crimes);
+    let stop = check_keygen_results(results.clone(), &expected_keygen_crimes);
     if stop {
         delete_dbs(&parties);
         shutdown_parties(parties).await;
         return;
     }
+
+    let parties = execute_recover(
+        parties,
+        &party_uids,
+        keygen_init,
+        gather_recover_info(&results),
+    )
+    .await;
 
     // println!("sign: participants {:?}", sign_participant_indices);
     let new_sig_uid = "Gus-test-sig";
@@ -422,7 +453,7 @@ async fn execute_keygen(
     new_key_uid: &str,
     threshold: usize,
     expect_timeout: bool,
-) -> (Vec<TofndParty>, Vec<KeygenResult>) {
+) -> (Vec<TofndParty>, Vec<KeygenResult>, proto::KeygenInit) {
     println!("Expecting timeout: [{}]", expect_timeout);
     let share_count = parties.len();
     let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
@@ -460,7 +491,23 @@ async fn execute_keygen(
         parties.push(handle.0);
         results.push(handle.1);
     }
-    (parties, results)
+    let init = proto::KeygenInit {
+        new_key_uid: new_key_uid.to_string(),
+        party_uids: party_uids.to_owned(),
+        party_share_counts: party_share_counts.to_owned(),
+        my_party_index: 0, // TODO: change my_index
+        threshold: i32::try_from(threshold).unwrap(),
+    };
+    (parties, results, init)
+}
+
+async fn execute_recover(
+    parties: Vec<TofndParty>,
+    party_uids: &[String],
+    keygen_init: proto::KeygenInit,
+    recovery_infos: Vec<Vec<Vec<u8>>>,
+) -> Vec<TofndParty> {
+    parties
 }
 
 // need to take ownership of parties `parties` and return it on completion

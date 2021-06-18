@@ -1,6 +1,7 @@
 use crate::proto;
 use proto::message_out::{KeygenResult, SignResult};
 use std::collections::HashMap;
+use tofn::protocol::gg20::keygen::KeyShareRecoveryInfo;
 use tokio::sync::mpsc;
 
 #[tonic::async_trait]
@@ -11,6 +12,11 @@ pub(super) trait Party: Sync + Send {
         channels: SenderReceiver,
         delivery: Deliverer,
     ) -> KeygenResult;
+    async fn execute_recover(
+        &mut self,
+        init: proto::KeygenInit,
+        recovery_infos: Vec<KeyShareRecoveryInfo>,
+    );
     async fn execute_sign(
         &mut self,
         init: proto::SignInit,
