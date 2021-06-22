@@ -88,11 +88,7 @@ impl Gg20Service {
         let keygen_init_sanitized = {
             let keygen_init = match request.keygen_init {
                 Some(keygen_init) => keygen_init,
-                None => {
-                    return Err(From::from(format!(
-                        "missing keygen_init field in recovery request"
-                    )))
-                }
+                None => return Err(From::from("missing keygen_init field in recovery request")),
             };
             Self::keygen_sanitize_args(keygen_init)?
         };

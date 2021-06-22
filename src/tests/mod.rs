@@ -260,11 +260,10 @@ async fn init_party(
     party_options[party_index] =
         Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, &testdir).await);
 
-    let parties = party_options
+    party_options
         .into_iter()
         .map(|o| o.unwrap())
-        .collect::<Vec<_>>();
-    parties
+        .collect::<Vec<_>>()
 }
 
 // delete all kv-stores of all parties and kill servers
@@ -357,7 +356,7 @@ async fn basic_keygen_and_sign(
 ) {
     // don't allow to delete shares without restarting
     if delete_shares && !restart {
-        assert!(false, "cannot delete shares without restarting");
+        panic!("cannot delete shares without restarting");
     }
 
     // set up a key uid

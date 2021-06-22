@@ -159,7 +159,7 @@ impl Gg20Service {
     }
 
     fn send_kv_store_failure(
-        session_id: &String,
+        session_id: &str,
         out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     ) -> Result<(), TofndError> {
         Ok(out_stream.send(Ok(proto::MessageOut::need_recover(session_id.to_owned())))?)
