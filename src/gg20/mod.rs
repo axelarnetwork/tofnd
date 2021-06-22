@@ -120,7 +120,7 @@ pub async fn new_service(
     gg20
 }
 
-// KeygenInitSanitized is aslo needed by recovery module
+// KeygenInitSanitized is also needed by recovery module
 pub(super) struct KeygenInitSanitized {
     pub(super) new_key_uid: String,
     pub(super) party_uids: Vec<String>,
@@ -371,7 +371,7 @@ pub(super) mod tests {
     use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
 
     // append a subfolder name to db path.
-    // this will allows the creaton of two distict kv stores under 'dp_path'
+    // this will allows the creaton of two distict kv stores under 'db_path'
     fn create_db_names(db_path: &str) -> (String, String) {
         (
             db_path.to_owned() + "/shares",
