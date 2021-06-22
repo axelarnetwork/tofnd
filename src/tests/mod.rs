@@ -180,14 +180,14 @@ fn check_sign_results(results: Vec<SignResult>, expected_crimes: &[Vec<SignCrime
     }
 }
 
-fn gather_recover_info(results: &[KeygenResult]) -> Vec<Vec<Vec<u8>>> {
+fn gather_recover_info(results: &[KeygenResult]) -> Vec<Vec<u8>> {
     // gather recover info
     let mut recover_infos = vec![];
     for result in results.iter() {
         let result_data = result.keygen_result_data.clone().unwrap();
         match result_data {
             KeygenData(output) => {
-                recover_infos.push(output.share_recovery_infos.clone());
+                recover_infos.extend(output.share_recovery_infos.clone());
             }
             KeygenCriminals(_) => {}
         }
