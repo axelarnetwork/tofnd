@@ -278,13 +278,7 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
         return;
     }
 
-    let parties = execute_recover(
-        parties,
-        &party_uids,
-        keygen_init,
-        gather_recover_info(&results),
-    )
-    .await;
+    let parties = execute_recover(parties, keygen_init, gather_recover_info(&results)).await;
 
     // println!("sign: participants {:?}", sign_participant_indices);
     let new_sig_uid = "Gus-test-sig";
@@ -503,7 +497,6 @@ async fn execute_keygen(
 
 async fn execute_recover(
     parties: Vec<TofndParty>,
-    party_uids: &[String],
     keygen_init: proto::KeygenInit,
     recovery_infos: Vec<Vec<Vec<u8>>>,
 ) -> Vec<TofndParty> {
