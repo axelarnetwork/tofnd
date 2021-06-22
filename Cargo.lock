@@ -2052,7 +2052,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=recovery-index#381801832db72c1dba2ed07979097228f2eea627"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=main#106ceb59880ff7f9cc1b0658f5d11750f5711c14"
 dependencies = [
  "bincode",
  "ecdsa",
