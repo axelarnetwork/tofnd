@@ -355,17 +355,17 @@ impl Party for TofndParty {
             .unwrap()
             .into_inner();
 
-        // TODO: use types here
-        match response.response {
-            // proto::recover_response::Response::Success => {
-            0 => {
+        // prost way to convert i32 to enums https://github.com/danburkert/prost#enumerations
+        match proto::recover_response::Response::from_i32(response.response) {
+            Some(proto::recover_response::Response::Success) => {
                 println!("Got success from recover")
             }
-            // proto::recover_response::Response::Fail => {
-            1 => {
+            Some(proto::recover_response::Response::Fail) => {
                 println!("Got fail from recover")
             }
-            _ => todo!(),
+            None => {
+                panic!("Invalid recovery response. Could not convert i32 to enum")
+            }
         }
     }
 
