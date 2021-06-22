@@ -496,10 +496,13 @@ async fn execute_keygen(
 }
 
 async fn execute_recover(
-    parties: Vec<TofndParty>,
+    mut parties: Vec<TofndParty>,
     keygen_init: proto::KeygenInit,
-    recovery_infos: Vec<Vec<Vec<u8>>>,
+    recovery_infos: Vec<Vec<u8>>,
 ) -> Vec<TofndParty> {
+    parties[0]
+        .execute_recover(keygen_init, recovery_infos)
+        .await;
     parties
 }
 

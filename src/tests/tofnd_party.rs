@@ -7,7 +7,6 @@ use crate::{
 use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
 use std::path::Path;
-use tofn::protocol::gg20::keygen::KeyShareRecoveryInfo;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
@@ -341,9 +340,33 @@ impl Party for TofndParty {
 
     async fn execute_recover(
         &mut self,
-        init: proto::KeygenInit,
-        recovery_infos: Vec<KeyShareRecoveryInfo>,
+        keygen_init: proto::KeygenInit,
+        share_recovery_infos: Vec<Vec<u8>>,
     ) {
+        let keygen_init = Some(keygen_init);
+        let recover_request = proto::RecoverRequest {
+            keygen_init,
+            share_recovery_infos,
+        };
+        let response = self
+            .client
+            .recover(Request::new(recover_request))
+            .await
+            .unwrap()
+            .into_inner();
+
+        // TODO: use types here
+        match response.response {
+            // proto::recover_response::Response::Success => {
+            0 => {
+                println!("Got success from recover")
+            }
+            // proto::recover_response::Response::Fail => {
+            1 => {
+                println!("Got fail from recover")
+            }
+            _ => todo!(),
+        }
     }
 
     async fn execute_sign(
