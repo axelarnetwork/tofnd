@@ -180,6 +180,8 @@ fn to_crime(behaviour: &Behaviour) -> Crime {
             status: s.clone(),
         },
         DisruptingSender { msg_type: _ } => Crime::DisruptedMessage,
+        R1BadEncryptionKeyProof => Crime::R2BadEncryptionKeyProof,
+        R1BadZkSetupProof => Crime::R2BadZkSetupProof,
         R1BadCommit => Crime::R3BadReveal,
         R2BadShare { victim: v } => Crime::R4FailBadVss { victim: *v },
         R2BadEncryption { victim: v } => Crime::R4FailBadEncryption { victim: *v },
