@@ -434,6 +434,9 @@ impl Party for TofndParty {
                         "party [{}] needs recover for session [{}]",
                         my_display_name, res.session_id
                     );
+                    // sign needs to be aborted immediately
+                    // no worries that we don't wait for enough time, we will not be checking results in this case
+                    delivery.send_timeouts(0);
                     break;
                 }
                 _ => panic!(
