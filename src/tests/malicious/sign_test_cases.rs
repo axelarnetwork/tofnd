@@ -4,7 +4,7 @@ use tofn::protocol::gg20::sign::{
     MsgType, Status,
 };
 
-use super::super::{run_test_cases, TestCase};
+use super::super::{run_restart_test_cases, run_test_cases, TestCase};
 use super::{Disrupt, MaliciousData, MsgType::SignMsgType, Timeout};
 
 use serde::{Deserialize, Serialize}; // we assume bad guys know how to (de)serialize
@@ -14,37 +14,37 @@ use tracing_test::traced_test; // log for tests
 #[traced_test]
 #[tokio::test]
 async fn malicious_general_cases() {
-    run_test_cases(&generate_basic_cases(), false).await;
+    run_test_cases(&generate_basic_cases()).await;
 }
 
 #[traced_test]
 #[tokio::test]
 async fn malicious_general_cases_with_restart() {
-    run_test_cases(&generate_basic_cases(), true).await;
+    run_restart_test_cases(&generate_basic_cases()).await;
 }
 
 #[traced_test]
 #[tokio::test]
 async fn malicious_multiple_per_round_cases() {
-    run_test_cases(&generate_multiple_malicious_per_round(), false).await;
+    run_test_cases(&generate_multiple_malicious_per_round()).await;
 }
 
 #[traced_test]
 #[tokio::test]
 async fn malicious_timeout_cases() {
-    run_test_cases(&timeout_cases(), false).await;
+    run_test_cases(&timeout_cases()).await;
 }
 
 #[traced_test]
 #[tokio::test]
 async fn malicious_disrupt_cases() {
-    run_test_cases(&disrupt_cases(), false).await;
+    run_test_cases(&disrupt_cases()).await;
 }
 
 #[traced_test]
 #[tokio::test]
 async fn malicious_spoof_cases() {
-    run_test_cases(&spoof_cases(), false).await;
+    run_test_cases(&spoof_cases()).await;
 }
 
 // TODO import that from tofn
