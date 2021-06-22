@@ -429,6 +429,13 @@ impl Party for TofndParty {
                     println!("party [{}] sign finished!", my_display_name);
                     break;
                 }
+                proto::message_out::Data::NeedRecover(res) => {
+                    println!(
+                        "party [{}] needs recover for session [{}]",
+                        my_display_name, res.session_id
+                    );
+                    break;
+                }
                 _ => panic!(
                     "party [{}] sign error: bad outgoing message type",
                     my_display_name
