@@ -158,6 +158,7 @@ impl Gg20Service {
         Ok(())
     }
 
+    // send "need recover" message to client
     fn send_kv_store_failure(
         session_id: &str,
         out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
