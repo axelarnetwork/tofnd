@@ -320,7 +320,7 @@ pub(super) mod tests {
     }
 
     #[cfg(not(feature = "malicious"))]
-    pub fn with_db_name(
+    pub async fn with_db_name(
         db_path: &str,
         mnemonic_cmd: super::mnemonic::Cmd,
     ) -> impl proto::gg20_server::Gg20 {
@@ -335,7 +335,7 @@ pub(super) mod tests {
             io: FileIo::new(path),
         };
 
-        gg20.handle_mnemonic(cmd)
+        gg20.handle_mnemonic(mnemonic_cmd)
             .await
             .expect("Unable to complete mnemonic command.");
         gg20
