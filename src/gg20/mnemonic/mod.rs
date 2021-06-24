@@ -35,6 +35,21 @@ pub enum Cmd {
     Export,
 }
 
+// TODO: examine if using strum automates this
+impl Cmd {
+    pub fn from_string(cmd_str: &str) -> Result<Self, TofndError> {
+        let cmd = match cmd_str {
+            "stored" => Self::Noop,
+            "create" => Self::Create,
+            "import" => Self::Import,
+            "update" => Self::Update,
+            "export" => Self::Export,
+            _ => return Err(From::from(format!("No {} cmd was found", cmd_str))),
+        };
+        Ok(cmd)
+    }
+}
+
 /// implement mnemonic-specific functions for Gg20Service
 impl Gg20Service {
     /// async function that handles all mnemonic commands
