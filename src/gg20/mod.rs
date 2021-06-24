@@ -18,7 +18,7 @@ use futures_util::StreamExt;
 use tracing::{error, info, span, warn, Level, Span};
 
 pub mod mnemonic;
-use mnemonic::file_io::FileIo;
+use mnemonic::{file_io::FileIo, Cmd};
 
 const DEFAULT_SHARE_KV_NAME: &str = "shares";
 const DEFAULT_MNEMONIC_KV_NAME: &str = "mnemonic";
@@ -53,15 +53,14 @@ struct Gg20Service {
 }
 
 #[cfg(not(feature = "malicious"))]
-pub async fn new_service() -> impl proto::gg20_server::Gg20 {
+pub async fn new_service(mnemonic_cmd: Cmd) -> impl proto::gg20_server::Gg20 {
     let mut gg20 = Gg20Service {
         shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
         mnemonic_kv: MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME),
         io: FileIo::new(PathBuf::new()),
     };
 
-    // TODO: pass command from caller
-    gg20.handle_mnemonic(mnemonic::Cmd::Create)
+    gg20.handle_mnemonic(mnemonic_cmd)
         .await
         .expect("Unable to complete mnemonic command.");
     gg20
@@ -69,6 +68,7 @@ pub async fn new_service() -> impl proto::gg20_server::Gg20 {
 
 #[cfg(feature = "malicious")]
 pub async fn new_service(
+    mnemonic_cmd: Cmd,
     keygen_behaviour: KeygenBehaviour,
     sign_behaviour: SignBehaviour,
 ) -> impl proto::gg20_server::Gg20 {
@@ -80,8 +80,7 @@ pub async fn new_service(
         sign_behaviour,
     };
 
-    // TODO: pass command from caller
-    gg20.handle_mnemonic(mnemonic::Cmd::Create)
+    gg20.handle_mnemonic(mnemonic_cmd)
         .await
         .expect("Unable to complete mnemonic command.");
     gg20

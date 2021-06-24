@@ -1,8 +1,15 @@
 use crate::TofndError;
 use clap::{App, Arg};
 
+use crate::gg20::mnemonic::Cmd;
+
 #[cfg(not(feature = "malicious"))]
-pub fn parse_args() -> Result<u16, TofndError> {
+pub fn parse_args() -> Result<(u16, Cmd), TofndError> {
+    // TODO: check if this can be automated with strum.
+    // Note that we want lower-case letters as impot, as enum type start with capitals
+    let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
+    let default_mnemonic_cmd = "create";
+
     let matches = App::new("tofnd")
         .about("A threshold signature scheme daemon")
         .arg(
@@ -12,10 +19,20 @@ pub fn parse_args() -> Result<u16, TofndError> {
                 .required(false)
                 .default_value("50051"),
         )
+        .arg(
+            Arg::with_name("mnemonic")
+                .long("mnemonic")
+                .short("m")
+                .required(false)
+                .default_value(default_mnemonic_cmd)
+                .possible_values(&available_mnemonic_cmds),
+        )
         .get_matches();
 
     let port = matches.value_of("port").unwrap().parse::<u16>()?;
-    Ok(port)
+    let mnemonic_cmd = matches.value_of("mnemonic").unwrap().to_string();
+    let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
+    Ok((port, mnemonic_cmd))
 }
 
 #[cfg(feature = "malicious")]
@@ -26,7 +43,12 @@ use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
 use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
 
 #[cfg(feature = "malicious")]
-pub fn parse_args() -> Result<(u16, KeygenBehaviour, SignBehaviour), TofndError> {
+pub fn parse_args() -> Result<(u16, Cmd, KeygenBehaviour, SignBehaviour), TofndError> {
+    // TODO: check if this can be automated with strum.
+    // Note that we want lower-case letters as impot, as enum type start with capitals
+    let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
+    let default_mnemonic_cmd = "create";
+
     // TODO: if we want to read all available behaviours from tofn automatically,
     // we should add strum (https://docs.rs/strum) to iterate over enums and
     // print their names, but it has to be imported in tofn.
@@ -58,6 +80,14 @@ pub fn parse_args() -> Result<(u16, KeygenBehaviour, SignBehaviour), TofndError>
                 .required(false)
                 .default_value("50051"),
         )
+        .arg(
+            Arg::with_name("mnemonic")
+                .long("mnemonic")
+                .short("m")
+                .required(false)
+                .default_value(default_mnemonic_cmd)
+                .possible_values(&available_mnemonic_cmds),
+        )
         .subcommand(
             SubCommand::with_name("malicious")
                 .about("Select malicious behaviour")
@@ -72,6 +102,8 @@ pub fn parse_args() -> Result<(u16, KeygenBehaviour, SignBehaviour), TofndError>
         .get_matches();
 
     let port = matches.value_of("port").unwrap().parse::<u16>()?;
+    let mnemonic_cmd = matches.value_of("mnemonic").unwrap().to_string();
+    let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
 
     // Set a default behaviour
     let mut sign_behaviour = "Honest";
@@ -84,7 +116,7 @@ pub fn parse_args() -> Result<(u16, KeygenBehaviour, SignBehaviour), TofndError>
     // TODO: parse keygen malicious types
     let keygen_behaviour = KeygenBehaviour::R1BadCommit;
     let sign_behaviour = match_string_to_behaviour(sign_behaviour, victim);
-    Ok((port, keygen_behaviour, sign_behaviour))
+    Ok((port, mnemonic_cmd, keygen_behaviour, sign_behaviour))
 }
 
 #[cfg(feature = "malicious")]
