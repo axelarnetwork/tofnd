@@ -20,6 +20,9 @@ use tracing::{error, info, span, warn, Level, Span};
 pub mod mnemonic;
 use mnemonic::file_io::FileIo;
 
+const DEFAULT_SHARE_KV_NAME: &str = "shares";
+const DEFAULT_MNEMONIC_KV_NAME: &str = "mnemonic";
+
 // Struct to hold `tonfd` info. This consists of information we need to
 // store in the KV store that is not relevant to `tofn`
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,8 +55,8 @@ struct Gg20Service {
 #[cfg(not(feature = "malicious"))]
 pub async fn new_service() -> impl proto::gg20_server::Gg20 {
     let mut gg20 = Gg20Service {
-        shares_kv: KeySharesKv::new(),
-        mnemonic_kv: MnemonicKv::new(),
+        shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
+        mnemonic_kv: MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME),
         io: FileIo::new(PathBuf::new()),
     };
 
@@ -70,8 +73,8 @@ pub async fn new_service(
     sign_behaviour: SignBehaviour,
 ) -> impl proto::gg20_server::Gg20 {
     let mut gg20 = Gg20Service {
-        shares_kv: KeySharesKv::new(),
-        mnemonic_kv: MnemonicKv::new(),
+        shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
+        mnemonic_kv: MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME),
         io: FileIo::new(PathBuf::new()),
         keygen_behaviour,
         sign_behaviour,
