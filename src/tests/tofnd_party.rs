@@ -205,7 +205,7 @@ impl TofndParty {
 
         // start service with respect to the current build
         #[cfg(not(feature = "malicious"))]
-        let my_service = gg20::tests::with_db_name(&db_path, mnemonic_cmd);
+        let my_service = gg20::tests::with_db_name(&db_path, mnemonic_cmd).await;
         #[cfg(feature = "malicious")]
         let my_service = gg20::tests::with_db_name_malicious(
             &db_path,

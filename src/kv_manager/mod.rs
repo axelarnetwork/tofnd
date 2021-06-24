@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::Debug;
+use std::path::PathBuf;
 
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{mpsc, oneshot};
@@ -11,6 +12,9 @@ type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 // default value for reserved key
 const DEFAULT_RESERV: &str = "";
 
+// default kv path
+const DEFAULT_KV_PATH: &str = ".kvstore";
+
 // "actor" pattern (KV is the "handle"): https://ryhl.io/blog/actors-with-tokio/
 // see also https://tokio.rs/tokio/tutorial/channels
 #[derive(Clone)]
@@ -21,8 +25,11 @@ impl<V: 'static> Kv<V>
 where
     V: Debug + Send + Sync + Serialize + DeserializeOwned,
 {
-    pub fn new() -> Self {
-        Self::with_db_name(".kvstore")
+    pub fn new(kv_name: &str) -> Self {
+        let kv_path = PathBuf::from(DEFAULT_KV_PATH).join(kv_name);
+        // use to_string_lossy() instead of to_str() to avoid handling Option<&str>
+        let kv_path = kv_path.to_string_lossy().to_string();
+        Self::with_db_name(&kv_path)
     }
     pub fn with_db_name(db_name: &str) -> Self {
         let (sender, rx) = mpsc::unbounded_channel();

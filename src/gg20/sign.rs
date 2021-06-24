@@ -44,11 +44,10 @@ impl Gg20Service {
         let (sign_init, party_info) = self.handle_sign_init(&mut stream_in).await?;
 
         // quit now if I'm not a participant
-        if sign_init
+        if !sign_init
             .participant_indices
             .iter()
-            .find(|&&i| i == party_info.tofnd.index)
-            .is_none()
+            .any(|&i| i == party_info.tofnd.index)
         {
             info!("abort i'm not a participant");
             return Ok(());

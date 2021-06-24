@@ -2,10 +2,14 @@
 
 use std::path::Path;
 
-use super::{InitParty, MaliciousData, TofndParty};
+use super::{InitParty, TofndParty};
+
 use crate::{gg20::mnemonic::Cmd, tests::mock::Party};
 use testdir::testdir;
 use tracing_test::traced_test;
+
+#[cfg(feature = "malicious")]
+use super::MaliciousData;
 
 fn dummy_init_party() -> InitParty {
     InitParty::new(
