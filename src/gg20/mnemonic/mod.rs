@@ -89,9 +89,16 @@ impl Gg20Service {
     }
 
     /// Creates a new entropy and delegates 1) insertion to the kv-store, and 2) write to an "export" file
-    /// Fails if a mnemonic already exists in the kv store
+    /// If a mnemonic already exists in the kv store, fall back to that
     async fn handle_create(&mut self) -> Result<(), TofndError> {
         info!("Creating mnemonic");
+        // if we already have a mnemonic in kv-store, use that instead of creating a new one.
+        // we do this to facilitate "create mnemonic" as the default behaviour
+        if self.mnemonic_kv.get(MNEMONIC_KEY).await.is_ok() {
+            info!("Existing menomonic was found.");
+            return Ok(());
+        }
+
         // create an entropy
         let new_entropy = bip39_new_w24();
         Ok(self.handle_insert(&new_entropy).await?)
@@ -228,8 +235,8 @@ mod tests {
         let mut gg20 = get_service(testdir);
         // first attempt should succeed
         assert!(gg20.handle_create().await.is_ok());
-        // second attempt should fail
-        assert!(gg20.handle_create().await.is_err());
+        // second attempt should also succeed
+        assert!(gg20.handle_create().await.is_ok());
     }
 
     #[traced_test]
