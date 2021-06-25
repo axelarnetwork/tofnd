@@ -37,15 +37,15 @@ async fn main() -> Result<(), TofndError> {
     // TODO read arguments from a config file
     set_up_logs("INFO", atty::is(atty::Stream::Stdout));
 
+    #[cfg(not(feature = "malicious"))]
+    let (port, mnemonic_cmd) = parse_args()?;
+
     // print a warning log if we are running in malicious mode
     #[cfg(feature = "malicious")]
     warn_for_malicious_build();
 
     #[cfg(feature = "malicious")]
-    let (port, keygen_behaviour, sign_behaviour) = parse_args()?;
-
-    #[cfg(not(feature = "malicious"))]
-    let port = parse_args()?;
+    let (port, mnemonic_cmd, keygen_behaviour, sign_behaviour) = parse_args()?;
 
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
@@ -59,9 +59,9 @@ async fn main() -> Result<(), TofndError> {
 
     // TODO: pass cmd from command line
     #[cfg(not(feature = "malicious"))]
-    let my_service = gg20::new_service().await;
+    let my_service = gg20::new_service(mnemonic_cmd).await;
     #[cfg(feature = "malicious")]
-    let my_service = gg20::new_service(keygen_behaviour, sign_behaviour).await;
+    let my_service = gg20::new_service(mnemonic_cmd, keygen_behaviour, sign_behaviour).await;
 
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
