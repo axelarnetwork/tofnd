@@ -96,7 +96,7 @@ impl Gg20Service {
 
             // set up log prefix
             let log_prefix = format!(
-                "sign [{}] party [uid:{}, share:{}/{}]",
+                "[{}] [uid:{}, share:{}/{}]",
                 sign_init.new_sig_uid,
                 party_info.tofnd.party_uids[party_info.tofnd.index],
                 party_info.shares[my_tofnd_subindex].index() + 1,
