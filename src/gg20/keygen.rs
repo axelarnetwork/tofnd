@@ -1,23 +1,25 @@
-use tofn::protocol::gg20::keygen::{validate_params, KeygenOutput};
-use tofn::protocol::gg20::SecretKeyShare;
+use futures_util::StreamExt;
+use tracing::{error, info, span, warn, Level, Span};
 
-use protocol::map_tofnd_to_tofn_idx;
+use tofn::protocol::gg20::keygen::{crimes::Crime, validate_params, KeygenOutput};
 
 use super::{
-    proto, protocol, route_messages, Gg20Service, KeygenInitSanitized, PartyInfo,
-    ProtocolCommunication, TofndInfo,
+    proto::{self, message_out::keygen_result},
+    protocol::{self, map_tofnd_to_tofn_idx},
+    route_messages, Gg20Service, KeygenInitSanitized, PartyInfo, ProtocolCommunication,
 };
 use crate::{kv_manager::KeyReservation, TofndError};
 
-use tokio::sync::oneshot;
 use tonic::Status;
 
 // tonic cruft
-use tokio::sync::{mpsc, oneshot::Receiver};
+use tokio::sync::{
+    mpsc,
+    oneshot::{self, Receiver},
+};
 
-use futures_util::StreamExt;
-
-use tracing::{error, info, span, warn, Level, Span};
+// wrapper type for proto::message_out::new_keygen_result
+pub(super) type KeygenResultData = Result<keygen_result::KeygenOutput, Vec<Vec<Crime>>>;
 
 impl Gg20Service {
     // we wrap the functionality of keygen gRPC here because we can't handle errors
@@ -117,6 +119,66 @@ impl Gg20Service {
         Ok(())
     }
 
+    // This function is pub(super) because it is also needed in handle_recover
+    // sanitize arguments of incoming message.
+    // Example:
+    // input for party 'a':
+    //   args.party_uids = [c, b, a]
+    //   args.party_share_counts = [1, 2, 3]
+    //   args.my_party_index = 2
+    //   args.threshold = 1
+    // output for party 'a':
+    //   keygen_init.party_uids = [a, b, c]           <- sorted array
+    //   keygen_init.party_share_counts = [3, 2, 1] . <- sorted with respect to party_uids
+    //   keygen_init.my_party_index = 0 .             <- index inside sorted array
+    //   keygen_init.threshold = 1                    <- same as in input
+    pub(crate) fn keygen_sanitize_args(
+        args: proto::KeygenInit,
+    ) -> Result<KeygenInitSanitized, TofndError> {
+        // convert `u32`s to `usize`s
+        use std::convert::TryFrom;
+        let my_index = usize::try_from(args.my_party_index)?;
+        let threshold = usize::try_from(args.threshold)?;
+        let mut party_share_counts = args
+            .party_share_counts
+            .iter()
+            .map(|i| usize::try_from(*i))
+            .collect::<Result<Vec<usize>, _>>()?;
+
+        // keep backwards compatibility with axelar-core that doesn't use multiple shares
+        if party_share_counts.is_empty() {
+            party_share_counts = vec![1; args.party_uids.len()];
+        }
+
+        // store total number of shares of all parties
+        let total_shares = party_share_counts.iter().sum();
+
+        // assert that uids and party shares are alligned
+        if args.party_uids.len() != party_share_counts.len() {
+            return Err(From::from(format!(
+                "uid vector and share counts vector not alligned: {:?}, {:?}",
+                args.party_uids, party_share_counts,
+            )));
+        }
+
+        // sort uids and share counts
+        // we need to sort uids and shares because the caller (axelar-core) does not
+        // necessarily send the same vectors (in terms of order) to all tofnd instances.
+        let (my_new_index, sorted_uids, sorted_share_counts) =
+            sort_uids_and_shares(my_index, args.party_uids, party_share_counts)?;
+
+        // make tofn validation
+        validate_params(total_shares, threshold, my_index)?;
+
+        Ok(KeygenInitSanitized {
+            new_key_uid: args.new_key_uid,
+            party_uids: sorted_uids,
+            party_share_counts: sorted_share_counts,
+            my_index: my_new_index,
+            threshold,
+        })
+    }
+
     // makes all needed assertions on incoming data, and create structures that are
     // needed to execute the protocol
     async fn handle_keygen_init(
@@ -138,7 +200,7 @@ impl Gg20Service {
         };
 
         // sanitize arguments and reserve key
-        let keygen_init = keygen_sanitize_args(keygen_init)?;
+        let keygen_init = Self::keygen_sanitize_args(keygen_init)?;
         let key_uid_reservation = self
             .shares_kv
             .reserve_key(keygen_init.new_key_uid.clone())
@@ -228,10 +290,18 @@ impl Gg20Service {
         let party_uids = keygen_init.party_uids.clone();
         let party_share_counts = keygen_init.party_share_counts.clone();
 
+        // create a hashmap to store pub keys of all shares to make it easier to assert uniqueness
+        let mut pub_key_map = std::collections::HashMap::new();
+
         let mut secret_key_shares = vec![];
         for keygen_output in keygen_outputs {
             match keygen_output {
-                Ok(secret_key_share) => secret_key_shares.push(secret_key_share),
+                Ok(secret_key_share) => {
+                    let pub_key = secret_key_share.group.pubkey_bytes();
+                    secret_key_shares.push(secret_key_share);
+                    // hashmap [pub key -> count] with default value 0
+                    *pub_key_map.entry(pub_key).or_insert(0) += 1;
+                }
                 Err(crimes) => {
                     // send crimes and exit
                     stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
@@ -244,11 +314,23 @@ impl Gg20Service {
             }
         }
 
-        // get public key and put all secret key shares inside kv store
-        let secret_key_share = secret_key_shares[0].clone();
+        // check that all shares returned the same public key
+        if pub_key_map.len() != 1 {
+            return Err(From::from(format!(
+                "Shares returned different public key {:?}",
+                pub_key_map
+            )));
+        }
+        let pub_key = pub_key_map.keys().last().unwrap().to_owned();
+
+        // retrieve recovery info from all shares
+        let mut share_recovery_infos = vec![];
+        for secret_key_share in secret_key_shares.iter() {
+            share_recovery_infos.push(bincode::serialize(&secret_key_share.recovery_info())?);
+        }
 
         // combine all keygen threads responses to a single struct
-        let kv_data = get_party_info(
+        let kv_data = PartyInfo::get_party_info(
             secret_key_shares,
             keygen_init.party_uids,
             keygen_init.party_share_counts,
@@ -262,68 +344,14 @@ impl Gg20Service {
         stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
             &party_uids,
             &party_share_counts,
-            Ok(secret_key_share),
+            Ok(keygen_result::KeygenOutput {
+                pub_key,
+                share_recovery_infos,
+            }),
         )))?;
 
         Ok(())
     }
-}
-
-// sanitize arguments of incoming message.
-// Example:
-// input for party 'a':
-//   args.party_uids = [c, b, a]
-//   args.party_share_counts = [1, 2, 3]
-//   args.my_party_index = 2
-//   args.threshold = 1
-// output for party 'a':
-//   keygen_init.party_uids = [a, b, c]           <- sorted array
-//   keygen_init.party_share_counts = [3, 2, 1] . <- sorted with respect to party_uids
-//   keygen_init.my_party_index = 0 .             <- index inside sorted array
-//   keygen_init.threshold = 1                    <- same as in input
-fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized, TofndError> {
-    // convert `u32`s to `usize`s
-    use std::convert::TryFrom;
-    let my_index = usize::try_from(args.my_party_index)?;
-    let threshold = usize::try_from(args.threshold)?;
-    let mut party_share_counts = args
-        .party_share_counts
-        .iter()
-        .map(|i| usize::try_from(*i))
-        .collect::<Result<Vec<usize>, _>>()?;
-
-    // keep backwards compatibility with axelar-core that doesn't use multiple shares
-    if party_share_counts.is_empty() {
-        party_share_counts = vec![1; args.party_uids.len()];
-    }
-
-    // store total number of shares of all parties
-    let total_shares = party_share_counts.iter().sum();
-
-    // assert that uids and party shares are alligned
-    if args.party_uids.len() != party_share_counts.len() {
-        return Err(From::from(format!(
-            "uid vector and share counts vector not alligned: {:?}, {:?}",
-            args.party_uids, party_share_counts,
-        )));
-    }
-
-    // sort uids and share counts
-    // we need to sort uids and shares because the caller (axelar-core) does not
-    // necessarily send the same vectors (in terms of order) to all tofnd instances.
-    let (my_new_index, sorted_uids, sorted_share_counts) =
-        sort_uids_and_shares(my_index, args.party_uids, party_share_counts)?;
-
-    // make tofn validation
-    validate_params(total_shares, threshold, my_index)?;
-
-    Ok(KeygenInitSanitized {
-        new_key_uid: args.new_key_uid,
-        party_uids: sorted_uids,
-        party_share_counts: sorted_share_counts,
-        my_index: my_new_index,
-        threshold,
-    })
 }
 
 // co-sort uids and shares with respect to uids an find new index
@@ -368,34 +396,6 @@ async fn aggregate_keygen_outputs(
         keygen_outputs.push(res);
     }
     Ok(keygen_outputs)
-}
-
-// Get KeyGroup and KeyShare from tofn to create PartyInfo
-fn get_party_info(
-    secret_key_shares: Vec<SecretKeyShare>,
-    uids: Vec<String>,
-    share_counts: Vec<usize>,
-    tofnd_index: usize,
-) -> PartyInfo {
-    // grap the first share to acquire common data
-    let s = secret_key_shares[0].clone();
-    let common = s.group;
-    // aggregate share data into a vector
-    let mut shares = Vec::new();
-    for share in secret_key_shares {
-        shares.push(share.share);
-    }
-    // add tofnd data
-    let tofnd = TofndInfo {
-        party_uids: uids,
-        share_counts,
-        index: tofnd_index,
-    };
-    PartyInfo {
-        common,
-        shares,
-        tofnd,
-    }
 }
 
 #[cfg(test)]
