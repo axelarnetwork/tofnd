@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use tofn::protocol::gg20::{KeyGroup, KeyShare, MessageDigest, SecretKeyShare};
+use tofn::protocol::gg20::{GroupPublicInfo, MessageDigest, SecretKeyShare, ShareSecretInfo};
 
 use super::proto;
 use crate::kv_manager::Kv;
@@ -23,6 +23,8 @@ use mnemonic::{file_io::FileIo, Cmd};
 const DEFAULT_SHARE_KV_NAME: &str = "shares";
 const DEFAULT_MNEMONIC_KV_NAME: &str = "mnemonic";
 
+mod recover;
+
 // Struct to hold `tonfd` info. This consists of information we need to
 // store in the KV store that is not relevant to `tofn`
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,10 +36,42 @@ pub struct TofndInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartyInfo {
-    pub common: KeyGroup,
-    pub shares: Vec<KeyShare>,
+    pub common: GroupPublicInfo,
+    pub shares: Vec<ShareSecretInfo>,
     pub tofnd: TofndInfo,
 }
+
+impl PartyInfo {
+    // Get GroupPublicInfo and ShareSecretInfo from tofn to create PartyInfo
+    // Also needed in recovery
+    pub(crate) fn get_party_info(
+        secret_key_shares: Vec<SecretKeyShare>,
+        uids: Vec<String>,
+        share_counts: Vec<usize>,
+        tofnd_index: usize,
+    ) -> Self {
+        // grap the first share to acquire common data
+        let s = secret_key_shares[0].clone();
+        let common = s.group;
+        // aggregate share data into a vector
+        let mut shares = Vec::new();
+        for share in secret_key_shares {
+            shares.push(share.share);
+        }
+        // add tofnd data
+        let tofnd = TofndInfo {
+            party_uids: uids,
+            share_counts,
+            index: tofnd_index,
+        };
+        PartyInfo {
+            common,
+            shares,
+            tofnd,
+        }
+    }
+}
+
 // TODO don't store party_uids in this daemon!
 type KeySharesKv = Kv<PartyInfo>;
 type MnemonicKv = Kv<mnemonic::Entropy>;
@@ -86,16 +120,17 @@ pub async fn new_service(
     gg20
 }
 
-pub struct KeygenInitSanitized {
-    new_key_uid: String,
-    party_uids: Vec<String>,
-    party_share_counts: Vec<usize>,
-    my_index: usize,
-    threshold: usize,
+// KeygenInitSanitized is also needed by recovery module
+pub(super) struct KeygenInitSanitized {
+    pub(super) new_key_uid: String,
+    pub(super) party_uids: Vec<String>,
+    pub(super) party_share_counts: Vec<usize>,
+    pub(super) my_index: usize,
+    pub(super) threshold: usize,
 }
 
 impl KeygenInitSanitized {
-    pub fn my_shares_count(&self) -> usize {
+    fn my_shares_count(&self) -> usize {
         self.party_share_counts[self.my_index] as usize
     }
 }
@@ -113,6 +148,32 @@ impl proto::gg20_server::Gg20 for Gg20Service {
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
     type KeygenStream = mpsc::UnboundedReceiver<Result<proto::MessageOut, Status>>;
     type SignStream = Self::KeygenStream;
+
+    async fn recover(
+        &self,
+        request: tonic::Request<proto::RecoverRequest>,
+    ) -> Result<Response<proto::RecoverResponse>, Status> {
+        let request = request.into_inner();
+
+        let mut gg20 = self.clone();
+        let response = gg20.handle_recover(request).await;
+
+        let response = match response {
+            Ok(()) => {
+                info!("Recovery completed successfully!");
+                proto::recover_response::Response::Success
+            }
+            Err(err) => {
+                error!("Unable to complete recovery: {}", err);
+                proto::recover_response::Response::Fail
+            }
+        };
+
+        Ok(Response::new(proto::RecoverResponse {
+            // the prost way to convert enums to i32 https://github.com/danburkert/prost#enumerations
+            response: response as i32,
+        }))
+    }
 
     async fn keygen(
         &self,
@@ -160,7 +221,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
-use tofn::protocol::gg20::keygen::{Keygen, PrfSecretKey};
+use tofn::protocol::gg20::keygen::{Keygen, SecretRecoveryKey};
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::BadSign;
@@ -177,7 +238,7 @@ impl Gg20Service {
         party_share_counts: usize,
         threshold: usize,
         my_index: usize,
-        seed: &PrfSecretKey,
+        seed: &SecretRecoveryKey,
         nonce: &[u8],
     ) -> Result<Keygen, KeygenErr> {
         Keygen::new(party_share_counts, threshold, my_index, &seed, &nonce)
@@ -190,7 +251,7 @@ impl Gg20Service {
         party_share_counts: usize,
         threshold: usize,
         my_index: usize,
-        seed: &PrfSecretKey,
+        seed: &SecretRecoveryKey,
         nonce: &[u8],
     ) -> Result<Keygen, KeygenErr> {
         let mut k = Keygen::new(party_share_counts, threshold, my_index, &seed, &nonce)?;
@@ -310,7 +371,7 @@ pub(super) mod tests {
     use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
 
     // append a subfolder name to db path.
-    // this will allows the creaton of two distict kv stores under 'dp_path'
+    // this will allows the creaton of two distict kv stores under 'db_path'
     fn create_db_names(db_path: &str) -> (String, String) {
         (
             db_path.to_owned() + "/shares",
@@ -359,7 +420,6 @@ pub(super) mod tests {
             sign_behaviour,
         };
 
-        // TODO:: pass cmd from caller
         gg20.handle_mnemonic(mnemonic_cmd)
             .await
             .expect("Unable to complete mnemonic command.");

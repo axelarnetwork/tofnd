@@ -8,7 +8,7 @@
 // 3. src/gg20/mod::with_db_name
 
 use std::convert::TryFrom;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use testdir::testdir;
 
 mod mock;
@@ -29,7 +29,7 @@ use tracing::info;
 use crate::proto::{
     self,
     message_out::{
-        keygen_result::KeygenResultData::{Criminals as KeygenCriminals, PubKey},
+        keygen_result::KeygenResultData::{Criminals as KeygenCriminals, Data as KeygenData},
         sign_result::SignResultData::{Criminals as SignCriminals, Signature},
         KeygenResult, SignResult,
     },
@@ -55,24 +55,57 @@ struct TestCase {
     malicious_data: MaliciousData,
 }
 
-async fn run_test_cases(test_cases: &[TestCase], restart: bool) {
+async fn run_test_cases(test_cases: &[TestCase]) {
+    let restart = false;
+    let delete_shares = false;
     let dir = testdir!();
     for test_case in test_cases {
-        basic_keygen_and_sign(test_case, &dir, restart).await;
+        basic_keygen_and_sign(test_case, &dir, restart, delete_shares).await;
+    }
+}
+
+async fn run_restart_test_cases(test_cases: &[TestCase]) {
+    let restart = true;
+    let delete_shares = false;
+    let dir = testdir!();
+    for test_case in test_cases {
+        basic_keygen_and_sign(test_case, &dir, restart, delete_shares).await;
+    }
+}
+
+async fn run_restart_recover_test_cases(test_cases: &[TestCase]) {
+    let restart = true;
+    let delete_shares = true;
+    let dir = testdir!();
+    for test_case in test_cases {
+        basic_keygen_and_sign(test_case, &dir, restart, delete_shares).await;
     }
 }
 
 // Horrible code duplication indeed. Don't think we should spend time here though
 // because this will be deleted when axelar-core accommodates crimes
-fn check_keygen_results(results: Vec<KeygenResult>, expected_crimes: &[Vec<KeygenCrime>]) -> bool {
+fn successful_keygen_results(
+    results: Vec<KeygenResult>,
+    expected_crimes: &[Vec<KeygenCrime>],
+) -> bool {
     // get the first non-empty result. We can't simply take results[0] because some behaviours
     // don't return results and we pad them with `None`s
     let first = results.iter().find(|r| r.keygen_result_data.is_some());
 
+    let mut pub_keys = vec![];
+    for result in results.iter() {
+        let res = match result.keygen_result_data.clone().unwrap() {
+            KeygenData(data) => data.pub_key,
+            KeygenCriminals(_) => continue,
+        };
+        pub_keys.push(res);
+    }
+
     // else we have at least one result
-    let first = first.unwrap();
+    let first = first.unwrap().clone();
     match first.keygen_result_data {
-        Some(PubKey(_)) => {
+        Some(KeygenData(data)) => {
+            let first_pub_key = &data.pub_key;
             assert_eq!(
                 expected_crimes
                     .iter()
@@ -81,10 +114,10 @@ fn check_keygen_results(results: Vec<KeygenResult>, expected_crimes: &[Vec<Keyge
                 0,
                 "Expected crimes but didn't discover any",
             );
-            for (i, result) in results.iter().enumerate() {
+            for (i, pub_key) in pub_keys.iter().enumerate() {
                 assert_eq!(
-                    first, result,
-                    "party {} didn't produce the expected result",
+                    first_pub_key, pub_key,
+                    "party {} didn't produce the expected pub_key",
                     i
                 );
             }
@@ -108,13 +141,13 @@ fn check_keygen_results(results: Vec<KeygenResult>, expected_crimes: &[Vec<Keyge
                 assert_eq!(expected_criminal.index, criminal_index);
             }
             println!("criminals: {:?}", actual_criminals.criminals);
-            return true;
+            return false;
         }
         None => {
             panic!("Result was None");
         }
     }
-    false
+    true
 }
 
 // Horrible code duplication indeed. Don't think we should spend time here though
@@ -170,40 +203,109 @@ fn check_sign_results(results: Vec<SignResult>, expected_crimes: &[Vec<SignCrime
     }
 }
 
-// async fn restart_one_party(test_case: &TestCase, dir: &Path, restart: bool) {
-async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) {
-    let uid_count = test_case.uid_count;
+fn gather_recover_info(results: &[KeygenResult]) -> Vec<Vec<u8>> {
+    // gather recover info
+    let mut recover_infos = vec![];
+    for result in results.iter() {
+        let result_data = result.keygen_result_data.clone().unwrap();
+        match result_data {
+            KeygenData(output) => {
+                recover_infos.extend(output.share_recovery_infos.clone());
+            }
+            KeygenCriminals(_) => {}
+        }
+    }
+    recover_infos
+}
+
+// shutdown i-th party
+// returns i-th party's db path and a vec of Option<TofndParty> that contain all parties (including i-th)
+async fn shutdown_party(
+    parties: Vec<TofndParty>,
+    party_index: usize,
+) -> (Vec<Option<TofndParty>>, PathBuf) {
+    println!("shutdown party {}", party_index);
+    let party_db_path = parties[party_index].get_db_path();
+    // use Option to temporarily transfer ownership of individual parties to a spawn
+    let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
+    let shutdown_party = party_options[party_index].take().unwrap();
+    shutdown_party.shutdown().await;
+    (party_options, party_db_path)
+}
+
+// deletes the share kv-store of a party's db path
+fn delete_party_shares(mut party_db_path: PathBuf) {
+    party_db_path.push("shares");
+    // Sled creates a directory for the database and its configuration
+    info!("removing shares kv-store of party {:?}", party_db_path);
+    std::fs::remove_dir_all(party_db_path).unwrap();
+}
+
+// initailizes i-th party
+// pass malicious data if we are running in malicious mode
+async fn init_party(
+    mut party_options: Vec<Option<TofndParty>>,
+    party_index: usize,
+    testdir: &Path,
+    #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
+) -> Vec<TofndParty> {
+    // initialize restarted party with its previous behaviour if we are in malicious mode
+    let init_party = InitParty::new(
+        party_index,
+        #[cfg(feature = "malicious")]
+        malicious_data,
+    );
+
+    // assume party already has a mnemonic, so we pass Cmd::Noop
+    party_options[party_index] =
+        Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, &testdir).await);
+
+    party_options
+        .into_iter()
+        .map(|o| o.unwrap())
+        .collect::<Vec<_>>()
+}
+
+// delete all kv-stores of all parties and kill servers
+async fn clean_up(parties: Vec<TofndParty>) {
+    delete_dbs(&parties);
+    shutdown_parties(parties).await;
+}
+
+// create parties that will participate in keygen/sign from testcase args
+async fn init_parties_from_test_case(
+    test_case: &TestCase,
+    dir: &Path,
+) -> (Vec<TofndParty>, Vec<String>) {
+    #[cfg(not(feature = "malicious"))]
+    let init_parties_t = InitParties::new(test_case.uid_count);
+    #[cfg(feature = "malicious")]
+    let init_parties_t = InitParties::new(test_case.uid_count, &test_case.malicious_data);
+    init_parties(&init_parties_t, &dir).await
+}
+
+// keygen wrapper
+async fn basic_keygen(
+    test_case: &TestCase,
+    parties: Vec<TofndParty>,
+    party_uids: Vec<String>,
+    new_key_uid: &str,
+) -> (Vec<TofndParty>, proto::KeygenInit, Vec<KeygenResult>, bool) {
     let party_share_counts = &test_case.share_counts;
     let threshold = test_case.threshold;
-    let sign_participant_indices = &test_case.signer_indices;
     let expected_keygen_crimes = &test_case.expected_keygen_crimes;
-    let expected_sign_crimes = &test_case.expected_sign_crimes;
 
     info!(
         "======= Expected keygen crimes: {:?}",
         expected_keygen_crimes
     );
-    info!("======= Expected sign crimes: {:?}", expected_sign_crimes);
-
-    #[cfg(not(feature = "malicious"))]
-    let init_parties_t = InitParties::new(uid_count);
-    #[cfg(feature = "malicious")]
-    let init_parties_t = InitParties::new(uid_count, &test_case.malicious_data);
-
-    let (parties, party_uids) = init_parties(&init_parties_t, &dir).await;
 
     #[cfg(not(feature = "malicious"))]
     let expect_timeout = false;
     #[cfg(feature = "malicious")]
-    let expect_timeout = test_case.malicious_data.keygen_data.timeout.is_some()
-        || test_case.malicious_data.sign_data.timeout.is_some();
+    let expect_timeout = test_case.malicious_data.keygen_data.timeout.is_some();
 
-    // println!(
-    //     "keygen: share_count:{}, threshold: {}",
-    //     share_count, threshold
-    // );
-    let new_key_uid = "Gus-test-key";
-    let (mut parties, results) = execute_keygen(
+    let (parties, results, keygen_init) = execute_keygen(
         parties,
         &party_uids,
         party_share_counts,
@@ -213,55 +315,116 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool) 
     )
     .await;
 
-    if restart {
-        let shutdown_index = sign_participant_indices[0];
-        println!("restart party {}", shutdown_index);
-        // use Option to temporarily transfer ownership of individual parties to a spawn
-        let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
-        let shutdown_party = party_options[shutdown_index].take().unwrap();
-        shutdown_party.shutdown().await;
+    let success = successful_keygen_results(results.clone(), &expected_keygen_crimes);
+    (parties, keygen_init, results, success)
+}
 
-        // initialize restarted party with behaviour when we are in malicious mode
-        let init_party = InitParty::new(
-            shutdown_index,
-            #[cfg(feature = "malicious")]
-            &test_case.malicious_data,
-        );
+// restart i-th and optionally delete its shares kv-store
+async fn restart_party(
+    dir: &Path,
+    parties: Vec<TofndParty>,
+    party_index: usize,
+    delete_shares: bool,
+    #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
+) -> Vec<TofndParty> {
+    // shutdown party with party_index
+    let (party_options, shutdown_db_path) = shutdown_party(parties, party_index).await;
 
-        // party already has a mnemonic, so we pass Cmd::Noop
-        party_options[shutdown_index] =
-            Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, &dir).await);
-
-        parties = party_options
-            .into_iter()
-            .map(|o| o.unwrap())
-            .collect::<Vec<_>>();
+    if delete_shares {
+        // delete party's shares
+        delete_party_shares(shutdown_db_path);
     }
 
-    let stop = check_keygen_results(results, &expected_keygen_crimes);
-    if stop {
-        delete_dbs(&parties);
-        shutdown_parties(parties).await;
+    // reinit party with
+    let parties = init_party(
+        party_options,
+        party_index,
+        dir,
+        #[cfg(feature = "malicious")]
+        &malicious_data,
+    )
+    .await;
+    parties
+}
+
+// main testing function
+async fn basic_keygen_and_sign(
+    test_case: &TestCase,
+    dir: &Path,
+    restart: bool,
+    delete_shares: bool,
+) {
+    // don't allow to delete shares without restarting
+    if delete_shares && !restart {
+        panic!("cannot delete shares without restarting");
+    }
+
+    // set up a key uid
+    let new_key_uid = "Gus-test-key";
+
+    // use test case params to create parties
+    let (parties, party_uids) = init_parties_from_test_case(test_case, dir).await;
+
+    // execute keygen and return everything that will be needed later on
+    let (parties, keygen_init, keygen_results, success) =
+        basic_keygen(test_case, parties, party_uids.clone(), new_key_uid).await;
+
+    if !success {
+        clean_up(parties).await;
         return;
     }
 
-    // println!("sign: participants {:?}", sign_participant_indices);
+    // restart party if restart is enabled and return new parties' set
+    let parties = match restart {
+        true => {
+            restart_party(
+                &dir,
+                parties,
+                test_case.signer_indices[0],
+                delete_shares,
+                #[cfg(feature = "malicious")]
+                &test_case.malicious_data,
+            )
+            .await
+        }
+        false => parties,
+    };
+
+    // delete party's if recover is enabled and return new parties' set
+    let parties = match delete_shares {
+        true => {
+            execute_recover(
+                parties,
+                test_case.signer_indices[0],
+                keygen_init,
+                gather_recover_info(&keygen_results),
+            )
+            .await
+        }
+        false => parties,
+    };
+
+    let expected_sign_crimes = &test_case.expected_sign_crimes;
+    #[cfg(not(feature = "malicious"))]
+    let expect_timeout = false;
+    #[cfg(feature = "malicious")]
+    let expect_timeout = test_case.malicious_data.sign_data.timeout.is_some();
+
+    // execute sign
     let new_sig_uid = "Gus-test-sig";
     let (parties, results) = execute_sign(
         parties,
         &party_uids,
-        sign_participant_indices,
+        &test_case.signer_indices,
         new_key_uid,
         new_sig_uid,
         &MSG_TO_SIGN,
         expect_timeout,
     )
     .await;
-
-    delete_dbs(&parties);
-    shutdown_parties(parties).await;
-
     check_sign_results(results, &expected_sign_crimes);
+
+    clean_up(parties).await;
 }
 
 // struct to pass in TofndParty constructor.
@@ -412,7 +575,7 @@ async fn execute_keygen(
     new_key_uid: &str,
     threshold: usize,
     expect_timeout: bool,
-) -> (Vec<TofndParty>, Vec<KeygenResult>) {
+) -> (Vec<TofndParty>, Vec<KeygenResult>, proto::KeygenInit) {
     println!("Expecting timeout: [{}]", expect_timeout);
     let share_count = parties.len();
     let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
@@ -450,19 +613,38 @@ async fn execute_keygen(
         parties.push(handle.0);
         results.push(handle.1);
     }
-    (parties, results)
+    let init = proto::KeygenInit {
+        new_key_uid: new_key_uid.to_string(),
+        party_uids: party_uids.to_owned(),
+        party_share_counts: party_share_counts.to_owned(),
+        my_party_index: 0, // TODO: change my_index
+        threshold: i32::try_from(threshold).unwrap(),
+    };
+    (parties, results, init)
+}
+
+async fn execute_recover(
+    mut parties: Vec<TofndParty>,
+    recover_party_index: usize,
+    keygen_init: proto::KeygenInit,
+    recovery_infos: Vec<Vec<u8>>,
+) -> Vec<TofndParty> {
+    parties[recover_party_index]
+        .execute_recover(keygen_init, recovery_infos)
+        .await;
+    parties
 }
 
 // need to take ownership of parties `parties` and return it on completion
 async fn execute_sign(
-    parties: Vec<impl Party + 'static>,
+    parties: Vec<TofndParty>,
     party_uids: &[String],
     sign_participant_indices: &[usize],
     key_uid: &str,
     new_sig_uid: &str,
     msg_to_sign: &[u8],
     expect_timeout: bool,
-) -> (Vec<impl Party>, Vec<proto::message_out::SignResult>) {
+) -> (Vec<TofndParty>, Vec<proto::message_out::SignResult>) {
     println!("Expecting timeout: [{}]", expect_timeout);
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
