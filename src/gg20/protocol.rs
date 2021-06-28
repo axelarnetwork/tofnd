@@ -48,6 +48,10 @@ pub(super) async fn execute_protocol(
 ) -> Result<(), TofndError> {
     let mut round = 0;
 
+    // each share broadcasts their p2ps and we don't send our p2ps to ourselves, so we expect n(n-1) p2ps in total
+    let total_num_of_shares = party_share_counts.iter().fold(0, |acc, s| acc + *s);
+    let total_round_p2p_msgs = total_num_of_shares * (total_num_of_shares - 1);
+
     // protocol_info macro is used to create a temporary span.
     // We need temp spans because logs are getting scrambled when async code is
     // executed inside a span, so we create a temp span and discard it immediately after logging.
@@ -84,15 +88,22 @@ pub(super) async fn execute_protocol(
         // send outgoing messages
         let bcast = protocol.get_bcast_out();
         if let Some(bcast) = bcast {
-            protocol_info!("out bcast");
+            protocol_info!("generating out bcast");
             chan.sender.send(Ok(proto::MessageOut::new_bcast(bcast)))?;
         }
         let p2ps = protocol.get_p2p_out();
         if let Some(p2ps) = p2ps {
+            let mut p2p_msg_count = 1;
             for (i, p2p) in p2ps.iter().enumerate() {
                 if let Some(p2p) = p2p {
                     let (tofnd_idx, _) = map_tofn_to_tofnd_idx(i, party_share_counts)?;
-                    protocol_info!("out p2p to [{}]", party_uids[tofnd_idx]);
+                    protocol_info!(
+                        "out p2p to [{}] ({}/{})",
+                        party_uids[tofnd_idx],
+                        p2p_msg_count,
+                        p2ps.len() - 1
+                    );
+                    p2p_msg_count += 1;
                     chan.sender
                         .send(Ok(proto::MessageOut::new_p2p(&party_uids[tofnd_idx], &p2p)))?;
                 }
@@ -100,7 +111,9 @@ pub(super) async fn execute_protocol(
         }
 
         // collect incoming messages
-        protocol_info!("wait for incoming messages");
+        protocol_info!("waiting for incoming messages");
+        let mut p2p_msg_count = 0;
+        let mut bcast_msg_count = 0;
         while protocol.expecting_more_msgs_this_round() {
             let traffic = chan.receiver.next().await.ok_or(format!(
                 "{}: stream closed by client before protocol has completed",
@@ -121,6 +134,22 @@ pub(super) async fn execute_protocol(
             let first_tofn_idx = map_tofnd_to_tofn_idx(tofnd_idx, 0, party_share_counts);
             let last_tofn_idx = first_tofn_idx + share_count - 1; // range is inclusive, so we have to subtract one
 
+            if traffic.is_broadcast {
+                bcast_msg_count += 1;
+                protocol_info!(
+                    "got incoming bcast message {}/{}",
+                    bcast_msg_count,
+                    total_num_of_shares
+                );
+            } else {
+                p2p_msg_count += 1;
+                protocol_info!(
+                    "got incoming p2p message {}/{}",
+                    p2p_msg_count,
+                    total_round_p2p_msgs
+                );
+            }
+
             // set message and declare sender's share indices
             protocol.set_msg_in(
                 &traffic.payload,
@@ -130,7 +159,8 @@ pub(super) async fn execute_protocol(
                 },
             );
         }
-        protocol_info!("got all incoming messages");
+        protocol_info!("got all {} incoming bcast messages", bcast_msg_count);
+        protocol_info!("got all {} incoming p2p messages", p2p_msg_count);
         protocol_info!("end");
     }
     protocol_info!("end");
