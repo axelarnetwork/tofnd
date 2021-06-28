@@ -338,6 +338,37 @@ impl Party for TofndParty {
         result.unwrap()
     }
 
+    async fn execute_recover(
+        &mut self,
+        keygen_init: proto::KeygenInit,
+        share_recovery_infos: Vec<Vec<u8>>,
+    ) {
+        let keygen_init = Some(keygen_init);
+        let recover_request = proto::RecoverRequest {
+            keygen_init,
+            share_recovery_infos,
+        };
+        let response = self
+            .client
+            .recover(Request::new(recover_request))
+            .await
+            .unwrap()
+            .into_inner();
+
+        // prost way to convert i32 to enums https://github.com/danburkert/prost#enumerations
+        match proto::recover_response::Response::from_i32(response.response) {
+            Some(proto::recover_response::Response::Success) => {
+                println!("Got success from recover")
+            }
+            Some(proto::recover_response::Response::Fail) => {
+                println!("Got fail from recover")
+            }
+            None => {
+                panic!("Invalid recovery response. Could not convert i32 to enum")
+            }
+        }
+    }
+
     async fn execute_sign(
         &mut self,
         init: proto::SignInit,
@@ -396,6 +427,16 @@ impl Party for TofndParty {
                 proto::message_out::Data::SignResult(res) => {
                     result = Some(res.clone());
                     println!("party [{}] sign finished!", my_display_name);
+                    break;
+                }
+                proto::message_out::Data::NeedRecover(res) => {
+                    println!(
+                        "party [{}] needs recover for session [{}]",
+                        my_display_name, res.session_id
+                    );
+                    // when recovery is needed, sign is canceled. We abort the protocol manualy instead of waiting parties to time out
+                    // no worries that we don't wait for enough time, we will not be checking criminals in this case
+                    delivery.send_timeouts(0);
                     break;
                 }
                 _ => panic!(

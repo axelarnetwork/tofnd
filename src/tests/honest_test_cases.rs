@@ -1,5 +1,5 @@
-use crate::tests::run_test_cases;
 use crate::tests::TestCase;
+use crate::tests::{run_restart_recover_test_cases, run_restart_test_cases, run_test_cases};
 
 #[cfg(feature = "malicious")]
 use super::malicious::MaliciousData;
@@ -9,13 +9,19 @@ use tracing_test::traced_test; // logs for tests
 #[traced_test]
 #[tokio::test]
 async fn honest_test_cases() {
-    run_test_cases(&generate_honest_cases(), false).await;
+    run_test_cases(&generate_honest_cases()).await;
 }
 
 #[traced_test]
 #[tokio::test]
 async fn honest_test_cases_with_restart() {
-    run_test_cases(&generate_honest_cases(), true).await;
+    run_restart_test_cases(&generate_honest_cases()).await;
+}
+
+#[traced_test]
+#[tokio::test]
+async fn honest_test_cases_with_restart_recover() {
+    run_restart_recover_test_cases(&generate_honest_cases()).await;
 }
 
 impl TestCase {
