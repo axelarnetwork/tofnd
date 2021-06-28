@@ -40,7 +40,7 @@ impl Gg20Service {
 
         // Set log prefix
         let log_prefix = format!(
-            "keygen [{}] party [{}] with (t,n)=({},{})",
+            "[{}] [uid:{}] with (t,n)=({},{})",
             keygen_init.new_key_uid,
             keygen_init.party_uids[keygen_init.my_index],
             keygen_init.threshold,
