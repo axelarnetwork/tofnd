@@ -10,6 +10,8 @@ use std::path::Path;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tonic::Request;
 
+use tracing::{info, warn};
+
 #[cfg(feature = "malicious")]
 use super::malicious::{
     KeygenMsgMeta, KeygenSpoof, MsgType, PartyMaliciousData, SignMsgMeta, SignSpoof, Spoof::*,
@@ -45,7 +47,7 @@ impl TofndParty {
                     msg_type: keygen_msg_type.clone(),
                 };
                 if timeout.msg_type == in_msg {
-                    println!("I am stalling keygen message {:?}", keygen_msg_type);
+                    info!("I am stalling keygen message {:?}", keygen_msg_type);
                     return true;
                 }
             }
@@ -68,7 +70,7 @@ impl TofndParty {
                     msg_type: sign_msg_type.clone(),
                 };
                 if timeout.msg_type == in_msg {
-                    println!("I am stalling sign message {:?}", sign_msg_type);
+                    info!("I am stalling sign message {:?}", sign_msg_type);
                     return true;
                 }
             }
@@ -96,7 +98,7 @@ impl TofndParty {
         if disrupt.msg_type != msg_type {
             return None;
         }
-        println!("I am disrupting keygen message {:?}", msg_type);
+        info!("I am disrupting keygen message {:?}", msg_type);
 
         let mut disrupt_traffic = traffic.clone();
         disrupt_traffic.payload = payload[0..payload.len() / 2].to_vec();
@@ -122,7 +124,7 @@ impl TofndParty {
         if disrupt.msg_type != msg_type {
             return None;
         }
-        println!("I am disrupting sign message {:?}", msg_type);
+        info!("I am disrupting sign message {:?}", msg_type);
 
         let mut disrupt_traffic = traffic.clone();
         disrupt_traffic.payload = payload[0..payload.len() / 2].to_vec();
@@ -151,7 +153,7 @@ impl TofndParty {
             if KeygenSpoof::msg_to_status(msg_type) != spoof.status {
                 return None;
             }
-            println!(
+            info!(
                 "I am spoofing keygen message {:?}. Changing from [{}] -> [{}]",
                 msg_type, msg_meta.from, spoof.victim
             );
@@ -181,7 +183,7 @@ impl TofndParty {
             if SignSpoof::msg_to_status(msg_type) != spoof.status {
                 return None;
             }
-            println!(
+            info!(
                 "I am spoofing sign message {:?}. Changing from [{}] -> [{}]",
                 msg_type, msg_meta.from, spoof.victim
             );
@@ -219,7 +221,7 @@ impl TofndParty {
         let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
         let server_addr = incoming.local_addr().unwrap();
         let server_port = server_addr.port();
-        println!("new party bound to port [{:?}]", server_port);
+        info!("new party bound to port [{:?}]", server_port);
         // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();
         let server_handle = tokio::spawn(async move {
             tonic::transport::Server::builder()
@@ -241,7 +243,7 @@ impl TofndParty {
         // startup_receiver.await.unwrap();
         // println!("party [{}] server started!", init.party_uids[my_id_index]);
 
-        println!("new party [{}] connect to server...", server_port);
+        info!("new party [{}] connect to server...", server_port);
         let client = proto::gg20_client::Gg20Client::connect(format!("http://{}", server_addr))
             .await
             .unwrap();
@@ -315,7 +317,7 @@ impl Party for TofndParty {
                 }
                 proto::message_out::Data::KeygenResult(res) => {
                     result = Some(res.clone());
-                    println!("party [{}] keygen finished!", my_display_name);
+                    info!("party [{}] keygen finished!", my_display_name);
                     break;
                 }
                 _ => panic!(
@@ -326,14 +328,14 @@ impl Party for TofndParty {
         }
 
         if result.is_none() {
-            println!(
+            warn!(
                 "party [{}] keygen execution was not completed",
                 my_display_name
             );
             return KeygenResult::default();
         }
 
-        println!("party [{}] keygen execution complete", my_display_name);
+        info!("party [{}] keygen execution complete", my_display_name);
 
         result.unwrap()
     }
@@ -358,10 +360,10 @@ impl Party for TofndParty {
         // prost way to convert i32 to enums https://github.com/danburkert/prost#enumerations
         match proto::recover_response::Response::from_i32(response.response) {
             Some(proto::recover_response::Response::Success) => {
-                println!("Got success from recover")
+                info!("Got success from recover")
             }
             Some(proto::recover_response::Response::Fail) => {
-                println!("Got fail from recover")
+                warn!("Got fail from recover")
             }
             None => {
                 panic!("Invalid recovery response. Could not convert i32 to enum")
@@ -426,11 +428,11 @@ impl Party for TofndParty {
                 }
                 proto::message_out::Data::SignResult(res) => {
                     result = Some(res.clone());
-                    println!("party [{}] sign finished!", my_display_name);
+                    info!("party [{}] sign finished!", my_display_name);
                     break;
                 }
                 proto::message_out::Data::NeedRecover(res) => {
-                    println!(
+                    info!(
                         "party [{}] needs recover for session [{}]",
                         my_display_name, res.session_id
                     );
@@ -448,13 +450,13 @@ impl Party for TofndParty {
 
         // return default value for SignResult if socket closed before I received the result
         if result.is_none() {
-            println!(
+            warn!(
                 "party [{}] sign execution was not completed",
                 my_display_name
             );
             return SignResult::default();
         }
-        println!("party [{}] sign execution complete", my_display_name);
+        info!("party [{}] sign execution complete", my_display_name);
 
         result.unwrap() // it's safe to unwrap here
     }
@@ -462,7 +464,7 @@ impl Party for TofndParty {
     async fn shutdown(mut self) {
         self.server_shutdown_sender.send(()).unwrap(); // tell the server to shut down
         self.server_handle.await.unwrap(); // wait for server to shut down
-        println!("party [{}] shutdown success", self.server_port);
+        info!("party [{}] shutdown success", self.server_port);
     }
 
     fn get_db_path(&self) -> std::path::PathBuf {

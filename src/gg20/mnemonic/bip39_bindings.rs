@@ -40,7 +40,10 @@ pub(super) fn bip39_seed(entropy: &[u8], password: &str) -> Result<Seed, TofndEr
 
 #[cfg(test)]
 pub mod tests {
+
     use super::*;
+    use tracing::info;
+    use tracing_test::traced_test;
 
     /// create a mnemonic from entropy
     pub(crate) fn bip39_to_phrase(entropy: &[u8]) -> Result<String, TofndError> {
@@ -51,17 +54,19 @@ pub mod tests {
         }
     }
 
+    #[traced_test]
     #[test]
     fn test_create() {
         let entropy = bip39_new_w24();
         let mnemonic = Mnemonic::from_entropy(&entropy, DEFAUT_LANG).unwrap();
         let passphrase = mnemonic.phrase();
-        println!(
+        info!(
             "created passphrase [{}] from entropy [{:?}]",
             passphrase, &entropy
         );
     }
 
+    #[traced_test]
     #[test]
     fn test_from_entropy() {
         let ok_entropy = vec![42; 16];
@@ -71,6 +76,7 @@ pub mod tests {
         assert!(bip39_from_entropy(&err_entropy).is_err());
     }
 
+    #[traced_test]
     #[test]
     fn test_seed() {
         let entropy = &[
