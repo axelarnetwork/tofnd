@@ -106,7 +106,7 @@ impl Gg20Service {
                 party_info.common.share_count(),
             );
             let state = log_prefix.as_str();
-            let handle_span = span!(parent: &sign_span, Level::INFO, "", state);
+            let execute_span = span!(parent: &sign_span, Level::INFO, "execute", state);
             info!(
                 "with (t,n)=({},{}), participant indices: {:?}",
                 party_info.common.threshold(),
@@ -128,7 +128,7 @@ impl Gg20Service {
                         &participant_tofn_indices,
                         secret_key_share,
                         &message_to_sign,
-                        handle_span,
+                        execute_span,
                     )
                     .await;
                 let _ = aggregator_sender.send(signature);

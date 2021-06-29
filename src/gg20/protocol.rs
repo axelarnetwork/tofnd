@@ -69,7 +69,7 @@ pub(super) async fn execute_protocol(
         // println("{}, {}", i, j) does.
         ($e:expr $(, $opt:expr)* ) => {
             // create a protocol span
-            let protocol_span = span!(parent: &span, Level::INFO, "", round);
+            let protocol_span = span!(parent: &span, Level::INFO, "protocol", round);
             // enter span
             let _start = protocol_span.enter();
             // log message

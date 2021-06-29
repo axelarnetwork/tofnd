@@ -49,8 +49,8 @@ impl Gg20Service {
             keygen_init.party_uids.len(),
         );
         let state = log_prefix.as_str();
-        let handle_span = span!(parent: &keygen_span, Level::INFO, "", state);
-        let _enter = handle_span.enter();
+        let execute_span = span!(parent: &keygen_span, Level::INFO, "execute", state);
+        let _enter = execute_span.enter();
 
         // find my share count
         let my_share_count = keygen_init.my_shares_count();
@@ -74,7 +74,7 @@ impl Gg20Service {
             let threshold = keygen_init.threshold;
             let nonce = keygen_init.new_key_uid.clone();
             let my_tofn_index = my_starting_tofn_index + my_tofnd_subindex;
-            let span = handle_span.clone();
+            let span = execute_span.clone();
 
             let gg20 = self.clone();
 
@@ -99,10 +99,9 @@ impl Gg20Service {
             });
         }
 
-        // spawn router thread
-        let keygen_span = keygen_span.clone();
+        let span = execute_span.clone();
         tokio::spawn(async move {
-            if let Err(e) = route_messages(&mut stream_in, keygen_senders, keygen_span).await {
+            if let Err(e) = route_messages(&mut stream_in, keygen_senders, span).await {
                 error!("Error at Keygen message router: {}", e);
             }
         });
@@ -245,9 +244,12 @@ impl Gg20Service {
             chan,
             &party_uids,
             &party_share_counts,
-            keygen_span,
+            keygen_span.clone(),
         )
         .await;
+
+        let result_span = span!(parent: &keygen_span, Level::INFO, "result");
+        let _enter = result_span.enter();
 
         let res = match res {
             Ok(()) => {
