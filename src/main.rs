@@ -22,7 +22,13 @@ fn set_up_logs(log_level: &str, enable_colours: bool) {
     // set up environment variable for log level
     env::set_var("RUST_LOG", log_level);
     // set up an event subscriber for logs
-    tracing_subscriber::fmt().with_ansi(enable_colours).init();
+    tracing_subscriber::fmt()
+        .json()
+        .with_ansi(enable_colours)
+        .without_time()
+        .with_target(false)
+        .with_current_span(false)
+        .init();
 }
 
 #[cfg(feature = "malicious")]
