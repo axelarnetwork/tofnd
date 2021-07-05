@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
+use tracing::{info, warn};
+
 // Provided by the requester and used by the manager task to send the command response back to the requester.
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
@@ -125,11 +127,11 @@ use Command::*;
 fn get_kv_store(db_name: String) -> sled::Db {
     // create/open DB
     let kv = sled::open(&db_name).unwrap();
-    // print whether the DB was newly created or not
+    // log whether the DB was newly created or not
     if kv.was_recovered() {
-        println!("kv_manager found existing db [{}]", db_name);
+        info!("kv_manager found existing db [{}]", db_name);
     } else {
-        println!(
+        info!(
             "kv_manager cannot open existing db [{}]. creating new db",
             db_name
         );
@@ -151,7 +153,7 @@ where
         match cmd {
             ReserveKey { key, resp } => {
                 if resp.send(handle_reserve(&kv, key)).is_err() {
-                    println!("WARN: the receiver dropped");
+                    warn!("receiver dropped");
                 }
             }
             UnreserveKey { reservation } => {
@@ -163,22 +165,22 @@ where
                 resp,
             } => {
                 if resp.send(handle_put(&kv, reservation, value)).is_err() {
-                    println!("WARN: the receiver dropped");
+                    warn!("receiver dropped");
                 }
             }
             Get { key, resp } => {
                 if resp.send(handle_get(&kv, key)).is_err() {
-                    println!("WARN: the receiver dropped");
+                    warn!("receiver dropped");
                 }
             }
             Remove { key, resp } => {
                 if resp.send(handle_remove(&kv, key)).is_err() {
-                    println!("WARN: the receiver dropped");
+                    warn!("receiver dropped");
                 }
             }
         }
     }
-    println!("kv_manager stop");
+    info!("kv_manager stop");
 }
 
 // helper function to make actions regarding reserve key
@@ -233,7 +235,7 @@ where
     // flush after every time we insert a value. This is a temporary solution and
     // should be handled accordingly by having tests using their own sub-space.
     if kv.flush().is_err() {
-        println!("WARN: flush failed");
+        warn!("flush failed");
     }
     Ok(())
 }

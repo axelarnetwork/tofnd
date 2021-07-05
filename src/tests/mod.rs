@@ -140,7 +140,7 @@ fn successful_keygen_results(
                     actual_criminal.party_uid.chars().next().unwrap() as usize - 'A' as usize;
                 assert_eq!(expected_criminal.index, criminal_index);
             }
-            println!("criminals: {:?}", actual_criminals.criminals);
+            info!("criminals: {:?}", actual_criminals.criminals);
             return false;
         }
         None => {
@@ -195,7 +195,7 @@ fn check_sign_results(results: Vec<SignResult>, expected_crimes: &[Vec<SignCrime
                     actual_criminal.party_uid.chars().next().unwrap() as usize - 'A' as usize;
                 assert_eq!(expected_criminal.index, criminal_index);
             }
-            println!("criminals: {:?}", actual_criminals.criminals);
+            info!("criminals: {:?}", actual_criminals.criminals);
         }
         None => {
             panic!("Result was None");
@@ -224,7 +224,7 @@ async fn shutdown_party(
     parties: Vec<TofndParty>,
     party_index: usize,
 ) -> (Vec<Option<TofndParty>>, PathBuf) {
-    println!("shutdown party {}", party_index);
+    info!("shutdown party {}", party_index);
     let party_db_path = parties[party_index].get_db_path();
     // use Option to temporarily transfer ownership of individual parties to a spawn
     let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
@@ -576,7 +576,7 @@ async fn execute_keygen(
     threshold: usize,
     expect_timeout: bool,
 ) -> (Vec<TofndParty>, Vec<KeygenResult>, proto::KeygenInit) {
-    println!("Expecting timeout: [{}]", expect_timeout);
+    info!("Expecting timeout: [{}]", expect_timeout);
     let share_count = parties.len();
     let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
     let mut keygen_join_handles = Vec::with_capacity(share_count);
@@ -645,7 +645,7 @@ async fn execute_sign(
     msg_to_sign: &[u8],
     expect_timeout: bool,
 ) -> (Vec<TofndParty>, Vec<proto::message_out::SignResult>) {
-    println!("Expecting timeout: [{}]", expect_timeout);
+    info!("Expecting timeout: [{}]", expect_timeout);
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
         .map(|&i| party_uids[i].clone())
@@ -688,7 +688,7 @@ async fn execute_sign(
 
     let mut results = vec![SignResult::default(); sign_join_handles.len()];
     for (i, h) in sign_join_handles {
-        println!("Running party {}", i);
+        info!("Running party {}", i);
         let handle = h.await.unwrap();
         party_options[sign_participant_indices[i]] = Some(handle.0);
         results[i] = handle.1;
@@ -708,5 +708,5 @@ fn abort_parties(mut unblocker: Deliverer, time: u64) {
     std::thread::spawn(move || {
         unblocker.send_timeouts(time);
     });
-    println!("Continue for now");
+    info!("Continuing for now");
 }

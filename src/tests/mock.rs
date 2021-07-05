@@ -2,6 +2,7 @@ use crate::proto;
 use proto::message_out::{KeygenResult, SignResult};
 use std::collections::HashMap;
 use tokio::sync::mpsc;
+use tracing::error;
 
 #[tonic::async_trait]
 pub(super) trait Party: Sync + Send {
@@ -65,7 +66,7 @@ impl Deliverer {
         for (_, sender) in self.senders.iter_mut() {
             // we need to catch for errors in case the receiver's channel closes unexpectedly
             if let Err(err) = sender.send(msg_in.clone()) {
-                println!("Error in deliverer while sending message: {:?}", err);
+                error!("Error in deliverer while sending message: {:?}", err);
             }
         }
     }
