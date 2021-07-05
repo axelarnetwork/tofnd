@@ -38,19 +38,9 @@ impl Gg20Service {
         // 6. Create a struct that contains all common and share-spacific information for out party and add it into the KV store
 
         // get KeygenInit message from stream, sanitize arguments and reserve key
-        let (keygen_init, key_uid_reservation) = self.handle_keygen_init(&mut stream_in).await?;
-
-        // Set log prefix
-        let log_prefix = format!(
-            "[{}] [uid:{}] with (t,n)=({},{})",
-            keygen_init.new_key_uid,
-            keygen_init.party_uids[keygen_init.my_index],
-            keygen_init.threshold,
-            keygen_init.party_uids.len(),
-        );
-        let state = log_prefix.as_str();
-        let handle_span = span!(parent: &keygen_span, Level::INFO, "", state);
-        let _enter = handle_span.enter();
+        let (keygen_init, key_uid_reservation) = self
+            .handle_keygen_init(&mut stream_in, keygen_span.clone())
+            .await?;
 
         // find my share count
         let my_share_count = keygen_init.my_shares_count();
@@ -74,9 +64,19 @@ impl Gg20Service {
             let threshold = keygen_init.threshold;
             let nonce = keygen_init.new_key_uid.clone();
             let my_tofn_index = my_starting_tofn_index + my_tofnd_subindex;
-            let span = handle_span.clone();
 
             let gg20 = self.clone();
+
+            // set up log prefix
+            let log_prefix = format!(
+                "[{}] [uid:{}, share:{}/{}]",
+                keygen_init.new_key_uid,
+                uids[keygen_init.my_index],
+                my_tofnd_subindex + 1,
+                my_share_count,
+            );
+            let state = log_prefix.as_str();
+            let execute_span = span!(parent: &keygen_span, Level::DEBUG, "execute", state);
 
             // spawn keygen threads
             tokio::spawn(async move {
@@ -91,7 +91,7 @@ impl Gg20Service {
                         &shares,
                         threshold,
                         my_tofn_index,
-                        span,
+                        execute_span.clone(),
                         &nonce.as_bytes(),
                     )
                     .await;
@@ -99,10 +99,9 @@ impl Gg20Service {
             });
         }
 
-        // spawn router thread
-        let keygen_span = keygen_span.clone();
+        let span = keygen_span.clone();
         tokio::spawn(async move {
-            if let Err(e) = route_messages(&mut stream_in, keygen_senders, keygen_span).await {
+            if let Err(e) = route_messages(&mut stream_in, keygen_senders, span).await {
                 error!("Error at Keygen message router: {}", e);
             }
         });
@@ -184,6 +183,7 @@ impl Gg20Service {
     async fn handle_keygen_init(
         &mut self,
         stream: &mut tonic::Streaming<proto::MessageIn>,
+        keygen_span: Span,
     ) -> Result<(KeygenInitSanitized, KeyReservation), TofndError> {
         // receive message
         let msg_type = stream
@@ -206,9 +206,17 @@ impl Gg20Service {
             .reserve_key(keygen_init.new_key_uid.clone())
             .await?;
 
+        let init_span = span!(parent: &keygen_span, Level::INFO, "init");
+        let _enter = init_span.enter();
+
         info!(
-            "Starting Keygen with uids: {:?}, party_shares: {:?}",
-            keygen_init.party_uids, keygen_init.party_share_counts
+            "[uid:{}, shares:{}] starting Keygen with [key: {}, (t,n)=({},{}), participants:{:?}",
+            keygen_init.party_uids[keygen_init.my_index],
+            keygen_init.party_share_counts[keygen_init.my_index],
+            keygen_init.new_key_uid,
+            keygen_init.threshold,
+            keygen_init.party_share_counts.iter().sum::<usize>(),
+            keygen_init.party_uids,
         );
 
         Ok((keygen_init, key_uid_reservation))
@@ -226,7 +234,7 @@ impl Gg20Service {
         party_share_counts: &[usize],
         threshold: usize,
         my_index: usize,
-        keygen_span: Span,
+        execute_span: Span,
         nonce: &[u8],
     ) -> Result<KeygenOutput, TofndError> {
         let seed = self.seed().await?;
@@ -245,9 +253,12 @@ impl Gg20Service {
             chan,
             &party_uids,
             &party_share_counts,
-            keygen_span,
+            execute_span.clone(),
         )
         .await;
+
+        let result_span = span!(parent: &execute_span, Level::INFO, "result");
+        let _enter = result_span.enter();
 
         let res = match res {
             Ok(()) => {
@@ -260,8 +271,12 @@ impl Gg20Service {
                     keygen.clone_output().ok_or("keygen output is `None`")?
                 }
                 false => {
-                    warn!("Connection closed by client: {}", err);
-                    Err(keygen.waiting_on())
+                    let waiting_on = keygen.waiting_on();
+                    warn!(
+                        "Connection closed by client: {}.\nWaiting on {:?}",
+                        err, waiting_on
+                    );
+                    Err(waiting_on)
                 }
             },
         };

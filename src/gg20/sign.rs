@@ -43,7 +43,7 @@ impl Gg20Service {
         // get SignInit message from stream and sanitize arguments
         let mut stream_out = stream_out_sender.clone();
         let (sign_init, party_info) = self
-            .handle_sign_init(&mut stream_in, &mut stream_out)
+            .handle_sign_init(&mut stream_in, &mut stream_out, sign_span.clone())
             .await?;
 
         // quit now if I'm not a participant
@@ -106,13 +106,7 @@ impl Gg20Service {
                 party_info.common.share_count(),
             );
             let state = log_prefix.as_str();
-            let handle_span = span!(parent: &sign_span, Level::INFO, "", state);
-            info!(
-                "with (t,n)=({},{}), participant indices: {:?}",
-                party_info.common.threshold(),
-                party_info.common.share_count(),
-                sign_init.participant_indices
-            );
+            let execute_span = span!(parent: &sign_span, Level::INFO, "execute", state);
 
             // spawn sign threads
             tokio::spawn(async move {
@@ -128,7 +122,7 @@ impl Gg20Service {
                         &participant_tofn_indices,
                         secret_key_share,
                         &message_to_sign,
-                        handle_span,
+                        execute_span.clone(),
                     )
                     .await;
                 let _ = aggregator_sender.send(signature);
@@ -172,6 +166,7 @@ impl Gg20Service {
         &mut self,
         in_stream: &mut tonic::Streaming<proto::MessageIn>,
         mut out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
+        sign_span: Span,
     ) -> Result<(SignInitSanitized, PartyInfo), TofndError> {
         let msg_type = in_stream
             .next()
@@ -197,9 +192,17 @@ impl Gg20Service {
 
         let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
 
+        let init_span = span!(parent: &sign_span, Level::INFO, "init");
+        let _enter = init_span.enter();
+
         info!(
-            "Starting Sign with uids: {:?}, party_shares: {:?}",
-            party_info.tofnd.party_uids, party_info.tofnd.share_counts
+            "[uid:{}, shares:{}] starting Sign with [key: {}, (t,n)=({},{}), participants:{:?}",
+            party_info.tofnd.party_uids[party_info.tofnd.index],
+            party_info.tofnd.share_counts[party_info.tofnd.index],
+            sign_init.new_sig_uid,
+            party_info.common.threshold(),
+            party_info.tofnd.share_counts.iter().sum::<usize>(),
+            party_info.tofnd.party_uids,
         );
 
         Ok((sign_init, party_info))
@@ -218,7 +221,7 @@ impl Gg20Service {
         participant_tofn_indices: &[usize],
         secret_key_share: SecretKeyShare,
         message_to_sign: &MessageDigest,
-        handle_span: Span,
+        execute_span: Span,
     ) -> Result<SignOutput, TofndError> {
         // Sign::new() needs 'tofn' information:
         let mut sign = self.get_sign(
@@ -232,9 +235,12 @@ impl Gg20Service {
             chan,
             &party_uids,
             &party_share_counts,
-            handle_span,
+            execute_span.clone(),
         )
         .await;
+
+        let result_span = span!(parent: &execute_span, Level::INFO, "result");
+        let _enter = result_span.enter();
 
         let res = match res {
             Ok(()) => {
@@ -247,8 +253,12 @@ impl Gg20Service {
                     sign.clone_output().ok_or("sign output is `None`")?
                 }
                 false => {
-                    warn!("Connection closed by client: {}", err);
-                    Err(sign.waiting_on())
+                    let waiting_on = sign.waiting_on();
+                    warn!(
+                        "Connection closed by client: {}.\nWaiting on {:?}",
+                        err, waiting_on
+                    );
+                    Err(waiting_on)
                 }
             },
         };
