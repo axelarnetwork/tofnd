@@ -47,7 +47,7 @@ impl TofndParty {
                     msg_type: keygen_msg_type.clone(),
                 };
                 if timeout.msg_type == in_msg {
-                    info!("I am stalling keygen message {:?}", keygen_msg_type);
+                    warn!("I am stalling keygen message {:?}", keygen_msg_type);
                     return true;
                 }
             }
@@ -70,7 +70,7 @@ impl TofndParty {
                     msg_type: sign_msg_type.clone(),
                 };
                 if timeout.msg_type == in_msg {
-                    info!("I am stalling sign message {:?}", sign_msg_type);
+                    warn!("I am stalling sign message {:?}", sign_msg_type);
                     return true;
                 }
             }
@@ -98,7 +98,7 @@ impl TofndParty {
         if disrupt.msg_type != msg_type {
             return None;
         }
-        info!("I am disrupting keygen message {:?}", msg_type);
+        warn!("I am disrupting keygen message {:?}", msg_type);
 
         let mut disrupt_traffic = traffic.clone();
         disrupt_traffic.payload = payload[0..payload.len() / 2].to_vec();
@@ -124,7 +124,7 @@ impl TofndParty {
         if disrupt.msg_type != msg_type {
             return None;
         }
-        info!("I am disrupting sign message {:?}", msg_type);
+        warn!("I am disrupting sign message {:?}", msg_type);
 
         let mut disrupt_traffic = traffic.clone();
         disrupt_traffic.payload = payload[0..payload.len() / 2].to_vec();
