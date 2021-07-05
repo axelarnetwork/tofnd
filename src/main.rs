@@ -1,4 +1,4 @@
-use std::{env, net::SocketAddr};
+use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
 mod gg20;
@@ -18,13 +18,14 @@ use config::parse_args;
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
 type TofndError = Box<dyn std::error::Error + Send + Sync>;
 
-fn set_up_logs(log_level: &str, enable_colours: bool) {
+fn set_up_logs() {
     // set up environment variable for log level
-    env::set_var("RUST_LOG", log_level);
     // set up an event subscriber for logs
     tracing_subscriber::fmt()
+        .with_env_filter("tofnd=info,[Keygen]=info")
+        .with_max_level(Level::DEBUG)
         .json()
-        .with_ansi(enable_colours)
+        .with_ansi(atty::is(atty::Stream::Stdout))
         .without_time()
         .with_target(false)
         .with_current_span(false)
@@ -40,8 +41,7 @@ pub fn warn_for_malicious_build() {
 #[tokio::main]
 async fn main() -> Result<(), TofndError> {
     // set up log subscriber
-    // TODO read arguments from a config file
-    set_up_logs("INFO", atty::is(atty::Stream::Stdout));
+    set_up_logs();
 
     #[cfg(not(feature = "malicious"))]
     let (port, mnemonic_cmd) = parse_args()?;

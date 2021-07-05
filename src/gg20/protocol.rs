@@ -7,7 +7,7 @@ use crate::TofndError;
 // tonic cruft
 use futures_util::StreamExt;
 
-use tracing::{info, span, warn, Level, Span};
+use tracing::{debug, span, warn, Level, Span};
 
 pub fn map_tofnd_to_tofn_idx(
     tofnd_index: usize,
@@ -69,11 +69,11 @@ pub(super) async fn execute_protocol(
         // println("{}, {}", i, j) does.
         ($e:expr $(, $opt:expr)* ) => {
             // create a protocol span
-            let protocol_span = span!(parent: &span, Level::INFO, "protocol", round);
+            let protocol_span = span!(parent: &span, Level::DEBUG, "protocol", round);
             // enter span
             let _start = protocol_span.enter();
             // log message
-            info!($e $(, $opt)*);
+            debug!($e $(, $opt)*);
             // spans are RAII objects. Our span exits here.
             // https://docs.rs/tracing/0.1.25/tracing/#spans-1
         };
