@@ -6,6 +6,7 @@ use super::{InitParty, TofndParty};
 
 use crate::{gg20::mnemonic::Cmd, tests::mock::Party};
 use testdir::testdir;
+use tracing::info;
 use tracing_test::traced_test;
 
 #[cfg(feature = "malicious")]
@@ -28,7 +29,7 @@ fn copy_export_to_import(dir: &Path, party_index: usize) {
     let path = path.join(p);
     let export_path = format!("{}/export", path.to_str().unwrap());
     let import_path = format!("{}/import", path.to_str().unwrap());
-    println!("Copying {} to {}", export_path, import_path);
+    info!("Copying {} to {}", export_path, import_path);
     std::fs::copy(export_path, import_path).unwrap();
 }
 
