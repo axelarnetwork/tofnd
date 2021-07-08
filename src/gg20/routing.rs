@@ -153,7 +153,7 @@ mod tests {
         let result = validate_message(Some(Err(tonic::Status::ok("test status"))), span.clone());
         assert_eq!(result, RoutingResult::Stop);
 
-        let result = validate_message(None, span.clone());
+        let result = validate_message(None, span);
         assert_eq!(result, RoutingResult::Stop);
     }
 }
