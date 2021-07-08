@@ -1,6 +1,6 @@
 //! This module handles Recover gRPC
 
-use super::{proto, Gg20Service, KeygenInitSanitized, PartyInfo};
+use super::{proto, protocol::map_tofnd_to_tofn_idx, Gg20Service, KeygenInitSanitized, PartyInfo};
 use crate::TofndError;
 use tofn::protocol::gg20::{keygen::SecretRecoveryKey, SecretKeyShare};
 
@@ -55,6 +55,8 @@ impl Gg20Service {
             }
         };
 
+        let starting_tofn_index = map_tofnd_to_tofn_idx(my_tofnd_index, 0, party_share_counts);
+
         // gather secret key shares from recovery infos
         let mut secret_key_shares = Vec::with_capacity(*my_share_count);
         for i in 0..*my_share_count {
@@ -71,7 +73,9 @@ impl Gg20Service {
                 Err(err) => {
                     return Err(From::from(format!(
                         "Unable to recover share [{}] of party [{}]. {}",
-                        i, my_tofnd_index, err
+                        i,
+                        starting_tofn_index + i,
+                        err
                     )))
                 }
             }
