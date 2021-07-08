@@ -617,7 +617,7 @@ async fn execute_keygen(
         new_key_uid: new_key_uid.to_string(),
         party_uids: party_uids.to_owned(),
         party_share_counts: party_share_counts.to_owned(),
-        my_party_index: 0, // TODO: change my_index
+        my_party_index: 0, // return keygen for first party. Might need to change index before using
         threshold: i32::try_from(threshold).unwrap(),
     };
     (parties, results, init)
@@ -626,9 +626,11 @@ async fn execute_keygen(
 async fn execute_recover(
     mut parties: Vec<TofndParty>,
     recover_party_index: usize,
-    keygen_init: proto::KeygenInit,
+    mut keygen_init: proto::KeygenInit,
     recovery_infos: Vec<Vec<u8>>,
 ) -> Vec<TofndParty> {
+    // create keygen init for recovered party
+    keygen_init.my_party_index = recover_party_index as i32;
     parties[recover_party_index]
         .execute_recover(keygen_init, recovery_infos)
         .await;
