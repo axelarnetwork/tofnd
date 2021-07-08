@@ -1,5 +1,5 @@
 use futures_util::StreamExt;
-use tracing::{error, info, span, warn, Level, Span};
+use tracing::{info, span, warn, Level, Span};
 
 use tofn::protocol::gg20::keygen::{crimes::Crime, validate_params, KeygenOutput};
 
@@ -101,9 +101,7 @@ impl Gg20Service {
 
         let span = keygen_span.clone();
         tokio::spawn(async move {
-            if let Err(e) = route_messages(&mut stream_in, keygen_senders, span).await {
-                error!("Error at Keygen message router: {}", e);
-            }
+            route_messages(&mut stream_in, keygen_senders, span).await;
         });
 
         // wait for all keygen threads to end, aggregate their responses, and store data in KV store
