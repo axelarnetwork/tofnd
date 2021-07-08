@@ -1,9 +1,6 @@
 //! This module handles the routing of incoming traffic.
 //! Receives and validates a messages until validation fails, or the client closes
 
-// universal error type
-use crate::TofndError;
-
 // tonic cruft
 use super::proto;
 use futures_util::StreamExt;
@@ -96,67 +93,6 @@ pub(super) async fn route_messages(
             let _ = out_channel.send(Some(traffic.clone()));
         }
     }
-}
-
-/// Receives incoming from a gRPC stream and vector of out going channels;
-/// Loops until client closes the socket, or an `Abort` message is received  
-/// Empty and unknown messages are ignored
-pub(super) async fn _route_messages_old(
-    in_stream: &mut tonic::Streaming<proto::MessageIn>,
-    mut out_channels: Vec<mpsc::UnboundedSender<Option<proto::TrafficIn>>>,
-    span: Span,
-) -> Result<(), TofndError> {
-    loop {
-        let msg_data = in_stream.next().await;
-
-        let route_span = span!(parent: &span, Level::INFO, "routing");
-        let start = route_span.enter();
-        if msg_data.is_none() {
-            info!("Stream closed");
-            break;
-        }
-        let msg_data = msg_data.unwrap();
-
-        // TODO: handle error if channel is closed prematurely.
-        // The router needs to determine whether the protocol is completed.
-        // In this case it should stop gracefully. If channel closes before the
-        // protocol was completed, then we should throw an error.
-        // Note: When axelar-core closes the channel at the end of the protocol, msg_data returns an error
-        if msg_data.is_err() {
-            info!("Stream closed");
-            break;
-        }
-
-        let msg_data = msg_data.unwrap().data;
-
-        // I wish I could do `if !let` https://github.com/rust-lang/rfcs/pull/1303
-        if msg_data.is_none() {
-            warn!("ignore incoming msg: missing `data` field");
-            continue;
-        }
-        let traffic = match msg_data.unwrap() {
-            proto::message_in::Data::Traffic(t) => t,
-            proto::message_in::Data::Abort(_) => {
-                warn!("received abort message");
-                break;
-            }
-            _ => {
-                warn!("ignore incoming msg: expect `data` to be TrafficIn type");
-                continue;
-            }
-        };
-
-        // need to drop span before entering async code or we have log conflicts
-        // with protocol execution https://github.com/tokio-rs/tracing#in-asynchronous-code
-        drop(start);
-
-        // send the message to all of my shares. This applies to p2p and bcast messages.
-        // We also broadcast p2p messages to facilitate fault attribution
-        for out_channel in &mut out_channels {
-            let _ = out_channel.send(Some(traffic.clone()));
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]
