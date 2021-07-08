@@ -62,8 +62,8 @@ impl Gg20Service {
                 &secret_recovery_key,
                 &session_nonce,
                 &deserialized_share_recovery_infos,
+                starting_tofn_index + i, // create tofn share index from starting tofn index + share count
                 threshold,
-                my_tofnd_index + i, // create tofn share index from tofnd index + share count
             );
             // check that recovery was successful for share tofnd_index + i
             match recovered_secret_key_share {
