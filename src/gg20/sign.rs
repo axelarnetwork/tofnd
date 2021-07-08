@@ -131,9 +131,7 @@ impl Gg20Service {
         // spawn router thread
         let span = sign_span.clone();
         tokio::spawn(async move {
-            if let Err(e) = route_messages(&mut stream_in, sign_senders, span).await {
-                error!("Error at Sign message router: {}", e);
-            }
+            route_messages(&mut stream_in, sign_senders, span).await;
         });
 
         let participant_share_counts = get_participant_share_counts(
