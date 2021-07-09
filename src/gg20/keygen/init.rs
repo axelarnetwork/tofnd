@@ -1,4 +1,6 @@
 //! This module handles the initialization of the Keygen protocol.
+//! A [KeygenInitSanitized] struct is created out of the raw incoming [proto::KeygenInit] message and a key is reserved inside the KvStore
+//! If [proto::KeygenInit] fails to be parsed, a [TofndError] is returned
 
 use futures_util::StreamExt;
 use tracing::{info, span, Level, Span};
@@ -9,8 +11,9 @@ use super::{proto, types::KeygenInitSanitized, Gg20Service, TofndError};
 use crate::kv_manager::KeyReservation;
 
 impl Gg20Service {
-    // makes all needed assertions on incoming data, and create structures that are
-    // needed to execute the protocol
+    /// Receives a message from the stream and tries to handle keygen init operations.
+    /// On success, it reserves a key in the KVStrore and returns a sanitized struct ready to be used by the protocol.
+    /// On failure, returns a TofndError and no changes are been made in the KvStore.
     pub(super) async fn handle_keygen_init(
         &mut self,
         stream: &mut tonic::Streaming<proto::MessageIn>,
@@ -72,19 +75,19 @@ impl Gg20Service {
         Ok((keygen_init, key_uid_reservation))
     }
 
-    // This function is pub(crate) because it is also needed in handle_recover
-    // sanitize arguments of incoming message.
-    // Example:
-    // input for party 'a':
-    //   args.party_uids = [c, b, a]
-    //   args.party_share_counts = [1, 2, 3]
-    //   args.my_party_index = 2
-    //   args.threshold = 1
-    // output for party 'a':
-    //   keygen_init.party_uids = [a, b, c]           <- sorted array
-    //   keygen_init.party_share_counts = [3, 2, 1] . <- sorted with respect to party_uids
-    //   keygen_init.my_party_index = 0 .             <- index inside sorted array
-    //   keygen_init.threshold = 1                    <- same as in input
+    /// This function is pub(crate) because it is also needed in handle_recover
+    /// sanitize arguments of incoming message.
+    /// Example:
+    /// input for party 'a':
+    ///   args.party_uids = [c, b, a]
+    ///   args.party_share_counts = [1, 2, 3]
+    ///   args.my_party_index = 2
+    ///   args.threshold = 1
+    /// output for party 'a':
+    ///   keygen_init.party_uids = [a, b, c]           <- sorted array
+    ///   keygen_init.party_share_counts = [3, 2, 1] . <- sorted with respect to party_uids
+    ///   keygen_init.my_party_index = 0 .             <- index inside sorted array
+    ///   keygen_init.threshold = 1                    <- same as in input
     pub(crate) fn keygen_sanitize_args(
         args: proto::KeygenInit,
     ) -> Result<KeygenInitSanitized, TofndError> {
@@ -112,15 +115,15 @@ impl Gg20Service {
         }
 
         // sort uids and share counts
-        // we need to sort uids and shares because the caller (axelar-core) does not
-        // necessarily send the same vectors (in terms of order) to all tofnd instances.
+        // we need to sort uids and shares because the caller does not necessarily
+        // send the same vectors (in terms of order) to all tofnd instances.
         let (my_new_index, sorted_uids, sorted_share_counts) =
             sort_uids_and_shares(my_index, args.party_uids, party_share_counts)?;
 
         // get total number of shares of all parties
         let total_shares = sorted_share_counts.iter().sum();
 
-        // invoke tofn validation
+        // invoke tofn parameter validation
         validate_params(total_shares, threshold, my_index)?;
 
         Ok(KeygenInitSanitized {
@@ -133,14 +136,17 @@ impl Gg20Service {
     }
 }
 
-// co-sort uids and shares with respect to uids an find new index
+// helper function to co-sort uids and shares with respect to uids an find new index
 fn sort_uids_and_shares(
     my_index: usize,
     uids: Vec<String>,
     share_counts: Vec<usize>,
 ) -> Result<(usize, Vec<String>, Vec<usize>), TofndError> {
     // save my uid
-    let my_uid = uids[my_index].clone();
+    let my_uid = uids
+        .get(my_index)
+        .ok_or("Error: Index out of bounds")?
+        .clone();
 
     // create a vec of (uid, share_count) and sort it
     let mut pairs: Vec<(String, usize)> = uids.into_iter().zip(share_counts.into_iter()).collect();
@@ -158,7 +164,7 @@ fn sort_uids_and_shares(
     let my_index = sorted_uids
         .iter()
         .position(|x| x == &my_uid)
-        .ok_or("Lost my uid after sorting uids")?;
+        .ok_or("Error: Lost my uid after sorting uids")?;
 
     Ok((my_index, sorted_uids, sorted_share_counts))
 }
@@ -187,12 +193,82 @@ mod tests {
         assert_eq!((2, out_keys.clone(), out_values.clone()), res);
         let res = sort_uids_and_shares(1, in_keys.clone(), in_values.clone()).unwrap();
         assert_eq!((1, out_keys.clone(), out_values.clone()), res);
-        let res = sort_uids_and_shares(2, in_keys, in_values).unwrap();
+        let res = sort_uids_and_shares(2, in_keys.clone(), in_values.clone()).unwrap();
         assert_eq!((0, out_keys, out_values), res);
+        assert!(sort_uids_and_shares(3, in_keys, in_values).is_err()); // index out of bounds
 
         let err_pairs = vec![("a".to_owned(), 1), ("a".to_owned(), 2)];
         let (err_keys, err_values): (Vec<String>, Vec<usize>) = err_pairs.into_iter().unzip();
         assert!(sort_uids_and_shares(0, err_keys.clone(), err_values.clone()).is_err());
         assert!(sort_uids_and_shares(1, err_keys, err_values).is_err());
+    }
+
+    #[test]
+    fn test_ok_keygen_sanitize_args() {
+        // check sorting of parties and shares
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_2".to_owned(), "party_1".to_owned()], // unsorted parties
+            party_share_counts: vec![2, 1],                               // unsorted shares
+            my_party_index: 1,                                            // index of "party_1"
+            threshold: 1,
+        };
+        let sanitized_keygen_init = KeygenInitSanitized {
+            new_key_uid: "test_uid".to_owned(), // should be same as in raw keygen init
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()], // parties should be sorted
+            party_share_counts: vec![1, 2], // shares should be sorted with respect to parties
+            my_index: 0,                    // index should track "party_1" in the sorted party_uids
+            threshold: 1,                   // threshold should be the same
+        };
+        let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
+        assert_eq!(&res.new_key_uid, &sanitized_keygen_init.new_key_uid);
+        assert_eq!(&res.party_uids, &sanitized_keygen_init.party_uids);
+        assert_eq!(
+            &res.party_share_counts,
+            &sanitized_keygen_init.party_share_counts
+        );
+        assert_eq!(&res.my_index, &sanitized_keygen_init.my_index);
+        assert_eq!(&res.threshold, &sanitized_keygen_init.threshold);
+
+        // check empty share counts
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
+            party_share_counts: vec![], // empty share counts; should default to [1, 1]
+            my_party_index: 0,
+            threshold: 1,
+        };
+        let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
+        assert_eq!(&res.party_share_counts, &vec![1, 1]);
+    }
+
+    #[test]
+    fn test_fail_keygen_sanitize_args() {
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
+            party_share_counts: vec![1, 1, 1], // counts are not the same number as parties
+            my_party_index: 0,
+            threshold: 1,
+        };
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
+
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
+            party_share_counts: vec![1, 1],
+            my_party_index: 0,
+            threshold: 2, // incorrect threshold
+        };
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
+
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
+            party_share_counts: vec![1, 1],
+            my_party_index: 2, // index out of bounds
+            threshold: 1,
+        };
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
     }
 }
