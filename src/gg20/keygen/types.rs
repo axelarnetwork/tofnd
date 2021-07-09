@@ -1,4 +1,8 @@
-use super::map_tofnd_to_tofn_idx;
+use super::{proto::message_out::keygen_result, protocol::map_tofnd_to_tofn_idx};
+use tofn::protocol::gg20::keygen::crimes::Crime;
+
+// wrapper type for proto::message_out::new_keygen_result
+pub type KeygenResultData = Result<keygen_result::KeygenOutput, Vec<Vec<Crime>>>;
 
 // KeygenInitSanitized is also needed by recovery module
 pub struct KeygenInitSanitized {

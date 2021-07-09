@@ -4,7 +4,7 @@ use tofn::protocol::{
     CrimeType, Criminal,
 };
 
-use super::keygen::KeygenResultData;
+use super::keygen::types::KeygenResultData;
 use super::protocol::map_tofn_to_tofnd_idx;
 use crate::proto;
 use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;

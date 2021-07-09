@@ -1,22 +1,14 @@
 use tracing::{span, Level, Span};
 
-use tofn::protocol::gg20::keygen::{crimes::Crime, KeygenOutput};
-
 use super::{
-    proto::{self, message_out::keygen_result},
-    protocol::{self, map_tofnd_to_tofn_idx},
-    routing::route_messages,
-    Gg20Service, PartyInfo, ProtocolCommunication,
+    proto, protocol, routing::route_messages, Gg20Service, PartyInfo, ProtocolCommunication,
 };
-use crate::{kv_manager::KeyReservation, TofndError};
+use crate::TofndError;
 
 use tonic::Status;
 
 // tonic cruft
-use tokio::sync::{
-    mpsc,
-    oneshot::{self, Receiver},
-};
+use tokio::sync::{mpsc, oneshot};
 
 pub mod types;
 use types::*;
@@ -24,9 +16,6 @@ use types::*;
 mod aggregate;
 mod execute;
 mod init;
-
-// wrapper type for proto::message_out::new_keygen_result
-pub(super) type KeygenResultData = Result<keygen_result::KeygenOutput, Vec<Vec<Crime>>>;
 
 impl Gg20Service {
     // we wrap the functionality of keygen gRPC here because we can't handle errors
@@ -55,28 +44,35 @@ impl Gg20Service {
         let mut aggregator_receivers = Vec::with_capacity(my_share_count);
 
         for my_tofnd_subindex in 0..my_share_count {
+            // channels for communication between router (sender) and protocol threads (receivers)
             let (keygen_sender, keygen_receiver) = mpsc::unbounded_channel();
-            let (aggregator_sender, aggregator_receiver) = oneshot::channel();
             keygen_senders.push(keygen_sender);
+            // channels for communication between protocol threads (senders) and final result aggregator (receiver)
+            let (aggregator_sender, aggregator_receiver) = oneshot::channel();
             aggregator_receivers.push(aggregator_receiver);
 
+            // wrap channels needed threads internally; receiver chan for router and sender chan gRPC stream
             let chans = ProtocolCommunication::new(keygen_receiver, stream_out_sender.clone());
+            // wrap all context data needed for each thread
             let ctx = Context::new(&keygen_init, keygen_init.my_index, my_tofnd_subindex);
-            let gg20 = self.clone(); // need to clone service because tokio thread takes ownership
+            // clone gg20 service because tokio thread takes ownership
+            let gg20 = self.clone();
 
             // set up log state
             let log_info = ctx.log_info();
             let state = log_info.as_str();
             let execute_span = span!(parent: &keygen_span, Level::DEBUG, "execute", state);
 
-            // spawn keygen threads
+            // spawn keygen thread and continue immediately
             tokio::spawn(async move {
-                // get result of keygen
+                // wait for keygen's result inside thread
                 let secret_key_share = gg20.execute_keygen(chans, &ctx, execute_span.clone()).await;
+                // send result to aggregator
                 let _ = aggregator_sender.send(secret_key_share);
             });
         }
 
+        // spin up router thread and return immediately
         let span = keygen_span.clone();
         tokio::spawn(async move {
             route_messages(&mut stream_in, keygen_senders, span).await;
