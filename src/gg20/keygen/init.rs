@@ -30,16 +30,12 @@ impl Gg20Service {
             _ => return Err(From::from("Expected keygen init message")),
         };
 
-        // sanitize arguments and reserve key
-        let keygen_init = Self::keygen_sanitize_args(keygen_init)?;
-        let key_uid_reservation = self
-            .shares_kv
-            .reserve_key(keygen_init.new_key_uid.clone())
-            .await?;
+        // try to process incoming message
+        let (keygen_init, key_reservation) = self.process_keygen_init(keygen_init).await?;
 
+        // create log span and display current status
         let init_span = span!(parent: &keygen_span, Level::INFO, "init");
         let _enter = init_span.enter();
-
         info!(
             "[uid:{}, shares:{}] starting Keygen with [key: {}, (t,n)=({},{}), participants:{:?}",
             keygen_init.party_uids[keygen_init.my_index],
@@ -50,6 +46,29 @@ impl Gg20Service {
             keygen_init.party_uids,
         );
 
+        // return sanitized key and its KvStore reservation
+        Ok((keygen_init, key_reservation))
+    }
+
+    // makes all needed assertions on incoming data, and create structures that are
+    // needed to execute the protocol
+    pub(super) async fn process_keygen_init(
+        &mut self,
+        keygen_init: proto::KeygenInit,
+    ) -> Result<(KeygenInitSanitized, KeyReservation), TofndError> {
+        // sanitize arguments
+        let keygen_init = Self::keygen_sanitize_args(keygen_init)?;
+        // reserve key
+        let key_uid_reservation = match self
+            .shares_kv
+            .reserve_key(keygen_init.new_key_uid.clone())
+            .await
+        {
+            Ok(reservation) => reservation,
+            Err(err) => return Err(From::from(format!("Error: failed to reseve key: {}", err))),
+        };
+
+        // return sanitized keygen init and key reservation
         Ok((keygen_init, key_uid_reservation))
     }
 
