@@ -1,4 +1,4 @@
-use tracing::{info, span, warn, Level, Span};
+use tracing::{span, Level, Span};
 
 use tofn::protocol::gg20::keygen::{crimes::Crime, KeygenOutput};
 
@@ -21,13 +21,11 @@ use tokio::sync::{
 pub mod types;
 use types::*;
 
+mod execute;
 mod init;
 
 // wrapper type for proto::message_out::new_keygen_result
 pub(super) type KeygenResultData = Result<keygen_result::KeygenOutput, Vec<Vec<Crime>>>;
-
-use tofn::protocol::gg20::keygen::ParamsError as KeygenErr;
-use tofn::protocol::gg20::keygen::{Keygen, SecretRecoveryKey};
 
 impl Gg20Service {
     // we wrap the functionality of keygen gRPC here because we can't handle errors
@@ -93,91 +91,6 @@ impl Gg20Service {
         .await?;
 
         Ok(())
-    }
-
-    // execute keygen protocol and write the result into the internal channel
-    #[allow(clippy::too_many_arguments)]
-    async fn execute_keygen(
-        &self,
-        chans: ProtocolCommunication<
-            Option<proto::TrafficIn>,
-            Result<proto::MessageOut, tonic::Status>,
-        >,
-        ctx: &Context,
-        execute_span: Span,
-    ) -> Result<KeygenOutput, TofndError> {
-        let seed = self.seed().await?;
-        let keygen = self.get_keygen(&ctx, &seed);
-        let mut keygen = keygen.unwrap();
-
-        // execute protocol
-        let res = protocol::execute_protocol(
-            &mut keygen,
-            chans,
-            &ctx.uids,
-            &ctx.share_counts,
-            execute_span.clone(),
-        )
-        .await;
-
-        let result_span = span!(parent: &execute_span, Level::INFO, "result");
-        let _enter = result_span.enter();
-
-        let res = match res {
-            Ok(()) => {
-                info!("Keygen completed successfully");
-                keygen.clone_output().ok_or("keygen output is `None`")?
-            }
-            Err(err) => match keygen.found_disrupting() {
-                true => {
-                    warn!("Party failed due to deserialization error: {}", err);
-                    keygen.clone_output().ok_or("keygen output is `None`")?
-                }
-                false => {
-                    let waiting_on = keygen.waiting_on();
-                    warn!(
-                        "Connection closed by client: {}.\nWaiting on {:?}",
-                        err, waiting_on
-                    );
-                    Err(waiting_on)
-                }
-            },
-        };
-        Ok(res)
-    }
-
-    // get regular keygen
-    #[cfg(not(feature = "malicious"))]
-    fn get_keygen(
-        &self,
-        ctx: &keygen::Context,
-        seed: &SecretRecoveryKey,
-    ) -> Result<Keygen, KeygenErr> {
-        Keygen::new(
-            ctx.share_count(),
-            ctx.threshold,
-            ctx.tofn_index(),
-            &seed,
-            &ctx.nonce(),
-        )
-    }
-
-    // get malicious keygen
-    #[cfg(feature = "malicious")]
-    fn get_keygen(
-        &self,
-        ctx: &types::Context,
-        seed: &SecretRecoveryKey,
-    ) -> Result<Keygen, KeygenErr> {
-        let mut k = Keygen::new(
-            ctx.total_share_count(),
-            ctx.threshold,
-            ctx.tofn_index(),
-            &seed,
-            &ctx.nonce(),
-        )?;
-        k.set_behaviour(self.keygen_behaviour.clone());
-        Ok(k)
     }
 
     // aggregate messages from all keygen workers, create a single record and insert it in the KVStore
