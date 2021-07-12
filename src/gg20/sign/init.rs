@@ -1,3 +1,8 @@
+//! This module handles the initialization of the Sign protocol.
+//! A [SignInitSanitized] struct is created out of the raw incoming [proto::SignInit] message and the session key is queried inside from KvStore
+//! If [proto::SignInit] fails to be parsed, or no Keygen has been executed for the current session ID a [TofndError] is returned
+
+// try_into() for MessageDigest
 use std::convert::TryInto;
 
 use super::{proto, types::SignInitSanitized, Gg20Service, PartyInfo};
@@ -8,11 +13,13 @@ use futures_util::StreamExt;
 use tokio::sync::mpsc;
 use tonic::Status;
 
-use tracing::{error, info, span, Level, Span};
+// logging
+use tracing::{error, Span};
 
 impl Gg20Service {
-    // makes all needed assertions on incoming data, and create structures that are
-    // needed to execute the protocol
+    /// Receives a message from the stream and tries to handle sign init operations.
+    /// On success, it extracts the PartyInfo from the KVStrore and returns a sanitized struct ready to be used by the protocol.
+    /// On failure, returns a TofndError and no changes are been made in the KvStore.
     pub(super) async fn handle_sign_init(
         &mut self,
         in_stream: &mut tonic::Streaming<proto::MessageIn>,
@@ -31,16 +38,18 @@ impl Gg20Service {
             _ => return Err(From::from("Expected sign init message")),
         };
 
-        let party_info = self.shares_kv.get(&sign_init.key_uid).await;
-        let party_info = match party_info {
+        // try to get party info related to session id
+        let party_info = match self.shares_kv.get(&sign_init.key_uid).await {
             Ok(party_info) => party_info,
             Err(err) => {
+                // if no such session id exists, send a message to client that indicates that recovery is needed and stop sign
                 error!("Unable to find session-id {} in kv store. Issuing share recovery and exit sign {:?}", sign_init.key_uid, err);
                 Self::send_kv_store_failure(&sign_init.key_uid, &mut out_stream)?;
                 return Err(err);
             }
         };
 
+        // try to sanitize arguments
         let sign_init = Self::sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
 
         // log SignInitSanitized state
@@ -49,14 +58,14 @@ impl Gg20Service {
         Ok((sign_init, party_info))
     }
 
-    // sanitize arguments of incoming message.
-    // Example:
-    // input for party 'a':
-    //   (from keygen) party_uids = [a, b, c]
-    //   (from keygen) party_share_counts = [3, 2, 1]
-    //   proto::SignInit.party_uids = [c, a]
-    // output for party 'a':
-    //   SignInitSanitized.party_uids = [2, 0]  <- index of c, a in party_uids
+    /// sanitize arguments of incoming message.
+    /// Example:
+    /// input for party 'a':
+    ///   (from keygen) party_uids = [a, b, c]
+    ///   (from keygen) party_share_counts = [3, 2, 1]
+    ///   proto::SignInit.party_uids = [c, a]
+    /// output for party 'a':
+    ///   SignInitSanitized.party_uids = [2, 0]  <- index of c, a in party_uids
     fn sign_sanitize_args(
         sign_init: proto::SignInit,
         all_party_uids: &[String],
