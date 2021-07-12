@@ -26,16 +26,18 @@ impl Gg20Service {
         mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         keygen_span: Span,
     ) -> Result<(), TofndError> {
-        // 1. Receive KeygenInit, open message, sanitize arguments
-        // 2. Spawn N keygen threads to execute the protocol in parallel; one of each of our shares
-        // 3. Spawn 1 router thread to route messages from client to the respective keygen thread
-        // 4. Wait for all keygen threads to finish and aggregate all responses
+        // 1. Receive KeygenInit, open message, sanitize arguments -> init mod
+        // 2. Spawn N keygen threads to execute the protocol in parallel; one of each of our shares -> execute mod
+        // 3. Spawn 1 router thread to route messages from client to the respective keygen thread -> routing mod
+        // 4. Wait for all keygen threads to finish and aggregate all responses -> aggregate mod
 
+        // 1.
         // get KeygenInit message from stream, sanitize arguments and reserve key
         let (keygen_init, key_uid_reservation) = self
             .handle_keygen_init(&mut stream_in, keygen_span.clone())
             .await?;
 
+        // 2.
         // find my share count to allocate channel vectors
         let my_share_count = keygen_init.my_shares_count();
 
@@ -72,12 +74,14 @@ impl Gg20Service {
             });
         }
 
+        // 3.
         // spin up router thread and return immediately
         let span = keygen_span.clone();
         tokio::spawn(async move {
             route_messages(&mut stream_in, keygen_senders, span).await;
         });
 
+        // 4.
         // wait for all keygen threads to end, aggregate their responses, and store data in KV store
         self.aggregate_messages(
             aggregator_receivers,

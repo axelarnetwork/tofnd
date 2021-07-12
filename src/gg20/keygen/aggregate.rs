@@ -1,8 +1,8 @@
 //! This module handles the aggregation and keygen results.
 //! When all keygen threads finish, we aggregate their results and retrieve:
-//! 1. the public key - must be the same accross all results; stored in KvStore
-//! 2. all secret share data - data used to allow parties to participate to future Signs; stored in KvStore
-//! 3. all secret share recovery info - information used to allow client to issue secret share recovery in case of data loss; sent to client
+//!  1. the public key - must be the same across all results; stored in KvStore
+//!  2. all secret share data - data used to allow parties to participate to future Signs; stored in KvStore
+//!  3. all secret share recovery info - information used to allow client to issue secret share recovery in case of data loss; sent to client
 
 use tofn::protocol::gg20::{keygen::KeygenOutput, SecretKeyShare};
 
