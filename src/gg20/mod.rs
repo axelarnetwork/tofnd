@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 // for routing messages
 use crate::TofndError;
 
-use tracing::{error, info, span, Level};
+use tracing::{error, info, span, Level, Span};
 
 pub mod mnemonic;
 use mnemonic::{file_io::FileIo, Cmd};
@@ -69,6 +69,21 @@ impl PartyInfo {
             shares,
             tofnd,
         }
+    }
+
+    pub fn log_info(&self, session_id: &str, sign_span: Span) {
+        let init_span = span!(parent: &sign_span, Level::INFO, "init");
+        let _enter = init_span.enter();
+
+        info!(
+            "[uid:{}, shares:{}] starting Sign with [key: {}, (t,n)=({},{}), participants:{:?}",
+            self.tofnd.party_uids[self.tofnd.index],
+            self.tofnd.share_counts[self.tofnd.index],
+            session_id,
+            self.common.threshold(),
+            self.tofnd.share_counts.iter().sum::<usize>(),
+            self.tofnd.party_uids,
+        );
     }
 }
 

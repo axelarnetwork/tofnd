@@ -43,18 +43,8 @@ impl Gg20Service {
 
         let sign_init = Self::sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
 
-        let init_span = span!(parent: &sign_span, Level::INFO, "init");
-        let _enter = init_span.enter();
-
-        info!(
-            "[uid:{}, shares:{}] starting Sign with [key: {}, (t,n)=({},{}), participants:{:?}",
-            party_info.tofnd.party_uids[party_info.tofnd.index],
-            party_info.tofnd.share_counts[party_info.tofnd.index],
-            sign_init.new_sig_uid,
-            party_info.common.threshold(),
-            party_info.tofnd.share_counts.iter().sum::<usize>(),
-            party_info.tofnd.party_uids,
-        );
+        // log SignInitSanitized state
+        party_info.log_info(&sign_init.new_sig_uid, sign_span);
 
         Ok((sign_init, party_info))
     }
