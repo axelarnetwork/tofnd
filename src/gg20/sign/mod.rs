@@ -18,14 +18,8 @@ use tonic::Status;
 
 use tracing::{error, info, span, warn, Level, Span};
 
-#[allow(dead_code)] // allow dead code because participant_uids is not used
-struct SignInitSanitized {
-    new_sig_uid: String, // this is only used for logging
-    // key_uid: String,
-    participant_uids: Vec<String>,
-    participant_indices: Vec<usize>,
-    message_to_sign: MessageDigest,
-}
+mod types;
+use types::*;
 
 impl Gg20Service {
     // we wrap the functionality of sign gRPC here because we can't handle errors
