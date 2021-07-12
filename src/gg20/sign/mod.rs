@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use tofn::protocol::gg20::{sign::SignOutput, SecretKeyShare};
 
 use super::{
@@ -12,14 +10,14 @@ use protocol::map_tofnd_to_tofn_idx;
 use tokio::sync::oneshot;
 
 // tonic cruft
-use futures_util::StreamExt;
 use tokio::sync::mpsc;
 use tonic::Status;
 
-use tracing::{error, info, span, warn, Level, Span};
+use tracing::{info, span, warn, Level, Span};
 
-mod types;
-use types::*;
+mod init;
+
+pub mod types;
 
 impl Gg20Service {
     // we wrap the functionality of sign gRPC here because we can't handle errors
@@ -153,54 +151,6 @@ impl Gg20Service {
         Ok(out_stream.send(Ok(proto::MessageOut::need_recover(session_id.to_owned())))?)
     }
 
-    // makes all needed assertions on incoming data, and create structures that are
-    // needed to execute the protocol
-    async fn handle_sign_init(
-        &mut self,
-        in_stream: &mut tonic::Streaming<proto::MessageIn>,
-        mut out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
-        sign_span: Span,
-    ) -> Result<(SignInitSanitized, PartyInfo), TofndError> {
-        let msg_type = in_stream
-            .next()
-            .await
-            .ok_or("sign: stream closed by client without sending a message")??
-            .data
-            .ok_or("sign: missing `data` field in client message")?;
-
-        let sign_init = match msg_type {
-            proto::message_in::Data::SignInit(k) => k,
-            _ => return Err(From::from("Expected sign init message")),
-        };
-
-        let party_info = self.shares_kv.get(&sign_init.key_uid).await;
-        let party_info = match party_info {
-            Ok(party_info) => party_info,
-            Err(err) => {
-                error!("Unable to find session-id {} in kv store. Issuing share recovery and exit sign {:?}", sign_init.key_uid, err);
-                Self::send_kv_store_failure(&sign_init.key_uid, &mut out_stream)?;
-                return Err(err);
-            }
-        };
-
-        let sign_init = sign_sanitize_args(sign_init, &party_info.tofnd.party_uids)?;
-
-        let init_span = span!(parent: &sign_span, Level::INFO, "init");
-        let _enter = init_span.enter();
-
-        info!(
-            "[uid:{}, shares:{}] starting Sign with [key: {}, (t,n)=({},{}), participants:{:?}",
-            party_info.tofnd.party_uids[party_info.tofnd.index],
-            party_info.tofnd.share_counts[party_info.tofnd.index],
-            sign_init.new_sig_uid,
-            party_info.common.threshold(),
-            party_info.tofnd.share_counts.iter().sum::<usize>(),
-            party_info.tofnd.party_uids,
-        );
-
-        Ok((sign_init, party_info))
-    }
-
     // execute sign protocol and write the result into the internal channel
     #[allow(clippy::too_many_arguments)]
     async fn execute_sign(
@@ -262,39 +212,6 @@ impl Gg20Service {
 fn get_participant_share_counts(all_shares: &[usize], signer_indices: &[usize]) -> Vec<usize> {
     signer_indices.iter().map(|i| all_shares[*i]).collect()
 }
-
-// sanitize arguments of incoming message.
-// Example:
-// input for party 'a':
-//   (from keygen) party_uids = [a, b, c]
-//   (from keygen) party_share_counts = [3, 2, 1]
-//   proto::SignInit.party_uids = [c, a]
-// output for party 'a':
-//   SignInitSanitized.party_uids = [2, 0]  <- index of c, a in party_uids
-fn sign_sanitize_args(
-    sign_init: proto::SignInit,
-    all_party_uids: &[String],
-) -> Result<SignInitSanitized, TofndError> {
-    // create a vector of the tofnd indices of the participant uids
-    let participant_indices = sign_init
-        .party_uids
-        .iter()
-        .map(|s| {
-            all_party_uids.iter().position(|k| k == s).ok_or(format!(
-                "participant [{}] not found in key [{}]",
-                s, sign_init.key_uid
-            ))
-        })
-        .collect::<Result<Vec<usize>, _>>()?;
-
-    Ok(SignInitSanitized {
-        new_sig_uid: sign_init.new_sig_uid,
-        participant_uids: sign_init.party_uids,
-        participant_indices,
-        message_to_sign: sign_init.message_to_sign.as_slice().try_into()?,
-    })
-}
-
 // Get a share from PartyInfo
 fn get_secret_key_share(
     party_info: &PartyInfo,
