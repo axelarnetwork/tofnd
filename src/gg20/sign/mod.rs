@@ -122,7 +122,7 @@ impl Gg20Service {
             &sign_init.participant_indices,
         );
         // wait for all sign threads to end, get their responses, and return signature
-        wait_threads_and_send_sign(
+        handle_outputs(
             aggregator_receivers,
             &mut stream_out_sender,
             &sign_init.participant_uids,
@@ -212,8 +212,10 @@ fn get_secret_key_share(
     })
 }
 
-// waiting group for all sign workers
-async fn wait_threads_and_send_sign(
+/// handle outputs from all participants
+/// for each participant that returns a valid output, send the result to client
+/// if a participant does not return a valid output, return a TofndError
+async fn handle_outputs(
     aggregator_receivers: Vec<oneshot::Receiver<Result<SignOutput, TofndError>>>,
     stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     participant_uids: &[String],
