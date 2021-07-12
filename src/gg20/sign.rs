@@ -3,7 +3,8 @@ use std::convert::TryInto;
 use tofn::protocol::gg20::{sign::SignOutput, SecretKeyShare};
 
 use super::{
-    proto, protocol, route_messages, Gg20Service, MessageDigest, PartyInfo, ProtocolCommunication,
+    proto, protocol, routing::route_messages, Gg20Service, MessageDigest, PartyInfo,
+    ProtocolCommunication,
 };
 use crate::TofndError;
 

@@ -24,7 +24,6 @@ const DEFAULT_MNEMONIC_KV_NAME: &str = "mnemonic";
 
 mod recover;
 mod routing;
-use routing::route_messages;
 
 // Struct to hold `tonfd` info. This consists of information we need to
 // store in the KV store that is not relevant to `tofn`
@@ -121,27 +120,21 @@ pub async fn new_service(
     gg20
 }
 
-// KeygenInitSanitized is also needed by recovery module
-pub(super) struct KeygenInitSanitized {
-    pub(super) new_key_uid: String,
-    pub(super) party_uids: Vec<String>,
-    pub(super) party_share_counts: Vec<usize>,
-    pub(super) my_index: usize,
-    pub(super) threshold: usize,
-}
-
-impl KeygenInitSanitized {
-    fn my_shares_count(&self) -> usize {
-        self.party_share_counts[self.my_index] as usize
-    }
-}
-
 // Here, we define the input and output channels of generic execute_protocol worker.
 // This helps for grouping similar variables and keeping the number of variables
 // passed to functions under rust's analyser threshold (7).
 struct ProtocolCommunication<InMsg, OutMsg> {
     receiver: mpsc::UnboundedReceiver<InMsg>,
     sender: mpsc::UnboundedSender<OutMsg>,
+}
+
+impl<InMsg, OutMsg> ProtocolCommunication<InMsg, OutMsg> {
+    pub fn new(
+        receiver: mpsc::UnboundedReceiver<InMsg>,
+        sender: mpsc::UnboundedSender<OutMsg>,
+    ) -> Self {
+        Self { receiver, sender }
+    }
 }
 
 #[tonic::async_trait]
@@ -222,44 +215,15 @@ impl proto::gg20_server::Gg20 for Gg20Service {
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
-use tofn::protocol::gg20::keygen::{Keygen, SecretRecoveryKey};
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::BadSign;
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
+use tofn::protocol::gg20::sign::ParamsError as SignErr;
 #[cfg(not(feature = "malicious"))]
 use tofn::protocol::gg20::sign::Sign;
-use tofn::protocol::gg20::{keygen::ParamsError as KeygenErr, sign::ParamsError as SignErr};
 impl Gg20Service {
-    // get regular keygen
-    #[cfg(not(feature = "malicious"))]
-    fn get_keygen(
-        &self,
-        party_share_counts: usize,
-        threshold: usize,
-        my_index: usize,
-        seed: &SecretRecoveryKey,
-        nonce: &[u8],
-    ) -> Result<Keygen, KeygenErr> {
-        Keygen::new(party_share_counts, threshold, my_index, &seed, &nonce)
-    }
-
-    // get malicious keygen
-    #[cfg(feature = "malicious")]
-    fn get_keygen(
-        &self,
-        party_share_counts: usize,
-        threshold: usize,
-        my_index: usize,
-        seed: &SecretRecoveryKey,
-        nonce: &[u8],
-    ) -> Result<Keygen, KeygenErr> {
-        let mut k = Keygen::new(party_share_counts, threshold, my_index, &seed, &nonce)?;
-        k.set_behaviour(self.keygen_behaviour.clone());
-        Ok(k)
-    }
-
     // get regular sign
     #[cfg(not(feature = "malicious"))]
     fn get_sign(
