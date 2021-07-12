@@ -39,16 +39,6 @@ impl Gg20Service {
             .handle_sign_init(&mut stream_in, &mut stream_out, sign_span.clone())
             .await?;
 
-        // quit now if I'm not a participant
-        if !sign_init
-            .participant_indices
-            .iter()
-            .any(|&i| i == party_info.tofnd.index)
-        {
-            info!("abort i'm not a participant");
-            return Ok(());
-        }
-
         // find my share count
         let my_share_count = party_info.shares.len();
         // create in and out channels for each share, and spawn as many threads
