@@ -58,6 +58,14 @@ impl Gg20Service {
         Ok((sign_init, party_info))
     }
 
+    /// send "need recover" message to client
+    fn send_kv_store_failure(
+        session_id: &str,
+        out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
+    ) -> Result<(), TofndError> {
+        Ok(out_stream.send(Ok(proto::MessageOut::need_recover(session_id.to_owned())))?)
+    }
+
     /// sanitize arguments of incoming message.
     /// Example:
     /// input for party 'a':

@@ -143,14 +143,6 @@ impl Gg20Service {
         Ok(())
     }
 
-    // send "need recover" message to client
-    fn send_kv_store_failure(
-        session_id: &str,
-        out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
-    ) -> Result<(), TofndError> {
-        Ok(out_stream.send(Ok(proto::MessageOut::need_recover(session_id.to_owned())))?)
-    }
-
     // execute sign protocol and write the result into the internal channel
     #[allow(clippy::too_many_arguments)]
     async fn execute_sign(
