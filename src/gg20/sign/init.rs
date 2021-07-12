@@ -81,3 +81,63 @@ impl Gg20Service {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ok_sign_sanitize_args() {
+        let all_party_uids = vec![
+            "party_0".to_owned(), // party 0 has index 0
+            "party_1".to_owned(), // party 1 has index 1
+            "party_2".to_owned(), // party 2 has index 2
+        ];
+
+        let raw_sign_init = proto::SignInit {
+            new_sig_uid: "test_uid".to_owned(),
+            key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_2".to_owned(), "party_1".to_owned()],
+            message_to_sign: vec![42; 32],
+        };
+        let sanitized_sign_init = SignInitSanitized {
+            new_sig_uid: "test_uid".to_owned(), // new sig uid should be the same
+            participant_uids: vec!["party_2".to_owned(), "party_1".to_owned()], // party 2 has index 2, party 1 has index 1
+            participant_indices: vec![2, 1], // indices should be [2, 1]
+            message_to_sign: vec![42; 32].as_slice().try_into().unwrap(), // msg of 32 bytes should be successfully converted to MessageDigest
+        };
+
+        let res = Gg20Service::sign_sanitize_args(raw_sign_init, &all_party_uids).unwrap();
+        assert_eq!(&res.new_sig_uid, &sanitized_sign_init.new_sig_uid);
+        assert_eq!(&res.participant_uids, &sanitized_sign_init.participant_uids);
+        assert_eq!(
+            &res.participant_indices,
+            &sanitized_sign_init.participant_indices
+        );
+        assert_eq!(&res.message_to_sign, &sanitized_sign_init.message_to_sign);
+    }
+
+    #[test]
+    fn test_fail_sign_sanitize_args() {
+        let all_party_uids = vec![
+            "party_0".to_owned(),
+            "party_1".to_owned(),
+            "party_2".to_owned(),
+        ];
+        let raw_sign_init = proto::SignInit {
+            new_sig_uid: "test_uid".to_owned(),
+            key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_4".to_owned(), "party_1".to_owned()], // party 4 does not exist
+            message_to_sign: vec![42; 32],
+        };
+        assert!(Gg20Service::sign_sanitize_args(raw_sign_init, &all_party_uids).is_err());
+
+        let raw_sign_init = proto::SignInit {
+            new_sig_uid: "test_uid".to_owned(),
+            key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_2".to_owned(), "party_1".to_owned()],
+            message_to_sign: vec![42; 33], // message is not 32 bytes
+        };
+        assert!(Gg20Service::sign_sanitize_args(raw_sign_init, &all_party_uids).is_err());
+    }
+}
