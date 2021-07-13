@@ -13,9 +13,9 @@ use tracing::{span, Level, Span};
 
 pub mod types;
 use types::*;
-mod aggregate;
 mod execute;
 mod init;
+mod result;
 
 impl Gg20Service {
     // we wrap the functionality of keygen gRPC here because we can't handle errors
@@ -83,7 +83,7 @@ impl Gg20Service {
 
         // 4.
         // wait for all keygen threads to end, aggregate their responses, and store data in KV store
-        self.aggregate_messages(
+        self.aggregate_results(
             aggregator_receivers,
             &mut stream_out_sender,
             key_uid_reservation,
