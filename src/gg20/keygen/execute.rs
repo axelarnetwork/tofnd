@@ -43,7 +43,7 @@ impl Gg20Service {
         .await;
 
         // return processed result
-        Ok(Self::process_result(
+        Ok(Self::process_keygen_result(
             keygen,
             protocol_result,
             execute_span.clone(),
@@ -51,7 +51,7 @@ impl Gg20Service {
     }
 
     /// constructs response from given protocol's state and result
-    fn process_result(
+    fn process_keygen_result(
         protocol_state: Keygen,
         protocol_result: Result<(), TofndError>,
         execute_span: Span,
