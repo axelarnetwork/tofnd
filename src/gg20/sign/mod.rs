@@ -1,4 +1,4 @@
-use tofn::protocol::gg20::{sign::SignOutput, SecretKeyShare};
+use tofn::protocol::gg20::sign::SignOutput;
 
 use super::{
     proto, protocol, routing::route_messages, Gg20Service, MessageDigest, PartyInfo,
@@ -6,7 +6,6 @@ use super::{
 };
 use crate::TofndError;
 
-use protocol::map_tofnd_to_tofn_idx;
 use tokio::sync::oneshot;
 
 // tonic cruft
@@ -17,8 +16,8 @@ use tracing::{span, Level, Span};
 
 mod execute;
 mod init;
-
-pub mod types;
+mod types;
+use types::*;
 
 impl Gg20Service {
     // we wrap the functionality of sign gRPC here because we can't handle errors
@@ -52,63 +51,19 @@ impl Gg20Service {
             sign_senders.push(sign_sender);
             aggregator_receivers.push(aggregator_receiver);
 
-            // make copies to pass to execute sign thread
-            let stream_out = stream_out_sender.clone();
-            let sign_party_uids = sign_init.participant_uids.clone();
-            let participant_tofn_indices: Vec<usize> = get_signer_tofn_indices(
-                &party_info.tofnd.share_counts,
-                &sign_init.participant_indices,
-            );
-            let secret_key_share = get_secret_key_share(&party_info, my_tofnd_subindex)?;
-            let message_to_sign = sign_init.message_to_sign.clone();
+            let chans = ProtocolCommunication::new(sign_receiver, stream_out_sender.clone());
+            let ctx = Context::new(sign_init.clone(), party_info.clone(), my_tofnd_subindex)?;
             let gg20 = self.clone();
 
-            // from keygen we have
-            //  party uids:         [A, B, C, D]
-            //  share counts:       [1, 2, 3, 4]
-            // in sign we receive
-            //  sign uids:          [D, B]
-            // we need to construct an array of share counts that is alligned with sign uids
-            //  sign share counts:  [4, 2]
-            let mut sign_share_counts = vec![];
-            for sign_uid in &sign_party_uids {
-                let keygen_index = party_info
-                    .tofnd
-                    .party_uids
-                    .iter()
-                    .position(|uid| uid == sign_uid)
-                    .ok_or("Signer uid was not found")?;
-                sign_share_counts.push(party_info.tofnd.share_counts[keygen_index]);
-            }
-
-            // set up log prefix
-            let log_prefix = format!(
-                "[{}] [uid:{}, share:{}/{}]",
-                sign_init.new_sig_uid,
-                party_info.tofnd.party_uids[party_info.tofnd.index],
-                party_info.shares[my_tofnd_subindex].index() + 1,
-                party_info.common.share_count(),
-            );
-            let state = log_prefix.as_str();
+            // set up log state
+            let log_info = ctx.log_info();
+            let state = log_info.as_str();
             let execute_span = span!(parent: &sign_span, Level::INFO, "execute", state);
 
             // spawn sign threads
             tokio::spawn(async move {
                 // get result of sign
-                let signature = gg20
-                    .execute_sign(
-                        ProtocolCommunication {
-                            receiver: sign_receiver,
-                            sender: stream_out,
-                        },
-                        &sign_party_uids,
-                        &sign_share_counts,
-                        &participant_tofn_indices,
-                        secret_key_share,
-                        &message_to_sign,
-                        execute_span.clone(),
-                    )
-                    .await;
+                let signature = gg20.execute_sign(chans, &ctx, execute_span.clone()).await;
                 let _ = aggregator_sender.send(signature);
             });
         }
@@ -138,23 +93,6 @@ impl Gg20Service {
 fn get_participant_share_counts(all_shares: &[usize], signer_indices: &[usize]) -> Vec<usize> {
     signer_indices.iter().map(|i| all_shares[*i]).collect()
 }
-// Get a share from PartyInfo
-fn get_secret_key_share(
-    party_info: &PartyInfo,
-    share_index: usize,
-) -> Result<SecretKeyShare, TofndError> {
-    if share_index >= party_info.shares.len() {
-        return Err(From::from(format!(
-            "Requested share {} is out of bounds {}",
-            share_index,
-            party_info.shares.len(),
-        )));
-    }
-    Ok(SecretKeyShare {
-        group: party_info.common.clone(),
-        share: party_info.shares[share_index].clone(),
-    })
-}
 
 /// handle outputs from all participants
 /// for each participant that returns a valid output, send the result to client
@@ -179,66 +117,4 @@ async fn handle_outputs(
         sign_output,
     )))?;
     Ok(())
-}
-
-// get all tofn indices of a party
-// Example:
-// input:
-//   sign_uids = [a, c]
-//   share_counts = [3, 2, 1]
-// output:
-//   all_party_tofn_indices: [0, 1, 2, 3, 4, 5]
-//                            ^  ^  ^  ^  ^  ^
-//                            a  a  a  b  b  c
-//   signing_tofn_indices: [0, 1, 2, 5] <- index of a's 3 shares + c's 2 shares
-fn get_signer_tofn_indices(share_counts: &[usize], signing_indices: &[usize]) -> Vec<usize> {
-    let mut signer_tofn_indices = Vec::new();
-
-    for signing_index in signing_indices {
-        let tofn_index = map_tofnd_to_tofn_idx(*signing_index, 0, share_counts);
-        for share_count in 0..share_counts[*signing_index] {
-            signer_tofn_indices.push(tofn_index + share_count);
-        }
-    }
-
-    signer_tofn_indices
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn tofn_indices() {
-        struct Test {
-            share_counts: Vec<usize>,
-            signing_indices: Vec<usize>,
-            result: Vec<usize>,
-        }
-
-        let tests = vec![
-            Test {
-                share_counts: vec![1, 1, 1, 1],
-                signing_indices: vec![0, 2],
-                result: vec![0, 2],
-            },
-            Test {
-                share_counts: vec![1, 1, 1, 2],
-                signing_indices: vec![0, 3],
-                result: vec![0, 3, 4],
-            },
-            Test {
-                share_counts: vec![2, 1, 4, 1],
-                signing_indices: vec![0, 2],
-                result: vec![0, 1, 3, 4, 5, 6],
-            },
-        ];
-
-        for t in tests {
-            assert_eq!(
-                get_signer_tofn_indices(&t.share_counts, &t.signing_indices),
-                t.result
-            );
-        }
-    }
 }

@@ -2,45 +2,34 @@
 //! On success it returns [SignOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
 //! On failure it returns [TofndError] if [Keygen] cannot be instantiated.
 
-use tofn::protocol::gg20::{
-    sign::{malicious::BadSign, SignOutput},
-    SecretKeyShare,
-};
-
-use super::{proto, protocol, Gg20Service, MessageDigest, ProtocolCommunication};
+use super::{proto, protocol, types::Context, Gg20Service, ProtocolCommunication};
 use crate::TofndError;
+use tofn::protocol::gg20::sign::{malicious::BadSign, SignOutput};
 
 // logging
 use tracing::{info, span, warn, Level, Span};
 
 impl Gg20Service {
-    // execute sign protocol and write the result into the internal channel
-    #[allow(clippy::too_many_arguments)]
     pub(super) async fn execute_sign(
         &self,
-        chan: ProtocolCommunication<
+        chans: ProtocolCommunication<
             Option<proto::TrafficIn>,
             Result<proto::MessageOut, tonic::Status>,
         >,
-        party_uids: &[String],
-        party_share_counts: &[usize],
-        participant_tofn_indices: &[usize],
-        secret_key_share: SecretKeyShare,
-        message_to_sign: &MessageDigest,
+        ctx: &Context,
         execute_span: Span,
     ) -> Result<SignOutput, TofndError> {
-        // Sign::new() needs 'tofn' information:
         let mut sign = self.get_sign(
-            &secret_key_share,
-            &participant_tofn_indices,
-            &message_to_sign,
+            &ctx.secret_key_share,
+            &ctx.sign_tofn_indices(),
+            &ctx.msg_to_sign(),
         )?;
 
         let protocol_result = protocol::execute_protocol(
             &mut sign,
-            chan,
-            &party_uids,
-            &party_share_counts,
+            chans,
+            &ctx.sign_uids(),
+            &ctx.sign_share_counts,
             execute_span.clone(),
         )
         .await;
