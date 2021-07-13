@@ -13,8 +13,9 @@ use tokio::sync::oneshot;
 use tokio::sync::mpsc;
 use tonic::Status;
 
-use tracing::{info, span, warn, Level, Span};
+use tracing::{span, Level, Span};
 
+mod execute;
 mod init;
 
 pub mod types;
@@ -131,63 +132,6 @@ impl Gg20Service {
         .await?;
 
         Ok(())
-    }
-
-    // execute sign protocol and write the result into the internal channel
-    #[allow(clippy::too_many_arguments)]
-    async fn execute_sign(
-        &self,
-        chan: ProtocolCommunication<
-            Option<proto::TrafficIn>,
-            Result<proto::MessageOut, tonic::Status>,
-        >,
-        party_uids: &[String],
-        party_share_counts: &[usize],
-        participant_tofn_indices: &[usize],
-        secret_key_share: SecretKeyShare,
-        message_to_sign: &MessageDigest,
-        execute_span: Span,
-    ) -> Result<SignOutput, TofndError> {
-        // Sign::new() needs 'tofn' information:
-        let mut sign = self.get_sign(
-            &secret_key_share,
-            &participant_tofn_indices,
-            &message_to_sign,
-        )?;
-
-        let res = protocol::execute_protocol(
-            &mut sign,
-            chan,
-            &party_uids,
-            &party_share_counts,
-            execute_span.clone(),
-        )
-        .await;
-
-        let result_span = span!(parent: &execute_span, Level::INFO, "result");
-        let _enter = result_span.enter();
-
-        let res = match res {
-            Ok(()) => {
-                info!("Sign completed successfully");
-                sign.clone_output().ok_or("sign output is `None`")?
-            }
-            Err(err) => match sign.found_disrupting() {
-                true => {
-                    warn!("Party failed due to deserialization error: {}", err);
-                    sign.clone_output().ok_or("sign output is `None`")?
-                }
-                false => {
-                    let waiting_on = sign.waiting_on();
-                    warn!(
-                        "Connection closed by client: {}.\nWaiting on {:?}",
-                        err, waiting_on
-                    );
-                    Err(waiting_on)
-                }
-            },
-        };
-        Ok(res)
     }
 }
 
