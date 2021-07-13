@@ -1,4 +1,4 @@
-//! This module executes the keygen protocol
+//! This module creates and executes the keygen protocol
 //! On success it returns [KeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
 //! On failure it returns [TofndError] if [Keygen] cannot be instantiated.
 
@@ -10,7 +10,8 @@ use tofn::protocol::gg20::keygen::{Keygen, KeygenOutput};
 use tracing::{info, span, warn, Level, Span};
 
 impl Gg20Service {
-    /// execute keygen protocol and return result
+    /// create and execute keygen protocol and returning the result.
+    /// if the protocol cannot be instantiated, return a TofndError
     pub(super) async fn execute_keygen(
         &self,
         chans: ProtocolCommunication<

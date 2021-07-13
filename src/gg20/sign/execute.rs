@@ -1,6 +1,6 @@
-//! This module executes the keygen protocol
-//! On success it returns [SignOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
-//! On failure it returns [TofndError] if [Keygen] cannot be instantiated.
+//! This module creates and executes the sign protocol
+//! On success it returns [SignOutput]. A successful [Sign] can produce either an Ok(Vec<u8>) of an Err(Vec<Vec<Crime>>).
+//! On failure it returns [TofndError] if [Sign] cannot be instantiated.
 
 use super::{proto, protocol, types::Context, Gg20Service, ProtocolCommunication};
 use crate::TofndError;
@@ -10,6 +10,8 @@ use tofn::protocol::gg20::sign::{malicious::BadSign, SignOutput};
 use tracing::{info, span, warn, Level, Span};
 
 impl Gg20Service {
+    /// create and execute sign protocol and returning the result.
+    /// if the protocol cannot be instantiated, return a TofndError
     pub(super) async fn execute_sign(
         &self,
         chans: ProtocolCommunication<
@@ -19,12 +21,15 @@ impl Gg20Service {
         ctx: &Context,
         execute_span: Span,
     ) -> Result<SignOutput, TofndError> {
+        // create sign with context
+        // TODO: change sign here when new constructor is available
         let mut sign = self.get_sign(
             &ctx.secret_key_share,
             &ctx.sign_tofn_indices(),
             &ctx.msg_to_sign(),
         )?;
 
+        // execute protocol and wait for completion
         let protocol_result = protocol::execute_protocol(
             &mut sign,
             chans,
@@ -34,6 +39,7 @@ impl Gg20Service {
         )
         .await;
 
+        // return processed result
         Ok(Self::process_sign_result(
             sign,
             protocol_result,

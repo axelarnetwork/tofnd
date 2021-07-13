@@ -53,7 +53,7 @@ impl Gg20Service {
             let (aggregator_sender, aggregator_receiver) = oneshot::channel();
             aggregator_receivers.push(aggregator_receiver);
 
-            // wrap channels needed threads internally; receiver chan for router and sender chan gRPC stream
+            // wrap channels needed by internal threads; receiver chan for router and sender chan gRPC stream
             let chans = ProtocolCommunication::new(keygen_receiver, stream_out_sender.clone());
             // wrap all context data needed for each thread
             let ctx = Context::new(&keygen_init, keygen_init.my_index, my_tofnd_subindex);
