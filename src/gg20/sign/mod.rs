@@ -28,17 +28,19 @@ impl Gg20Service {
         mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         sign_span: Span,
     ) -> Result<(), TofndError> {
-        // 1. Receive SignInit, open message, sanitize arguments
+        // 1. Receive SignInit, open message, sanitize arguments - init mod
         // 2. Spawn N sign threads to execute the protocol in parallel; one of each of our shares
         // 3. Spawn 1 router thread to route messages from axelar core to the respective sign thread
         // 4. Wait for all sign threads to finish and aggregate all responses
 
+        // 1.
         // get SignInit message from stream and sanitize arguments
         let mut stream_out = stream_out_sender.clone();
         let (sign_init, party_info) = self
             .handle_sign_init(&mut stream_in, &mut stream_out, sign_span.clone())
             .await?;
 
+        // 2.
         // find my share count
         let my_share_count = party_info.shares.len();
         // create in and out channels for each share, and spawn as many threads
@@ -47,8 +49,9 @@ impl Gg20Service {
 
         for my_tofnd_subindex in 0..my_share_count {
             let (sign_sender, sign_receiver) = mpsc::unbounded_channel();
-            let (aggregator_sender, aggregator_receiver) = oneshot::channel();
             sign_senders.push(sign_sender);
+
+            let (aggregator_sender, aggregator_receiver) = oneshot::channel();
             aggregator_receivers.push(aggregator_receiver);
 
             let chans = ProtocolCommunication::new(sign_receiver, stream_out_sender.clone());
@@ -67,16 +70,20 @@ impl Gg20Service {
                 let _ = aggregator_sender.send(signature);
             });
         }
+
+        // 3.
         // spawn router thread
         let span = sign_span.clone();
         tokio::spawn(async move {
             route_messages(&mut stream_in, sign_senders, span).await;
         });
 
+        // 4.
         let participant_share_counts = get_participant_share_counts(
             &party_info.tofnd.share_counts,
             &sign_init.participant_indices,
         );
+
         // wait for all sign threads to end, get their responses, and return signature
         handle_outputs(
             aggregator_receivers,

@@ -1,5 +1,3 @@
-use tracing::{span, Level, Span};
-
 use super::{
     proto, protocol, routing::route_messages, Gg20Service, PartyInfo, ProtocolCommunication,
 };
@@ -10,9 +8,11 @@ use tonic::Status;
 // tonic cruft
 use tokio::sync::{mpsc, oneshot};
 
+// logging
+use tracing::{span, Level, Span};
+
 pub mod types;
 use types::*;
-
 mod aggregate;
 mod execute;
 mod init;
