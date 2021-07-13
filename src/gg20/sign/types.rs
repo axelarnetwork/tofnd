@@ -63,7 +63,7 @@ impl Context {
             let keygen_index = keygen_uids
                 .iter()
                 .position(|uid| uid == sign_uid)
-                .ok_or("Signer uid was not found")?;
+                .ok_or("Sign uid was not found")?;
             sign_share_counts.push(keygen_share_counts[keygen_index]);
         }
         Ok(sign_share_counts)
