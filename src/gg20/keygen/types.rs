@@ -80,7 +80,7 @@ impl Context {
         self.nonce.as_bytes()
     }
 
-    /// print `Context`'s state; used for logging
+    /// export state; used for logging
     pub fn log_info(&self) -> String {
         format!(
             "[{}] [uid:{}, share:{}/{}]",

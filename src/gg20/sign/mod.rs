@@ -4,10 +4,8 @@ use super::{
 };
 use crate::TofndError;
 
-use tokio::sync::oneshot;
-
 // tonic cruft
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tonic::Status;
 
 // logging
@@ -31,7 +29,7 @@ impl Gg20Service {
         // 1. Receive SignInit, open message, sanitize arguments -> init mod
         // 2. Spawn N sign threads to execute the protocol in parallel; one of each of our shares -> execute mod
         // 3. Spawn 1 router thread to route messages from client to the respective sign thread -> routing mod
-        // 4. Wait for all sign threads to finish and aggregate all responses
+        // 4. Wait for all sign threads to finish and aggregate all responses -> result mod
 
         // 1.
         // get SignInit message from stream and sanitize arguments

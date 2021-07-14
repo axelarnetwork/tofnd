@@ -29,7 +29,7 @@ impl Gg20Service {
         // 1. Receive KeygenInit, open message, sanitize arguments -> init mod
         // 2. Spawn N keygen threads to execute the protocol in parallel; one of each of our shares -> execute mod
         // 3. Spawn 1 router thread to route messages from client to the respective keygen thread -> routing mod
-        // 4. Wait for all keygen threads to finish and aggregate all responses -> aggregate mod
+        // 4. Wait for all keygen threads to finish and aggregate all responses -> result mod
 
         // 1.
         // get KeygenInit message from stream, sanitize arguments and reserve key

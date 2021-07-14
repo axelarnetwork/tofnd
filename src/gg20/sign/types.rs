@@ -95,7 +95,7 @@ impl Context {
     }
 
     pub(super) fn sign_tofn_indices(&self) -> Vec<usize> {
-        // use stateless impl function to ease tests
+        // use stateless implementation function to ease tests
         Self::sign_tofn_indices_impl(
             &self.party_info.tofnd.share_counts,
             &self.sign_init.participant_indices,
@@ -123,7 +123,7 @@ impl Context {
         sign_tofn_indices
     }
 
-    /// print `Context`'s state; used for logging
+    /// export state; used for logging
     pub(super) fn log_info(&self) -> String {
         format!(
             "[{}] [uid:{}, share:{}/{}]",
