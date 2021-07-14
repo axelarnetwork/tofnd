@@ -1,5 +1,3 @@
-use tracing::{span, Level, Span};
-
 use super::{
     proto, protocol, routing::route_messages, Gg20Service, PartyInfo, ProtocolCommunication,
 };
@@ -10,12 +8,14 @@ use tonic::Status;
 // tonic cruft
 use tokio::sync::{mpsc, oneshot};
 
+// logging
+use tracing::{span, Level, Span};
+
 pub mod types;
 use types::*;
-
-mod aggregate;
 mod execute;
 mod init;
+mod result;
 
 impl Gg20Service {
     // we wrap the functionality of keygen gRPC here because we can't handle errors
@@ -29,7 +29,7 @@ impl Gg20Service {
         // 1. Receive KeygenInit, open message, sanitize arguments -> init mod
         // 2. Spawn N keygen threads to execute the protocol in parallel; one of each of our shares -> execute mod
         // 3. Spawn 1 router thread to route messages from client to the respective keygen thread -> routing mod
-        // 4. Wait for all keygen threads to finish and aggregate all responses -> aggregate mod
+        // 4. Wait for all keygen threads to finish and aggregate all responses -> result mod
 
         // 1.
         // get KeygenInit message from stream, sanitize arguments and reserve key
@@ -53,7 +53,7 @@ impl Gg20Service {
             let (aggregator_sender, aggregator_receiver) = oneshot::channel();
             aggregator_receivers.push(aggregator_receiver);
 
-            // wrap channels needed threads internally; receiver chan for router and sender chan gRPC stream
+            // wrap channels needed by internal threads; receiver chan for router and sender chan gRPC stream
             let chans = ProtocolCommunication::new(keygen_receiver, stream_out_sender.clone());
             // wrap all context data needed for each thread
             let ctx = Context::new(&keygen_init, keygen_init.my_index, my_tofnd_subindex);
@@ -83,7 +83,7 @@ impl Gg20Service {
 
         // 4.
         // wait for all keygen threads to end, aggregate their responses, and store data in KV store
-        self.aggregate_messages(
+        self.aggregate_results(
             aggregator_receivers,
             &mut stream_out_sender,
             key_uid_reservation,
