@@ -149,31 +149,31 @@ mod tests {
 
     #[test]
     fn tofn_indices() {
-        struct Test {
+        struct TestCase {
             share_counts: Vec<usize>,
             signing_indices: Vec<usize>,
             result: Vec<usize>,
         }
 
-        let tests = vec![
-            Test {
+        let test_cases = vec![
+            TestCase {
                 share_counts: vec![1, 1, 1, 1],
                 signing_indices: vec![0, 2],
                 result: vec![0, 2],
             },
-            Test {
+            TestCase {
                 share_counts: vec![1, 1, 1, 2],
                 signing_indices: vec![0, 3],
                 result: vec![0, 3, 4],
             },
-            Test {
+            TestCase {
                 share_counts: vec![2, 1, 4, 1],
                 signing_indices: vec![0, 2],
                 result: vec![0, 1, 3, 4, 5, 6],
             },
         ];
 
-        for t in tests {
+        for t in test_cases {
             assert_eq!(
                 Context::sign_tofn_indices_impl(&t.share_counts, &t.signing_indices),
                 t.result
