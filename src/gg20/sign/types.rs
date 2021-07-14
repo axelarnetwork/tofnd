@@ -31,7 +31,7 @@ impl Context {
     ) -> Result<Self, TofndError> {
         // retrieve sign_share_couts and secret_key_shares here instead of adding
         // getters to immediatelly dicover potential errors
-        let sign_share_counts = Self::get_share_counts(
+        let sign_share_counts = Self::get_sign_share_counts(
             &party_info.tofnd.party_uids,
             &party_info.tofnd.share_counts,
             &sign_init.participant_uids,
@@ -53,18 +53,26 @@ impl Context {
     ///  sign uids:          [D, B]
     /// we need to construct an array of share counts that is alligned with sign uids
     ///  sign share counts:  [4, 2]
-    fn get_share_counts(
+    fn get_sign_share_counts(
         keygen_uids: &[String],
         keygen_share_counts: &[usize],
         sign_uids: &[String],
     ) -> Result<Vec<usize>, TofndError> {
+        if keygen_uids.len() != keygen_share_counts.len() {
+            return Err(From::from(
+                "misalligned keygen uids and keygen share counts",
+            ));
+        }
         let mut sign_share_counts = vec![];
         for sign_uid in sign_uids {
             let keygen_index = keygen_uids
                 .iter()
                 .position(|uid| uid == sign_uid)
                 .ok_or("Sign uid was not found")?;
-            sign_share_counts.push(keygen_share_counts[keygen_index]);
+            let sign_share_count = *keygen_share_counts
+                .get(keygen_index)
+                .ok_or("invalid index")?;
+            sign_share_counts.push(sign_share_count);
         }
         Ok(sign_share_counts)
     }
@@ -170,6 +178,63 @@ mod tests {
                 Context::sign_tofn_indices_impl(&t.share_counts, &t.signing_indices),
                 t.result
             );
+        }
+    }
+
+    #[test]
+    fn test_sign_share_counts() {
+        struct TestCase {
+            keygen_uids: Vec<String>,
+            keygen_share_counts: Vec<usize>,
+            sign_uids: Vec<String>,
+            result: Vec<usize>,
+        }
+
+        let ok_test_cases = vec![
+            TestCase {
+                keygen_uids: vec!["a".to_owned(), "b".to_owned()],
+                keygen_share_counts: vec![1, 2],
+                sign_uids: vec!["a".to_owned(), "b".to_owned()],
+                result: vec![1, 2],
+            },
+            TestCase {
+                keygen_uids: vec!["b".to_owned(), "a".to_owned()],
+                keygen_share_counts: vec![1, 2],
+                sign_uids: vec!["a".to_owned()],
+                result: vec![2],
+            },
+        ];
+
+        let fail_test_cases = vec![
+            TestCase {
+                keygen_uids: vec!["a".to_owned(), "b".to_owned()],
+                keygen_share_counts: vec![1, 2],
+                sign_uids: vec!["c".to_owned()], // party "c" does not exist
+                result: vec![],
+            },
+            TestCase {
+                keygen_uids: vec!["a".to_owned(), "b".to_owned()],
+                keygen_share_counts: vec![1, 2, 3], // keygen shares not alligned with uids
+                sign_uids: vec!["a".to_owned()],
+                result: vec![],
+            },
+        ];
+
+        for t in ok_test_cases {
+            let res = Context::get_sign_share_counts(
+                &t.keygen_uids,
+                &t.keygen_share_counts,
+                &t.sign_uids,
+            );
+            assert_eq!(res.unwrap(), t.result);
+        }
+        for t in fail_test_cases {
+            let res = Context::get_sign_share_counts(
+                &t.keygen_uids,
+                &t.keygen_share_counts,
+                &t.sign_uids,
+            );
+            assert!(res.is_err());
         }
     }
 }
