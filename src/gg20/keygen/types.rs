@@ -2,6 +2,7 @@
 
 use super::{proto::message_out::keygen_result, protocol::map_tofnd_to_tofn_idx};
 use tofn::protocol::gg20::keygen::crimes::Crime;
+use tracing::{info, span, Level, Span};
 
 /// wrapper type for proto::message_out::new_keygen_result
 pub type KeygenResultData = Result<keygen_result::KeygenOutput, Vec<Vec<Crime>>>;
@@ -20,16 +21,32 @@ impl KeygenInitSanitized {
     pub(super) fn my_shares_count(&self) -> usize {
         self.party_share_counts[self.my_index] as usize
     }
+
+    // log KeygenInitSanitized state
+    pub(super) fn log_info(&self, keygen_span: Span) {
+        // create log span and display current status
+        let init_span = span!(parent: &keygen_span, Level::INFO, "init");
+        let _enter = init_span.enter();
+        info!(
+            "[uid:{}, shares:{}] starting Keygen with [key: {}, (t,n)=({},{}), participants:{:?}",
+            self.party_uids[self.my_index],
+            self.my_shares_count(),
+            self.new_key_uid,
+            self.threshold,
+            self.party_share_counts.iter().sum::<usize>(),
+            self.party_uids,
+        );
+    }
 }
 
 /// Context holds the all arguments that need to be passed from keygen gRPC call into protocol execution
 pub struct Context {
-    pub uids: Vec<String>,        // all party uids; alligned with `share_counts`
-    pub share_counts: Vec<usize>, // all party share counts; alligned with `uids`
-    pub threshold: usize,         // protocol's threshold
-    pub tofnd_index: usize,       // tofnd index of party
-    pub tofnd_subindex: usize,    // index of party's share
-    pub nonce: String,            // session nonce; we use session's uid
+    pub(super) uids: Vec<String>, // all party uids; alligned with `share_counts`
+    pub(super) share_counts: Vec<usize>, // all party share counts; alligned with `uids`
+    pub(super) threshold: usize,  // protocol's threshold
+    pub(super) tofnd_index: usize, // tofnd index of party
+    pub(super) tofnd_subindex: usize, // index of party's share
+    pub(super) nonce: String,     // session nonce; we use session's uid
 }
 impl Context {
     /// create a new Context
@@ -63,7 +80,7 @@ impl Context {
         self.nonce.as_bytes()
     }
 
-    /// print `Context`'s state; used for logging
+    /// export state; used for logging
     pub fn log_info(&self) -> String {
         format!(
             "[{}] [uid:{}, share:{}/{}]",

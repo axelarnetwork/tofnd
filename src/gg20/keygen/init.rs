@@ -3,7 +3,7 @@
 //! If [proto::KeygenInit] fails to be parsed, a [TofndError] is returned
 
 use futures_util::StreamExt;
-use tracing::{info, span, Level, Span};
+use tracing::Span;
 
 use tofn::protocol::gg20::keygen::validate_params;
 
@@ -36,25 +36,15 @@ impl Gg20Service {
         // try to process incoming message
         let (keygen_init, key_reservation) = self.process_keygen_init(keygen_init).await?;
 
-        // create log span and display current status
-        let init_span = span!(parent: &keygen_span, Level::INFO, "init");
-        let _enter = init_span.enter();
-        info!(
-            "[uid:{}, shares:{}] starting Keygen with [key: {}, (t,n)=({},{}), participants:{:?}",
-            keygen_init.party_uids[keygen_init.my_index],
-            keygen_init.party_share_counts[keygen_init.my_index],
-            keygen_init.new_key_uid,
-            keygen_init.threshold,
-            keygen_init.party_share_counts.iter().sum::<usize>(),
-            keygen_init.party_uids,
-        );
+        // log keygen init state
+        keygen_init.log_info(keygen_span);
 
         // return sanitized key and its KvStore reservation
         Ok((keygen_init, key_reservation))
     }
 
     // makes all needed assertions on incoming data, and create structures that are
-    // needed to execute the protocol
+    // needed for the execution of the protocol
     pub(super) async fn process_keygen_init(
         &mut self,
         keygen_init: proto::KeygenInit,
