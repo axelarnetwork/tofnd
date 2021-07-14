@@ -4,9 +4,6 @@ use tofn::protocol::{IndexRange, Protocol};
 use super::{proto, ProtocolCommunication};
 use crate::TofndError;
 
-// tonic cruft
-use futures_util::StreamExt;
-
 use tracing::{debug, span, warn, Level, Span};
 
 pub fn map_tofnd_to_tofn_idx(
@@ -115,7 +112,7 @@ pub(super) async fn execute_protocol(
         let mut p2p_msg_count = 0;
         let mut bcast_msg_count = 0;
         while protocol.expecting_more_msgs_this_round() {
-            let traffic = chan.receiver.next().await.ok_or(format!(
+            let traffic = chan.receiver.recv().await.ok_or(format!(
                 "{}: stream closed by client before protocol has completed",
                 round
             ))?;

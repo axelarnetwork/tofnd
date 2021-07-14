@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use tofn::protocol::gg20::{GroupPublicInfo, MessageDigest, SecretKeyShare, ShareSecretInfo};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use super::proto;
 use crate::kv_manager::Kv;
@@ -155,7 +156,8 @@ impl<InMsg, OutMsg> ProtocolCommunication<InMsg, OutMsg> {
 #[tonic::async_trait]
 impl proto::gg20_server::Gg20 for Gg20Service {
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
-    type KeygenStream = mpsc::UnboundedReceiver<Result<proto::MessageOut, Status>>;
+    type KeygenStream =
+        UnboundedReceiverStream<std::result::Result<proto::MessageOut, tonic::Status>>;
     type SignStream = Self::KeygenStream;
 
     async fn recover(
@@ -202,7 +204,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 return;
             }
         });
-        Ok(Response::new(rx))
+        Ok(Response::new(UnboundedReceiverStream::new(rx)))
     }
 
     async fn sign(
@@ -224,7 +226,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
                 return;
             }
         });
-        Ok(Response::new(rx))
+        Ok(Response::new(UnboundedReceiverStream::new(rx)))
     }
 }
 
