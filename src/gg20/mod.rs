@@ -156,8 +156,7 @@ impl<InMsg, OutMsg> ProtocolCommunication<InMsg, OutMsg> {
 #[tonic::async_trait]
 impl proto::gg20_server::Gg20 for Gg20Service {
     // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
-    type KeygenStream =
-        UnboundedReceiverStream<std::result::Result<proto::MessageOut, tonic::Status>>;
+    type KeygenStream = UnboundedReceiverStream<Result<proto::MessageOut, tonic::Status>>;
     type SignStream = Self::KeygenStream;
 
     async fn recover(
