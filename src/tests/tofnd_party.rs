@@ -8,6 +8,7 @@ use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
 use std::path::Path;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
+use tokio_stream::wrappers::{TcpListenerStream, UnboundedReceiverStream};
 use tonic::Request;
 
 use tracing::{info, warn};
@@ -226,7 +227,7 @@ impl TofndParty {
         let server_handle = tokio::spawn(async move {
             tonic::transport::Server::builder()
                 .add_service(proto_service)
-                .serve_with_incoming_shutdown(incoming, async {
+                .serve_with_incoming_shutdown(TcpListenerStream::new(incoming), async {
                     shutdown_receiver.await.unwrap();
                 })
                 .await
@@ -273,7 +274,7 @@ impl Party for TofndParty {
         let (keygen_server_incoming, rx) = channels;
         let mut keygen_server_outgoing = self
             .client
-            .keygen(Request::new(rx))
+            .keygen(Request::new(UnboundedReceiverStream::new(rx)))
             .await
             .unwrap()
             .into_inner();
@@ -382,7 +383,7 @@ impl Party for TofndParty {
         let (sign_server_incoming, rx) = channels;
         let mut sign_server_outgoing = self
             .client
-            .sign(Request::new(rx))
+            .sign(Request::new(UnboundedReceiverStream::new(rx)))
             .await
             .unwrap()
             .into_inner();

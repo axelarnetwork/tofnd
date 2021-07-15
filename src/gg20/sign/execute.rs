@@ -4,7 +4,11 @@
 
 use super::{proto, protocol, types::Context, Gg20Service, ProtocolCommunication};
 use crate::TofndError;
-use tofn::protocol::gg20::sign::{malicious::BadSign, SignOutput};
+#[cfg(feature = "malicious")]
+use tofn::protocol::gg20::sign::malicious::BadSign;
+#[cfg(not(feature = "malicious"))]
+use tofn::protocol::gg20::sign::Sign;
+use tofn::protocol::gg20::sign::SignOutput;
 
 // logging
 use tracing::{info, span, warn, Level, Span};
