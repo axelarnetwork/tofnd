@@ -88,7 +88,7 @@ impl Gg20Service {
         )?;
 
         // wait for all sign threads to end, get responses, and return signature
-        Self::handle_outputs(
+        Self::handle_results(
             aggregator_receivers,
             &mut stream_out_sender,
             &sign_init.participant_uids,

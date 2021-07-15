@@ -13,7 +13,7 @@ impl Gg20Service {
     /// handle outputs from all participants
     /// for each participant that returns a valid output, send the result to client
     /// if a participant does not return a valid output, return a TofndError
-    pub(super) async fn handle_outputs(
+    pub(super) async fn handle_results(
         aggregator_receivers: Vec<oneshot::Receiver<Result<SignOutput, TofndError>>>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         participant_uids: &[String],
