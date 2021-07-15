@@ -12,22 +12,20 @@ use crate::TofndError;
 
 use tracing::{error, info, span, Level};
 
-pub mod mnemonic;
-
-mod recover;
-mod routing;
-pub mod types;
-use types::*;
-pub mod service;
 use service::Gg20Service;
 mod keygen;
-pub mod proto_helpers;
+pub mod mnemonic;
 mod protocol;
+mod recover;
+mod routing;
+pub mod service;
 mod sign;
+pub mod types;
+use types::*;
+pub mod proto_helpers;
 
 #[tonic::async_trait]
 impl proto::gg20_server::Gg20 for Gg20Service {
-    // type KeygenStream = Pin<Box<dyn Stream<Item = Result<proto::MessageOut, Status>> + Send + Sync + 'static>>;
     type KeygenStream = UnboundedReceiverStream<Result<proto::MessageOut, tonic::Status>>;
     type SignStream = Self::KeygenStream;
 

@@ -26,6 +26,7 @@ pub struct Gg20Service {
     pub(super) sign_behaviour: SignBehaviour,
 }
 
+/// create a new Gg20 service
 pub async fn new_service(
     mnemonic_cmd: Cmd,
     #[cfg(feature = "malicious")] keygen_behaviour: KeygenBehaviour,
@@ -47,6 +48,7 @@ pub async fn new_service(
     gg20
 }
 
+// TODO: remove this when sing gets a single constructor
 impl Gg20Service {
     // get regular sign
     #[cfg(not(feature = "malicious"))]

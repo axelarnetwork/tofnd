@@ -90,7 +90,7 @@ impl Gg20Service {
                 starting_tofn_index + i, // create tofn share index from starting tofn index + share count
                 threshold,
             );
-            // check that recovery was successful for share tofnd_index + i
+            // check that recovery was successful for share starting_tofn_index + i
             match recovered_secret_key_share {
                 Ok(secret_key_share) => secret_key_shares.push(secret_key_share),
                 Err(err) => {
@@ -128,5 +128,4 @@ impl Gg20Service {
         // try writing the data to the kv-store
         Ok(self.shares_kv.put(reservation, kv_data).await?)
     }
-
 }
