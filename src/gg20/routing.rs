@@ -17,6 +17,33 @@ enum RoutingResult {
     Skip,
 }
 
+/// Receives incoming from a gRPC stream and vector of out going channels;
+/// Loops until client closes the socket, or an `Abort` message is received  
+/// Empty and unknown messages are ignored
+pub(super) async fn route_messages(
+    in_stream: &mut tonic::Streaming<proto::MessageIn>,
+    mut out_channels: Vec<mpsc::UnboundedSender<Option<proto::TrafficIn>>>,
+    span: Span,
+) {
+    // loop until `stop` is received
+    loop {
+        // read message from stream
+        let msg_data = in_stream.next().await;
+
+        // validate message
+        let traffic = match validate_message(msg_data, span.clone()) {
+            RoutingResult::Continue { traffic } => traffic,
+            RoutingResult::Stop => break,
+            RoutingResult::Skip => continue,
+        };
+
+        // send the message to all channels
+        for out_channel in &mut out_channels {
+            let _ = out_channel.send(Some(traffic.clone()));
+        }
+    }
+}
+
 fn validate_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> RoutingResult {
     // start routing span
     let route_span = span!(parent: &span, Level::INFO, "routing");
@@ -66,33 +93,6 @@ fn validate_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -
 
     // return traffic
     RoutingResult::Continue { traffic }
-}
-
-/// Receives incoming from a gRPC stream and vector of out going channels;
-/// Loops until client closes the socket, or an `Abort` message is received  
-/// Empty and unknown messages are ignored
-pub(super) async fn route_messages(
-    in_stream: &mut tonic::Streaming<proto::MessageIn>,
-    mut out_channels: Vec<mpsc::UnboundedSender<Option<proto::TrafficIn>>>,
-    span: Span,
-) {
-    // loop until `stop` is received
-    loop {
-        // read message from stream
-        let msg_data = in_stream.next().await;
-
-        // validate message
-        let traffic = match validate_message(msg_data, span.clone()) {
-            RoutingResult::Continue { traffic } => traffic,
-            RoutingResult::Stop => break,
-            RoutingResult::Skip => continue,
-        };
-
-        // send the message to all channels
-        for out_channel in &mut out_channels {
-            let _ = out_channel.send(Some(traffic.clone()));
-        }
-    }
 }
 
 #[cfg(test)]
