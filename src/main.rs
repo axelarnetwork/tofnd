@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
+use tokio_stream::wrappers::TcpListenerStream;
 
 mod gg20;
 mod kv_manager;
@@ -73,7 +74,7 @@ async fn main() -> Result<(), TofndError> {
 
     tonic::transport::Server::builder()
         .add_service(proto_service)
-        .serve_with_incoming_shutdown(incoming, shutdown_signal())
+        .serve_with_incoming_shutdown(TcpListenerStream::new(incoming), shutdown_signal())
         .await?;
 
     Ok(())
