@@ -1,6 +1,5 @@
 use super::{
-    proto, protocol, routing::route_messages, Gg20Service, MessageDigest, PartyInfo,
-    ProtocolCommunication,
+    proto, protocol, routing::route_messages, Gg20Service, MessageDigest, ProtocolCommunication,
 };
 use crate::TofndError;
 
@@ -11,7 +10,7 @@ use tonic::Status;
 // logging
 use tracing::{span, Level, Span};
 
-mod types;
+pub mod types;
 use types::*;
 mod execute;
 mod init;

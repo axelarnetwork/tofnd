@@ -1,7 +1,7 @@
 //! This module handles mnemonic-related commands. A kv-store is used to import, edit and export an [Entropy].
 //!
 //! Currently, the API supports the following [Cmd] commands:
-//!     [Cmd::Noop]: does nothing; Always succeeds. useful when the container restarts with the same mnemonic.
+//!     [Cmd::Noop]: does nothing; Always succeeds; useful when the container restarts with the same mnemonic.
 //!     [Cmd::Create]: creates a new mnemonic; Succeeds when there is no other mnemonic already imported, fails otherwise.
 //!     [Cmd::Import]: adds a new mnemonic from "import" file; Succeeds when there is no other mnemonic already imported, fails otherwise.
 //!     [Cmd::Export]: writes the existing mnemonic to a file; Succeeds when there is an existing mnemonic, fails otherwise.
@@ -15,15 +15,12 @@ use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed};
 pub(super) mod file_io;
 use file_io::IMPORT_FILE;
 
-use super::{Gg20Service, TofndError};
+use super::{types::Entropy, Gg20Service, TofndError};
 use std::convert::TryInto;
 use tracing::{error, info};
 
 // default key to store mnemonic
 const MNEMONIC_KEY: &str = "mnemonic";
-
-// Mnemonic type needs to be known globaly to create/access the kv store
-pub type Entropy = Vec<u8>;
 
 // TODO: when main reads commands from command line, dead_code can be removed
 #[allow(dead_code)]

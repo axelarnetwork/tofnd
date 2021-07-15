@@ -207,13 +207,12 @@ impl TofndParty {
         let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
 
         // start service with respect to the current build
-        #[cfg(not(feature = "malicious"))]
-        let my_service = gg20::tests::with_db_name(&db_path, mnemonic_cmd).await;
-        #[cfg(feature = "malicious")]
-        let my_service = gg20::tests::with_db_name_malicious(
+        let my_service = gg20::service::tests::with_db_name(
             &db_path,
             mnemonic_cmd,
+            #[cfg(feature = "malicious")]
             init_party.malicious_data.keygen_behaviour.clone(),
+            #[cfg(feature = "malicious")]
             init_party.malicious_data.sign_behaviour.clone(),
         )
         .await;
@@ -469,6 +468,6 @@ impl Party for TofndParty {
     }
 
     fn get_db_path(&self) -> std::path::PathBuf {
-        gg20::tests::get_db_path(&self.db_name)
+        gg20::service::tests::get_db_path(&self.db_name)
     }
 }

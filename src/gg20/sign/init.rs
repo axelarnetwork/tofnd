@@ -5,8 +5,8 @@
 // try_into() for MessageDigest
 use std::convert::TryInto;
 
-use super::{proto, types::SignInitSanitized, Gg20Service, PartyInfo};
-use crate::TofndError;
+use super::{proto, types::SignInitSanitized, Gg20Service};
+use crate::{gg20::types::PartyInfo, TofndError};
 
 // tonic cruft
 use futures_util::StreamExt;

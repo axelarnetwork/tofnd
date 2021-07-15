@@ -9,9 +9,9 @@ use tofn::protocol::gg20::{keygen::KeygenOutput, SecretKeyShare};
 use super::{
     proto::{self, message_out::keygen_result},
     types::KeygenInitSanitized,
-    Gg20Service, PartyInfo,
+    Gg20Service,
 };
-use crate::{kv_manager::KeyReservation, TofndError};
+use crate::{gg20::types::PartyInfo, kv_manager::KeyReservation, TofndError};
 
 // tonic cruft
 use tokio::sync::{

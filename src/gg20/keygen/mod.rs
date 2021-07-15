@@ -1,6 +1,4 @@
-use super::{
-    proto, protocol, routing::route_messages, Gg20Service, PartyInfo, ProtocolCommunication,
-};
+use super::{proto, protocol, routing::route_messages, types::ProtocolCommunication, Gg20Service};
 use crate::TofndError;
 
 use tonic::Status;
