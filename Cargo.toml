@@ -1,16 +1,15 @@
 [package]
 name = "tofnd"
-version = "0.1.0"
-authors = ["Gus Gutoski <gus@axelar.network>"]
+version = "0.3.0"
+authors = ["Gus Gutoski <gus@axelar.network>", "Stelios Daveas <stelios@axelar.network>"]
 edition = "2018"
 
 [dependencies]
-tonic = "0.3"
+tonic = "0.5"
 tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "main"}
 # tofn = { path = "../tofn" }
 bincode = "1.2.1"
 sled = "0.34"
-funty = "=1.1.0" # zengo baggage
 testdir = "0.4.0"
 
 # logging
@@ -26,15 +25,16 @@ clap = "2.33"
 serde = { version = "1.0", features = ["derive"] }
 
 # tonic dependencies
-prost = "0.6"
-tokio = { version = "0.2", features = ["macros", "signal"] }
+prost = "0.8"
+tokio = { version = "1.8", features = ["rt-multi-thread", "macros", "signal", "net", "sync"] }
+tokio-stream = {version = "0.1.7", features = ["net"]}
 futures-util = "0.3"
 
 # mnemonic
 tiny-bip39 = "0.8.0"
 
 [build-dependencies]
-tonic-build = "0.3"
+tonic-build = "0.5"
 
 [dev-dependencies]
 lazy_static = "1.4"
