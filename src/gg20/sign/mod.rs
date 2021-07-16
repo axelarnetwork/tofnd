@@ -1,6 +1,21 @@
+//! Handles the sign streaming gRPC for one party.
+//!
+//! Protocol:
+//!   1. [self::init] First, the initialization message [proto::SignInit] is received from the client.
+//!      This message describes the execution of the protocol (i.e. number of sign participants, message-to-sign, etc).
+//!   2. [self::execute] Then, the party starts to generate messages by invoking calls of the [tofn] library until the protocol is completed.
+//!      These messages are send to the client using the gRPC stream, and are broadcasted to all participating parties by the client.
+//!   3. [self::result] Finally, the party receives the result of the protocol, which is also send to the client through the gRPC stream. Afterwards, the stream is closed.
+//!
+//! Shares:
+//!   Each party might have multiple shares. A single thread is created for each share.
+//!   We keep this information agnostic to the client, and we use the [crate::gg20::routing] layer to distribute the messages to each share.
+//!   The result of the protocol is common across all shares, and unique for each party. We make use of [self::result] layer to aggregate and process the result.
+//!
+//! All relevant helper structs and types are defined in [self::types]
+
 use super::{
-    proto, protocol, routing::route_messages, Gg20Service, MessageDigest, PartyInfo,
-    ProtocolCommunication,
+    proto, protocol, routing::route_messages, service::Gg20Service, ProtocolCommunication,
 };
 use crate::TofndError;
 
@@ -11,7 +26,7 @@ use tonic::Status;
 // logging
 use tracing::{span, Level, Span};
 
-mod types;
+pub mod types;
 use types::*;
 mod execute;
 mod init;
@@ -89,7 +104,7 @@ impl Gg20Service {
         )?;
 
         // wait for all sign threads to end, get responses, and return signature
-        Self::handle_outputs(
+        Self::handle_results(
             aggregator_receivers,
             &mut stream_out_sender,
             &sign_init.participant_uids,
