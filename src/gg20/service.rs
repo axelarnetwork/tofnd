@@ -1,3 +1,5 @@
+//! This mod includes the service implementation derived from
+
 use super::mnemonic::{file_io::FileIo, Cmd};
 use super::proto;
 use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SHARE_KV_NAME};
@@ -20,7 +22,7 @@ pub struct Gg20Service {
     pub(super) sign_behaviour: SignBehaviour,
 }
 
-/// create a new Gg20 service
+/// create a new Gg20 gRPC server
 pub async fn new_service(
     mnemonic_cmd: Cmd,
     #[cfg(feature = "malicious")] keygen_behaviour: KeygenBehaviour,

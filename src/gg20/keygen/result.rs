@@ -1,4 +1,4 @@
-//! This module handles the aggregation and keygen results.
+//! This module handles the aggregation of process of keygen results.
 //! When all keygen threads finish, we aggregate their results and retrieve:
 //!  1. the public key - must be the same across all results; stored in KvStore
 //!  2. all secret share data - data used to allow parties to participate to future Signs; stored in KvStore

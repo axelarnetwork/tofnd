@@ -1,18 +1,20 @@
-use tofn::protocol::gg20::MessageDigest;
-use tokio_stream::wrappers::UnboundedReceiverStream;
-
-use super::proto;
+//! [proto::gg20_server::Gg20] gRPC server API
+//! Available gRPCs are:
+//!     [recover] - Recovers private data of a party provided a mnemonic.
+//!     [keygen] - Starts keygen.
+//!     [sign] - Starts sing.
 
 // tonic cruft
+use super::proto;
 use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::{Request, Response, Status};
+pub mod proto_helpers;
 
-// for routing messages
-use crate::TofndError;
-
+// logging
 use tracing::{error, info, span, Level};
 
-use service::Gg20Service;
+// gRPC
 mod keygen;
 pub mod mnemonic;
 mod protocol;
@@ -22,13 +24,13 @@ pub mod service;
 mod sign;
 pub mod types;
 use types::*;
-pub mod proto_helpers;
 
 #[tonic::async_trait]
-impl proto::gg20_server::Gg20 for Gg20Service {
+impl proto::gg20_server::Gg20 for service::Gg20Service {
     type KeygenStream = UnboundedReceiverStream<Result<proto::MessageOut, tonic::Status>>;
     type SignStream = Self::KeygenStream;
 
+    /// Recover unary gRPC. See mod recover.
     async fn recover(
         &self,
         request: tonic::Request<proto::RecoverRequest>,
@@ -55,6 +57,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         }))
     }
 
+    /// Keygen streaming gRPC. See mod keygen.
     async fn keygen(
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,
@@ -62,6 +65,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         let stream_in = request.into_inner();
         let (msg_sender, rx) = mpsc::unbounded_channel();
 
+        // log span for keygen
         let span = span!(Level::INFO, "Keygen");
         let _enter = span.enter();
         let s = span.clone();
@@ -76,6 +80,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         Ok(Response::new(UnboundedReceiverStream::new(rx)))
     }
 
+    /// Sign sreaming gRPC. See mod sign.
     async fn sign(
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,
@@ -83,7 +88,7 @@ impl proto::gg20_server::Gg20 for Gg20Service {
         let stream = request.into_inner();
         let (msg_sender, rx) = mpsc::unbounded_channel();
 
-        // span logs for sign
+        // log span for sign
         let span = span!(Level::INFO, "Sign");
         let _enter = span.enter();
         let s = span.clone();

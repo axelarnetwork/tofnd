@@ -15,7 +15,8 @@ use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed};
 pub(super) mod file_io;
 use file_io::IMPORT_FILE;
 
-use super::{types::Entropy, Gg20Service, TofndError};
+use super::{service::Gg20Service, types::Entropy};
+use crate::TofndError;
 use std::convert::TryInto;
 use tracing::{error, info};
 
@@ -30,7 +31,7 @@ pub enum Cmd {
     Export,
 }
 
-// TODO: examine if using strum automates this
+// TODO: examine if this can be automated using strum
 impl Cmd {
     pub fn from_string(cmd_str: &str) -> Result<Self, TofndError> {
         let cmd = match cmd_str {
@@ -64,7 +65,7 @@ impl Gg20Service {
         match reservation {
             // if we can reserve, try put
             Ok(reservation) => match self.mnemonic_kv.put(reservation, entropy.to_owned()).await {
-                // if put is, ok write the phrase to a file
+                // if put is ok, write the phrase to a file
                 Ok(()) => {
                     info!("Mnemonic successfully added in kv store");
                     Ok(self.io.entropy_to_next_file(&entropy)?)

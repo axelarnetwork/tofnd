@@ -1,4 +1,4 @@
-//! In this module we put all helper structs (and their implementations) that are used for keygen
+//! Helper structs and implementations for [crate::gg20::keygen].
 
 use super::{proto::message_out::keygen_result, protocol::map_tofnd_to_tofn_idx};
 use tofn::protocol::gg20::keygen::crimes::Crime;

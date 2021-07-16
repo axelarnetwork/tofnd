@@ -2,7 +2,8 @@
 //! extraction using the tiny-bip39 https://crates.io/crates/tiny-bip39 library.
 //! Default language is English
 
-use super::{Entropy, TofndError};
+use super::Entropy;
+use crate::TofndError;
 use bip39::{Language, Mnemonic, Seed};
 
 // TODO: we can enrich the API so that users can decide which language they want to use

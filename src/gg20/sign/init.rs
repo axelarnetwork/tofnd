@@ -1,6 +1,6 @@
 //! This module handles the initialization of the Sign protocol.
-//! A [SignInitSanitized] struct is created out of the raw incoming [proto::SignInit] message and the session key is queried inside from KvStore
-//! If [proto::SignInit] fails to be parsed, or no Keygen has been executed for the current session ID a [TofndError] is returned
+//! A [SignInitSanitized] struct is created out of the raw incoming [proto::SignInit] message and the session key is queried inside from KvStore.
+//! If [proto::SignInit] fails to be parsed, or no Keygen has been executed for the current session ID, a [TofndError] is returned
 
 // try_into() for MessageDigest
 use std::convert::TryInto;

@@ -1,5 +1,4 @@
-//! This module handles the routing of incoming traffic.
-//! Receives and validates a messages until validation fails, or the client closes
+//! This module handles the routing of incoming traffic. Receives and validates messages until the connection is closed by the client, or an error occurs.
 
 // tonic cruft
 use super::proto;
@@ -10,6 +9,7 @@ use tonic::Status;
 // logging
 use tracing::{error, info, span, warn, Level, Span};
 
+/// Results for routing
 #[derive(Debug, PartialEq)]
 enum RoutingResult {
     Continue { traffic: proto::TrafficIn },
@@ -49,7 +49,7 @@ fn validate_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -
     let route_span = span!(parent: &span, Level::INFO, "routing");
     let _start = route_span.enter();
 
-    // we receive MessageIn under multiple leyers. We have to unpeel tonic message
+    // we receive MessageIn wrapped in multiple layers. We have to unpeel tonic message
 
     // get result
     let msg_result = match msg {

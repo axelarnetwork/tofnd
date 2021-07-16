@@ -1,8 +1,8 @@
-//! This module handles Recover gRPC
+//! This module handles the Recover gRPC.
 
 use super::{
-    keygen::types::KeygenInitSanitized, proto, protocol::map_tofnd_to_tofn_idx, types::PartyInfo,
-    Gg20Service,
+    keygen::types::KeygenInitSanitized, proto, protocol::map_tofnd_to_tofn_idx,
+    service::Gg20Service, types::PartyInfo,
 };
 use crate::TofndError;
 use tofn::protocol::gg20::{keygen::SecretRecoveryKey, SecretKeyShare};

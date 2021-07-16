@@ -1,6 +1,8 @@
+//! Helper structs and implementations for [crate::gg20::sign].
+
+use super::super::MessageDigest;
 use tofn::protocol::gg20::SecretKeyShare;
 
-use super::MessageDigest;
 #[derive(Clone, Debug)]
 pub(super) struct SignInitSanitized {
     pub(super) new_sig_uid: String, // this is only used for logging

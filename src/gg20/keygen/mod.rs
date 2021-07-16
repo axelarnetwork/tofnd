@@ -1,4 +1,22 @@
-use super::{proto, protocol, routing::route_messages, types::ProtocolCommunication, Gg20Service};
+//! Handles the keygen streaming gRPC for one party.
+//!
+//! Protocol:
+//!   1. [self::init] First, the initialization message [proto::KeygenInit] is received from the client.
+//!      This message describes the execution of the protocol (i.e. number of participants, share counts, etc).
+//!   2. [self::execute] Then, the party starts to generate messages by invoking calls of the [tofn] library until the protocol is completed.
+//!      These messages are send to the client using the gRPC stream, and are broadcasted to all participating parties by the client.
+//!   3. [self::result] Finally, the party receives the result of the protocol, which is also send to the client through the gRPC stream. Afterwards, the stream is closed.
+//!
+//! Shares:
+//!   Each party might have multiple shares. A single thread is created for each share.
+//!   We keep this information agnostic to the client, and we use the [crate::gg20::routing] layer to distribute the messages to each share.
+//!   The result of the protocol is common across all shares, and unique for each party. We make use of [self::result] layer to aggregate and process the result.
+//!
+//! All relevant helper structs and types are defined in [self::types]
+
+use super::{
+    proto, protocol, routing::route_messages, service::Gg20Service, types::ProtocolCommunication,
+};
 use crate::TofndError;
 
 use tonic::Status;
@@ -16,8 +34,7 @@ mod init;
 mod result;
 
 impl Gg20Service {
-    // we wrap the functionality of keygen gRPC here because we can't handle errors
-    // conveniently when spawning theads.
+    /// handle keygen gRPC
     pub async fn handle_keygen(
         &mut self,
         mut stream_in: tonic::Streaming<proto::MessageIn>,

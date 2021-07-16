@@ -1,3 +1,6 @@
+//! This module handles the aggregation and process of sign results.
+//! When all sign threads finish, we aggregate their results and retrieve the signature of the message. The signature must be the same across all results.
+
 use tofn::protocol::gg20::sign::SignOutput;
 
 use super::{proto, Gg20Service};
@@ -10,9 +13,9 @@ use tokio::sync::mpsc;
 use tonic::Status;
 
 impl Gg20Service {
-    /// handle outputs from all participants
-    /// for each participant that returns a valid output, send the result to client
-    /// if a participant does not return a valid output, return a TofndError
+    /// handle results from all shares
+    /// if all shares return a valid output, send the result to client
+    /// if a share does not return a valid output, return a TofndError
     pub(super) async fn handle_results(
         aggregator_receivers: Vec<oneshot::Receiver<Result<SignOutput, TofndError>>>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
@@ -56,7 +59,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sign_shares_number() {
+    fn test_sign_share_count() {
         // all parties participate in sign
         let all_shares = vec![1, 2, 3, 4, 5];
         let sign_indices = vec![0, 1, 2, 3, 4];

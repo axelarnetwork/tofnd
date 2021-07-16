@@ -1,6 +1,10 @@
+//! Helper structs and implementations for [crate::gg20].
+
 use tracing::{info, span, Level, Span};
 
 use crate::kv_manager::Kv;
+
+pub(super) type MessageDigest = tofn::protocol::gg20::MessageDigest;
 
 // default KV store names
 pub(super) const DEFAULT_SHARE_KV_NAME: &str = "shares";
