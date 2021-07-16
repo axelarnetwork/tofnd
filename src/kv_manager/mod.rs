@@ -1,3 +1,5 @@
+//! Handles KvStore operations. We use [sled] as the underlying db implementation.
+
 use std::error::Error;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -118,15 +120,16 @@ enum Command<V> {
 }
 use Command::*;
 
-// Returns the db with name `db_name`, or creates a new if such DB does not exist
-// Default path DB path is the executable's directory; The caller can specify a
-// full path followed by the name of the DB
-// Usage:
-//  let my_db = get_kv_store(&"my_current_dir_db").unwrap();
-//  let my_db = get_kv_store(&"/tmp/my_tmp_bd").unwrap();
+/// Returns the db with name `db_name`, or creates a new if such DB does not exist
+/// Default path DB path is the executable's directory; The caller can specify a
+/// full path followed by the name of the DB
+/// Usage:
+///  let my_db = get_kv_store(&"my_current_dir_db")?;
+///  let my_db = get_kv_store(&"/tmp/my_tmp_bd")?;
 fn get_kv_store(db_name: String) -> sled::Db {
     // create/open DB
-    let kv = sled::open(&db_name).unwrap();
+    let kv = sled::open(&db_name).unwrap(); // TODO: what should if this fails?
+
     // log whether the DB was newly created or not
     if kv.was_recovered() {
         info!("kv_manager found existing db [{}]", db_name);
@@ -183,7 +186,7 @@ where
     info!("kv_manager stop");
 }
 
-// helper function to make actions regarding reserve key
+// helper function to reserve a key
 fn handle_reserve(
     kv: &sled::Db,
     key: String,
@@ -204,7 +207,7 @@ fn handle_reserve(
     Ok(KeyReservation { key })
 }
 
-// helper function to make actions regarding value insertion
+// helper function to insert a value
 fn handle_put<V>(
     kv: &sled::Db,
     reservation: KeyReservation,
@@ -227,54 +230,38 @@ where
     // insert new value
     kv.insert(&reservation.key, bytes)?;
 
-    // try to flash and print a warning if failed
-    // TODO: The sole purpose of flushing is to facititate tests :(
-    // We want clean-up for each test; this means that when tests finish,
-    // databases need to be deleted. Because database deletion can interfere with
-    // pending transactions to the database causing errors at tests, we choose to
-    // flush after every time we insert a value. This is a temporary solution and
-    // should be handled accordingly by having tests using their own sub-space.
-    if kv.flush().is_err() {
-        warn!("flush failed");
-    }
     Ok(())
 }
 
-// helper function to make actions regarding value retrieve
+// helper function to get a value
 fn handle_get<V>(kv: &sled::Db, key: String) -> Result<V, Box<dyn Error + Send + Sync>>
 where
     V: DeserializeOwned,
 {
     // try to get value of 'key'
-    let bytes = kv.get(&key)?;
-
-    // check if key is valid
-    if bytes.is_none() {
-        return Err(From::from(format!("key {} did not have a value", key)));
-    }
-
-    // try to convert bytes to V
-    let value = bincode::deserialize(&bytes.unwrap())?;
+    let value = match kv.get(&key)? {
+        Some(bytes) => bincode::deserialize(&bytes)?,
+        None => {
+            return Err(From::from(format!("key {} does not have a value", key)));
+        }
+    };
 
     // return value
     Ok(value)
 }
 
-// helper function to delete values
+// helper function to delete a value
 fn handle_remove<V>(kv: &sled::Db, key: String) -> Result<V, Box<dyn Error + Send + Sync>>
 where
     V: DeserializeOwned,
 {
     // try to remove value of 'key'
-    let bytes = kv.remove(&key)?;
-
-    // check if result was valid
-    if bytes.is_none() {
-        return Err(From::from(format!("key {} did not have a value", key)));
-    }
-
-    // try to convert bytes to V
-    let value = bincode::deserialize(&bytes.unwrap())?;
+    let value = match kv.remove(&key)? {
+        Some(bytes) => bincode::deserialize(&bytes)?,
+        None => {
+            return Err(From::from(format!("key {} did not have a value", key)));
+        }
+    };
 
     // return value
     Ok(value)

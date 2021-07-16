@@ -138,6 +138,10 @@ impl Gg20Service {
                 pub_key_map
             )));
         }
-        Ok(pub_key_map.keys().last().unwrap().to_owned())
+        Ok(pub_key_map
+            .keys()
+            .last()
+            .ok_or("no keys in pubkey hashmap")?
+            .to_owned())
     }
 }
