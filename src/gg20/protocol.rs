@@ -6,6 +6,7 @@ use crate::TofndError;
 
 use tracing::{debug, span, warn, Level, Span};
 
+// TODO: add unit test
 pub fn map_tofnd_to_tofn_idx(
     tofnd_index: usize,
     tofnd_subindex: usize,
@@ -15,6 +16,7 @@ pub fn map_tofnd_to_tofn_idx(
     s + tofnd_subindex
 }
 
+// TODO: add unit test
 pub(super) fn map_tofn_to_tofnd_idx(
     tofn_index: usize,
     party_share_counts: &[usize],

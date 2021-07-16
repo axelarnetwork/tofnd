@@ -64,11 +64,14 @@ async fn main() -> Result<(), TofndError> {
         incoming.local_addr()?
     );
 
-    // TODO: pass cmd from command line
-    #[cfg(not(feature = "malicious"))]
-    let my_service = gg20::new_service(mnemonic_cmd).await;
-    #[cfg(feature = "malicious")]
-    let my_service = gg20::new_service(mnemonic_cmd, keygen_behaviour, sign_behaviour).await;
+    let my_service = gg20::service::new_service(
+        mnemonic_cmd,
+        #[cfg(feature = "malicious")]
+        keygen_behaviour,
+        #[cfg(feature = "malicious")]
+        sign_behaviour,
+    )
+    .await;
 
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 

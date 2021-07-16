@@ -1,6 +1,8 @@
+//! Helper structs and implementations for [crate::gg20::sign].
+
+use super::super::MessageDigest;
 use tofn::protocol::gg20::SecretKeyShare;
 
-use super::MessageDigest;
 #[derive(Clone, Debug)]
 pub(super) struct SignInitSanitized {
     pub(super) new_sig_uid: String, // this is only used for logging
@@ -10,8 +12,7 @@ pub(super) struct SignInitSanitized {
     pub(super) message_to_sign: MessageDigest,
 }
 
-use super::PartyInfo;
-use crate::gg20::protocol::map_tofnd_to_tofn_idx;
+use crate::gg20::{protocol::map_tofnd_to_tofn_idx, types::PartyInfo};
 use crate::TofndError;
 
 pub(super) struct Context {
