@@ -75,8 +75,8 @@ pub mod tests {
         path.push(db_path);
 
         let mut gg20 = Gg20Service {
-            shares_kv: KeySharesKv::with_db_name(&shares_db_name),
-            mnemonic_kv: MnemonicKv::with_db_name(&mnemonic_db_name),
+            shares_kv: KeySharesKv::with_db_name(shares_db_name.to_owned()),
+            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_db_name.to_owned()),
             io: FileIo::new(path),
             #[cfg(feature = "malicious")]
             keygen_behaviour,
