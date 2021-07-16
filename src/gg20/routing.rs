@@ -1,5 +1,4 @@
-//! This module handles the routing of incoming traffic.
-//! Receives and validates a messages until validation fails, or the client closes
+//! This module handles the routing of incoming traffic. Receives and validates messages until the connection is closed by the client, or an error occurs.
 
 // tonic cruft
 use super::proto;
@@ -10,6 +9,7 @@ use tonic::Status;
 // logging
 use tracing::{error, info, span, warn, Level, Span};
 
+/// Results for routing
 #[derive(Debug, PartialEq)]
 enum RoutingResult {
     Continue { traffic: proto::TrafficIn },
@@ -17,12 +17,39 @@ enum RoutingResult {
     Skip,
 }
 
+/// Receives incoming from a gRPC stream and vector of out going channels;
+/// Loops until client closes the socket, or an `Abort` message is received  
+/// Empty and unknown messages are ignored
+pub(super) async fn route_messages(
+    in_stream: &mut tonic::Streaming<proto::MessageIn>,
+    mut out_channels: Vec<mpsc::UnboundedSender<Option<proto::TrafficIn>>>,
+    span: Span,
+) {
+    // loop until `stop` is received
+    loop {
+        // read message from stream
+        let msg_data = in_stream.next().await;
+
+        // validate message
+        let traffic = match validate_message(msg_data, span.clone()) {
+            RoutingResult::Continue { traffic } => traffic,
+            RoutingResult::Stop => break,
+            RoutingResult::Skip => continue,
+        };
+
+        // send the message to all channels
+        for out_channel in &mut out_channels {
+            let _ = out_channel.send(Some(traffic.clone()));
+        }
+    }
+}
+
 fn validate_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> RoutingResult {
     // start routing span
     let route_span = span!(parent: &span, Level::INFO, "routing");
     let _start = route_span.enter();
 
-    // we receive MessageIn under multiple leyers. We have to unpeel tonic message
+    // we receive MessageIn wrapped in multiple layers. We have to unpeel tonic message
 
     // get result
     let msg_result = match msg {
@@ -66,33 +93,6 @@ fn validate_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -
 
     // return traffic
     RoutingResult::Continue { traffic }
-}
-
-/// Receives incoming from a gRPC stream and vector of out going channels;
-/// Loops until client closes the socket, or an `Abort` message is received  
-/// Empty and unknown messages are ignored
-pub(super) async fn route_messages(
-    in_stream: &mut tonic::Streaming<proto::MessageIn>,
-    mut out_channels: Vec<mpsc::UnboundedSender<Option<proto::TrafficIn>>>,
-    span: Span,
-) {
-    // loop until `stop` is received
-    loop {
-        // read message from stream
-        let msg_data = in_stream.next().await;
-
-        // validate message
-        let traffic = match validate_message(msg_data, span.clone()) {
-            RoutingResult::Continue { traffic } => traffic,
-            RoutingResult::Stop => break,
-            RoutingResult::Skip => continue,
-        };
-
-        // send the message to all channels
-        for out_channel in &mut out_channels {
-            let _ = out_channel.send(Some(traffic.clone()));
-        }
-    }
 }
 
 #[cfg(test)]

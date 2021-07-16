@@ -1,6 +1,6 @@
 //! This module creates and executes the keygen protocol
 //! On success it returns [KeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
-//! On failure it returns [TofndError] if [Keygen] cannot be instantiated.
+//! On failure it returns [TofndError] if [Keygen] struct cannot be instantiated.
 
 use super::{proto, protocol, types::Context, Gg20Service, ProtocolCommunication};
 use crate::TofndError;

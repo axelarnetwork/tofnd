@@ -1,33 +1,53 @@
-//! This module handles Recover gRPC
+//! This module handles the Recover gRPC.
 
 use super::{
-    keygen::types::KeygenInitSanitized, proto, protocol::map_tofnd_to_tofn_idx, Gg20Service,
-    PartyInfo,
+    keygen::types::KeygenInitSanitized, proto, protocol::map_tofnd_to_tofn_idx,
+    service::Gg20Service, types::PartyInfo,
 };
 use crate::TofndError;
 use tofn::protocol::gg20::{keygen::SecretRecoveryKey, SecretKeyShare};
 
 impl Gg20Service {
-    /// attempt to write recovered secret key shares to the kv-store
-    async fn update_share_kv_store(
+    pub(super) async fn handle_recover(
         &mut self,
-        keygen_init_sanitized: KeygenInitSanitized,
-        secret_key_shares: Vec<SecretKeyShare>,
+        request: proto::RecoverRequest,
     ) -> Result<(), TofndError> {
-        // try to make a reservation
-        let reservation = self
-            .shares_kv
-            .reserve_key(keygen_init_sanitized.new_key_uid)
-            .await?;
-        // acquire kv-data
-        let kv_data = PartyInfo::get_party_info(
-            secret_key_shares,
-            keygen_init_sanitized.party_uids,
-            keygen_init_sanitized.party_share_counts,
-            keygen_init_sanitized.my_index,
-        );
-        // try writing the data to the kv-store
-        Ok(self.shares_kv.put(reservation, kv_data).await?)
+        // get keygen init sanitized from request
+        let keygen_init_sanitized = {
+            let keygen_init = match request.keygen_init {
+                Some(keygen_init) => keygen_init,
+                None => return Err(From::from("missing keygen_init field in recovery request")),
+            };
+            Self::keygen_sanitize_args(keygen_init)?
+        };
+
+        // get mnemonic seed
+        let secret_recovery_key = self.seed().await?;
+
+        // recover secret key shares from request
+        let secret_key_shares = {
+            let secret_key_shares = Self::recover_secret_key_shares(
+                &secret_recovery_key,
+                &request.share_recovery_infos,
+                keygen_init_sanitized.my_index,
+                &keygen_init_sanitized.new_key_uid.as_bytes(),
+                &keygen_init_sanitized.party_share_counts,
+                keygen_init_sanitized.threshold,
+            );
+            match secret_key_shares {
+                Ok(secret_key_shares) => secret_key_shares,
+                Err(err) => {
+                    return Err(From::from(format!(
+                        "Failed to acquire secret key share {}",
+                        err
+                    )))
+                }
+            }
+        };
+
+        Ok(self
+            .update_share_kv_store(keygen_init_sanitized, secret_key_shares)
+            .await?)
     }
 
     /// get recovered secret key shares from serilized share recovery info
@@ -70,7 +90,7 @@ impl Gg20Service {
                 starting_tofn_index + i, // create tofn share index from starting tofn index + share count
                 threshold,
             );
-            // check that recovery was successful for share tofnd_index + i
+            // check that recovery was successful for share starting_tofn_index + i
             match recovered_secret_key_share {
                 Ok(secret_key_share) => secret_key_shares.push(secret_key_share),
                 Err(err) => {
@@ -87,45 +107,25 @@ impl Gg20Service {
         Ok(secret_key_shares)
     }
 
-    pub(super) async fn handle_recover(
+    /// attempt to write recovered secret key shares to the kv-store
+    async fn update_share_kv_store(
         &mut self,
-        request: proto::RecoverRequest,
+        keygen_init_sanitized: KeygenInitSanitized,
+        secret_key_shares: Vec<SecretKeyShare>,
     ) -> Result<(), TofndError> {
-        // get keygen init sanitized from request
-        let keygen_init_sanitized = {
-            let keygen_init = match request.keygen_init {
-                Some(keygen_init) => keygen_init,
-                None => return Err(From::from("missing keygen_init field in recovery request")),
-            };
-            Self::keygen_sanitize_args(keygen_init)?
-        };
-
-        // get mnemonic seed
-        let secret_recovery_key = self.seed().await?;
-
-        // recover secret key shares from request
-        let secret_key_shares = {
-            let secret_key_shares = Self::recover_secret_key_shares(
-                &secret_recovery_key,
-                &request.share_recovery_infos,
-                keygen_init_sanitized.my_index,
-                &keygen_init_sanitized.new_key_uid.as_bytes(),
-                &keygen_init_sanitized.party_share_counts,
-                keygen_init_sanitized.threshold,
-            );
-            match secret_key_shares {
-                Ok(secret_key_shares) => secret_key_shares,
-                Err(err) => {
-                    return Err(From::from(format!(
-                        "Failed to acquire secret key share {}",
-                        err
-                    )))
-                }
-            }
-        };
-
-        Ok(self
-            .update_share_kv_store(keygen_init_sanitized, secret_key_shares)
-            .await?)
+        // try to make a reservation
+        let reservation = self
+            .shares_kv
+            .reserve_key(keygen_init_sanitized.new_key_uid)
+            .await?;
+        // acquire kv-data
+        let kv_data = PartyInfo::get_party_info(
+            secret_key_shares,
+            keygen_init_sanitized.party_uids,
+            keygen_init_sanitized.party_share_counts,
+            keygen_init_sanitized.my_index,
+        );
+        // try writing the data to the kv-store
+        Ok(self.shares_kv.put(reservation, kv_data).await?)
     }
 }

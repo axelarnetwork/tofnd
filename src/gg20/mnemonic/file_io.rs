@@ -7,7 +7,8 @@ use std::{
 
 use tracing::info;
 
-use super::super::{mnemonic::bip39_bindings::bip39_from_entropy, TofndError};
+use super::super::mnemonic::bip39_bindings::bip39_from_entropy;
+use crate::TofndError;
 
 /// Standard names
 const EXPORT_FILE: &str = "export";
