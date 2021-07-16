@@ -193,8 +193,8 @@ mod tests {
         let mnemonic_kv_path = mnemonic_kv_path.to_str().unwrap();
 
         Gg20Service {
-            shares_kv: KeySharesKv::with_db_name(shares_kv_path),
-            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path),
+            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned()),
+            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned()),
             io: FileIo::new(testdir),
             // must enable test for all features. if we use
             // #[cfg(not(feature = "malicious"))] tests won't be executed '--all-features' flag is on. yikes
