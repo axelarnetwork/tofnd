@@ -2,17 +2,11 @@ use super::mnemonic::{file_io::FileIo, Cmd};
 use super::proto;
 use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SHARE_KV_NAME};
 use std::path::PathBuf;
-use tofn::protocol::gg20::{MessageDigest, SecretKeyShare};
 
 #[cfg(feature = "malicious")]
 use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
 #[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::malicious::BadSign;
-#[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
-use tofn::protocol::gg20::sign::ParamsError as SignErr;
-#[cfg(not(feature = "malicious"))]
-use tofn::protocol::gg20::sign::Sign;
 
 /// Gg20Service
 #[derive(Clone)]
@@ -46,44 +40,6 @@ pub async fn new_service(
         .await
         .expect("Unable to complete mnemonic command.");
     gg20
-}
-
-// TODO: remove this when sing gets a single constructor
-impl Gg20Service {
-    // get regular sign
-    #[cfg(not(feature = "malicious"))]
-    pub fn get_sign(
-        &self,
-        my_secret_key_share: &SecretKeyShare,
-        participant_indices: &[usize],
-        msg_to_sign: &MessageDigest,
-    ) -> Result<Sign, SignErr> {
-        Sign::new(
-            &my_secret_key_share.group,
-            &my_secret_key_share.share,
-            participant_indices,
-            msg_to_sign,
-        )
-    }
-
-    // get malicious sign
-    #[cfg(feature = "malicious")]
-    pub fn get_sign(
-        &self,
-        my_secret_key_share: &SecretKeyShare,
-        participant_indices: &[usize],
-        msg_to_sign: &MessageDigest,
-    ) -> Result<BadSign, SignErr> {
-        let behaviour = self.sign_behaviour.clone();
-
-        BadSign::new(
-            &my_secret_key_share.group,
-            &my_secret_key_share.share,
-            participant_indices,
-            msg_to_sign,
-            behaviour,
-        )
-    }
 }
 
 #[cfg(test)]

@@ -5,7 +5,7 @@
 use super::{proto, protocol, types::Context, Gg20Service, ProtocolCommunication};
 use crate::TofndError;
 #[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::malicious::BadSign;
+use tofn::protocol::gg20::sign::malicious::BadSign as Sign;
 #[cfg(not(feature = "malicious"))]
 use tofn::protocol::gg20::sign::Sign;
 use tofn::protocol::gg20::sign::SignOutput;
@@ -26,11 +26,13 @@ impl Gg20Service {
         execute_span: Span,
     ) -> Result<SignOutput, TofndError> {
         // create sign with context
-        // TODO: change sign here when new constructor is available
-        let mut sign = self.get_sign(
-            &ctx.secret_key_share,
+        let mut sign = Sign::new(
+            &ctx.secret_key_share.group,
+            &ctx.secret_key_share.share,
             &ctx.sign_tofn_indices(),
             &ctx.msg_to_sign(),
+            #[cfg(feature = "malicious")]
+            self.sign_behaviour.clone(),
         )?;
 
         // execute protocol and wait for completion
@@ -53,8 +55,7 @@ impl Gg20Service {
 
     // TODO: change here when bad sign does not exist
     fn process_sign_result(
-        #[cfg(not(feature = "malicious"))] protocol_state: Sign,
-        #[cfg(feature = "malicious")] protocol_state: BadSign,
+        protocol_state: Sign,
         protocol_result: Result<(), TofndError>,
         execute_span: Span,
     ) -> Result<SignOutput, TofndError> {
