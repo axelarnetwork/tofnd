@@ -14,6 +14,7 @@ use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed};
 
 pub(super) mod file_io;
 use file_io::IMPORT_FILE;
+use zeroize::Zeroize;
 
 use super::{service::Gg20Service, types::Entropy};
 use crate::TofndError;
@@ -59,8 +60,9 @@ impl Gg20Service {
         }
     }
 
-    /// inserts entropy to the kv-store and writes inserted value to an "export" file
-    async fn handle_insert(&mut self, entropy: &[u8]) -> Result<(), TofndError> {
+    /// inserts entropy to the kv-store and writes inserted value to an "export" file.
+    /// takes ownership of entropy to delegate zeroization.
+    async fn handle_insert(&mut self, mut entropy: Vec<u8>) -> Result<(), TofndError> {
         let reservation = self.mnemonic_kv.reserve_key(MNEMONIC_KEY.to_owned()).await;
         match reservation {
             // if we can reserve, try put
@@ -68,7 +70,7 @@ impl Gg20Service {
                 // if put is ok, write the phrase to a file
                 Ok(()) => {
                     info!("Mnemonic successfully added in kv store");
-                    Ok(self.io.entropy_to_next_file(&entropy)?)
+                    Ok(self.io.entropy_to_next_file(entropy)?)
                 }
                 // else return failure
                 Err(err) => {
@@ -78,6 +80,8 @@ impl Gg20Service {
             },
             // if we cannot reserve, return failure
             Err(err) => {
+                // we also have to zeroize because `entropy to file` was not executed
+                entropy.zeroize();
                 error!("Cannot reserve mnemonic: {:?}", err);
                 Err(err)
             }
@@ -95,9 +99,9 @@ impl Gg20Service {
             return Ok(());
         }
 
-        // create an entropy
+        // create an entropy and zeroize after use
         let new_entropy = bip39_new_w24();
-        Ok(self.handle_insert(&new_entropy).await?)
+        Ok(self.handle_insert(new_entropy).await?)
     }
 
     // Inserts a new mnemonic to the kv-store, and writes the phrase to an "export" file
@@ -105,8 +109,8 @@ impl Gg20Service {
     async fn handle_import(&mut self) -> Result<(), TofndError> {
         info!("Importing mnemonic");
         let imported_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
-        let imported_entropy = bip39_from_phrase(&imported_phrase)?;
-        Ok(self.handle_insert(&imported_entropy).await?)
+        let imported_entropy = bip39_from_phrase(imported_phrase)?;
+        Ok(self.handle_insert(imported_entropy).await?)
     }
 
     /// Updates a mnemonic.
@@ -117,9 +121,6 @@ impl Gg20Service {
     // Fails if a mnemonic already exists in the kv store, of if no "import" file exists
     async fn handle_update(&mut self) -> Result<(), TofndError> {
         info!("Updating mnemonic");
-
-        let new_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
-        let new_entropy = bip39_from_phrase(&new_phrase)?;
 
         // try to delete the old mnemonic
         let deleted_entropy = self.mnemonic_kv.remove(MNEMONIC_KEY).await;
@@ -133,9 +134,11 @@ impl Gg20Service {
         };
 
         // if succeed, write mnemonic to a new file
-        self.io.entropy_to_next_file(&deleted_entropy)?;
+        self.io.entropy_to_next_file(deleted_entropy)?;
         // insert new mnemonic
-        Ok(self.handle_insert(&new_entropy).await?)
+        let new_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
+        let new_entropy = bip39_from_phrase(new_phrase)?;
+        Ok(self.handle_insert(new_entropy).await?)
     }
 
     /// Exports the current mnemonic to an "export" file
@@ -147,7 +150,7 @@ impl Gg20Service {
             // if get is ok return success
             Ok(entropy) => {
                 info!("Mnemonic found in kv store");
-                Ok(self.io.entropy_to_next_file(&entropy)?)
+                Ok(self.io.entropy_to_next_file(entropy)?)
             }
             // else return failure
             Err(err) => {
@@ -165,7 +168,7 @@ impl Gg20Service {
         let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
         // A user may decide to protect their mnemonic with a passphrase. If not, pass an empty password
         // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
-        Ok(bip39_seed(&mnemonic, "")?.as_bytes().try_into()?)
+        Ok(bip39_seed(mnemonic, "".to_owned())?.as_bytes().try_into()?)
     }
 }
 
@@ -215,7 +218,7 @@ mod tests {
         let mut file = create.unwrap();
 
         let entropy = bip39_new_w24();
-        let phrase = bip39_to_phrase(&entropy).unwrap();
+        let phrase = bip39_to_phrase(entropy).unwrap();
         file.write_all(phrase.as_bytes()).unwrap();
     }
 
