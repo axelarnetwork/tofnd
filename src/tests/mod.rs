@@ -184,68 +184,68 @@ fn successful_keygen_results(results: Vec<KeygenResult>, expected_faults: &Crimi
 //     }
 // }
 
-// fn gather_recover_info(results: &[KeygenResult]) -> Vec<Vec<u8>> {
-//     // gather recover info
-//     let mut recover_infos = vec![];
-//     for result in results.iter() {
-//         let result_data = result.keygen_result_data.clone().unwrap();
-//         match result_data {
-//             KeygenData(output) => {
-//                 recover_infos.extend(output.share_recovery_infos.clone());
-//             }
-//             KeygenCriminals(_) => {}
-//         }
-//     }
-//     recover_infos
-// }
+fn gather_recover_info(results: &[KeygenResult]) -> Vec<Vec<u8>> {
+    // gather recover info
+    let mut recover_infos = vec![];
+    for result in results.iter() {
+        let result_data = result.keygen_result_data.clone().unwrap();
+        match result_data {
+            KeygenData(output) => {
+                recover_infos.extend(output.share_recovery_infos.clone());
+            }
+            KeygenCriminals(_) => {}
+        }
+    }
+    recover_infos
+}
 
-// // shutdown i-th party
-// // returns i-th party's db path and a vec of Option<TofndParty> that contain all parties (including i-th)
-// async fn shutdown_party(
-//     parties: Vec<TofndParty>,
-//     party_index: usize,
-// ) -> (Vec<Option<TofndParty>>, PathBuf) {
-//     info!("shutdown party {}", party_index);
-//     let party_db_path = parties[party_index].get_db_path();
-//     // use Option to temporarily transfer ownership of individual parties to a spawn
-//     let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
-//     let shutdown_party = party_options[party_index].take().unwrap();
-//     shutdown_party.shutdown().await;
-//     (party_options, party_db_path)
-// }
+// shutdown i-th party
+// returns i-th party's db path and a vec of Option<TofndParty> that contain all parties (including i-th)
+async fn shutdown_party(
+    parties: Vec<TofndParty>,
+    party_index: usize,
+) -> (Vec<Option<TofndParty>>, PathBuf) {
+    info!("shutdown party {}", party_index);
+    let party_db_path = parties[party_index].get_db_path();
+    // use Option to temporarily transfer ownership of individual parties to a spawn
+    let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
+    let shutdown_party = party_options[party_index].take().unwrap();
+    shutdown_party.shutdown().await;
+    (party_options, party_db_path)
+}
 
-// // deletes the share kv-store of a party's db path
-// fn delete_party_shares(mut party_db_path: PathBuf) {
-//     party_db_path.push("shares");
-//     // Sled creates a directory for the database and its configuration
-//     info!("removing shares kv-store of party {:?}", party_db_path);
-//     std::fs::remove_dir_all(party_db_path).unwrap();
-// }
+// deletes the share kv-store of a party's db path
+fn delete_party_shares(mut party_db_path: PathBuf) {
+    party_db_path.push("shares");
+    // Sled creates a directory for the database and its configuration
+    info!("removing shares kv-store of party {:?}", party_db_path);
+    std::fs::remove_dir_all(party_db_path).unwrap();
+}
 
-// // initailizes i-th party
-// // pass malicious data if we are running in malicious mode
-// async fn init_party(
-//     mut party_options: Vec<Option<TofndParty>>,
-//     party_index: usize,
-//     testdir: &Path,
-//     #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
-// ) -> Vec<TofndParty> {
-//     // initialize restarted party with its previous behaviour if we are in malicious mode
-//     let init_party = InitParty::new(
-//         party_index,
-//         #[cfg(feature = "malicious")]
-//         malicious_data,
-//     );
+// initailizes i-th party
+// pass malicious data if we are running in malicious mode
+async fn init_party(
+    mut party_options: Vec<Option<TofndParty>>,
+    party_index: usize,
+    testdir: &Path,
+    #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
+) -> Vec<TofndParty> {
+    // initialize restarted party with its previous behaviour if we are in malicious mode
+    let init_party = InitParty::new(
+        party_index,
+        #[cfg(feature = "malicious")]
+        malicious_data,
+    );
 
-//     // assume party already has a mnemonic, so we pass Cmd::Noop
-//     party_options[party_index] =
-//         Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, &testdir).await);
+    // assume party already has a mnemonic, so we pass Cmd::Noop
+    party_options[party_index] =
+        Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, &testdir).await);
 
-//     party_options
-//         .into_iter()
-//         .map(|o| o.unwrap())
-//         .collect::<Vec<_>>()
-// }
+    party_options
+        .into_iter()
+        .map(|o| o.unwrap())
+        .collect::<Vec<_>>()
+}
 
 // delete all kv-stores of all parties and kill servers
 async fn clean_up(parties: Vec<TofndParty>) {
@@ -300,33 +300,33 @@ async fn basic_keygen(
     (parties, keygen_init, results, success)
 }
 
-// // restart i-th and optionally delete its shares kv-store
-// async fn restart_party(
-//     dir: &Path,
-//     parties: Vec<TofndParty>,
-//     party_index: usize,
-//     delete_shares: bool,
-//     #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
-// ) -> Vec<TofndParty> {
-//     // shutdown party with party_index
-//     let (party_options, shutdown_db_path) = shutdown_party(parties, party_index).await;
+// restart i-th and optionally delete its shares kv-store
+async fn restart_party(
+    dir: &Path,
+    parties: Vec<TofndParty>,
+    party_index: usize,
+    delete_shares: bool,
+    #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
+) -> Vec<TofndParty> {
+    // shutdown party with party_index
+    let (party_options, shutdown_db_path) = shutdown_party(parties, party_index).await;
 
-//     if delete_shares {
-//         // delete party's shares
-//         delete_party_shares(shutdown_db_path);
-//     }
+    if delete_shares {
+        // delete party's shares
+        delete_party_shares(shutdown_db_path);
+    }
 
-//     // reinit party with
-//     let parties = init_party(
-//         party_options,
-//         party_index,
-//         dir,
-//         #[cfg(feature = "malicious")]
-//         &malicious_data,
-//     )
-//     .await;
-//     parties
-// }
+    // reinit party with
+    let parties = init_party(
+        party_options,
+        party_index,
+        dir,
+        #[cfg(feature = "malicious")]
+        &malicious_data,
+    )
+    .await;
+    parties
+}
 
 // main testing function
 async fn basic_keygen_and_sign(
@@ -347,43 +347,43 @@ async fn basic_keygen_and_sign(
     let (parties, party_uids) = init_parties_from_test_case(test_case, dir).await;
 
     // execute keygen and return everything that will be needed later on
-    let (parties, _keygen_init, _keygen_results, _success) =
+    let (parties, keygen_init, keygen_results, success) =
         basic_keygen(test_case, parties, party_uids.clone(), new_key_uid).await;
 
-    // if !success {
-    clean_up(parties).await;
-    // return;
-    // }
+    if !success {
+        clean_up(parties).await;
+        return;
+    }
 
-    // // restart party if restart is enabled and return new parties' set
-    // let parties = match restart {
-    //     true => {
-    //         restart_party(
-    //             &dir,
-    //             parties,
-    //             test_case.signer_indices[0],
-    //             delete_shares,
-    //             #[cfg(feature = "malicious")]
-    //             &test_case.malicious_data,
-    //         )
-    //         .await
-    //     }
-    //     false => parties,
-    // };
+    // restart party if restart is enabled and return new parties' set
+    let parties = match restart {
+        true => {
+            restart_party(
+                &dir,
+                parties,
+                test_case.signer_indices[0],
+                delete_shares,
+                #[cfg(feature = "malicious")]
+                &test_case.malicious_data,
+            )
+            .await
+        }
+        false => parties,
+    };
 
-    // // delete party's if recover is enabled and return new parties' set
-    // let parties = match delete_shares {
-    //     true => {
-    //         execute_recover(
-    //             parties,
-    //             test_case.signer_indices[0],
-    //             keygen_init,
-    //             gather_recover_info(&keygen_results),
-    //         )
-    //         .await
-    //     }
-    //     false => parties,
-    // };
+    // delete party's if recover is enabled and return new parties' set
+    let parties = match delete_shares {
+        true => {
+            execute_recover(
+                parties,
+                test_case.signer_indices[0],
+                keygen_init,
+                gather_recover_info(&keygen_results),
+            )
+            .await
+        }
+        false => parties,
+    };
 
     // let expected_sign_crimes = &test_case.expected_sign_faults;
     // #[cfg(not(feature = "malicious"))]
@@ -405,7 +405,7 @@ async fn basic_keygen_and_sign(
     // .await;
     // check_sign_results(results, &expected_sign_crimes);
 
-    // clean_up(parties).await;
+    clean_up(parties).await;
 }
 
 // struct to pass in TofndParty constructor.
@@ -604,19 +604,19 @@ async fn execute_keygen(
     (parties, results, init)
 }
 
-// async fn execute_recover(
-//     mut parties: Vec<TofndParty>,
-//     recover_party_index: usize,
-//     mut keygen_init: proto::KeygenInit,
-//     recovery_infos: Vec<Vec<u8>>,
-// ) -> Vec<TofndParty> {
-//     // create keygen init for recovered party
-//     keygen_init.my_party_index = recover_party_index as i32;
-//     parties[recover_party_index]
-//         .execute_recover(keygen_init, recovery_infos)
-//         .await;
-//     parties
-// }
+async fn execute_recover(
+    mut parties: Vec<TofndParty>,
+    recover_party_index: usize,
+    mut keygen_init: proto::KeygenInit,
+    recovery_infos: Vec<Vec<u8>>,
+) -> Vec<TofndParty> {
+    // create keygen init for recovered party
+    keygen_init.my_party_index = recover_party_index as i32;
+    parties[recover_party_index]
+        .execute_recover(keygen_init, recovery_infos)
+        .await;
+    parties
+}
 
 // // need to take ownership of parties `parties` and return it on completion
 // async fn execute_sign(

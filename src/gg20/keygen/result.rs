@@ -47,9 +47,14 @@ impl Gg20Service {
 
         // try to retrieve recovery info from all shares
         let mut share_recovery_infos = vec![];
-        for _secret_key_share in secret_key_shares.iter() {
-            // TODO: use bincode::serialize(secret_key_share.recovery_info())?;
-            share_recovery_infos.push(vec![42; 42]);
+        for secret_key_share in secret_key_shares.iter() {
+            let recovery_info = match secret_key_share.recovery_info() {
+                Ok(recovery_info) => recovery_info,
+                Err(_) => {
+                    return Err(From::from("Unable to get recovery info"));
+                }
+            };
+            share_recovery_infos.push(bincode::serialize(&recovery_info)?);
         }
 
         // combine responses from all keygen threads to a single struct
@@ -92,7 +97,7 @@ impl Gg20Service {
             match keygen_output {
                 // if keygen output was ok, hold `secret_key_share` in a vec and add public key to a hasmap
                 Ok(secret_key_share) => {
-                    let pub_key = secret_key_share.group.pubkey_bytes();
+                    let pub_key = secret_key_share.group().pubkey_bytes();
                     secret_key_shares.push(secret_key_share);
                     // hashmap [pub key -> count] with default value 0
                     *pub_key_map.entry(pub_key).or_insert(0) += 1;

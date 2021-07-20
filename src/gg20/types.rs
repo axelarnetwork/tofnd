@@ -70,11 +70,11 @@ impl PartyInfo {
     ) -> Self {
         // grap the first share to acquire common data
         let s = secret_key_shares[0].clone();
-        let common = s.group;
+        let common = s.group().clone();
         // aggregate share data into a vector
         let mut shares = Vec::new();
         for share in secret_key_shares {
-            shares.push(share.share);
+            shares.push(share.share().clone());
         }
         // add tofnd data
         let tofnd = TofndInfo {

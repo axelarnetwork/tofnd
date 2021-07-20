@@ -12,13 +12,13 @@ use tonic::{Request, Response, Status};
 pub mod proto_helpers;
 
 // logging
-use tracing::{error, span, Level};
+use tracing::{error, info, span, Level};
 
 // gRPC
 mod keygen;
 pub mod mnemonic;
 mod protocol;
-// mod recover; // enable recover when recover API is ready
+mod recover;
 mod routing;
 pub mod service;
 // mod sign;
@@ -37,24 +37,22 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         &self,
         request: tonic::Request<proto::RecoverRequest>,
     ) -> Result<Response<proto::RecoverResponse>, Status> {
-        let _request = request.into_inner();
+        let request = request.into_inner();
 
-        let mut _gg20 = self.clone();
+        let mut gg20 = self.clone();
 
-        // TODO: enable recover when recover API is ready
-        // let response = gg20.handle_recover(request).await;
-        // let response = match response {
-        //     Ok(()) => {
-        //         info!("Recovery completed successfully!");
-        //         proto::recover_response::Response::Success
-        //     }
-        //     Err(err) => {
-        //         error!("Unable to complete recovery: {}", err);
-        //         proto::recover_response::Response::Fail
-        //     }
-        // };
+        let response = gg20.handle_recover(request).await;
+        let response = match response {
+            Ok(()) => {
+                info!("Recovery completed successfully!");
+                proto::recover_response::Response::Success
+            }
+            Err(err) => {
+                error!("Unable to complete recovery: {}", err);
+                proto::recover_response::Response::Fail
+            }
+        };
 
-        let response = proto::recover_response::Response::Fail;
         Ok(Response::new(proto::RecoverResponse {
             // the prost way to convert enums to i32 https://github.com/danburkert/prost#enumerations
             response: response as i32,
