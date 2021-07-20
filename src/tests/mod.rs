@@ -437,16 +437,16 @@ impl InitParty {
         }
 
         // register disrupts
-        let mut my_disrupt = None;
-        // if let Some(disrupt) = all_malicious_data.keygen_data.disrupt.clone() {
-        //     if disrupt.index == my_index {
-        //         my_disrupt = Some(disrupt);
-        //     }
-        // } else if let Some(disrupt) = all_malicious_data.sign_data.disrupt.clone() {
-        //     if disrupt.index == my_index {
-        //         my_disrupt = Some(disrupt);
-        //     }
-        // }
+        let mut disrupt_round = 0;
+        if let Some(disrupt) = all_malicious_data.keygen_data.disrupt.clone() {
+            if disrupt.index == my_index {
+                disrupt_round = disrupt.round;
+            }
+            // } else if let Some(disrupt) = all_malicious_data.sign_data.disrupt.clone() {
+            //     if disrupt.index == my_index {
+            //         my_disrupt = Some(disrupt);
+            //     }
+        }
 
         // register spoofs
         let mut my_spoof = None;
@@ -475,8 +475,8 @@ impl InitParty {
         //     .clone();
 
         let my_malicious_data = PartyMaliciousData {
-            disrupt: my_disrupt,
             timeout_round,
+            disrupt_round,
             spoof: my_spoof,
             keygen_behaviour: my_keygen_behaviour,
             // sign_behaviour: my_sign_behaviour,

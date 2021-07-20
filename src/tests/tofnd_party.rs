@@ -321,8 +321,35 @@ impl Party for TofndParty {
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
-                // #[cfg(not(feature = "malicious"))]
-                proto::message_out::Data::Traffic(_) => {
+                // // #[cfg(not(feature = "malicious"))]
+                // proto::message_out::Data::Traffic(_) => {
+                //     delivery.deliver(&msg, &my_uid);
+                // }
+                // in malicous case, if we are stallers we skip the message
+                proto::message_out::Data::Traffic(traffic) => {
+                    #[cfg(feature = "malicious")]
+                    {
+                        let round = keygen_round(msg_count, share_count);
+                        if self.malicious_data.timeout_round == round {
+                            warn!(
+                                "{} is stalling a message in round {}",
+                                my_display_name, round
+                            );
+                            continue; // tough is the life of the staller
+                        }
+                        if self.malicious_data.disrupt_round == round {
+                            warn!(
+                                "{} is disrupting a message in round {}",
+                                my_display_name, round
+                            );
+                            let mut t = traffic.clone();
+                            t.payload = traffic.payload[0..traffic.payload.len() / 2].to_vec();
+                            let mut m = msg.clone();
+                            m.data = Some(proto::message_out::Data::Traffic(t));
+                            delivery.deliver(&m, &my_uid);
+                        }
+                    }
+
                     delivery.deliver(&msg, &my_uid);
                 }
                 // // in malicous case, if we are stallers we skip the message

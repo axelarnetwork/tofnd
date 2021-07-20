@@ -33,11 +33,11 @@ async fn malicious_timeout_cases() {
     run_test_cases(&timeout_cases()).await;
 }
 
-// #[traced_test]
-// #[tokio::test]
-// async fn malicious_disrupt_cases() {
-//     run_test_cases(&disrupt_cases()).await;
-// }
+#[traced_test]
+#[tokio::test]
+async fn malicious_disrupt_cases() {
+    run_test_cases(&disrupt_cases()).await;
+}
 
 // #[traced_test]
 // #[tokio::test]
@@ -144,9 +144,9 @@ impl TestCase {
         let mut malicious_data = MaliciousData::empty(uid_count);
         malicious_data.set_keygen_data(KeygenData {
             behaviours,
-            disrupt,
             spoof,
             timeout: None,
+            disrupt: None,
         });
 
         TestCase {
@@ -172,30 +172,17 @@ impl TestCase {
     }
 }
 
-// fn to_crime(behaviour: &Behaviour) -> Crime {
-//     match behaviour {
-//         Honest => panic!("`to_crime` called with `Honest`"),
-//         // Staller { msg_type: mt } => Crime::StalledMessage {
-//         //     msg_type: mt.clone(),
-//         // },
-//         // UnauthenticatedSender {
-//         //     victim: v,
-//         //     status: s,
-//         // } => Crime::SpoofedMessage {
-//         //     victim: *v,
-//         //     status: s.clone(),
-//         // },
-//         // DisruptingSender { msg_type: _ } => Crime::DisruptedMessage,
-//         R1BadEncryptionKeyProof => Crime::R2BadEncryptionKeyProof,
-//         R1BadZkSetupProof => Crime::R2BadZkSetupProof,
-//         R1BadCommit => Crime::R3BadReveal,
-//         R2BadShare { victim: v } => Crime::R4FailBadVss { victim: *v },
-//         R2BadEncryption { victim: v } => Crime::R4FailBadEncryption { victim: *v },
-//         R3FalseAccusation { victim: v } => Crime::R4FailFalseAccusation { victim: *v },
-//         R3BadXIWitness => Crime::R4BadDLProof,
-//         CorruptMessage { msg_type } => todo!(),
-//     }
-// }
+    fn with_disrupt(mut self, index: usize, round: usize) -> Self {
+        self.malicious_data.keygen_data.disrupt = Some(Disrupt { index, round });
+        self.expected_keygen_faults = CriminalList {
+            criminals: vec![Criminal {
+                party_uid: (('A' as u8 + index as u8) as char).to_string(),
+                crime_type: CrimeType::Unspecified as i32,
+            }],
+        };
+        self
+    }
+}
 
 fn generate_basic_cases() -> Vec<TestCase> {
     let behaviours = vec![
@@ -260,6 +247,18 @@ fn timeout_cases() -> Vec<TestCase> {
         })
         .collect()
 }
+
+fn disrupt_cases() -> Vec<TestCase> {
+    let disrupt_rounds = vec![1, 2, 3];
+    disrupt_rounds
+        .into_iter()
+        .map(|r| {
+            TestCase::new_malicious_keygen(3, vec![1, 1, 1], 2, vec![Honest, Honest, Honest])
+                .with_disrupt(0, r) // add disrupt party at index 0
+        })
+        .collect()
+}
+
 // fn timeout_cases() -> Vec<TestCase> {
 //     use MsgType::*;
 //     let stallers = MsgType::iter()
