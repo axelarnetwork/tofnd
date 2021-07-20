@@ -7,7 +7,7 @@ use crate::TofndError;
 
 use super::protocol::map_tofn_to_tofnd_idx;
 
-use tracing::{debug, span, warn, Level, Span};
+use tracing::{debug, error, span, warn, Level, Span};
 
 use super::{proto, ProtocolCommunication};
 
@@ -69,7 +69,15 @@ where
             let traffic = chans.receiver.recv().await.ok_or(format!(
                 "{}: stream closed by client before protocol has completed",
                 r
-            ))?;
+            ));
+
+            if traffic.is_err() {
+                error!("internal channel closed prematurely");
+                break;
+            }
+
+            let traffic = traffic.unwrap();
+
             if traffic.is_none() {
                 warn!("ignore incoming msg: missing `data` field");
                 continue;
@@ -103,7 +111,7 @@ where
             };
         }
 
-        let exec_span = span!(parent: &span, Level::DEBUG, "protocol execution", r);
+        let exec_span = span!(parent: &span, Level::DEBUG, "protocol execution", round = r);
         let _start = exec_span.enter();
         debug!("got all {} incoming bcast messages", bcast_msg_count);
         debug!("got all {} incoming p2p messages", p2p_msg_count);

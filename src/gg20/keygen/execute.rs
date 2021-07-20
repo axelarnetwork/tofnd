@@ -8,7 +8,7 @@ use super::{
     Gg20Service, ProtocolCommunication,
 };
 
-use tofn::refactor::collections::{TypedUsize};
+use tofn::refactor::collections::TypedUsize;
 use tofn::refactor::keygen::new_keygen;
 use tofn::refactor::sdk::api::PartyShareCounts;
 
@@ -63,7 +63,7 @@ impl Gg20Service {
 
         match protocol_result {
             Ok(res) => {
-                info!("Keygen completed successfully!");
+                info!("Keygen completed");
                 Ok(res)
             }
             Err(_) => Err(From::from("Keygen was not completed due to faults")),
