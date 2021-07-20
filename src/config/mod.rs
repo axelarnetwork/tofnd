@@ -38,9 +38,9 @@ pub fn parse_args() -> Result<(u16, Cmd), TofndError> {
 #[cfg(feature = "malicious")]
 use clap::SubCommand;
 #[cfg(feature = "malicious")]
-use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
-#[cfg(feature = "malicious")]
 use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
+#[cfg(feature = "malicious")]
+use tofn::refactor::keygen::malicious::Behaviour as KeygenBehaviour;
 
 #[cfg(feature = "malicious")]
 pub fn parse_args() -> Result<(u16, Cmd, KeygenBehaviour, SignBehaviour), TofndError> {

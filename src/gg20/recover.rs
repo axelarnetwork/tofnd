@@ -5,7 +5,7 @@ use super::{
     service::Gg20Service, types::PartyInfo,
 };
 use crate::TofndError;
-use tofn::protocol::gg20::{keygen::SecretRecoveryKey, SecretKeyShare};
+use tofn::refactor::keygen::{SecretKeyShare, SecretRecoveryKey};
 
 impl Gg20Service {
     pub(super) async fn handle_recover(

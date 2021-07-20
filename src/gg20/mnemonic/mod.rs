@@ -183,9 +183,9 @@ mod tests {
     use tracing_test::traced_test; // logs for tests
 
     #[cfg(feature = "malicious")]
-    use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
-    #[cfg(feature = "malicious")]
     use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
+    #[cfg(feature = "malicious")]
+    use tofn::refactor::keygen::malicious::Behaviour as KeygenBehaviour;
 
     // create a service
     fn get_service(testdir: PathBuf) -> Gg20Service {
@@ -203,8 +203,8 @@ mod tests {
             // #[cfg(not(feature = "malicious"))] tests won't be executed '--all-features' flag is on. yikes
             #[cfg(feature = "malicious")]
             keygen_behaviour: KeygenBehaviour::Honest,
-            #[cfg(feature = "malicious")]
-            sign_behaviour: SignBehaviour::Honest,
+            // #[cfg(feature = "malicious")]
+            // sign_behaviour: SignBehaviour::Honest,
         }
     }
 
