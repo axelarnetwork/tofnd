@@ -246,8 +246,8 @@ impl TestCase {
             share_counts,
             threshold,
             signer_indices,
-            expected_keygen_crimes: vec![],
-            expected_sign_crimes: expected_crimes,
+            expected_keygen_faults: vec![],
+            expected_sign_faults: expected_crimes,
             malicious_data,
         }
     }
