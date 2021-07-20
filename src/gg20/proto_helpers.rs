@@ -1,12 +1,17 @@
-use tofn::protocol::{
-    gg20::keygen::crimes::Crime as KeygenCrime,
-    gg20::sign::{crimes::Crime as SignCrime, SignOutput},
-    CrimeType, Criminal,
+use tofn::{
+    protocol::{
+        gg20::sign::{crimes::Crime as SignCrime, SignOutput},
+        CrimeType, Criminal,
+    },
+    refactor::{collections::FillVecMap, keygen::RealKeygenPartyIndex, sdk::api::Fault},
 };
 
-use super::keygen::types::KeygenResultData;
 use super::protocol::map_tofn_to_tofnd_idx;
 use crate::proto;
+type KeygenResulData = Result<
+    proto::message_out::keygen_result::KeygenOutput,
+    FillVecMap<RealKeygenPartyIndex, Fault>,
+>;
 use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;
 use proto::message_out::criminal_list::Criminal as ProtoCriminal;
 use proto::message_out::keygen_result::KeygenResultData::Criminals as ProtoKeygenCriminals;
@@ -59,20 +64,18 @@ impl proto::MessageOut {
             )),
         }
     }
-    pub(super) fn new_keygen_result(
+
+    pub(super) fn new_keygen_result_new(
         participant_uids: &[String],
-        all_share_counts: &[usize],
-        result: KeygenResultData,
+        result: KeygenResulData,
     ) -> Self {
         let result = match result {
-            Ok(keygen_data) => ProtoKeygenData(keygen_data),
-            Err(crimes) => ProtoKeygenCriminals(ProtoCriminalList::from(
-                to_criminals::<KeygenCrime>(&crimes), // TODO remove later
+            Err(faults) => ProtoKeygenCriminals(ProtoCriminalList::from_tofn_faults(
+                faults,
                 participant_uids,
-                all_share_counts,
             )),
+            Ok(keygen_output) => ProtoKeygenData(keygen_output),
         };
-
         proto::MessageOut {
             data: Some(proto::message_out::Data::KeygenResult(
                 proto::message_out::KeygenResult {
@@ -81,6 +84,7 @@ impl proto::MessageOut {
             )),
         }
     }
+
     pub(super) fn new_sign_result(
         participant_uids: &[String],
         all_share_counts: &[usize],
@@ -105,7 +109,26 @@ impl proto::MessageOut {
     }
 }
 
+fn fault_to_crime(f: &Fault) -> ProtoCrimeType {
+    match f {
+        Fault::MissingMessage => ProtoCrimeType::NonMalicious,
+        Fault::CorruptedMessage => ProtoCrimeType::Unspecified,
+        Fault::ProtocolFault => ProtoCrimeType::Malicious,
+    }
+}
+
 impl ProtoCriminalList {
+    fn from_tofn_faults(faults: FillVecMap<RealKeygenPartyIndex, Fault>, uids: &[String]) -> Self {
+        let criminals = faults
+            .into_iter_some()
+            .map(|(i, fault)| ProtoCriminal {
+                party_uid: uids[i.as_usize()].clone(),
+                crime_type: fault_to_crime(&fault) as i32, // why `as i32`? https://github.com/danburkert/prost#enumerations
+            })
+            .collect();
+        Self { criminals }
+    }
+
     // can't impl From<Vec<Criminal>> because we need participant_uids :(
     fn from(
         criminals: Vec<Criminal>,
