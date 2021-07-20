@@ -1,11 +1,18 @@
 //! Helper structs and implementations for [crate::gg20::keygen].
 
-use super::{proto::message_out::keygen_result, protocol::map_tofnd_to_tofn_idx};
-use tofn::protocol::gg20::keygen::crimes::Crime;
+use crate::TofndError;
+
+use super::protocol::map_tofnd_to_tofn_idx;
+use tofn::refactor::{
+    keygen::{RealKeygenPartyIndex, SecretKeyShare},
+    sdk::api::ProtocolOutput,
+};
 use tracing::{info, span, Level, Span};
 
-/// wrapper type for proto::message_out::new_keygen_result
-pub type KeygenResultData = Result<keygen_result::KeygenOutput, Vec<Vec<Crime>>>;
+/// tofn's ProtocolOutput for Keygen
+pub type TofnKeygenOutput = ProtocolOutput<SecretKeyShare, RealKeygenPartyIndex>;
+/// tofnd's ProtocolOutput for Keygen
+pub type TofndKeygenOutput = Result<TofnKeygenOutput, TofndError>;
 
 /// KeygenInitSanitized holds all arguments needed by Keygen in the desired form; populated by proto::KeygenInit
 /// pub because it is also needed by recovery module

@@ -83,7 +83,9 @@ impl Gg20Service {
             // spawn keygen thread and continue immediately
             tokio::spawn(async move {
                 // wait for keygen's result inside thread
-                let secret_key_share = gg20.execute_keygen(chans, &ctx, execute_span.clone()).await;
+                let secret_key_share = gg20
+                    .execute_keygen_new(chans, &ctx, execute_span.clone())
+                    .await;
                 // send result to aggregator
                 let _ = aggregator_sender.send(secret_key_share);
             });
