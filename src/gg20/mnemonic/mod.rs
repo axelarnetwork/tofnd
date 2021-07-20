@@ -32,7 +32,6 @@ pub enum Cmd {
     Export,
 }
 
-// TODO: examine if this can be automated using strum
 impl Cmd {
     pub fn from_string(cmd_str: &str) -> Result<Self, TofndError> {
         let cmd = match cmd_str {
