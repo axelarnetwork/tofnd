@@ -24,7 +24,7 @@ pub(crate) enum MsgType {
 #[derive(Clone, Debug)]
 pub(crate) struct Timeout {
     pub(crate) index: usize,
-    pub(crate) msg_type: MsgType,
+    pub(crate) round: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -62,8 +62,8 @@ pub(crate) enum Spoof {
 
 #[derive(Clone, Debug)]
 pub(super) struct PartyMaliciousData {
-    pub(super) timeout: Option<Timeout>,
     pub(super) disrupt: Option<Disrupt>,
+    pub(super) timeout_round: usize,
     pub(super) spoof: Option<Spoof>,
     pub(super) keygen_behaviour: KeygenBehaviour,
     // pub(super) sign_behaviour: SignBehaviour,

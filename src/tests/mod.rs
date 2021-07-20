@@ -425,16 +425,16 @@ impl InitParty {
     #[cfg(feature = "malicious")]
     fn new(my_index: usize, all_malicious_data: &MaliciousData) -> InitParty {
         // register timeouts
-        let mut my_timeout = None;
-        // if let Some(timeout) = all_malicious_data.keygen_data.timeout.clone() {
-        //     if timeout.index == my_index {
-        //         my_timeout = Some(timeout);
-        //     }
-        // } else if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
-        //     if timeout.index == my_index {
-        //         my_timeout = Some(timeout);
-        //     }
-        // }
+        let mut timeout_round = 0;
+        if let Some(timeout) = all_malicious_data.keygen_data.timeout.clone() {
+            if timeout.index == my_index {
+                timeout_round = timeout.round;
+            }
+            // } else if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
+            //     if timeout.index == my_index {
+            //         my_timeout = Some(timeout);
+            //     }
+        }
 
         // register disrupts
         let mut my_disrupt = None;
@@ -475,8 +475,8 @@ impl InitParty {
         //     .clone();
 
         let my_malicious_data = PartyMaliciousData {
-            timeout: my_timeout,
             disrupt: my_disrupt,
+            timeout_round,
             spoof: my_spoof,
             keygen_behaviour: my_keygen_behaviour,
             // sign_behaviour: my_sign_behaviour,

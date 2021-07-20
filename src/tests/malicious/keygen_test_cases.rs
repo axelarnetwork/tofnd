@@ -27,11 +27,11 @@ async fn keygen_malicious_multiple_per_round() {
     run_test_cases(&generate_multiple_malicious_per_round()).await;
 }
 
-// #[traced_test]
-// #[tokio::test]
-// async fn malicious_timeout_cases() {
-//     run_test_cases(&timeout_cases()).await;
-// }
+#[traced_test]
+#[tokio::test]
+async fn malicious_timeout_cases() {
+    run_test_cases(&timeout_cases()).await;
+}
 
 // #[traced_test]
 // #[tokio::test]
@@ -144,9 +144,9 @@ impl TestCase {
         let mut malicious_data = MaliciousData::empty(uid_count);
         malicious_data.set_keygen_data(KeygenData {
             behaviours,
-            timeout,
             disrupt,
             spoof,
+            timeout: None,
         });
 
         TestCase {
@@ -158,6 +158,17 @@ impl TestCase {
             expected_sign_faults: vec![],
             malicious_data,
         }
+    }
+
+    fn with_timeout(mut self, index: usize, round: usize) -> Self {
+        self.malicious_data.keygen_data.timeout = Some(Timeout { index, round });
+        self.expected_keygen_faults = CriminalList {
+            criminals: vec![Criminal {
+                party_uid: (('A' as u8 + index as u8) as char).to_string(),
+                crime_type: CrimeType::NonMalicious as i32,
+            }],
+        };
+        self
     }
 }
 
@@ -239,6 +250,16 @@ fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
     cases
 }
 
+fn timeout_cases() -> Vec<TestCase> {
+    let timeout_rounds = vec![1, 2, 3];
+    timeout_rounds
+        .into_iter()
+        .map(|r| {
+            TestCase::new_malicious_keygen(3, vec![1, 1, 1], 2, vec![Honest, Honest, Honest])
+                .with_timeout(0, r) // add timeout party at index 0
+        })
+        .collect()
+}
 // fn timeout_cases() -> Vec<TestCase> {
 //     use MsgType::*;
 //     let stallers = MsgType::iter()

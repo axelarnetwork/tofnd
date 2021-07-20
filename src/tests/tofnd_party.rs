@@ -259,6 +259,24 @@ impl TofndParty {
     }
 }
 
+fn keygen_round(msg_count: usize, num_of_shares: usize) -> usize {
+    let r1_start = 1;
+    let r2_start = r1_start + 1;
+    let r3_start = r2_start + num_of_shares;
+    let r4_start = r3_start + 1;
+    let last = r4_start + 1;
+    if r1_start <= msg_count && msg_count < r2_start {
+        return 1;
+    } else if r2_start <= msg_count && msg_count < r3_start {
+        return 2;
+    } else if r3_start <= msg_count && msg_count < r4_start {
+        return 3;
+    } else if r4_start <= msg_count && msg_count < last {
+        return 4;
+    }
+    panic!();
+}
+
 #[tonic::async_trait]
 impl Party for TofndParty {
     async fn execute_keygen(
@@ -277,6 +295,13 @@ impl Party for TofndParty {
             .unwrap()
             .into_inner();
 
+        let share_count = {
+            if init.party_share_counts.len() == 0 {
+                init.party_uids.len()
+            } else {
+                init.party_share_counts.iter().sum::<u32>() as usize
+            }
+        };
         // the first outbound message is keygen init info
         keygen_server_incoming
             .send(proto::MessageIn {
@@ -285,7 +310,14 @@ impl Party for TofndParty {
             .unwrap();
 
         let mut result: Option<KeygenResult> = None;
+        let mut msg_count = 1;
         while let Some(msg) = keygen_server_outgoing.message().await.unwrap() {
+            info!(
+                "{} message {} in round {}",
+                my_display_name,
+                msg_count,
+                keygen_round(msg_count, share_count)
+            );
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
@@ -324,6 +356,7 @@ impl Party for TofndParty {
                     my_display_name
                 ),
             };
+            msg_count += 1;
         }
 
         if result.is_none() {
