@@ -449,18 +449,6 @@ impl InitParty {
             //     }
         }
 
-        // register spoofs
-        let mut my_spoof = None;
-        // if let Some(spoof) = all_malicious_data.sign_data.spoof.clone() {
-        //     if spoof.index == my_index {
-        //         my_spoof = Some(SignSpoofType { spoof });
-        //     }
-        // } else if let Some(spoof) = all_malicious_data.keygen_data.spoof.clone() {
-        //     if spoof.index == my_index {
-        //         my_spoof = Some(KeygenSpoofType { spoof });
-        //     }
-        // }
-
         let my_keygen_behaviour = all_malicious_data
             .keygen_data
             .behaviours
@@ -478,7 +466,6 @@ impl InitParty {
         let my_malicious_data = PartyMaliciousData {
             timeout_round,
             disrupt_round,
-            spoof: my_spoof,
             keygen_behaviour: my_keygen_behaviour,
             // sign_behaviour: my_sign_behaviour,
         };

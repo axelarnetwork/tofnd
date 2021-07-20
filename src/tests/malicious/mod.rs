@@ -1,8 +1,6 @@
 pub mod keygen_test_cases;
 
 use keygen_test_cases::KeygenData;
-pub(super) type KeygenSpoof = keygen_test_cases::Spoof;
-pub(super) type KeygenMsgMeta = keygen_test_cases::MsgMeta;
 pub(super) type KeygenBehaviour = tofn::refactor::keygen::malicious::Behaviour;
 
 // pub mod sign_test_cases;
@@ -10,16 +8,6 @@ pub(super) type KeygenBehaviour = tofn::refactor::keygen::malicious::Behaviour;
 // pub(super) type SignSpoof = sign_test_cases::Spoof;
 // pub(super) type SignMsgMeta = sign_test_cases::MsgMeta;
 // pub(super) type SignBehaviour = tofn::protocol::gg20::sign::malicious::Behaviour;
-
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) enum MsgType {
-    KeygenMsgType {
-        msg_type: tofn::protocol::gg20::keygen::MsgType,
-    },
-    SignMsgType {
-        msg_type: tofn::protocol::gg20::sign::MsgType,
-    },
-}
 
 #[derive(Clone, Debug)]
 pub(crate) struct Timeout {
@@ -55,16 +43,9 @@ impl MaliciousData {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum Spoof {
-    KeygenSpoofType { spoof: KeygenSpoof },
-    // SignSpoofType { spoof: SignSpoof },
-}
-
-#[derive(Clone, Debug)]
 pub(super) struct PartyMaliciousData {
     pub(super) timeout_round: usize,
     pub(super) disrupt_round: usize,
-    pub(super) spoof: Option<Spoof>,
     pub(super) keygen_behaviour: KeygenBehaviour,
     // pub(super) sign_behaviour: SignBehaviour,
 }
