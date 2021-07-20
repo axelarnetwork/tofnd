@@ -93,7 +93,7 @@ impl Context {
             "[{}] [uid:{}, share:{}/{}]",
             self.nonce,
             self.uids[self.tofnd_index],
-            self.tofnd_subindex + 1,
+            self.tofn_index() + 1,
             self.total_share_count(),
         )
     }
