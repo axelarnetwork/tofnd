@@ -18,7 +18,7 @@ mod honest_test_cases;
 #[cfg(feature = "malicious")]
 mod malicious;
 #[cfg(feature = "malicious")]
-use malicious::{MaliciousData, PartyMaliciousData, Spoof::*};
+use malicious::{MaliciousData, PartyMaliciousData};
 
 mod mnemonic;
 

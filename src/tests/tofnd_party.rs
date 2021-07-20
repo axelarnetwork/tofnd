@@ -32,108 +32,6 @@ impl TofndParty {
     // // we have to have different functions for keygen and sign because sign messages can be
     // // desirialized as keygen messages and vice versa. So we call the approriate function for each phase.
     // #[cfg(feature = "malicious")]
-    // pub(crate) fn should_timeout_keygen(&self, traffic: &proto::TrafficOut) -> bool {
-    //     let payload = traffic.clone().payload;
-
-    //     // this would also work!!!
-    //     // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
-    //     // check if we need to stall keygen msg
-    //     if let Ok(msg_meta) = bincode::deserialize::<MsgMeta>(&payload) {
-    //         let keygen_msg_type = &msg_meta.msg_type;
-    //         if let Some(timeout) = &self.malicious_data.timeout {
-    //             let in_msg = MsgType::KeygenMsgType {
-    //                 msg_type: keygen_msg_type.clone(),
-    //             };
-    //             if timeout.msg_type == in_msg {
-    //                 warn!("I am stalling keygen message {:?}", keygen_msg_type);
-    //                 return true;
-    //             }
-    //         }
-    //     }
-    //     false
-    // }
-
-    // #[cfg(feature = "malicious")]
-    // pub(crate) fn should_timeout_sign(&self, traffic: &proto::TrafficOut) -> bool {
-    //     let payload = traffic.clone().payload;
-
-    //     // this would also work!!!
-    //     // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
-    //     // check if we need to stall sign msg
-    //     if let Ok(msg_meta) = bincode::deserialize::<SignMsgMeta>(&payload) {
-    //         let sign_msg_type = &msg_meta.msg_type;
-    //         if let Some(timeout) = &self.malicious_data.timeout {
-    //             let in_msg = MsgType::SignMsgType {
-    //                 msg_type: sign_msg_type.clone(),
-    //             };
-    //             if timeout.msg_type == in_msg {
-    //                 warn!("I am stalling sign message {:?}", sign_msg_type);
-    //                 return true;
-    //             }
-    //         }
-    //     }
-    //     false
-    // }
-
-    // // we have to have different functions for keygen and sign because sign messages can be
-    // // desirialized as keygen messages and vice versa. So we call the approriate function for each phase.
-    // #[cfg(feature = "malicious")]
-    // pub(crate) fn disrupt_keygen(&self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
-    //     let payload = traffic.clone().payload;
-    //     let msg_meta: KeygenMsgMeta = bincode::deserialize(&payload).unwrap();
-
-    //     // this also works!!!
-    //     // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
-    //     // wrap incoming msg_type into our general MsgType enum
-    //     let msg_type = MsgType::KeygenMsgType {
-    //         msg_type: msg_meta.msg_type,
-    //     };
-
-    //     // if I am not disrupting, return none. I dislike that I have to clone this
-    //     let disrupt = self.malicious_data.disrupt.clone()?;
-    //     if disrupt.msg_type != msg_type {
-    //         return None;
-    //     }
-    //     warn!("I am disrupting keygen message {:?}", msg_type);
-
-    //     let mut disrupt_traffic = traffic.clone();
-    //     disrupt_traffic.payload = payload[0..payload.len() / 2].to_vec();
-
-    //     Some(disrupt_traffic)
-    // }
-
-    // #[cfg(feature = "malicious")]
-    // pub(crate) fn disrupt_sign(&self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
-    //     let payload = traffic.clone().payload;
-    //     let msg_meta: SignMsgMeta = bincode::deserialize(&payload).unwrap();
-
-    //     // this also works!!!
-    //     // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
-    //     // wrap incoming msg_type into our general MsgType enum
-    //     let msg_type = MsgType::SignMsgType {
-    //         msg_type: msg_meta.msg_type,
-    //     };
-
-    //     // if I am not disrupting, return none. I dislike that I have to clone this
-    //     let disrupt = self.malicious_data.disrupt.clone()?;
-    //     if disrupt.msg_type != msg_type {
-    //         return None;
-    //     }
-    //     warn!("I am disrupting sign message {:?}", msg_type);
-
-    //     let mut disrupt_traffic = traffic.clone();
-    //     disrupt_traffic.payload = payload[0..payload.len() / 2].to_vec();
-
-    //     Some(disrupt_traffic)
-    // }
-
-    // // we have to have different functions for keygen and sign because sign messages can be
-    // // desirialized as keygen messages and vice versa. So we call the approriate function for each phase.
-    // #[cfg(feature = "malicious")]
     // pub(crate) fn spoof_keygen(
     //     &mut self,
     //     traffic: &proto::TrafficOut,
@@ -352,11 +250,11 @@ impl Party for TofndParty {
 
                     delivery.deliver(&msg, &my_uid);
                 }
-                // // in malicous case, if we are stallers we skip the message
-                // #[cfg(feature = "malicious")]
-                // proto::message_out::Data::Traffic(traffic) => {
                 //     // check if I am not a staller, send the message. This is for timeout tests
-                //     if !self.should_timeout_keygen(&traffic) {
+                //     if !self.should_timeout_keygen(
+                //         &traffic,
+                //         msg_counter_to_round_keygen(msg_counter, share_count),
+                //     ) {
                 //         // if I am disrupting, create a _duplicate_ message and disrupt it. This is for disrupt tests
                 //         if let Some(traffic) = self.disrupt_keygen(&traffic) {
                 //             let mut disrupt_msg = msg.clone();

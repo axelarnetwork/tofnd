@@ -52,18 +52,6 @@ pub(crate) struct Spoof {
     pub(crate) status: Status,
 }
 
-impl Spoof {
-    pub(crate) fn msg_to_status(msg_type: &MsgType) -> Status {
-        match msg_type {
-            MsgType::R1Bcast => Status::R1,
-            MsgType::R2Bcast => Status::R2,
-            MsgType::R2P2p { to: _ } => Status::R2,
-            MsgType::R3Bcast => Status::R3,
-            MsgType::R3FailBcast => Status::R3,
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub(crate) struct KeygenData {
     pub(crate) behaviours: Vec<Behaviour>,
@@ -112,41 +100,12 @@ impl TestCase {
             criminals: expected_faults,
         };
 
-        let mut timeout: Option<Timeout> = None;
-        let mut disrupt: Option<Disrupt> = None;
-        let mut spoof: Option<Spoof> = None;
-        // for (i, t) in behaviours.iter().enumerate() {
-        //     if let Staller { msg_type } = t {
-        //         timeout = Some(Timeout {
-        //             index: i,
-        //             msg_type: KeygenMsgType {
-        //                 msg_type: msg_type.clone(),
-        //             },
-        //         });
-        //     }
-        //     if let DisruptingSender { msg_type } = t {
-        //         disrupt = Some(Disrupt {
-        //             index: i,
-        //             msg_type: KeygenMsgType {
-        //                 msg_type: msg_type.clone(),
-        //             },
-        //         });
-        //     }
-        //     if let UnauthenticatedSender { victim, status } = t {
-        //         spoof = Some(Spoof {
-        //             index: i,
-        //             victim: *victim,
-        //             status: status.clone(),
-        //         });
-        //     }
-        // }
-
         let mut malicious_data = MaliciousData::empty(uid_count);
         malicious_data.set_keygen_data(KeygenData {
             behaviours,
-            spoof,
             timeout: None,
             disrupt: None,
+            spoof: None,
         });
 
         TestCase {
@@ -170,7 +129,6 @@ impl TestCase {
         };
         self
     }
-}
 
     fn with_disrupt(mut self, index: usize, round: usize) -> Self {
         self.malicious_data.keygen_data.disrupt = Some(Disrupt { index, round });
