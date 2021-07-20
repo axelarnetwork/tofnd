@@ -13,7 +13,7 @@ use super::{proto, ProtocolCommunication};
 
 type TofndResult<T> = Result<T, TofndError>;
 
-pub async fn execute_protocol<F, K, P>(
+pub(super) async fn execute_protocol<F, K, P>(
     mut party: Protocol<F, K, P>,
     mut chans: ProtocolCommunication<
         Option<proto::TrafficIn>,
