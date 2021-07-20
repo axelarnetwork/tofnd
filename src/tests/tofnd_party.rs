@@ -157,22 +157,30 @@ impl TofndParty {
     }
 }
 
-fn keygen_round(msg_count: usize, num_of_shares: usize) -> usize {
-    let r1_start = 1;
-    let r2_start = r1_start + 1;
-    let r3_start = r2_start + num_of_shares;
-    let r4_start = r3_start + 1;
-    let last = r4_start + 1;
-    if r1_start <= msg_count && msg_count < r2_start {
+fn keygen_round(msg_count: usize, all_share_counts: usize, my_share_count: usize) -> usize {
+    let r1_msgs = 1; // 1 bcast
+    let r2_msgs = r1_msgs + 1; // 1 bcast
+    let r3_msgs = r2_msgs + 1 + (all_share_counts - 1); // 1 bcast + n-1 p2ps
+    let r4_msgs = r3_msgs + 1; // 1 bcast
+
+    // multiply by my share count
+    let r1_msgs = r1_msgs * my_share_count;
+    let r2_msgs = r2_msgs * my_share_count;
+    let r3_msgs = r3_msgs * my_share_count;
+    let r4_msgs = r4_msgs * my_share_count;
+
+    let last = r4_msgs + my_share_count; // n bcasts and n(n-1) p2ps
+
+    if 1 <= msg_count && msg_count <= r1_msgs {
         return 1;
-    } else if r2_start <= msg_count && msg_count < r3_start {
+    } else if r1_msgs < msg_count && msg_count <= r2_msgs {
         return 2;
-    } else if r3_start <= msg_count && msg_count < r4_start {
+    } else if r2_msgs < msg_count && msg_count <= r3_msgs {
         return 3;
-    } else if r4_start <= msg_count && msg_count < last {
+    } else if r3_msgs < msg_count && msg_count <= r4_msgs {
         return 4;
     }
-    panic!();
+    panic!("message counter overflow: {}. Max is {}", msg_count, last);
 }
 
 #[tonic::async_trait]
@@ -193,11 +201,18 @@ impl Party for TofndParty {
             .unwrap()
             .into_inner();
 
-        let share_count = {
+        let all_share_count = {
             if init.party_share_counts.len() == 0 {
                 init.party_uids.len()
             } else {
                 init.party_share_counts.iter().sum::<u32>() as usize
+            }
+        };
+        let my_share_count = {
+            if init.party_share_counts.len() == 0 {
+                1
+            } else {
+                init.party_share_counts[init.my_party_index as usize] as usize
             }
         };
         // the first outbound message is keygen init info
@@ -214,7 +229,7 @@ impl Party for TofndParty {
                 "{} message {} in round {}",
                 my_display_name,
                 msg_count,
-                keygen_round(msg_count, share_count)
+                keygen_round(msg_count, all_share_count, my_share_count)
             );
             let msg_type = msg.data.as_ref().expect("missing data");
 
@@ -227,7 +242,7 @@ impl Party for TofndParty {
                 proto::message_out::Data::Traffic(traffic) => {
                     #[cfg(feature = "malicious")]
                     {
-                        let round = keygen_round(msg_count, share_count);
+                        let round = keygen_round(msg_count, all_share_count, my_share_count);
                         if self.malicious_data.timeout_round == round {
                             warn!(
                                 "{} is stalling a message in round {}",
@@ -247,30 +262,8 @@ impl Party for TofndParty {
                             delivery.deliver(&m, &my_uid);
                         }
                     }
-
                     delivery.deliver(&msg, &my_uid);
                 }
-                //     // check if I am not a staller, send the message. This is for timeout tests
-                //     if !self.should_timeout_keygen(
-                //         &traffic,
-                //         msg_counter_to_round_keygen(msg_counter, share_count),
-                //     ) {
-                //         // if I am disrupting, create a _duplicate_ message and disrupt it. This is for disrupt tests
-                //         if let Some(traffic) = self.disrupt_keygen(&traffic) {
-                //             let mut disrupt_msg = msg.clone();
-                //             disrupt_msg.data = Some(proto::message_out::Data::Traffic(traffic));
-                //             delivery.deliver(&disrupt_msg, &my_uid);
-                //         }
-                //         // if I am a spoofer, create a _duplicate_ message and spoof it. This is for spoof tests
-                //         if let Some(traffic) = self.spoof_keygen(&traffic) {
-                //             let mut spoofed_msg = msg.clone();
-                //             spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
-                //             delivery.deliver(&spoofed_msg, &my_uid);
-                //         }
-                //         // finally, act normally and send the correct message
-                //         delivery.deliver(&msg, &my_uid);
-                //     }
-                // }
                 proto::message_out::Data::KeygenResult(res) => {
                     result = Some(res.clone());
                     info!("party [{}] keygen finished!", my_display_name);
