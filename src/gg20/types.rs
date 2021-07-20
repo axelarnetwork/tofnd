@@ -32,7 +32,7 @@ impl<InMsg, OutMsg> ProtocolCommunication<InMsg, OutMsg> {
 }
 
 use serde::{Deserialize, Serialize};
-use tofn::protocol::gg20::{GroupPublicInfo, SecretKeyShare, ShareSecretInfo};
+use tofn::refactor::keygen::{GroupPublicInfo, SecretKeyShare, ShareSecretInfo};
 
 /// Struct to hold `tonfd` info. This consists of information we need to
 /// store in the KV store that is not relevant to `tofn`
@@ -41,6 +41,14 @@ pub(super) struct TofndInfo {
     pub(super) party_uids: Vec<String>,
     pub(super) share_counts: Vec<usize>,
     pub(super) index: usize,
+}
+
+/// `KeyShareKv` record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(super) struct PartyInfoNew {
+    pub(super) common: GroupPublicInfo,
+    pub(super) shares: Vec<ShareSecretInfo>,
+    pub(super) tofnd: TofndInfo,
 }
 
 /// `KeyShareKv` record
