@@ -5,8 +5,8 @@ use super::proto;
 use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SHARE_KV_NAME};
 use std::path::PathBuf;
 
-#[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
+// #[cfg(feature = "malicious")]
+// use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
 #[cfg(feature = "malicious")]
 use tofn::refactor::keygen::malicious::Behaviour as KeygenBehaviour;
 
