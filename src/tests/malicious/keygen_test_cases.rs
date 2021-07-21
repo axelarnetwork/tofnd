@@ -2,17 +2,13 @@ use crate::proto::message_out::{
     criminal_list::{criminal::CrimeType, Criminal},
     CriminalList,
 };
-use tofn::{
-    protocol::gg20::keygen::{MsgType, Status},
-    refactor::collections::TypedUsize,
-};
+use tofn::refactor::collections::TypedUsize;
 
 use tofn::refactor::keygen::malicious::Behaviour::{self, *};
 
 use super::super::{run_test_cases, TestCase};
 use super::{Disrupt, MaliciousData, Timeout};
 
-use serde::{Deserialize, Serialize}; // we assume bad guys know how to (de)serialize
 use tracing_test::traced_test; // log for tests
 
 #[traced_test]
@@ -40,18 +36,10 @@ async fn malicious_disrupt_cases() {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Spoof {
-    pub(crate) index: usize,
-    pub(crate) victim: usize,
-    pub(crate) status: Status,
-}
-
-#[derive(Clone, Debug)]
 pub(crate) struct KeygenData {
     pub(crate) behaviours: Vec<Behaviour>,
     pub(crate) timeout: Option<Timeout>,
     pub(crate) disrupt: Option<Disrupt>,
-    pub(crate) spoof: Option<Spoof>,
 }
 
 impl KeygenData {
@@ -60,16 +48,8 @@ impl KeygenData {
             behaviours: vec![Honest; party_count],
             timeout: None,
             disrupt: None,
-            spoof: None,
         }
     }
-}
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct MsgMeta {
-    pub(crate) msg_type: MsgType,
-    pub(crate) from: usize,
-    pub(crate) payload: Vec<u8>,
 }
 
 impl TestCase {
@@ -99,7 +79,6 @@ impl TestCase {
             behaviours,
             timeout: None,
             disrupt: None,
-            spoof: None,
         });
 
         TestCase {
