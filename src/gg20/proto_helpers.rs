@@ -17,26 +17,6 @@ use proto::message_out::keygen_result::KeygenResultData::Data as ProtoKeygenData
 // use proto::message_out::sign_result::SignResultData::Signature as ProtoSignature;
 use proto::message_out::CriminalList as ProtoCriminalList;
 
-// use tracing::warn;
-
-// // TODO delete this when Crimes are incorporated by axlear-core
-// pub fn to_criminals<C>(criminals: &[Vec<C>]) -> Vec<Criminal> {
-//     criminals
-//         .iter()
-//         .enumerate()
-//         .filter_map(|(i, v)| {
-//             if v.is_empty() {
-//                 None
-//             } else {
-//                 Some(Criminal {
-//                     index: i,
-//                     crime_type: CrimeType::Malicious,
-//                 })
-//             }
-//         })
-//         .collect()
-// }
-
 // convenience constructors
 impl proto::MessageOut {
     pub(super) fn new_bcast(bcast: &[u8]) -> Self {
@@ -125,39 +105,6 @@ impl ProtoCriminalList {
             .collect();
         Self { criminals }
     }
-
-    // // can't impl From<Vec<Criminal>> because we need participant_uids :(
-    // fn from(
-    //     criminals: Vec<Criminal>,
-    //     participant_uids: &[String],
-    //     participant_share_counts: &[usize],
-    // ) -> Self {
-    //     // the Criminal::index inside `criminals` is the index of tofn sign participants.
-    //     // tofnd keygen participants:           [A, B, C, D]
-    //     // tofnd keygen share_counts:           [1, 2, 3, 4]
-    //     // tofnd sign   participants:           [B, C, D], where C is a Criminal; this is given as [1, 2, 3] (indices to tofnd keygen participants)
-    //     // tofn  sign   participants:           [B, B, C, C, C, D, D, D, D], tofn finds criminal indices [2, 3, 4]. We need to return `C`.
-    //     //                                             ^  ^  ^
-    //     // To convert tofn criminal indices into tofnd uids, we need to have a vec containing all share counts for sign participants
-    //     // so that we can map `tofn_sign_index` to `tofnd_uid`
-    //     let mut criminals: Vec<ProtoCriminal> = criminals
-    //         .into_iter()
-    //         .map(|c| {
-    //             // TODO panic
-    //             // TODO refactor so that map_tofn_to_tofnd_idx never fails
-    //             let (criminal_index, _) = map_tofn_to_tofnd_idx(c.index, participant_share_counts)
-    //                 .expect("failure to recover tofnd party index from tofn share index");
-    //             ProtoCriminal {
-    //                 party_uid: participant_uids[criminal_index].clone(),
-    //                 crime_type: ProtoCrimeType::from(c.crime_type) as i32, // why `as i32`? https://github.com/danburkert/prost#enumerations
-    //             }
-    //         })
-    //         .collect();
-    //     // we remove duplicates because we get the same party once for each of his shares
-    //     criminals.dedup();
-    //     warn!("Criminals detected: {:?}", criminals);
-    //     Self { criminals }
-    // }
 }
 
 impl From<CrimeType> for ProtoCrimeType {
