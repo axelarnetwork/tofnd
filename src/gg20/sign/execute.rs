@@ -27,10 +27,10 @@ impl Gg20Service {
     ) -> TofndSignOutput {
         // try to create sign with context
         let sign = match new_sign(
-            ctx.secret_key_share.group(),
-            ctx.secret_key_share.share(),
+            &ctx.group(),
+            &ctx.share,
             &ctx.sign_parties,
-            ctx.msg_to_sign(),
+            &ctx.msg_to_sign(),
             #[cfg(feature = "malicious")]
             self.sign_behaviour.clone(),
         ) {

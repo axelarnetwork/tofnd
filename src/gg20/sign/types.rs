@@ -2,7 +2,7 @@
 
 use super::super::MessageDigest;
 use tofn::refactor::collections::{Subset, TypedUsize};
-use tofn::refactor::keygen::{RealKeygenPartyIndex, SecretKeyShare};
+use tofn::refactor::keygen::{GroupPublicInfo, RealKeygenPartyIndex, ShareSecretInfo};
 use tofn::refactor::sdk::api::ProtocolOutput;
 use tofn::refactor::sign::{RealSignParticipantIndex, SignParties};
 
@@ -28,7 +28,7 @@ pub(super) struct Context {
     pub(super) party_info: PartyInfo,
     pub(super) sign_share_counts: Vec<usize>,
     pub(super) tofnd_subindex: usize,
-    pub(super) secret_key_share: SecretKeyShare,
+    pub(super) share: ShareSecretInfo,
     pub(super) sign_parties: Subset<RealKeygenPartyIndex>,
 }
 
@@ -52,15 +52,19 @@ impl Context {
             &sign_init.participant_indices,
         )?;
 
-        let secret_key_share = Self::get_secret_key_share(&party_info, tofnd_subindex)?;
+        let share = Self::get_share(&party_info, tofnd_subindex)?;
         Ok(Self {
             sign_init,
             party_info,
             sign_share_counts,
             tofnd_subindex,
-            secret_key_share,
+            share,
             sign_parties,
         })
+    }
+
+    pub(super) fn group(&self) -> &GroupPublicInfo {
+        &self.party_info.common
     }
 
     /// from keygen we have
@@ -94,21 +98,15 @@ impl Context {
         Ok(sign_share_counts)
     }
 
-    fn get_secret_key_share(
+    fn get_share(
         party_info: &PartyInfo,
         tofnd_subindex: usize,
-    ) -> Result<SecretKeyShare, TofndError> {
-        if tofnd_subindex >= party_info.shares.len() {
-            return Err(From::from(format!(
-                "Requested share {} is out of bounds {}",
-                tofnd_subindex,
-                party_info.shares.len(),
-            )));
-        }
-        Ok(SecretKeyShare::new(
-            party_info.common.clone(),
-            party_info.shares[tofnd_subindex].clone(),
-        ))
+    ) -> Result<ShareSecretInfo, TofndError> {
+        Ok(party_info
+            .shares
+            .get(tofnd_subindex)
+            .ok_or("failed to get ShareSecretInfo from PartyInfo")?
+            .clone())
     }
 
     pub(super) fn msg_to_sign(&self) -> &MessageDigest {
