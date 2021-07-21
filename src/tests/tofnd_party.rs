@@ -171,12 +171,9 @@ impl Party for TofndParty {
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
-                // // #[cfg(not(feature = "malicious"))]
-                // proto::message_out::Data::Traffic(_) => {
-                //     delivery.deliver(&msg, &my_uid);
-                // }
-                // in malicous case, if we are stallers we skip the message
+                #[allow(clippy::unused)] // allow unsused traffin in non malicious
                 proto::message_out::Data::Traffic(traffic) => {
+                    // in malicous case, if we are stallers we skip the message
                     #[cfg(feature = "malicious")]
                     {
                         let round = keygen_round(msg_count, all_share_count, my_share_count);
