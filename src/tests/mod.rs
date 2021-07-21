@@ -24,16 +24,14 @@ mod mnemonic;
 
 use proto::message_out::CriminalList;
 // use tofn::protocol::gg20::sign::crimes::Crime as SignCrime;
-use tofn::refactor::sdk::api::Fault;
 use tracing::info;
 
 use crate::proto::{
     self,
     message_out::{
         keygen_result::KeygenResultData::{Criminals as KeygenCriminals, Data as KeygenData},
-        // sign_result::SignResultData::{Criminals as SignCriminals, Signature},
-        KeygenResult,
-        // SignResult,
+        sign_result::SignResultData::{Criminals as SignCriminals, Signature},
+        KeygenResult, SignResult,
     },
 };
 use mock::{Deliverer, Party};
@@ -52,7 +50,7 @@ struct TestCase {
     threshold: usize,
     signer_indices: Vec<usize>,
     expected_keygen_faults: CriminalList,
-    expected_sign_faults: Vec<Option<Fault>>,
+    expected_sign_faults: CriminalList,
     #[cfg(feature = "malicious")]
     malicious_data: MaliciousData,
 }
@@ -63,7 +61,6 @@ async fn run_test_cases(test_cases: &[TestCase]) {
     let dir = testdir!();
     for test_case in test_cases {
         basic_keygen_and_sign(test_case, &dir, restart, delete_shares).await;
-        std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }
 
@@ -120,6 +117,52 @@ fn successful_keygen_results(results: Vec<KeygenResult>, expected_faults: &Crimi
             }
         }
         Some(KeygenCriminals(ref actual_faults)) => {
+            assert_eq!(expected_faults, actual_faults);
+            info!("Fault list: {:?}", expected_faults);
+            return false;
+        }
+        None => {
+            panic!("Result was None");
+        }
+    }
+    true
+}
+
+// Horrible code duplication indeed. Don't think we should spend time here though
+// because this will be deleted when axelar-core accommodates crimes
+fn check_sign_results(results: Vec<SignResult>, expected_faults: &CriminalList) -> bool {
+    // get the first non-empty result. We can't simply take results[0] because some behaviours
+    // don't return results and we pad them with `None`s
+    let first = results.iter().find(|r| r.sign_result_data.is_some());
+
+    let mut pub_keys = vec![];
+    for result in results.iter() {
+        let res = match result.sign_result_data.clone().unwrap() {
+            Signature(signature) => signature,
+            SignCriminals(_) => continue,
+        };
+        pub_keys.push(res);
+    }
+
+    // else we have at least one result
+    let first = first.unwrap().clone();
+    match first.sign_result_data {
+        Some(Signature(signature)) => {
+            let first_signature = signature;
+            assert_eq!(
+                expected_faults,
+                &CriminalList::default(),
+                "expected faults but none was found"
+            );
+            for (i, signature) in pub_keys.iter().enumerate() {
+                assert_eq!(
+                    &first_signature, signature,
+                    "party {} didn't produce the expected signature",
+                    i
+                );
+            }
+        }
+        Some(SignCriminals(ref actual_faults)) => {
             assert_eq!(expected_faults, actual_faults);
             info!("Fault list: {:?}", expected_faults);
             return false;
@@ -385,25 +428,25 @@ async fn basic_keygen_and_sign(
         false => parties,
     };
 
-    // let expected_sign_crimes = &test_case.expected_sign_faults;
+    let expected_sign_faults = &test_case.expected_sign_faults;
     // #[cfg(not(feature = "malicious"))]
-    // let expect_timeout = false;
+    let expect_timeout = false;
     // #[cfg(feature = "malicious")]
     // let expect_timeout = test_case.malicious_data.sign_data.timeout.is_some();
 
-    // // execute sign
-    // let new_sig_uid = "Gus-test-sig";
-    // let (parties, results) = execute_sign(
-    //     parties,
-    //     &party_uids,
-    //     &test_case.signer_indices,
-    //     new_key_uid,
-    //     new_sig_uid,
-    //     &MSG_TO_SIGN,
-    //     expect_timeout,
-    // )
-    // .await;
-    // check_sign_results(results, &expected_sign_crimes);
+    // execute sign
+    let new_sig_uid = "Gus-test-sig";
+    let (parties, results) = execute_sign(
+        parties,
+        &party_uids,
+        &test_case.signer_indices,
+        new_key_uid,
+        new_sig_uid,
+        &MSG_TO_SIGN,
+        expect_timeout,
+    )
+    .await;
+    check_sign_results(results, &expected_sign_faults);
 
     clean_up(parties).await;
 }
@@ -605,72 +648,72 @@ async fn execute_recover(
     parties
 }
 
-// // need to take ownership of parties `parties` and return it on completion
-// async fn execute_sign(
-//     parties: Vec<TofndParty>,
-//     party_uids: &[String],
-//     sign_participant_indices: &[usize],
-//     key_uid: &str,
-//     new_sig_uid: &str,
-//     msg_to_sign: &[u8],
-//     expect_timeout: bool,
-// ) -> (Vec<TofndParty>, Vec<proto::message_out::SignResult>) {
-//     info!("Expecting timeout: [{}]", expect_timeout);
-//     let participant_uids: Vec<String> = sign_participant_indices
-//         .iter()
-//         .map(|&i| party_uids[i].clone())
-//         .collect();
-//     let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&participant_uids);
+// need to take ownership of parties `parties` and return it on completion
+async fn execute_sign(
+    parties: Vec<TofndParty>,
+    party_uids: &[String],
+    sign_participant_indices: &[usize],
+    key_uid: &str,
+    new_sig_uid: &str,
+    msg_to_sign: &[u8],
+    expect_timeout: bool,
+) -> (Vec<TofndParty>, Vec<proto::message_out::SignResult>) {
+    info!("Expecting timeout: [{}]", expect_timeout);
+    let participant_uids: Vec<String> = sign_participant_indices
+        .iter()
+        .map(|&i| party_uids[i].clone())
+        .collect();
+    let (sign_delivery, sign_channel_pairs) = Deliverer::with_party_ids(&participant_uids);
 
-//     // use Option to temporarily transfer ownership of individual parties to a spawn
-//     let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
+    // use Option to temporarily transfer ownership of individual parties to a spawn
+    let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
 
-//     let mut sign_join_handles = Vec::with_capacity(sign_participant_indices.len());
-//     for (i, channel_pair) in sign_channel_pairs.into_iter().enumerate() {
-//         let participant_index = sign_participant_indices[i];
+    let mut sign_join_handles = Vec::with_capacity(sign_participant_indices.len());
+    for (i, channel_pair) in sign_channel_pairs.into_iter().enumerate() {
+        let participant_index = sign_participant_indices[i];
 
-//         // clone everything needed in spawn
-//         let init = proto::SignInit {
-//             new_sig_uid: new_sig_uid.to_string(),
-//             key_uid: key_uid.to_string(),
-//             party_uids: participant_uids.clone(),
-//             message_to_sign: msg_to_sign.to_vec(),
-//         };
-//         let delivery = sign_delivery.clone();
-//         let participant_uid = participant_uids[i].clone();
-//         let mut party = party_options[participant_index].take().unwrap();
+        // clone everything needed in spawn
+        let init = proto::SignInit {
+            new_sig_uid: new_sig_uid.to_string(),
+            key_uid: key_uid.to_string(),
+            party_uids: participant_uids.clone(),
+            message_to_sign: msg_to_sign.to_vec(),
+        };
+        let delivery = sign_delivery.clone();
+        let participant_uid = participant_uids[i].clone();
+        let mut party = party_options[participant_index].take().unwrap();
 
-//         // execute the protocol in a spawn
-//         let handle = tokio::spawn(async move {
-//             let result = party
-//                 .execute_sign(init, channel_pair, delivery, &participant_uid)
-//                 .await;
-//             (party, result)
-//         });
-//         sign_join_handles.push((i, handle));
-//     }
+        // execute the protocol in a spawn
+        let handle = tokio::spawn(async move {
+            let result = party
+                .execute_sign(init, channel_pair, delivery, &participant_uid)
+                .await;
+            (party, result)
+        });
+        sign_join_handles.push((i, handle));
+    }
 
-//     // if we are expecting a timeout, abort parties after a reasonable amount of time
-//     if expect_timeout {
-//         let unblocker = sign_delivery.clone();
-//         abort_parties(unblocker, 10);
-//     }
+    // if we are expecting a timeout, abort parties after a reasonable amount of time
+    if expect_timeout {
+        let unblocker = sign_delivery.clone();
+        abort_parties(unblocker, 10);
+    }
 
-//     let mut results = vec![SignResult::default(); sign_join_handles.len()];
-//     for (i, h) in sign_join_handles {
-//         info!("Running party {}", i);
-//         let handle = h.await.unwrap();
-//         party_options[sign_participant_indices[i]] = Some(handle.0);
-//         results[i] = handle.1;
-//     }
-//     (
-//         party_options
-//             .into_iter()
-//             .map(|o| o.unwrap())
-//             .collect::<Vec<_>>(),
-//         results,
-//     )
-// }
+    let mut results = vec![SignResult::default(); sign_join_handles.len()];
+    for (i, h) in sign_join_handles {
+        info!("Running party {}", i);
+        let handle = h.await.unwrap();
+        party_options[sign_participant_indices[i]] = Some(handle.0);
+        results[i] = handle.1;
+    }
+    (
+        party_options
+            .into_iter()
+            .map(|o| o.unwrap())
+            .collect::<Vec<_>>(),
+        results,
+    )
+}
 
 fn abort_parties(mut unblocker: Deliverer, time: u64) {
     // send an abort message if protocol is taking too much time

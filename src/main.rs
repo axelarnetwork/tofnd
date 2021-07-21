@@ -68,8 +68,8 @@ async fn main() -> Result<(), TofndError> {
         mnemonic_cmd,
         #[cfg(feature = "malicious")]
         keygen_behaviour,
-        // #[cfg(feature = "malicious")]
-        // sign_behaviour,
+        #[cfg(feature = "malicious")]
+        sign_behaviour,
     )
     .await;
 

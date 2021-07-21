@@ -44,7 +44,9 @@ impl TofndParty {
             #[cfg(feature = "malicious")]
             #[cfg(feature = "malicious")]
             init_party.malicious_data.keygen_behaviour.clone(),
-            // #[cfg(feature = "malicious")]
+            // TODO: cahnge hard-coded honest
+            #[cfg(feature = "malicious")]
+            tofn::refactor::sign::malicious::Behaviour::Honest,
             // init_party.malicious_data.sign_behaviour.clone(),
         )
         .await;

@@ -108,7 +108,7 @@ impl TestCase {
             threshold,
             signer_indices: vec![],
             expected_keygen_faults: expected_faults,
-            expected_sign_faults: vec![],
+            expected_sign_faults: CriminalList::default(),
             malicious_data,
         }
     }

@@ -39,7 +39,7 @@ impl TestCase {
             threshold,
             signer_indices,
             expected_keygen_faults: CriminalList::default(),
-            expected_sign_faults: vec![],
+            expected_sign_faults: CriminalList::default(),
             #[cfg(feature = "malicious")]
             malicious_data: MaliciousData::empty(uid_count),
         }
