@@ -14,9 +14,7 @@
 //!
 //! All relevant helper structs and types are defined in [self::types]
 
-use super::{
-    proto, protocol, routing::route_messages, service::Gg20Service, ProtocolCommunication,
-};
+use super::{proto, routing::route_messages, service::Gg20Service, ProtocolCommunication};
 use crate::TofndError;
 
 // tonic cruft
@@ -97,18 +95,11 @@ impl Gg20Service {
         });
 
         // 4.
-        // find total sign share number
-        let sign_share_counts = Self::sign_share_count(
-            &party_info.tofnd.share_counts,
-            &sign_init.participant_indices,
-        )?;
-
         // wait for all sign threads to end, get responses, and return signature
         Self::handle_results(
             aggregator_receivers,
             &mut stream_out_sender,
             &sign_init.participant_uids,
-            &sign_share_counts,
         )
         .await?;
 

@@ -4,7 +4,7 @@ use tracing::{info, span, Level, Span};
 
 use crate::kv_manager::Kv;
 
-pub(super) type MessageDigest = tofn::protocol::gg20::MessageDigest;
+pub(super) type MessageDigest = tofn::refactor::sign::MessageDigest;
 
 // default KV store names
 pub(super) const DEFAULT_SHARE_KV_NAME: &str = "shares";

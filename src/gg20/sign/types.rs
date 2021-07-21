@@ -1,7 +1,15 @@
 //! Helper structs and implementations for [crate::gg20::sign].
 
 use super::super::MessageDigest;
-use tofn::protocol::gg20::SecretKeyShare;
+use tofn::refactor::collections::{Subset, TypedUsize};
+use tofn::refactor::keygen::{RealKeygenPartyIndex, SecretKeyShare};
+use tofn::refactor::sdk::api::ProtocolOutput;
+use tofn::refactor::sign::{RealSignParticipantIndex, SignParties};
+
+/// tofn's ProtocolOutput for Sign
+pub type TofnSignOutput = ProtocolOutput<Vec<u8>, RealSignParticipantIndex>;
+/// tofnd's ProtocolOutput for Sign
+pub type TofndSignOutput = Result<TofnSignOutput, TofndError>;
 
 #[derive(Clone, Debug)]
 pub(super) struct SignInitSanitized {
@@ -12,7 +20,7 @@ pub(super) struct SignInitSanitized {
     pub(super) message_to_sign: MessageDigest,
 }
 
-use crate::gg20::{protocol::map_tofnd_to_tofn_idx, types::PartyInfo};
+use crate::gg20::types::PartyInfo;
 use crate::TofndError;
 
 pub(super) struct Context {
@@ -21,6 +29,7 @@ pub(super) struct Context {
     pub(super) sign_share_counts: Vec<usize>,
     pub(super) tofnd_subindex: usize,
     pub(super) secret_key_share: SecretKeyShare,
+    pub(super) sign_parties: Subset<RealKeygenPartyIndex>,
 }
 
 impl Context {
@@ -37,6 +46,12 @@ impl Context {
             &party_info.tofnd.share_counts,
             &sign_init.participant_uids,
         )?;
+
+        let sign_parties = Self::get_sign_parties(
+            party_info.tofnd.party_uids.len(),
+            &sign_init.participant_indices,
+        )?;
+
         let secret_key_share = Self::get_secret_key_share(&party_info, tofnd_subindex)?;
         Ok(Self {
             sign_init,
@@ -44,6 +59,7 @@ impl Context {
             sign_share_counts,
             tofnd_subindex,
             secret_key_share,
+            sign_parties,
         })
     }
 
@@ -89,47 +105,64 @@ impl Context {
                 party_info.shares.len(),
             )));
         }
-        Ok(SecretKeyShare {
-            group: party_info.common.clone(),
-            share: party_info.shares[tofnd_subindex].clone(),
-        })
-    }
-
-    pub(super) fn sign_uids(&self) -> &[String] {
-        &self.sign_init.participant_uids
+        Ok(SecretKeyShare::new(
+            party_info.common.clone(),
+            party_info.shares[tofnd_subindex].clone(),
+        ))
     }
 
     pub(super) fn msg_to_sign(&self) -> &MessageDigest {
         &self.sign_init.message_to_sign
     }
 
-    pub(super) fn sign_tofn_indices(&self) -> Vec<usize> {
-        // use stateless implementation function to ease tests
-        Self::sign_tofn_indices_impl(
-            &self.party_info.tofnd.share_counts,
-            &self.sign_init.participant_indices,
-        )
-    }
-
-    /// get all tofn indices of a party
+    /// create a `Subset` of sign parties
     /// Example:
-    /// input:
-    ///   sign_uids = [a, c]
-    ///   share_counts = [3, 2, 1]
-    /// output:
-    ///   all_party_tofn_indices: [0, 1, 2, 3, 4, 5]
-    ///                            ^  ^  ^  ^  ^  ^
-    ///                            a  a  a  b  b  c
-    ///   signing_tofn_indices: [0, 1, 2, 5] <- index of a's 3 shares + c's 2 shares
-    fn sign_tofn_indices_impl(sign_share_counts: &[usize], sign_indices: &[usize]) -> Vec<usize> {
-        let mut sign_tofn_indices = Vec::new();
-        for sign_index in sign_indices.iter() {
-            let tofn_index = map_tofnd_to_tofn_idx(*sign_index, 0, &sign_share_counts);
-            for share_count in 0..sign_share_counts[*sign_index] {
-                sign_tofn_indices.push(tofn_index + share_count);
+    /// from keygen init we have:
+    ///   keygen_party_uids:    [a, b, c, d]
+    ///   keygen_party_indices: [0, 1, 2, 3]
+    /// from sign init we have:
+    ///   sign_party_uids:      [d, b]
+    ///   sign_party_indices:   [3, 1]
+    /// result:
+    ///   sign_parties:         [None      -> party a with index 0 is not a signer
+    ///                          Some(())  -> party b with index 1 is a signer
+    ///                          None      -> party c with index 2 is not a signer
+    ///                          Some(())] -> party d with index 3 is a signer
+    pub(super) fn get_sign_parties(
+        length: usize,
+        sign_indices: &[usize],
+    ) -> Result<SignParties, TofndError> {
+        let mut sign_parties = Subset::with_max_size(length);
+        for signer_idx in sign_indices.iter() {
+            if let Err(_) = sign_parties.add(TypedUsize::from_usize(*signer_idx)) {
+                return Err(From::from("failed to call Subset::add"));
             }
         }
-        sign_tofn_indices
+        Ok(sign_parties)
+    }
+
+    /// get signers' uids with respect to keygen uids ordering
+    /// Example:
+    /// from keygen init we have:
+    ///   keygen_party_uids:    [a, b, c, d]
+    /// from sign init we have:
+    ///   sign_party_uids:      [d, c, a]
+    /// result:
+    ///   sign_parties:         [a, c, d]
+    pub(super) fn sign_uids(&self) -> Vec<String> {
+        let mut sign_uids = vec![];
+        for uid in self.party_info.tofnd.party_uids.iter() {
+            if self
+                .sign_init
+                .participant_uids
+                .iter()
+                .position(|s_uid| s_uid == uid)
+                .is_some()
+            {
+                sign_uids.push(uid.clone());
+            }
+        }
+        sign_uids
     }
 
     /// export state; used for logging
@@ -138,7 +171,10 @@ impl Context {
             "[{}] [uid:{}, share:{}/{}]",
             self.sign_init.new_sig_uid,
             self.party_info.tofnd.party_uids[self.party_info.tofnd.index],
-            self.party_info.shares[self.tofnd_subindex].index() + 1,
+            self.party_info.shares[self.tofnd_subindex]
+                .index()
+                .as_usize()
+                + 1,
             self.party_info.common.share_count(),
         )
     }
@@ -149,38 +185,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tofn_indices() {
-        struct TestCase {
-            share_counts: Vec<usize>,
-            signing_indices: Vec<usize>,
-            result: Vec<usize>,
-        }
-
-        let test_cases = vec![
-            TestCase {
-                share_counts: vec![1, 1, 1, 1],
-                signing_indices: vec![0, 2],
-                result: vec![0, 2],
-            },
-            TestCase {
-                share_counts: vec![1, 1, 1, 2],
-                signing_indices: vec![0, 3],
-                result: vec![0, 3, 4],
-            },
-            TestCase {
-                share_counts: vec![2, 1, 4, 1],
-                signing_indices: vec![0, 2],
-                result: vec![0, 1, 3, 4, 5, 6],
-            },
-        ];
-
-        for t in test_cases {
-            assert_eq!(
-                Context::sign_tofn_indices_impl(&t.share_counts, &t.signing_indices),
-                t.result
-            );
-        }
-    }
+    fn test_sign_parties() {}
 
     #[test]
     fn test_sign_share_counts() {

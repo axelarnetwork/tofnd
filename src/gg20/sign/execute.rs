@@ -2,16 +2,16 @@
 //! On success it returns [SignOutput]. A successful sign execution can produce either an Ok(Vec<u8>) of an Err(Vec<Vec<Crime>>).
 //! On failure it returns [TofndError] if [Sign] struct cannot be instantiated.
 
-use super::{proto, protocol, types::Context, Gg20Service, ProtocolCommunication};
-use crate::TofndError;
-#[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::malicious::BadSign as Sign;
-#[cfg(not(feature = "malicious"))]
-use tofn::protocol::gg20::sign::Sign;
-use tofn::protocol::gg20::sign::SignOutput;
+use super::{
+    proto,
+    types::{Context, TofndSignOutput},
+    Gg20Service, ProtocolCommunication,
+};
+use crate::gg20::protocol_new;
+use tofn::refactor::sign::new_sign;
 
 // logging
-use tracing::{info, span, warn, Level, Span};
+use tracing::{info, Span};
 
 impl Gg20Service {
     /// create and execute sign protocol and returning the result.
@@ -24,72 +24,42 @@ impl Gg20Service {
         >,
         ctx: &Context,
         execute_span: Span,
-    ) -> Result<SignOutput, TofndError> {
-        // create sign with context
-        let mut sign = Sign::new(
-            &ctx.secret_key_share.group,
-            &ctx.secret_key_share.share,
-            &ctx.sign_tofn_indices(),
-            &ctx.msg_to_sign(),
+    ) -> TofndSignOutput {
+        // try to create sign with context
+        let sign = match new_sign(
+            ctx.secret_key_share.group(),
+            ctx.secret_key_share.share(),
+            &ctx.sign_parties,
+            ctx.msg_to_sign(),
             #[cfg(feature = "malicious")]
             self.sign_behaviour.clone(),
-        )?;
+        ) {
+            Ok(sign) => sign,
+            Err(_) => {
+                return Err(From::from("sign instantiation failed"));
+            }
+        };
 
         // execute protocol and wait for completion
-        let protocol_result = protocol::execute_protocol(
-            &mut sign,
+        let protocol_result = protocol_new::execute_protocol(
+            sign,
             chans,
+            // &ctx.sign_init.participant_uids,
             &ctx.sign_uids(),
             &ctx.sign_share_counts,
             execute_span.clone(),
         )
         .await;
 
-        // return processed result
-        Ok(Self::process_sign_result(
-            sign,
-            protocol_result,
-            execute_span,
-        )?)
-    }
-
-    // TODO: change here when bad sign does not exist
-    fn process_sign_result(
-        protocol_state: Sign,
-        protocol_result: Result<(), TofndError>,
-        execute_span: Span,
-    ) -> Result<SignOutput, TofndError> {
-        let result_span = span!(parent: &execute_span, Level::INFO, "result");
-        let _enter = result_span.enter();
-
-        let sign_result = match protocol_result {
-            Ok(()) => {
-                info!("Sign completed successfully");
-                protocol_state
-                    .clone_output()
-                    .ok_or("sign output is `None`")?
+        match protocol_result {
+            Ok(res) => {
+                info!("Sign completed");
+                Ok(res)
             }
-            // if protocol result was an error, check for disrupting parties
-            Err(err) => match protocol_state.found_disrupting() {
-                true => {
-                    warn!("Party failed due to deserialization error: {}", err);
-                    protocol_state
-                        .clone_output()
-                        .ok_or("sign output is `None`")?
-                }
-                // if no disrupting parties were found, return the waiting on parties
-                false => {
-                    let waiting_on = protocol_state.waiting_on();
-                    warn!(
-                        "Protocol ended prematurely: while I was waiting on {:?} {}",
-                        waiting_on, err
-                    );
-                    Err(waiting_on)
-                }
-            },
-        };
-
-        // return result
-        Ok(sign_result)
+            Err(err) => Err(From::from(format!(
+                "Sign was not completed due to faults: {}",
+                err
+            ))),
+        }
     }
 }
