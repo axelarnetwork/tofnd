@@ -4,9 +4,13 @@ use crate::TofndError;
 
 use super::protocol::map_tofnd_to_tofn_idx;
 use tofn::refactor::{
-    keygen::{RealKeygenPartyIndex, SecretKeyShare},
+    collections::TypedUsize,
+    keygen::{KeygenPartyIndex, KeygenPartyShareCounts, RealKeygenPartyIndex, SecretKeyShare},
     sdk::api::ProtocolOutput,
 };
+
+pub(super) type PartyShareCounts = KeygenPartyShareCounts;
+
 use tracing::{info, span, Level, Span};
 
 /// tofn's ProtocolOutput for Keygen
@@ -73,8 +77,12 @@ impl Context {
     }
 
     /// get party's tofn index based on `tofnd_index` and `tofnd_subindex`
-    pub fn tofn_index(&self) -> usize {
-        map_tofnd_to_tofn_idx(self.tofnd_index, self.tofnd_subindex, &self.share_counts)
+    pub fn tofn_index(&self) -> TypedUsize<KeygenPartyIndex> {
+        TypedUsize::from_usize(map_tofnd_to_tofn_idx(
+            self.tofnd_index,
+            self.tofnd_subindex,
+            &self.share_counts,
+        ))
     }
 
     /// get total number of shares of all parties
@@ -93,7 +101,7 @@ impl Context {
             "[{}] [uid:{}, share:{}/{}]",
             self.nonce,
             self.uids[self.tofnd_index],
-            self.tofn_index() + 1,
+            self.tofn_index().as_usize() + 1,
             self.total_share_count(),
         )
     }

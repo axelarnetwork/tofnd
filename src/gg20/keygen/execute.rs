@@ -4,13 +4,11 @@
 
 use super::{
     proto,
-    types::{Context, TofndKeygenOutput},
+    types::{Context, PartyShareCounts, TofndKeygenOutput},
     Gg20Service, ProtocolCommunication,
 };
 
-use tofn::refactor::collections::TypedUsize;
 use tofn::refactor::keygen::new_keygen;
-use tofn::refactor::sdk::api::PartyShareCounts;
 
 use crate::gg20::protocol_new;
 
@@ -39,7 +37,7 @@ impl Gg20Service {
         let keygen = match new_keygen(
             party_share_counts,
             ctx.threshold,
-            TypedUsize::from_usize(ctx.tofn_index()),
+            ctx.tofn_index(),
             &self.seed().await.unwrap(),
             &ctx.nonce(),
             #[cfg(feature = "malicious")]
