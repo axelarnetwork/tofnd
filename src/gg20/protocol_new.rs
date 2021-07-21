@@ -173,7 +173,10 @@ async fn handle_incoming<F, K, P>(
 
         // try to set a message
         if let Err(_) = round.msg_in(TypedUsize::from_usize(from), &traffic.payload) {
-            return Err(From::from("error calling tofn::msg_in"));
+            return Err(From::from(format!(
+                "error calling tofn::msg_in with [from: {}]",
+                from
+            )));
         };
     }
 
