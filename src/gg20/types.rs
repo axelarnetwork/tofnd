@@ -45,14 +45,6 @@ pub(super) struct TofndInfo {
 
 /// `KeyShareKv` record
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct PartyInfoNew {
-    pub(super) common: GroupPublicInfo,
-    pub(super) shares: Vec<ShareSecretInfo>,
-    pub(super) tofnd: TofndInfo,
-}
-
-/// `KeyShareKv` record
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct PartyInfo {
     pub(super) common: GroupPublicInfo,
     pub(super) shares: Vec<ShareSecretInfo>,

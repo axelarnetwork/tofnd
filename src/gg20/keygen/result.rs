@@ -70,7 +70,7 @@ impl Gg20Service {
 
         // try to send result
         Ok(
-            stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result_new(
+            stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
                 &keygen_init.party_uids,
                 Ok(keygen_result::KeygenOutput {
                     pub_key,
@@ -105,7 +105,7 @@ impl Gg20Service {
                 // if keygen output was an error, send discovered criminals to client and exit
                 Err(crimes) => {
                     // send crimes and exit with an error
-                    stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result_new(
+                    stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
                         &keygen_init.party_uids,
                         Err(crimes.clone()),
                     )))?;

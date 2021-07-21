@@ -20,7 +20,7 @@ use tracing::{info, Span};
 impl Gg20Service {
     /// create and execute keygen protocol and returning the result.
     /// if the protocol cannot be instantiated, return a TofndError
-    pub(super) async fn execute_keygen_new(
+    pub(super) async fn execute_keygen(
         &self,
         chans: ProtocolCommunication<
             Option<proto::TrafficIn>,
@@ -29,7 +29,7 @@ impl Gg20Service {
         ctx: &Context,
         execute_span: Span,
     ) -> TofndKeygenOutput {
-        // create keygen with context
+        // try to create keygen with context
         let party_share_counts = match PartyShareCounts::from_vec(ctx.share_counts.clone()) {
             Ok(party_share_counts) => party_share_counts,
             Err(_) => {
