@@ -17,15 +17,14 @@ use tracing::{error, info, span, Level};
 // gRPC
 mod keygen;
 pub mod mnemonic;
-mod protocol;
+mod protocol; // TODO delete this when no `map_tofn_to_tofnd` and `map_tofnd_to_tofn` is no longer needed
+mod protocol_new;
 mod recover;
 mod routing;
 pub mod service;
 mod sign;
 pub mod types;
 use types::*;
-
-pub mod protocol_new;
 
 #[tonic::async_trait]
 impl proto::gg20_server::Gg20 for service::Gg20Service {
