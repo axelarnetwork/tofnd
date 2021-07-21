@@ -21,7 +21,7 @@ mod protocol;
 mod recover;
 mod routing;
 pub mod service;
-// mod sign;
+mod sign;
 pub mod types;
 use types::*;
 
@@ -87,22 +87,22 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,
     ) -> Result<Response<Self::SignStream>, Status> {
-        let _stream = request.into_inner();
-        let (_msg_sender, rx) = mpsc::unbounded_channel();
+        let stream = request.into_inner();
+        let (msg_sender, rx) = mpsc::unbounded_channel();
 
         // log span for sign
         let span = span!(Level::INFO, "Sign");
         let _enter = span.enter();
-        let _s = span.clone();
-        let mut _gg20 = self.clone();
+        let s = span.clone();
+        let mut gg20 = self.clone();
 
-        // tokio::spawn(async move {
-        //     // can't return an error from a spawned thread
-        //     if let Err(e) = gg20.handle_sign(stream, msg_sender, s).await {
-        //         error!("sign failure: {:?}", e);
-        //         return;
-        //     }
-        // });
+        tokio::spawn(async move {
+            // can't return an error from a spawned thread
+            if let Err(e) = gg20.handle_sign(stream, msg_sender, s).await {
+                error!("sign failure: {:?}", e);
+                return;
+            }
+        });
         Ok(Response::new(UnboundedReceiverStream::new(rx)))
     }
 }

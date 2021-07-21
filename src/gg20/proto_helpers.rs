@@ -1,20 +1,22 @@
 use tofn::{
     protocol::CrimeType,
-    refactor::{collections::FillVecMap, keygen::RealKeygenPartyIndex, sdk::api::Fault},
+    refactor::{
+        collections::FillVecMap, keygen::RealKeygenPartyIndex, sdk::api::Fault,
+        sign::RealSignParticipantIndex,
+    },
 };
 
-// use super::protocol::map_tofn_to_tofnd_idx;
 use crate::proto;
-type KeygenResulData = Result<
-    proto::message_out::keygen_result::KeygenOutput,
-    FillVecMap<RealKeygenPartyIndex, Fault>,
->;
+type KeygenFaults = FillVecMap<RealKeygenPartyIndex, Fault>;
+type SignFaults = FillVecMap<RealSignParticipantIndex, Fault>;
+type KeygenResulData = Result<proto::message_out::keygen_result::KeygenOutput, KeygenFaults>;
+type SignResultData = Result<Vec<u8>, SignFaults>;
 use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;
 use proto::message_out::criminal_list::Criminal as ProtoCriminal;
 use proto::message_out::keygen_result::KeygenResultData::Criminals as ProtoKeygenCriminals;
 use proto::message_out::keygen_result::KeygenResultData::Data as ProtoKeygenData;
-// use proto::message_out::sign_result::SignResultData::Criminals as ProtoCriminals;
-// use proto::message_out::sign_result::SignResultData::Signature as ProtoSignature;
+use proto::message_out::sign_result::SignResultData::Criminals as ProtoSignCriminals;
+use proto::message_out::sign_result::SignResultData::Signature as ProtoSignature;
 use proto::message_out::CriminalList as ProtoCriminalList;
 
 // convenience constructors
@@ -34,24 +36,21 @@ impl proto::MessageOut {
             })),
         }
     }
-    // pub(super) fn need_recover(session_id: String) -> Self {
-    //     proto::MessageOut {
-    //         data: Some(proto::message_out::Data::NeedRecover(
-    //             proto::message_out::NeedRecover { session_id },
-    //         )),
-    //     }
-    // }
+    pub(super) fn need_recover(session_id: String) -> Self {
+        proto::MessageOut {
+            data: Some(proto::message_out::Data::NeedRecover(
+                proto::message_out::NeedRecover { session_id },
+            )),
+        }
+    }
 
-    pub(super) fn new_keygen_result_new(
-        participant_uids: &[String],
-        result: KeygenResulData,
-    ) -> Self {
+    pub(super) fn new_keygen_result(participant_uids: &[String], result: KeygenResulData) -> Self {
         let result = match result {
+            Ok(keygen_output) => ProtoKeygenData(keygen_output),
             Err(faults) => ProtoKeygenCriminals(ProtoCriminalList::from_tofn_faults(
                 faults,
                 participant_uids,
             )),
-            Ok(keygen_output) => ProtoKeygenData(keygen_output),
         };
         proto::MessageOut {
             data: Some(proto::message_out::Data::KeygenResult(
@@ -62,28 +61,22 @@ impl proto::MessageOut {
         }
     }
 
-    // pub(super) fn new_sign_result(
-    //     participant_uids: &[String],
-    //     all_share_counts: &[usize],
-    //     result: SignOutput,
-    // ) -> Self {
-    //     let result = match result {
-    //         Ok(signature) => ProtoSignature(signature),
-    //         Err(crimes) => ProtoCriminals(ProtoCriminalList::from(
-    //             to_criminals::<SignCrime>(&crimes), // TODO remove later
-    //             participant_uids,
-    //             all_share_counts,
-    //         )),
-    //     };
-
-    //     proto::MessageOut {
-    //         data: Some(proto::message_out::Data::SignResult(
-    //             proto::message_out::SignResult {
-    //                 sign_result_data: Some(result),
-    //             },
-    //         )),
-    //     }
-    // }
+    pub(super) fn new_sign_result(participant_uids: &[String], result: SignResultData) -> Self {
+        let result = match result {
+            Err(faults) => ProtoSignCriminals(ProtoCriminalList::from_tofn_faults(
+                faults,
+                participant_uids,
+            )),
+            Ok(sign_output) => ProtoSignature(sign_output),
+        };
+        proto::MessageOut {
+            data: Some(proto::message_out::Data::SignResult(
+                proto::message_out::SignResult {
+                    sign_result_data: Some(result),
+                },
+            )),
+        }
+    }
 }
 
 fn fault_to_crime(f: &Fault) -> ProtoCrimeType {
@@ -95,7 +88,7 @@ fn fault_to_crime(f: &Fault) -> ProtoCrimeType {
 }
 
 impl ProtoCriminalList {
-    fn from_tofn_faults(faults: FillVecMap<RealKeygenPartyIndex, Fault>, uids: &[String]) -> Self {
+    fn from_tofn_faults<P>(faults: FillVecMap<P, Fault>, uids: &[String]) -> Self {
         let criminals = faults
             .into_iter_some()
             .map(|(i, fault)| ProtoCriminal {
