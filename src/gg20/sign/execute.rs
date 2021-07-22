@@ -7,7 +7,7 @@ use super::{
     types::{Context, TofndSignOutput},
     Gg20Service, ProtocolCommunication,
 };
-use crate::gg20::protocol_new;
+use crate::gg20::protocol;
 use tofn::refactor::sign::new_sign;
 
 // logging
@@ -41,7 +41,7 @@ impl Gg20Service {
         };
 
         // execute protocol and wait for completion
-        let protocol_result = protocol_new::execute_protocol(
+        let protocol_result = protocol::execute_protocol(
             sign,
             chans,
             // &ctx.sign_init.participant_uids,

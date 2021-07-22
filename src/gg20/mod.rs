@@ -17,7 +17,7 @@ use tracing::{error, info, span, Level};
 // gRPC
 mod keygen;
 pub mod mnemonic;
-mod protocol_new;
+mod protocol;
 mod recover;
 mod routing;
 pub mod service;
