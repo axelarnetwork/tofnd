@@ -247,10 +247,11 @@ async fn init_parties_from_test_case(
     test_case: &TestCase,
     dir: &Path,
 ) -> (Vec<TofndParty>, Vec<String>) {
-    #[cfg(not(feature = "malicious"))]
-    let init_parties_t = InitParties::new(test_case.uid_count);
-    #[cfg(feature = "malicious")]
-    let init_parties_t = InitParties::new(test_case.uid_count, &test_case.malicious_data);
+    let init_parties_t = InitParties::new(
+        test_case.uid_count,
+        #[cfg(feature = "malicious")]
+        &test_case.malicious_data,
+    );
     init_parties(&init_parties_t, &dir).await
 }
 
@@ -270,7 +271,7 @@ async fn basic_keygen(
         expected_keygen_faults
     );
 
-    #[cfg(not(feature = "malicious"))]
+    #[allow(unused_variables)] // allow unsused in non malicious
     let expect_timeout = false;
     #[cfg(feature = "malicious")]
     let expect_timeout = test_case.malicious_data.keygen_data.timeout.is_some();
@@ -375,7 +376,8 @@ async fn basic_keygen_and_sign(
     };
 
     let expected_sign_faults = &test_case.expected_sign_faults;
-    #[cfg(not(feature = "malicious"))]
+
+    #[allow(unused_variables)] // allow unsused in non malicious
     let expect_timeout = false;
     #[cfg(feature = "malicious")]
     let expect_timeout = test_case.malicious_data.sign_data.timeout.is_some();
@@ -406,64 +408,68 @@ struct InitParty {
 }
 
 impl InitParty {
-    #[cfg(not(feature = "malicious"))]
-    fn new(my_index: usize) -> InitParty {
-        InitParty {
-            party_index: my_index,
-        }
-    }
-    #[cfg(feature = "malicious")]
-    fn new(my_index: usize, all_malicious_data: &MaliciousData) -> InitParty {
-        // register timeouts
-        let mut timeout_round = 0;
-        if let Some(timeout) = all_malicious_data.keygen_data.timeout.clone() {
-            if timeout.index == my_index {
-                timeout_round = timeout.round;
+    // as ugly as it gets
+    fn new(
+        my_index: usize,
+        #[cfg(feature = "malicious")] all_malicious_data: &MaliciousData,
+    ) -> InitParty {
+        #[cfg(feature = "malicious")]
+        let malicious_data = {
+            // register timeouts
+            let mut timeout_round = 0;
+            if let Some(timeout) = all_malicious_data.keygen_data.timeout.clone() {
+                if timeout.index == my_index {
+                    timeout_round = timeout.round;
+                }
             }
-        }
-        if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
-            if timeout.index == my_index {
-                timeout_round = timeout.round;
+            if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
+                if timeout.index == my_index {
+                    timeout_round = timeout.round;
+                }
             }
-        }
 
-        // register disrupts
-        let mut disrupt_round = 0;
-        if let Some(disrupt) = all_malicious_data.keygen_data.disrupt.clone() {
-            if disrupt.index == my_index {
-                disrupt_round = disrupt.round;
+            // register disrupts
+            let mut disrupt_round = 0;
+            if let Some(disrupt) = all_malicious_data.keygen_data.disrupt.clone() {
+                if disrupt.index == my_index {
+                    disrupt_round = disrupt.round;
+                }
             }
-        }
-        if let Some(disrupt) = all_malicious_data.sign_data.disrupt.clone() {
-            if disrupt.index == my_index {
-                disrupt_round = disrupt.round;
+            if let Some(disrupt) = all_malicious_data.sign_data.disrupt.clone() {
+                if disrupt.index == my_index {
+                    disrupt_round = disrupt.round;
+                }
             }
-        }
 
-        let my_keygen_behaviour = all_malicious_data
-            .keygen_data
-            .behaviours
-            .get(my_index)
-            .unwrap()
-            .clone();
+            // get keygen malicious behaviours
+            let my_keygen_behaviour = all_malicious_data
+                .keygen_data
+                .behaviours
+                .get(my_index)
+                .unwrap()
+                .clone();
 
-        let my_sign_behaviour = all_malicious_data
-            .sign_data
-            .behaviours
-            .get(my_index)
-            .unwrap()
-            .clone();
+            // get sign malicious behaviours
+            let my_sign_behaviour = all_malicious_data
+                .sign_data
+                .behaviours
+                .get(my_index)
+                .unwrap()
+                .clone();
 
-        let my_malicious_data = PartyMaliciousData {
-            timeout_round,
-            disrupt_round,
-            keygen_behaviour: my_keygen_behaviour,
-            sign_behaviour: my_sign_behaviour,
+            // construct struct of malicous data
+            PartyMaliciousData {
+                timeout_round,
+                disrupt_round,
+                keygen_behaviour: my_keygen_behaviour,
+                sign_behaviour: my_sign_behaviour,
+            }
         };
 
         InitParty {
             party_index: my_index,
-            malicious_data: my_malicious_data,
+            #[cfg(feature = "malicious")]
+            malicious_data,
         }
     }
 }
@@ -477,14 +483,13 @@ struct InitParties {
 }
 
 impl InitParties {
-    #[cfg(not(feature = "malicious"))]
-    fn new(party_count: usize) -> InitParties {
-        InitParties { party_count }
-    }
-    #[cfg(feature = "malicious")]
-    fn new(party_count: usize, malicious_data: &MaliciousData) -> InitParties {
+    fn new(
+        party_count: usize,
+        #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
+    ) -> InitParties {
         InitParties {
             party_count,
+            #[cfg(feature = "malicious")]
             malicious_data: malicious_data.clone(),
         }
     }
@@ -498,10 +503,11 @@ async fn init_parties(
 
     // use a for loop because async closures are unstable https://github.com/rust-lang/rust/issues/62290
     for i in 0..init_parties.party_count {
-        #[cfg(not(feature = "malicious"))]
-        let init_party = InitParty::new(i);
-        #[cfg(feature = "malicious")]
-        let init_party = InitParty::new(i, &init_parties.malicious_data);
+        let init_party = InitParty::new(
+            i,
+            #[cfg(feature = "malicious")]
+            &init_parties.malicious_data,
+        );
         parties
             .push(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Create, testdir).await);
     }
