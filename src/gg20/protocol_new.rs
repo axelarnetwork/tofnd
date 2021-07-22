@@ -90,10 +90,17 @@ fn handle_outgoing<F, K, P>(
     if let Some(p2ps_out) = round.p2ps_out() {
         let mut p2p_msg_count = 1;
         for (i, p2p) in p2ps_out.iter() {
-            let (tofnd_idx, _) = map_tofn_to_tofnd_idx(i.as_usize(), party_share_counts)?;
+            // get tofnd index from tofn
+            let tofnd_idx = match round.info().party_share_counts().share_to_party_id(i) {
+                Ok(tofnd_idx) => tofnd_idx,
+                Err(_) => {
+                    error!("Unable to get tofnd index for party {}", i);
+                    return Err(From::from(""));
+                }
+            };
             debug!(
                 "out p2p to [{}] ({}/{})",
-                party_uids[tofnd_idx],
+                party_uids[tofnd_idx.as_usize()],
                 p2p_msg_count,
                 p2ps_out.len() - 1
             );
