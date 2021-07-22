@@ -117,7 +117,6 @@ impl TestCase {
 
 fn generate_basic_cases() -> Vec<TestCase> {
     let behaviours = vec![
-        Honest,
         R1BadCommit,
         R1BadEncryptionKeyProof,
         R1BadZkSetupProof,
