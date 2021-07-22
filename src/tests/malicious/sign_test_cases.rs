@@ -14,11 +14,11 @@ use super::{Disrupt, MaliciousData, Timeout};
 
 use tracing_test::traced_test; // log for tests
 
-// #[traced_test]
-// #[tokio::test]
-// async fn malicious_general_cases() {
-//     run_test_cases(&generate_basic_cases()).await;
-// }
+#[traced_test]
+#[tokio::test]
+async fn malicious_general_cases() {
+    run_test_cases(&generate_basic_cases()).await;
+}
 
 // #[traced_test]
 // #[tokio::test]
@@ -82,7 +82,8 @@ impl TestCase {
         threshold: usize,
         signers: Vec<Signer>,
     ) -> TestCase {
-        let mut expected_faults = vec![];
+        let expected_faults = vec![];
+        // TODO: enable this when sign faults are available
         // for (i, signer) in signers.iter().enumerate() {
         //     if matches!(signer.behaviour, Behaviour::Honest) {
         //         continue;
