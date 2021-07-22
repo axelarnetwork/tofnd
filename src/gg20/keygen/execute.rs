@@ -27,14 +27,7 @@ impl Gg20Service {
         ctx: &Context,
         execute_span: Span,
     ) -> TofndKeygenOutput {
-        // // TODO: move this in cxt
-        // // try to create keygen with context
-        // let party_share_counts = match PartyShareCounts::from_vec(ctx.share_counts.clone()) {
-        //     Ok(party_share_counts) => party_share_counts,
-        //     Err(_) => {
-        //         return Err(From::from("failed to create party_share_counts"));
-        //     }
-        // };
+        // try to create keygen with context
         let keygen = match new_keygen(
             ctx.share_counts()?,
             ctx.threshold,
