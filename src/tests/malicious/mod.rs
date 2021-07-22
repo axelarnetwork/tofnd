@@ -4,7 +4,7 @@ pub(super) type KeygenBehaviour = tofn::refactor::keygen::malicious::Behaviour;
 
 pub mod sign_test_cases;
 use sign_test_cases::SignData;
-// pub(super) type SignBehaviour = tofn::refactor::sign::malicious::Behaviour;
+pub(super) type SignBehaviour = tofn::refactor::sign::malicious::Behaviour;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Timeout {
@@ -44,5 +44,5 @@ pub(super) struct PartyMaliciousData {
     pub(super) timeout_round: usize,
     pub(super) disrupt_round: usize,
     pub(super) keygen_behaviour: KeygenBehaviour,
-    // pub(super) sign_behaviour: SignBehaviour,
+    pub(super) sign_behaviour: SignBehaviour,
 }

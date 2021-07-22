@@ -447,18 +447,18 @@ impl InitParty {
             .unwrap()
             .clone();
 
-        // let my_sign_behaviour = all_malicious_data
-        //     .sign_data
-        //     .behaviours
-        //     .get(my_index)
-        //     .unwrap()
-        //     .clone();
+        let my_sign_behaviour = all_malicious_data
+            .sign_data
+            .behaviours
+            .get(my_index)
+            .unwrap()
+            .clone();
 
         let my_malicious_data = PartyMaliciousData {
             timeout_round,
             disrupt_round,
             keygen_behaviour: my_keygen_behaviour,
-            // sign_behaviour: my_sign_behaviour,
+            sign_behaviour: my_sign_behaviour,
         };
 
         InitParty {

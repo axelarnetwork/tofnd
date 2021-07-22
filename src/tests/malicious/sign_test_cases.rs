@@ -80,15 +80,15 @@ impl TestCase {
         signers: Vec<Signer>,
     ) -> TestCase {
         let mut expected_faults = vec![];
-        for (i, signer) in signers.iter().enumerate() {
-            if matches!(signer.behaviour, Behaviour::Honest) {
-                continue;
-            }
-            expected_faults.push(Criminal {
-                party_uid: (('A' as u8 + i as u8) as char).to_string(),
-                crime_type: CrimeType::Malicious as i32,
-            });
-        }
+        // for (i, signer) in signers.iter().enumerate() {
+        //     if matches!(signer.behaviour, Behaviour::Honest) {
+        //         continue;
+        //     }
+        //     expected_faults.push(Criminal {
+        //         party_uid: (('A' as u8 + i as u8) as char).to_string(),
+        //         crime_type: CrimeType::Malicious as i32,
+        //     });
+        // }
         let expected_faults = CriminalList {
             criminals: expected_faults,
         };
