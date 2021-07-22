@@ -92,7 +92,7 @@ impl TestCase {
         }
     }
 
-    fn with_timeout(mut self, index: usize, round: usize) -> Self {
+    fn with_keygen_timeout(mut self, index: usize, round: usize) -> Self {
         self.malicious_data.keygen_data.timeout = Some(Timeout { index, round });
         self.expected_keygen_faults = CriminalList {
             criminals: vec![Criminal {
@@ -103,7 +103,7 @@ impl TestCase {
         self
     }
 
-    fn with_disrupt(mut self, index: usize, round: usize) -> Self {
+    fn with_keygen_disrupt(mut self, index: usize, round: usize) -> Self {
         self.malicious_data.keygen_data.disrupt = Some(Disrupt { index, round });
         self.expected_keygen_faults = CriminalList {
             criminals: vec![Criminal {
@@ -174,7 +174,7 @@ fn timeout_cases() -> Vec<TestCase> {
         .into_iter()
         .map(|r| {
             TestCase::new_malicious_keygen(3, vec![1, 1, 1], 2, vec![Honest, Honest, Honest])
-                .with_timeout(0, r) // add timeout party at index 0
+                .with_keygen_timeout(0, r) // add timeout party at index 0
         })
         .collect()
 }
@@ -185,7 +185,7 @@ fn disrupt_cases() -> Vec<TestCase> {
         .into_iter()
         .map(|r| {
             TestCase::new_malicious_keygen(3, vec![1, 1, 1], 2, vec![Honest, Honest, Honest])
-                .with_disrupt(0, r) // add disrupt party at index 0
+                .with_keygen_disrupt(0, r) // add disrupt party at index 0
         })
         .collect()
 }

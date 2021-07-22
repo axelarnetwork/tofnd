@@ -429,10 +429,10 @@ async fn basic_keygen_and_sign(
     };
 
     let expected_sign_faults = &test_case.expected_sign_faults;
-    // #[cfg(not(feature = "malicious"))]
+    #[cfg(not(feature = "malicious"))]
     let expect_timeout = false;
-    // #[cfg(feature = "malicious")]
-    // let expect_timeout = test_case.malicious_data.sign_data.timeout.is_some();
+    #[cfg(feature = "malicious")]
+    let expect_timeout = test_case.malicious_data.sign_data.timeout.is_some();
 
     // execute sign
     let new_sig_uid = "Gus-test-sig";
@@ -474,10 +474,11 @@ impl InitParty {
             if timeout.index == my_index {
                 timeout_round = timeout.round;
             }
-            // } else if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
-            //     if timeout.index == my_index {
-            //         my_timeout = Some(timeout);
-            //     }
+        }
+        if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
+            if timeout.index == my_index {
+                timeout_round = timeout.round;
+            }
         }
 
         // register disrupts
@@ -486,10 +487,11 @@ impl InitParty {
             if disrupt.index == my_index {
                 disrupt_round = disrupt.round;
             }
-            // } else if let Some(disrupt) = all_malicious_data.sign_data.disrupt.clone() {
-            //     if disrupt.index == my_index {
-            //         my_disrupt = Some(disrupt);
-            //     }
+        }
+        if let Some(disrupt) = all_malicious_data.sign_data.disrupt.clone() {
+            if disrupt.index == my_index {
+                disrupt_round = disrupt.round;
+            }
         }
 
         let my_keygen_behaviour = all_malicious_data
