@@ -23,7 +23,6 @@ use malicious::{MaliciousData, PartyMaliciousData};
 mod mnemonic;
 
 use proto::message_out::CriminalList;
-// use tofn::protocol::gg20::sign::crimes::Crime as SignCrime;
 use tracing::info;
 
 use crate::proto::{
@@ -173,59 +172,6 @@ fn check_sign_results(results: Vec<SignResult>, expected_faults: &CriminalList) 
     }
     true
 }
-
-// // Horrible code duplication indeed. Don't think we should spend time here though
-// // because this will be deleted when axelar-core accommodates crimes
-// fn check_sign_results(results: Vec<SignResult>, expected_crimes: &[Vec<SignCrime>]) {
-//     // get the first non-empty result. We can't simply take results[0] because some behaviours
-//     // don't return results and we pad them with `None`s
-//     let first = results.iter().find(|r| r.sign_result_data.is_some());
-
-//     // else we have at least one result
-//     let first = first.unwrap();
-//     match first.sign_result_data {
-//         Some(Signature(_)) => {
-//             assert_eq!(
-//                 expected_crimes
-//                     .iter()
-//                     .filter(|inner_crime_list| !inner_crime_list.is_empty())
-//                     .count(),
-//                 0,
-//                 "Expected crimes but didn't discover any",
-//             );
-//             for (i, result) in results.iter().enumerate() {
-//                 assert_eq!(
-//                     first, result,
-//                     "party {} didn't produce the expected result",
-//                     i
-//                 );
-//             }
-//         }
-//         Some(SignCriminals(ref actual_criminals)) => {
-//             // Check that we got all criminals
-//             // that's a temporary hack, but will be soon replaced after result
-//             // type is replaced with Vec<Vec<Crimes>>; then, we will simple do
-//             // assert_eq(expected_crimes, actual_crimes);
-//             // When this happens, also remove pub from mod gg20::proto_helpers
-//             // because we no longer need to use to_crimes
-//             let expected_criminals = to_criminals::<SignCrime>(expected_crimes);
-//             for (actual_criminal, expected_criminal) in actual_criminals
-//                 .criminals
-//                 .iter()
-//                 .zip(expected_criminals.iter())
-//             {
-//                 // use the convention that party names are constructed from ints converted to chars.
-//                 let criminal_index =
-//                     actual_criminal.party_uid.chars().next().unwrap() as usize - 'A' as usize;
-//                 assert_eq!(expected_criminal.index, criminal_index);
-//             }
-//             info!("criminals: {:?}", actual_criminals.criminals);
-//         }
-//         None => {
-//             panic!("Result was None");
-//         }
-//     }
-// }
 
 fn gather_recover_info(results: &[KeygenResult]) -> Vec<Vec<u8>> {
     // gather recover info
