@@ -1022,9 +1022,9 @@ dependencies = [
 
 [[package]]
 name = "k256"
-version = "0.9.5"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "008b0281ca8032567c9711cd48631781c15228301860a39b32deb28d63125e46"
+checksum = "903ae2481bcdfdb7b68e0a9baa4b7c9aff600b9ae2e8e5bb5833b8c91ab851ea"
 dependencies = [
  "cfg-if",
  "ecdsa",
@@ -1932,7 +1932,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=main#83209b5a9222695095510c6b5ee150ad34a7c4e4"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=main#83b871dcd189e55de5b2f5c58db07f510e20b0ea"
 dependencies = [
  "bincode",
  "ecdsa",
