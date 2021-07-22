@@ -155,7 +155,7 @@ fn sign_round(msg_count: usize, all_share_counts: usize, my_share_count: usize) 
     let r6_msgs = r6_msgs * my_share_count;
     let r7_msgs = r7_msgs * my_share_count;
 
-    let last = r4_msgs + my_share_count; // n bcasts and n(n-1) p2ps
+    // let last = r4_msgs + my_share_count; // n bcasts and n(n-1) p2ps
 
     let mut round = 0;
     if 1 <= msg_count && msg_count <= r1_msgs {
@@ -229,12 +229,6 @@ impl Party for TofndParty {
         let mut result: Option<KeygenResult> = None;
         let mut msg_count = 1;
         while let Some(msg) = keygen_server_outgoing.message().await.unwrap() {
-            info!(
-                "{} message {} in round {}",
-                my_uid,
-                msg_count,
-                keygen_round(msg_count, all_share_count, my_share_count)
-            );
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
