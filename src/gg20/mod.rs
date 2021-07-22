@@ -17,8 +17,7 @@ use tracing::{error, info, span, Level};
 // gRPC
 mod keygen;
 pub mod mnemonic;
-mod protocol; // TODO delete this when no `map_tofn_to_tofnd` and `map_tofnd_to_tofn` is no longer needed
-mod protocol_new;
+mod protocol;
 mod recover;
 mod routing;
 pub mod service;
@@ -31,7 +30,7 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
     type KeygenStream = UnboundedReceiverStream<Result<proto::MessageOut, tonic::Status>>;
     type SignStream = Self::KeygenStream;
 
-    /// Recover unary gRPC. See mod recover.
+    /// Recover unary gRPC. See [recover].
     async fn recover(
         &self,
         request: tonic::Request<proto::RecoverRequest>,
@@ -58,7 +57,7 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         }))
     }
 
-    /// Keygen streaming gRPC. See mod keygen.
+    /// Keygen streaming gRPC. See [keygen].
     async fn keygen(
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,
@@ -81,7 +80,7 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         Ok(Response::new(UnboundedReceiverStream::new(rx)))
     }
 
-    /// Sign sreaming gRPC. See mod sign.
+    /// Sign sreaming gRPC. See [sign].
     async fn sign(
         &self,
         request: Request<tonic::Streaming<proto::MessageIn>>,

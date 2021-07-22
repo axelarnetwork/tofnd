@@ -82,17 +82,17 @@ impl TestCase {
         threshold: usize,
         signers: Vec<Signer>,
     ) -> TestCase {
-        let expected_faults = vec![];
+        let mut expected_faults = vec![];
         // TODO: enable this when sign faults are available
-        // for (i, signer) in signers.iter().enumerate() {
-        //     if matches!(signer.behaviour, Behaviour::Honest) {
-        //         continue;
-        //     }
-        //     expected_faults.push(Criminal {
-        //         party_uid: ((b'A' + i as u8) as char).to_string(),
-        //         crime_type: CrimeType::Malicious as i32,
-        //     });
-        // }
+        for (i, signer) in signers.iter().enumerate() {
+            if matches!(signer.behaviour, Behaviour::Honest) {
+                continue;
+            }
+            expected_faults.push(Criminal {
+                party_uid: ((b'A' + i as u8) as char).to_string(),
+                crime_type: CrimeType::Malicious as i32,
+            });
+        }
         let expected_faults = CriminalList {
             criminals: expected_faults,
         };
@@ -176,30 +176,30 @@ fn generate_basic_cases() -> Vec<TestCase> {
     let behaviours = vec![
         // R3BadSigmaI,  // TODO: enable when it returns no error
         R1BadProof { victim },
-        R1BadGammaI,
+        // R1BadGammaI,
         R2FalseAccusation { victim },
         R2BadMta { victim },
         R2BadMtaWc { victim },
         R3FalseAccusationMta { victim },
-        R3FalseAccusationMtaWc { victim },
-        R3BadProof,
-        R3BadDeltaI,
-        R3BadKI,
-        R3BadAlpha { victim },
-        R3BadBeta { victim },
-        R4BadReveal,
-        R5BadProof { victim },
-        R6FalseAccusation { victim },
-        R6BadProof,
-        R6FalseFailRandomizer,
-        R7BadSI,
-        R1BadCommit,
-        R1BadEncryptionKeyProof,
-        R1BadZkSetupProof,
-        R2BadShare { victim },
-        R2BadEncryption { victim },
-        R3FalseAccusation { victim },
-        R3BadXIWitness,
+        // R3FalseAccusationMtaWc { victim },
+        // R3BadProof,
+        // R3BadDeltaI,
+        // R3BadKI,
+        // R3BadAlpha { victim },
+        // R3BadBeta { victim },
+        // R4BadReveal,
+        // R5BadProof { victim },
+        // R6FalseAccusation { victim },
+        // R6BadProof,
+        // R6FalseFailRandomizer,
+        // R7BadSI,
+        // R1BadCommit,                 v--- TODO: do these behaviours exist?
+        // R1BadEncryptionKeyProof,
+        // R1BadZkSetupProof,
+        // R2BadShare { victim },
+        // R2BadEncryption { victim },
+        // R3FalseAccusation { victim },
+        // R3BadXIWitness,
     ];
 
     behaviours
