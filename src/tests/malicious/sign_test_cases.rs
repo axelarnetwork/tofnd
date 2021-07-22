@@ -193,13 +193,13 @@ fn generate_basic_cases() -> Vec<TestCase> {
         R6BadProof,
         R6FalseFailRandomizer,
         R7BadSI,
-        R1BadCommit,
-        R1BadEncryptionKeyProof,
-        R1BadZkSetupProof,
-        R2BadShare { victim },
-        R2BadEncryption { victim },
-        R3FalseAccusation { victim },
-        R3BadXIWitness,
+        // R1BadCommit, TODO: do these behaviours exist?
+        // R1BadEncryptionKeyProof,
+        // R1BadZkSetupProof,
+        // R2BadShare { victim },
+        // R2BadEncryption { victim },
+        // R3FalseAccusation { victim },
+        // R3BadXIWitness,
     ];
 
     behaviours
