@@ -1,4 +1,4 @@
-//! This module handles the Recover gRPC.
+//! This module handles the recover gRPC.
 
 use super::{
     keygen::types::KeygenInitSanitized, proto, protocol::map_tofnd_to_tofn_idx,
