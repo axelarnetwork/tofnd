@@ -1,13 +1,19 @@
 //! This module creates and executes the keygen protocol
-//! On success it returns [KeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
-//! On failure it returns [TofndError] if [Keygen] struct cannot be instantiated.
+//! On success it returns [super::TofnKeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
+//! On failure it returns [super::TofndError] if [Keygen] struct cannot be instantiated.
 
-use super::{proto, protocol, types::Context, Gg20Service, ProtocolCommunication};
-use crate::TofndError;
-use tofn::protocol::gg20::keygen::{Keygen, KeygenOutput};
+use super::{
+    proto,
+    types::{Context, TofndKeygenOutput},
+    Gg20Service, ProtocolCommunication,
+};
+
+use tofn::refactor::keygen::new_keygen;
+
+use crate::gg20::protocol_new;
 
 // logging
-use tracing::{info, span, warn, Level, Span};
+use tracing::{info, Span};
 
 impl Gg20Service {
     /// create and execute keygen protocol and returning the result.
@@ -20,22 +26,26 @@ impl Gg20Service {
         >,
         ctx: &Context,
         execute_span: Span,
-    ) -> Result<KeygenOutput, TofndError> {
-        // create keygen with context
-        let mut keygen = Keygen::new(
-            ctx.total_share_count(),
+    ) -> TofndKeygenOutput {
+        // try to create keygen with context
+        let keygen = match new_keygen(
+            ctx.share_counts()?,
             ctx.threshold,
             ctx.tofn_index(),
-            &self.seed().await?,
+            &self.seed().await.unwrap(),
             &ctx.nonce(),
-        )?;
-        // set up behaviour if we run in malicious mode
-        #[cfg(feature = "malicious")]
-        keygen.set_behaviour(self.keygen_behaviour.clone());
+            #[cfg(feature = "malicious")]
+            self.keygen_behaviour.clone(),
+        ) {
+            Ok(keygen) => keygen,
+            Err(_) => {
+                return Err(From::from("keygen instantiation failed"));
+            }
+        };
 
         // execute protocol and wait for completion
-        let protocol_result = protocol::execute_protocol(
-            &mut keygen,
+        let protocol_result = protocol_new::execute_protocol(
+            keygen,
             chans,
             &ctx.uids,
             &ctx.share_counts,
@@ -43,53 +53,15 @@ impl Gg20Service {
         )
         .await;
 
-        // return processed result
-        Ok(Self::process_keygen_result(
-            keygen,
-            protocol_result,
-            execute_span.clone(),
-        )?)
-    }
-
-    /// constructs response from given protocol's state and result
-    fn process_keygen_result(
-        protocol_state: Keygen,
-        protocol_result: Result<(), TofndError>,
-        execute_span: Span,
-    ) -> Result<KeygenOutput, TofndError> {
-        let result_span = span!(parent: &execute_span, Level::INFO, "result");
-        let _enter = result_span.enter();
-
-        let keygen_output = match protocol_result {
-            // if protocol result is ok, return keygen output
-            Ok(()) => {
-                info!("Keygen completed successfully");
-                protocol_state
-                    .clone_output()
-                    .ok_or("keygen output is `None`")?
+        match protocol_result {
+            Ok(res) => {
+                info!("Keygen completed");
+                Ok(res)
             }
-            // if protocol result was an error, check for disrupting parties
-            Err(err) => match protocol_state.found_disrupting() {
-                // if disrupting parties were found, return keygen output
-                true => {
-                    warn!("Party failed due to deserialization error: {}", err);
-                    protocol_state
-                        .clone_output()
-                        .ok_or("keygen output is `None`")?
-                }
-                // if no disrupting parties were found, return the waiting on parties
-                false => {
-                    let waiting_on = protocol_state.waiting_on();
-                    warn!(
-                        "Protocol ended prematurely: while I was waiting on {:?} {}",
-                        waiting_on, err
-                    );
-                    Err(waiting_on)
-                }
-            },
-        };
-
-        // return result
-        Ok(keygen_output)
+            Err(err) => Err(From::from(format!(
+                "Keygen was not completed due to error: {}",
+                err,
+            ))),
+        }
     }
 }

@@ -4,7 +4,7 @@ use tracing::{info, span, Level, Span};
 
 use crate::kv_manager::Kv;
 
-pub(super) type MessageDigest = tofn::protocol::gg20::MessageDigest;
+pub(super) type MessageDigest = tofn::refactor::sign::MessageDigest;
 
 // default KV store names
 pub(super) const DEFAULT_SHARE_KV_NAME: &str = "shares";
@@ -32,7 +32,7 @@ impl<InMsg, OutMsg> ProtocolCommunication<InMsg, OutMsg> {
 }
 
 use serde::{Deserialize, Serialize};
-use tofn::protocol::gg20::{GroupPublicInfo, SecretKeyShare, ShareSecretInfo};
+use tofn::refactor::keygen::{GroupPublicInfo, SecretKeyShare, ShareSecretInfo};
 
 /// Struct to hold `tonfd` info. This consists of information we need to
 /// store in the KV store that is not relevant to `tofn`
@@ -62,11 +62,11 @@ impl PartyInfo {
     ) -> Self {
         // grap the first share to acquire common data
         let s = secret_key_shares[0].clone();
-        let common = s.group;
+        let common = s.group().clone();
         // aggregate share data into a vector
         let mut shares = Vec::new();
         for share in secret_key_shares {
-            shares.push(share.share);
+            shares.push(share.share().clone());
         }
         // add tofnd data
         let tofnd = TofndInfo {

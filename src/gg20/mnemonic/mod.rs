@@ -32,7 +32,6 @@ pub enum Cmd {
     Export,
 }
 
-// TODO: examine if this can be automated using strum
 impl Cmd {
     pub fn from_string(cmd_str: &str) -> Result<Self, TofndError> {
         let cmd = match cmd_str {
@@ -183,9 +182,9 @@ mod tests {
     use tracing_test::traced_test; // logs for tests
 
     #[cfg(feature = "malicious")]
-    use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
+    use tofn::refactor::keygen::malicious::Behaviour as KeygenBehaviour;
     #[cfg(feature = "malicious")]
-    use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
+    use tofn::refactor::sign::malicious::Behaviour as SignBehaviour;
 
     // create a service
     fn get_service(testdir: PathBuf) -> Gg20Service {

@@ -17,7 +17,8 @@ use tracing::{error, info, span, Level};
 // gRPC
 mod keygen;
 pub mod mnemonic;
-mod protocol;
+mod protocol; // TODO delete this when no `map_tofn_to_tofnd` and `map_tofnd_to_tofn` is no longer needed
+mod protocol_new;
 mod recover;
 mod routing;
 pub mod service;
@@ -38,8 +39,8 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         let request = request.into_inner();
 
         let mut gg20 = self.clone();
-        let response = gg20.handle_recover(request).await;
 
+        let response = gg20.handle_recover(request).await;
         let response = match response {
             Ok(()) => {
                 info!("Recovery completed successfully!");
@@ -93,6 +94,7 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         let _enter = span.enter();
         let s = span.clone();
         let mut gg20 = self.clone();
+
         tokio::spawn(async move {
             // can't return an error from a spawned thread
             if let Err(e) = gg20.handle_sign(stream, msg_sender, s).await {
