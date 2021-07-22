@@ -4,7 +4,10 @@ use crate::proto::message_out::{
 };
 // use tofn::refactor::collections::TypedUsize;
 
-use tofn::refactor::sign::malicious::Behaviour::{self, *};
+use tofn::refactor::{
+    collections::TypedUsize,
+    sign::malicious::Behaviour::{self, *},
+};
 
 use super::super::{run_test_cases, TestCase};
 use super::{Disrupt, MaliciousData, Timeout};
@@ -166,9 +169,55 @@ impl TestCase {
         self
     }
 }
-// TODO:
-// fn generate_basic_cases() -> Vec<TestCase> {
-// }
+
+fn generate_basic_cases() -> Vec<TestCase> {
+    let victim = TypedUsize::from_usize(0);
+    let behaviours = vec![
+        // R3BadSigmaI,  // TODO: enable when it returns no error
+        R1BadProof { victim },
+        R1BadGammaI,
+        R2FalseAccusation { victim },
+        R2BadMta { victim },
+        R2BadMtaWc { victim },
+        R3FalseAccusationMta { victim },
+        R3FalseAccusationMtaWc { victim },
+        R3BadProof,
+        R3BadDeltaI,
+        R3BadKI,
+        R3BadAlpha { victim },
+        R3BadBeta { victim },
+        R4BadReveal,
+        R5BadProof { victim },
+        R6FalseAccusation { victim },
+        R6BadProof,
+        R6FalseFailRandomizer,
+        R7BadSI,
+        R1BadCommit,
+        R1BadEncryptionKeyProof,
+        R1BadZkSetupProof,
+        R2BadShare { victim },
+        R2BadEncryption { victim },
+        R3FalseAccusation { victim },
+        R3BadXIWitness,
+    ];
+
+    behaviours
+        .into_iter()
+        .map(|b| {
+            TestCase::new_malicious_sign(
+                4,
+                vec![1, 1, 1, 1],
+                3,
+                vec![
+                    Signer::new(0, Honest),
+                    Signer::new(1, Honest),
+                    Signer::new(2, Honest),
+                    Signer::new(3, b),
+                ],
+            )
+        })
+        .collect()
+}
 
 // TODO:
 // fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
