@@ -17,7 +17,6 @@ use tracing::{error, info, span, Level};
 // gRPC
 mod keygen;
 pub mod mnemonic;
-mod protocol; // TODO delete this when no `map_tofn_to_tofnd` and `map_tofnd_to_tofn` is no longer needed
 mod protocol_new;
 mod recover;
 mod routing;
