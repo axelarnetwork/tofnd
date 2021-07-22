@@ -1,6 +1,6 @@
 //! This module creates and executes the sign protocol
-//! On success it returns [SignOutput]. A successful sign execution can produce either an Ok(Vec<u8>) of an Err(Vec<Vec<Crime>>).
-//! On failure it returns [TofndError] if [Sign] struct cannot be instantiated.
+//! On success it returns [super::TofndSignOutput]. A successful sign execution can produce either an Ok(Vec<u8>) of an Err(Vec<Vec<Crime>>).
+//! On failure it returns [super::TofndError] if [Sign] struct cannot be instantiated.
 
 use super::{
     proto,

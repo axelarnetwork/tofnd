@@ -1,6 +1,6 @@
 //! This module creates and executes the keygen protocol
-//! On success it returns [KeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
-//! On failure it returns [TofndError] if [Keygen] struct cannot be instantiated.
+//! On success it returns [super::TofnKeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
+//! On failure it returns [super::TofndError] if [Keygen] struct cannot be instantiated.
 
 use super::{
     proto,
