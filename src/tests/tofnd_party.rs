@@ -129,7 +129,6 @@ impl Party for TofndParty {
         mut delivery: Deliverer,
     ) -> KeygenResult {
         let my_uid = init.party_uids[usize::try_from(init.my_party_index).unwrap()].clone();
-        let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
         let (keygen_server_incoming, rx) = channels;
         let mut keygen_server_outgoing = self
             .client
@@ -164,7 +163,7 @@ impl Party for TofndParty {
         while let Some(msg) = keygen_server_outgoing.message().await.unwrap() {
             info!(
                 "{} message {} in round {}",
-                my_display_name,
+                my_uid,
                 msg_count,
                 keygen_round(msg_count, all_share_count, my_share_count)
             );
@@ -178,17 +177,11 @@ impl Party for TofndParty {
                     {
                         let round = keygen_round(msg_count, all_share_count, my_share_count);
                         if self.malicious_data.timeout_round == round {
-                            warn!(
-                                "{} is stalling a message in round {}",
-                                my_display_name, round
-                            );
+                            warn!("{} is stalling a message in round {}", my_uid, round);
                             continue; // tough is the life of the staller
                         }
                         if self.malicious_data.disrupt_round == round {
-                            warn!(
-                                "{} is disrupting a message in round {}",
-                                my_display_name, round
-                            );
+                            warn!("{} is disrupting a message in round {}", my_uid, round);
                             let mut t = traffic.clone();
                             t.payload = traffic.payload[0..traffic.payload.len() / 2].to_vec();
                             let mut m = msg.clone();
@@ -200,26 +193,20 @@ impl Party for TofndParty {
                 }
                 proto::message_out::Data::KeygenResult(res) => {
                     result = Some(res.clone());
-                    info!("party [{}] keygen finished!", my_display_name);
+                    info!("party [{}] keygen finished!", my_uid);
                     break;
                 }
-                _ => panic!(
-                    "party [{}] keygen error: bad outgoing message type",
-                    my_display_name
-                ),
+                _ => panic!("party [{}] keygen error: bad outgoing message type", my_uid),
             };
             msg_count += 1;
         }
 
         if result.is_none() {
-            warn!(
-                "party [{}] keygen execution was not completed",
-                my_display_name
-            );
+            warn!("party [{}] keygen execution was not completed", my_uid);
             return KeygenResult::default();
         }
 
-        info!("party [{}] keygen execution complete", my_display_name);
+        info!("party [{}] keygen execution complete", my_uid);
 
         result.unwrap()
     }
@@ -262,7 +249,6 @@ impl Party for TofndParty {
         mut delivery: Deliverer,
         my_uid: &str,
     ) -> SignResult {
-        let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
         let (sign_server_incoming, rx) = channels;
         let mut sign_server_outgoing = self
             .client
@@ -312,35 +298,29 @@ impl Party for TofndParty {
                 // }
                 proto::message_out::Data::SignResult(res) => {
                     result = Some(res.clone());
-                    info!("party [{}] sign finished!", my_display_name);
+                    info!("party [{}] sign finished!", my_uid);
                     break;
                 }
                 proto::message_out::Data::NeedRecover(res) => {
                     info!(
                         "party [{}] needs recover for session [{}]",
-                        my_display_name, res.session_id
+                        my_uid, res.session_id
                     );
                     // when recovery is needed, sign is canceled. We abort the protocol manualy instead of waiting parties to time out
                     // no worries that we don't wait for enough time, we will not be checking criminals in this case
                     delivery.send_timeouts(0);
                     break;
                 }
-                _ => panic!(
-                    "party [{}] sign error: bad outgoing message type",
-                    my_display_name
-                ),
+                _ => panic!("party [{}] sign error: bad outgoing message type", my_uid),
             };
         }
 
         // return default value for SignResult if socket closed before I received the result
         if result.is_none() {
-            warn!(
-                "party [{}] sign execution was not completed",
-                my_display_name
-            );
+            warn!("party [{}] sign execution was not completed", my_uid);
             return SignResult::default();
         }
-        info!("party [{}] sign execution complete", my_display_name);
+        info!("party [{}] sign execution complete", my_uid);
 
         result.unwrap() // it's safe to unwrap here
     }
