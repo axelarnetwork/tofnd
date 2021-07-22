@@ -132,7 +132,10 @@ impl Context {
     ) -> Result<SignParties, TofndError> {
         let mut sign_parties = Subset::with_max_size(length);
         for signer_idx in sign_indices.iter() {
-            if let Err(_) = sign_parties.add(TypedUsize::from_usize(*signer_idx)) {
+            if sign_parties
+                .add(TypedUsize::from_usize(*signer_idx))
+                .is_err()
+            {
                 return Err(From::from("failed to call Subset::add"));
             }
         }
@@ -154,8 +157,7 @@ impl Context {
                 .sign_init
                 .participant_uids
                 .iter()
-                .position(|s_uid| s_uid == uid)
-                .is_some()
+                .any(|s_uid| s_uid == uid)
             {
                 sign_uids.push(uid.clone());
             }

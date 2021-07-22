@@ -66,7 +66,7 @@ impl TestCase {
                 continue;
             }
             expected_faults.push(Criminal {
-                party_uid: (('A' as u8 + i as u8) as char).to_string(),
+                party_uid: ((b'A' + i as u8) as char).to_string(),
                 crime_type: CrimeType::Malicious as i32,
             });
         }
@@ -96,7 +96,7 @@ impl TestCase {
         self.malicious_data.keygen_data.timeout = Some(Timeout { index, round });
         self.expected_keygen_faults = CriminalList {
             criminals: vec![Criminal {
-                party_uid: (('A' as u8 + index as u8) as char).to_string(),
+                party_uid: ((b'A' + index as u8) as char).to_string(),
                 crime_type: CrimeType::NonMalicious as i32,
             }],
         };
@@ -107,7 +107,7 @@ impl TestCase {
         self.malicious_data.keygen_data.disrupt = Some(Disrupt { index, round });
         self.expected_keygen_faults = CriminalList {
             criminals: vec![Criminal {
-                party_uid: (('A' as u8 + index as u8) as char).to_string(),
+                party_uid: ((b'A' + index as u8) as char).to_string(),
                 crime_type: CrimeType::Unspecified as i32,
             }],
         };

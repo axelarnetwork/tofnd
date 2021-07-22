@@ -185,7 +185,7 @@ fn sign_round(msg_count: usize, all_share_counts: usize, my_share_count: usize) 
     // panic!("message counter overflow: {}. Max is {}", msg_count, last); // this info should be a panic
 
     // return something that won't trigger a timeout in non-timeout malicous cases with multiple shares
-    return usize::MAX;
+    usize::MAX
 }
 
 #[tonic::async_trait]
@@ -206,14 +206,14 @@ impl Party for TofndParty {
             .into_inner();
 
         let all_share_count = {
-            if init.party_share_counts.len() == 0 {
+            if init.party_share_counts.is_empty() {
                 init.party_uids.len()
             } else {
                 init.party_share_counts.iter().sum::<u32>() as usize
             }
         };
         let my_share_count = {
-            if init.party_share_counts.len() == 0 {
+            if init.party_share_counts.is_empty() {
                 1
             } else {
                 init.party_share_counts[init.my_party_index as usize] as usize

@@ -79,10 +79,8 @@ impl Context {
     /// get share_counts in the form of tofn::PartyShareCounts
     pub fn share_counts(&self) -> Result<PartyShareCounts, TofndError> {
         match PartyShareCounts::from_vec(self.share_counts.clone()) {
-            Ok(party_share_counts) => Ok(party_share_counts.clone()),
-            Err(_) => {
-                return Err(From::from("failed to create party_share_counts"));
-            }
+            Ok(party_share_counts) => Ok(party_share_counts),
+            Err(_) => Err(From::from("failed to create party_share_counts")),
         }
     }
 

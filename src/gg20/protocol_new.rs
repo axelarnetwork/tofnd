@@ -172,7 +172,10 @@ async fn handle_incoming<F, K, P>(
             .ok_or("from uid does not exist in party uids")?;
 
         // try to set a message
-        if let Err(_) = round.msg_in(TypedUsize::from_usize(from), &traffic.payload) {
+        if round
+            .msg_in(TypedUsize::from_usize(from), &traffic.payload)
+            .is_err()
+        {
             return Err(From::from(format!(
                 "error calling tofn::msg_in with [from: {}]",
                 from
