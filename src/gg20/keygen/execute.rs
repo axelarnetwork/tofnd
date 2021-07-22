@@ -10,7 +10,7 @@ use super::{
 
 use tofn::refactor::keygen::new_keygen;
 
-use crate::gg20::protocol_new;
+use crate::gg20::protocol;
 
 // logging
 use tracing::{info, Span};
@@ -31,7 +31,8 @@ impl Gg20Service {
         let keygen = match new_keygen(
             ctx.share_counts()?,
             ctx.threshold,
-            ctx.tofn_index(),
+            ctx.tofnd_index,
+            ctx.tofnd_subindex,
             &self.seed().await.unwrap(),
             &ctx.nonce(),
             #[cfg(feature = "malicious")]
@@ -44,7 +45,7 @@ impl Gg20Service {
         };
 
         // execute protocol and wait for completion
-        let protocol_result = protocol_new::execute_protocol(
+        let protocol_result = protocol::execute_protocol(
             keygen,
             chans,
             &ctx.uids,

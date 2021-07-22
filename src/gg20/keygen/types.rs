@@ -2,10 +2,9 @@
 
 use crate::TofndError;
 
-use super::protocol::map_tofnd_to_tofn_idx;
 use tofn::refactor::{
     collections::TypedUsize,
-    keygen::{KeygenPartyIndex, KeygenPartyShareCounts, RealKeygenPartyIndex, SecretKeyShare},
+    keygen::{KeygenPartyShareCounts, RealKeygenPartyIndex, SecretKeyShare},
     sdk::api::ProtocolOutput,
 };
 
@@ -55,7 +54,7 @@ pub struct Context {
     pub(super) uids: Vec<String>, // all party uids; alligned with `share_counts`
     pub(super) share_counts: Vec<usize>, // all party share counts; alligned with `uids`
     pub(super) threshold: usize,  // protocol's threshold
-    pub(super) tofnd_index: usize, // tofnd index of party
+    pub(super) tofnd_index: TypedUsize<RealKeygenPartyIndex>, // tofnd index of party
     pub(super) tofnd_subindex: usize, // index of party's share
     pub(super) nonce: String,     // session nonce; we use session's uid
 }
@@ -66,6 +65,7 @@ impl Context {
         tofnd_index: usize,
         tofnd_subindex: usize,
     ) -> Self {
+        let tofnd_index = TypedUsize::from_usize(tofnd_index);
         Context {
             uids: keygen_init.party_uids.clone(),
             share_counts: keygen_init.party_share_counts.clone(),
@@ -84,20 +84,6 @@ impl Context {
         }
     }
 
-    /// get party's tofn index based on `tofnd_index` and `tofnd_subindex`
-    pub fn tofn_index(&self) -> TypedUsize<KeygenPartyIndex> {
-        TypedUsize::from_usize(map_tofnd_to_tofn_idx(
-            self.tofnd_index,
-            self.tofnd_subindex,
-            &self.share_counts,
-        ))
-    }
-
-    /// get total number of shares of all parties
-    pub fn total_share_count(&self) -> usize {
-        self.share_counts.iter().sum()
-    }
-
     /// return `nonce` field as bytes
     pub fn nonce(&self) -> &[u8] {
         self.nonce.as_bytes()
@@ -108,9 +94,9 @@ impl Context {
         format!(
             "[{}] [uid:{}, share:{}/{}]",
             self.nonce,
-            self.uids[self.tofnd_index],
-            self.tofn_index().as_usize() + 1,
-            self.total_share_count(),
+            self.uids[self.tofnd_index.as_usize()],
+            self.tofnd_subindex + 1,
+            self.share_counts[self.tofnd_index.as_usize()]
         )
     }
 }
