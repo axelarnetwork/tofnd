@@ -98,7 +98,7 @@ impl Gg20Service {
                 party_share_counts.clone(),
                 threshold,
             );
-            // check that recovery was successful for share starting_tofn_index + i
+            // check that recovery was successful for share starting_tofnd_index + i
             match recovered_secret_key_share {
                 Ok(secret_key_share) => secret_key_shares.push(secret_key_share),
                 Err(_) => {
