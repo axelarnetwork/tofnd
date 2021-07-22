@@ -198,8 +198,6 @@ mod tests {
             shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned()),
             mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned()),
             io: FileIo::new(testdir),
-            // must enable test for all features. if we use
-            // #[cfg(not(feature = "malicious"))] tests won't be executed '--all-features' flag is on. yikes
             #[cfg(feature = "malicious")]
             keygen_behaviour: KeygenBehaviour::Honest,
             #[cfg(feature = "malicious")]
