@@ -7,8 +7,6 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::TofndError;
 
-use super::protocol::map_tofn_to_tofnd_idx;
-
 use tracing::{debug, error, span, warn, Level, Span};
 
 use super::{proto, ProtocolCommunication};
@@ -41,7 +39,6 @@ where
         handle_outgoing(
             &chans.sender,
             &round,
-            &party_share_counts,
             &party_uids,
             round_count,
             span.clone(),
@@ -77,7 +74,6 @@ where
 fn handle_outgoing<F, K, P>(
     sender: &UnboundedSender<Result<proto::MessageOut, tonic::Status>>,
     round: &Round<F, K, P>,
-    party_share_counts: &[usize],
     party_uids: &[String],
     round_count: usize,
     span: Span,
@@ -102,7 +98,8 @@ fn handle_outgoing<F, K, P>(
                 p2ps_out.len() - 1
             );
             p2p_msg_count += 1;
-            sender.send(Ok(proto::MessageOut::new_p2p(&party_uids[tofnd_idx], p2p)))?
+            // TODO: 'reveiver_id' is not needed from the client anymore and should be removed from the protofile
+            sender.send(Ok(proto::MessageOut::new_p2p("receiver_id", p2p)))?
         }
     }
     debug!("finished");

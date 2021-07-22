@@ -14,9 +14,7 @@
 //!
 //! All relevant helper structs and types are defined in [self::types]
 
-use super::{
-    proto, protocol, routing::route_messages, service::Gg20Service, types::ProtocolCommunication,
-};
+use super::{proto, routing::route_messages, service::Gg20Service, types::ProtocolCommunication};
 use crate::TofndError;
 
 use tonic::Status;
