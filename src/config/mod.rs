@@ -38,9 +38,9 @@ pub fn parse_args() -> Result<(u16, Cmd), TofndError> {
 #[cfg(feature = "malicious")]
 use clap::SubCommand;
 #[cfg(feature = "malicious")]
-use tofn::protocol::gg20::keygen::malicious::Behaviour as KeygenBehaviour;
+use tofn::refactor::keygen::malicious::Behaviour as KeygenBehaviour;
 #[cfg(feature = "malicious")]
-use tofn::protocol::gg20::sign::malicious::Behaviour as SignBehaviour;
+use tofn::refactor::sign::malicious::Behaviour as SignBehaviour;
 
 #[cfg(feature = "malicious")]
 pub fn parse_args() -> Result<(u16, Cmd, KeygenBehaviour, SignBehaviour), TofndError> {
@@ -122,6 +122,8 @@ pub fn parse_args() -> Result<(u16, Cmd, KeygenBehaviour, SignBehaviour), TofndE
 #[cfg(feature = "malicious")]
 // TODO can be eliminated if we use strum (https://docs.rs/strum) in tofn
 fn match_string_to_behaviour(behaviour: &str, victim: usize) -> SignBehaviour {
+    use tofn::refactor::collections::TypedUsize;
+    let victim = TypedUsize::from_usize(victim);
     match behaviour {
         "Honest" => SignBehaviour::Honest,
         "R1BadProof" => SignBehaviour::R1BadProof { victim },

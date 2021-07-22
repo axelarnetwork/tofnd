@@ -18,12 +18,11 @@ mod honest_test_cases;
 #[cfg(feature = "malicious")]
 mod malicious;
 #[cfg(feature = "malicious")]
-use malicious::{MaliciousData, PartyMaliciousData, Spoof::*};
+use malicious::{MaliciousData, PartyMaliciousData};
 
 mod mnemonic;
 
-use tofn::protocol::gg20::keygen::crimes::Crime as KeygenCrime;
-use tofn::protocol::gg20::sign::crimes::Crime as SignCrime;
+use proto::message_out::CriminalList;
 use tracing::info;
 
 use crate::proto::{
@@ -37,7 +36,7 @@ use crate::proto::{
 use mock::{Deliverer, Party};
 use tofnd_party::TofndParty;
 
-use crate::gg20::proto_helpers::to_criminals;
+// use crate::gg20::proto_helpers::to_criminals;
 
 lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42; 32];
@@ -49,8 +48,8 @@ struct TestCase {
     share_counts: Vec<u32>,
     threshold: usize,
     signer_indices: Vec<usize>,
-    expected_keygen_crimes: Vec<Vec<KeygenCrime>>,
-    expected_sign_crimes: Vec<Vec<SignCrime>>,
+    expected_keygen_faults: CriminalList,
+    expected_sign_faults: CriminalList,
     #[cfg(feature = "malicious")]
     malicious_data: MaliciousData,
 }
@@ -84,10 +83,7 @@ async fn run_restart_recover_test_cases(test_cases: &[TestCase]) {
 
 // Horrible code duplication indeed. Don't think we should spend time here though
 // because this will be deleted when axelar-core accommodates crimes
-fn successful_keygen_results(
-    results: Vec<KeygenResult>,
-    expected_crimes: &[Vec<KeygenCrime>],
-) -> bool {
+fn successful_keygen_results(results: Vec<KeygenResult>, expected_faults: &CriminalList) -> bool {
     // get the first non-empty result. We can't simply take results[0] because some behaviours
     // don't return results and we pad them with `None`s
     let first = results.iter().find(|r| r.keygen_result_data.is_some());
@@ -107,12 +103,9 @@ fn successful_keygen_results(
         Some(KeygenData(data)) => {
             let first_pub_key = &data.pub_key;
             assert_eq!(
-                expected_crimes
-                    .iter()
-                    .filter(|inner_crime_list| !inner_crime_list.is_empty())
-                    .count(),
-                0,
-                "Expected crimes but didn't discover any",
+                expected_faults,
+                &CriminalList::default(),
+                "expected faults but none was found"
             );
             for (i, pub_key) in pub_keys.iter().enumerate() {
                 assert_eq!(
@@ -122,25 +115,9 @@ fn successful_keygen_results(
                 );
             }
         }
-        Some(KeygenCriminals(ref actual_criminals)) => {
-            // Check that we got all criminals
-            // that's a temporary hack, but will be soon replaced after result
-            // type is replaced with Vec<Vec<Crimes>>; then, we will simple do
-            // assert_eq(expected_crimes, actual_crimes);
-            // When this happens, also remove pub from mod gg20::proto_helpers
-            // because we no longer need to use to_crimes
-            let expected_criminals = to_criminals::<KeygenCrime>(expected_crimes);
-            for (actual_criminal, expected_criminal) in actual_criminals
-                .criminals
-                .iter()
-                .zip(expected_criminals.iter())
-            {
-                // use the convention that party names are constructed from ints converted to chars.
-                let criminal_index =
-                    actual_criminal.party_uid.chars().next().unwrap() as usize - 'A' as usize;
-                assert_eq!(expected_criminal.index, criminal_index);
-            }
-            info!("criminals: {:?}", actual_criminals.criminals);
+        Some(KeygenCriminals(ref actual_faults)) => {
+            assert_eq!(expected_faults, actual_faults);
+            info!("Fault list: {:?}", expected_faults);
             return false;
         }
         None => {
@@ -152,55 +129,48 @@ fn successful_keygen_results(
 
 // Horrible code duplication indeed. Don't think we should spend time here though
 // because this will be deleted when axelar-core accommodates crimes
-fn check_sign_results(results: Vec<SignResult>, expected_crimes: &[Vec<SignCrime>]) {
+fn check_sign_results(results: Vec<SignResult>, expected_faults: &CriminalList) -> bool {
     // get the first non-empty result. We can't simply take results[0] because some behaviours
     // don't return results and we pad them with `None`s
     let first = results.iter().find(|r| r.sign_result_data.is_some());
 
+    let mut pub_keys = vec![];
+    for result in results.iter() {
+        let res = match result.sign_result_data.clone().unwrap() {
+            Signature(signature) => signature,
+            SignCriminals(_) => continue,
+        };
+        pub_keys.push(res);
+    }
+
     // else we have at least one result
-    let first = first.unwrap();
+    let first = first.unwrap().clone();
     match first.sign_result_data {
-        Some(Signature(_)) => {
+        Some(Signature(signature)) => {
+            let first_signature = signature;
             assert_eq!(
-                expected_crimes
-                    .iter()
-                    .filter(|inner_crime_list| !inner_crime_list.is_empty())
-                    .count(),
-                0,
-                "Expected crimes but didn't discover any",
+                expected_faults,
+                &CriminalList::default(),
+                "expected faults but none was found"
             );
-            for (i, result) in results.iter().enumerate() {
+            for (i, signature) in pub_keys.iter().enumerate() {
                 assert_eq!(
-                    first, result,
-                    "party {} didn't produce the expected result",
+                    &first_signature, signature,
+                    "party {} didn't produce the expected signature",
                     i
                 );
             }
         }
-        Some(SignCriminals(ref actual_criminals)) => {
-            // Check that we got all criminals
-            // that's a temporary hack, but will be soon replaced after result
-            // type is replaced with Vec<Vec<Crimes>>; then, we will simple do
-            // assert_eq(expected_crimes, actual_crimes);
-            // When this happens, also remove pub from mod gg20::proto_helpers
-            // because we no longer need to use to_crimes
-            let expected_criminals = to_criminals::<SignCrime>(expected_crimes);
-            for (actual_criminal, expected_criminal) in actual_criminals
-                .criminals
-                .iter()
-                .zip(expected_criminals.iter())
-            {
-                // use the convention that party names are constructed from ints converted to chars.
-                let criminal_index =
-                    actual_criminal.party_uid.chars().next().unwrap() as usize - 'A' as usize;
-                assert_eq!(expected_criminal.index, criminal_index);
-            }
-            info!("criminals: {:?}", actual_criminals.criminals);
+        Some(SignCriminals(ref actual_faults)) => {
+            assert_eq!(expected_faults, actual_faults);
+            info!("Fault list: {:?}", expected_faults);
+            return false;
         }
         None => {
             panic!("Result was None");
         }
     }
+    true
 }
 
 fn gather_recover_info(results: &[KeygenResult]) -> Vec<Vec<u8>> {
@@ -293,11 +263,11 @@ async fn basic_keygen(
 ) -> (Vec<TofndParty>, proto::KeygenInit, Vec<KeygenResult>, bool) {
     let party_share_counts = &test_case.share_counts;
     let threshold = test_case.threshold;
-    let expected_keygen_crimes = &test_case.expected_keygen_crimes;
+    let expected_keygen_faults = &test_case.expected_keygen_faults;
 
     info!(
         "======= Expected keygen crimes: {:?}",
-        expected_keygen_crimes
+        expected_keygen_faults
     );
 
     #[cfg(not(feature = "malicious"))]
@@ -315,7 +285,7 @@ async fn basic_keygen(
     )
     .await;
 
-    let success = successful_keygen_results(results.clone(), &expected_keygen_crimes);
+    let success = successful_keygen_results(results.clone(), &expected_keygen_faults);
     (parties, keygen_init, results, success)
 }
 
@@ -404,7 +374,7 @@ async fn basic_keygen_and_sign(
         false => parties,
     };
 
-    let expected_sign_crimes = &test_case.expected_sign_crimes;
+    let expected_sign_faults = &test_case.expected_sign_faults;
     #[cfg(not(feature = "malicious"))]
     let expect_timeout = false;
     #[cfg(feature = "malicious")]
@@ -422,7 +392,7 @@ async fn basic_keygen_and_sign(
         expect_timeout,
     )
     .await;
-    check_sign_results(results, &expected_sign_crimes);
+    check_sign_results(results, &expected_sign_faults);
 
     clean_up(parties).await;
 }
@@ -445,38 +415,28 @@ impl InitParty {
     #[cfg(feature = "malicious")]
     fn new(my_index: usize, all_malicious_data: &MaliciousData) -> InitParty {
         // register timeouts
-        let mut my_timeout = None;
+        let mut timeout_round = 0;
         if let Some(timeout) = all_malicious_data.keygen_data.timeout.clone() {
             if timeout.index == my_index {
-                my_timeout = Some(timeout);
+                timeout_round = timeout.round;
             }
-        } else if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
+        }
+        if let Some(timeout) = all_malicious_data.sign_data.timeout.clone() {
             if timeout.index == my_index {
-                my_timeout = Some(timeout);
+                timeout_round = timeout.round;
             }
         }
 
         // register disrupts
-        let mut my_disrupt = None;
+        let mut disrupt_round = 0;
         if let Some(disrupt) = all_malicious_data.keygen_data.disrupt.clone() {
             if disrupt.index == my_index {
-                my_disrupt = Some(disrupt);
-            }
-        } else if let Some(disrupt) = all_malicious_data.sign_data.disrupt.clone() {
-            if disrupt.index == my_index {
-                my_disrupt = Some(disrupt);
+                disrupt_round = disrupt.round;
             }
         }
-
-        // register spoofs
-        let mut my_spoof = None;
-        if let Some(spoof) = all_malicious_data.sign_data.spoof.clone() {
-            if spoof.index == my_index {
-                my_spoof = Some(SignSpoofType { spoof });
-            }
-        } else if let Some(spoof) = all_malicious_data.keygen_data.spoof.clone() {
-            if spoof.index == my_index {
-                my_spoof = Some(KeygenSpoofType { spoof });
+        if let Some(disrupt) = all_malicious_data.sign_data.disrupt.clone() {
+            if disrupt.index == my_index {
+                disrupt_round = disrupt.round;
             }
         }
 
@@ -495,9 +455,8 @@ impl InitParty {
             .clone();
 
         let my_malicious_data = PartyMaliciousData {
-            timeout: my_timeout,
-            disrupt: my_disrupt,
-            spoof: my_spoof,
+            timeout_round,
+            disrupt_round,
             keygen_behaviour: my_keygen_behaviour,
             sign_behaviour: my_sign_behaviour,
         };

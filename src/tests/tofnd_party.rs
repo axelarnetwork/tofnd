@@ -14,9 +14,7 @@ use tonic::Request;
 use tracing::{info, warn};
 
 #[cfg(feature = "malicious")]
-use super::malicious::{
-    KeygenMsgMeta, KeygenSpoof, MsgType, PartyMaliciousData, SignMsgMeta, SignSpoof, Spoof::*,
-};
+use super::malicious::PartyMaliciousData;
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -31,173 +29,6 @@ pub(super) struct TofndParty {
 }
 
 impl TofndParty {
-    // we have to have different functions for keygen and sign because sign messages can be
-    // desirialized as keygen messages and vice versa. So we call the approriate function for each phase.
-    #[cfg(feature = "malicious")]
-    pub(crate) fn should_timeout_keygen(&self, traffic: &proto::TrafficOut) -> bool {
-        let payload = traffic.clone().payload;
-
-        // this would also work!!!
-        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
-        // check if we need to stall keygen msg
-        if let Ok(msg_meta) = bincode::deserialize::<KeygenMsgMeta>(&payload) {
-            let keygen_msg_type = &msg_meta.msg_type;
-            if let Some(timeout) = &self.malicious_data.timeout {
-                let in_msg = MsgType::KeygenMsgType {
-                    msg_type: keygen_msg_type.clone(),
-                };
-                if timeout.msg_type == in_msg {
-                    warn!("I am stalling keygen message {:?}", keygen_msg_type);
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    #[cfg(feature = "malicious")]
-    pub(crate) fn should_timeout_sign(&self, traffic: &proto::TrafficOut) -> bool {
-        let payload = traffic.clone().payload;
-
-        // this would also work!!!
-        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
-        // check if we need to stall sign msg
-        if let Ok(msg_meta) = bincode::deserialize::<SignMsgMeta>(&payload) {
-            let sign_msg_type = &msg_meta.msg_type;
-            if let Some(timeout) = &self.malicious_data.timeout {
-                let in_msg = MsgType::SignMsgType {
-                    msg_type: sign_msg_type.clone(),
-                };
-                if timeout.msg_type == in_msg {
-                    warn!("I am stalling sign message {:?}", sign_msg_type);
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    // we have to have different functions for keygen and sign because sign messages can be
-    // desirialized as keygen messages and vice versa. So we call the approriate function for each phase.
-    #[cfg(feature = "malicious")]
-    pub(crate) fn disrupt_keygen(&self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
-        let payload = traffic.clone().payload;
-        let msg_meta: KeygenMsgMeta = bincode::deserialize(&payload).unwrap();
-
-        // this also works!!!
-        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
-        // wrap incoming msg_type into our general MsgType enum
-        let msg_type = MsgType::KeygenMsgType {
-            msg_type: msg_meta.msg_type,
-        };
-
-        // if I am not disrupting, return none. I dislike that I have to clone this
-        let disrupt = self.malicious_data.disrupt.clone()?;
-        if disrupt.msg_type != msg_type {
-            return None;
-        }
-        warn!("I am disrupting keygen message {:?}", msg_type);
-
-        let mut disrupt_traffic = traffic.clone();
-        disrupt_traffic.payload = payload[0..payload.len() / 2].to_vec();
-
-        Some(disrupt_traffic)
-    }
-
-    #[cfg(feature = "malicious")]
-    pub(crate) fn disrupt_sign(&self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
-        let payload = traffic.clone().payload;
-        let msg_meta: SignMsgMeta = bincode::deserialize(&payload).unwrap();
-
-        // this also works!!!
-        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
-        // wrap incoming msg_type into our general MsgType enum
-        let msg_type = MsgType::SignMsgType {
-            msg_type: msg_meta.msg_type,
-        };
-
-        // if I am not disrupting, return none. I dislike that I have to clone this
-        let disrupt = self.malicious_data.disrupt.clone()?;
-        if disrupt.msg_type != msg_type {
-            return None;
-        }
-        warn!("I am disrupting sign message {:?}", msg_type);
-
-        let mut disrupt_traffic = traffic.clone();
-        disrupt_traffic.payload = payload[0..payload.len() / 2].to_vec();
-
-        Some(disrupt_traffic)
-    }
-
-    // we have to have different functions for keygen and sign because sign messages can be
-    // desirialized as keygen messages and vice versa. So we call the approriate function for each phase.
-    #[cfg(feature = "malicious")]
-    pub(crate) fn spoof_keygen(
-        &mut self,
-        traffic: &proto::TrafficOut,
-    ) -> Option<proto::TrafficOut> {
-        let payload = traffic.clone().payload;
-        let mut msg_meta: KeygenMsgMeta = bincode::deserialize(&payload).unwrap();
-
-        // this also works!!!
-        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
-        let msg_type = &msg_meta.msg_type;
-
-        // if I am not a spoofer, return none. I dislike that I have to clone this
-        let spoof = self.malicious_data.spoof.clone()?;
-        if let KeygenSpoofType { spoof } = spoof {
-            if KeygenSpoof::msg_to_status(msg_type) != spoof.status {
-                return None;
-            }
-            info!(
-                "I am spoofing keygen message {:?}. Changing from [{}] -> [{}]",
-                msg_type, msg_meta.from, spoof.victim
-            );
-            msg_meta.from = spoof.victim;
-        }
-
-        let mut spoofed_traffic = traffic.clone();
-        let spoofed_payload = bincode::serialize(&msg_meta).unwrap();
-        spoofed_traffic.payload = spoofed_payload;
-
-        Some(spoofed_traffic)
-    }
-
-    #[cfg(feature = "malicious")]
-    pub(crate) fn spoof_sign(&mut self, traffic: &proto::TrafficOut) -> Option<proto::TrafficOut> {
-        let payload = traffic.clone().payload;
-        let mut msg_meta: SignMsgMeta = bincode::deserialize(&payload).unwrap();
-
-        // this also works!!!
-        // let msg_type: MsgType = bincode::deserialize(&payload).unwrap();
-
-        let msg_type = &msg_meta.msg_type;
-
-        // if I am not a spoofer, return none. I dislike that I have to clone this
-        let spoof = self.malicious_data.spoof.clone()?;
-        if let SignSpoofType { spoof } = spoof {
-            if SignSpoof::msg_to_status(msg_type) != spoof.status {
-                return None;
-            }
-            info!(
-                "I am spoofing sign message {:?}. Changing from [{}] -> [{}]",
-                msg_type, msg_meta.from, spoof.victim
-            );
-            msg_meta.from = spoof.victim;
-        }
-
-        let mut spoofed_traffic = traffic.clone();
-        let spoofed_payload = bincode::serialize(&msg_meta).unwrap();
-        spoofed_traffic.payload = spoofed_payload;
-
-        Some(spoofed_traffic)
-    }
-
     pub(super) async fn new(init_party: InitParty, mnemonic_cmd: Cmd, testdir: &Path) -> Self {
         let db_name = format!("test-key-{:02}", init_party.party_index);
         let db_path = testdir.join(db_name);
@@ -211,7 +42,9 @@ impl TofndParty {
             &db_path,
             mnemonic_cmd,
             #[cfg(feature = "malicious")]
+            #[cfg(feature = "malicious")]
             init_party.malicious_data.keygen_behaviour.clone(),
+            // TODO: cahnge hard-coded honest
             #[cfg(feature = "malicious")]
             init_party.malicious_data.sign_behaviour.clone(),
         )
@@ -260,6 +93,101 @@ impl TofndParty {
     }
 }
 
+// r1 -> bcast
+// r2 -> bcast
+// r3 -> bcast + p2ps
+// r4 -> bcast
+fn keygen_round(msg_count: usize, all_share_counts: usize, my_share_count: usize) -> usize {
+    let bcast = 1;
+    let p2ps = all_share_counts - 1;
+
+    let r1_msgs = bcast;
+    let r2_msgs = r1_msgs + bcast;
+    let r3_msgs = r2_msgs + bcast + p2ps;
+    let r4_msgs = r3_msgs + bcast;
+
+    // multiply by my share count
+    let r1_msgs = r1_msgs * my_share_count;
+    let r2_msgs = r2_msgs * my_share_count;
+    let r3_msgs = r3_msgs * my_share_count;
+    let r4_msgs = r4_msgs * my_share_count;
+
+    let last = r4_msgs + my_share_count; // n bcasts and n(n-1) p2ps
+
+    if 1 <= msg_count && msg_count <= r1_msgs {
+        return 1;
+    } else if r1_msgs < msg_count && msg_count <= r2_msgs {
+        return 2;
+    } else if r2_msgs < msg_count && msg_count <= r3_msgs {
+        return 3;
+    } else if r3_msgs < msg_count && msg_count <= r4_msgs {
+        return 4;
+    }
+    panic!("message counter overflow: {}. Max is {}", msg_count, last);
+}
+
+// r1 -> bcast + p2ps
+// r2 -> p2ps
+// r3 -> bcast
+// r4 -> bcast
+// r5 -> bcast + p2ps
+// r6 -> bcast
+// r7 -> bcast
+fn sign_round(msg_count: usize, all_share_counts: usize, my_share_count: usize) -> usize {
+    let bcast = 1;
+    let p2ps = all_share_counts - 1;
+
+    let r1_msgs = bcast + p2ps;
+    let r2_msgs = r1_msgs + p2ps;
+    let r3_msgs = r2_msgs + bcast;
+    let r4_msgs = r3_msgs + bcast;
+    let r5_msgs = r4_msgs + bcast + p2ps;
+    let r6_msgs = r5_msgs + bcast;
+    let r7_msgs = r6_msgs + bcast;
+    let r8_msgs = r7_msgs + bcast;
+
+    // multiply by my share count
+    let r1_msgs = r1_msgs * my_share_count;
+    let r2_msgs = r2_msgs * my_share_count;
+    let r3_msgs = r3_msgs * my_share_count;
+    let r4_msgs = r4_msgs * my_share_count;
+    let r5_msgs = r5_msgs * my_share_count;
+    let r6_msgs = r6_msgs * my_share_count;
+    let r7_msgs = r7_msgs * my_share_count;
+
+    // let last = r4_msgs + my_share_count; // n bcasts and n(n-1) p2ps
+
+    let mut round = 0;
+    if 1 <= msg_count && msg_count <= r1_msgs {
+        round = 1;
+    } else if r1_msgs < msg_count && msg_count <= r2_msgs {
+        round = 2;
+    } else if r2_msgs < msg_count && msg_count <= r3_msgs {
+        round = 3;
+    } else if r3_msgs < msg_count && msg_count <= r4_msgs {
+        round = 4;
+    } else if r4_msgs < msg_count && msg_count <= r5_msgs {
+        round = 5;
+    } else if r5_msgs < msg_count && msg_count <= r6_msgs {
+        round = 6;
+    } else if r6_msgs < msg_count && msg_count <= r7_msgs {
+        round = 7;
+    } else if r7_msgs < msg_count && msg_count <= r8_msgs {
+        round = 8;
+    }
+    // if we got a round from message count successfully, then add keygen rounds to it
+    if round != 0 {
+        let keygen_rounds = 4;
+        return round + keygen_rounds;
+    }
+
+    // TODO: support multiple shares for sign. For now, return something that is not 0.
+    // panic!("message counter overflow: {}. Max is {}", msg_count, last); // this info should be a panic
+
+    // return something that won't trigger a timeout in non-timeout malicous cases with multiple shares
+    usize::MAX
+}
+
 #[tonic::async_trait]
 impl Party for TofndParty {
     async fn execute_keygen(
@@ -269,7 +197,6 @@ impl Party for TofndParty {
         mut delivery: Deliverer,
     ) -> KeygenResult {
         let my_uid = init.party_uids[usize::try_from(init.my_party_index).unwrap()].clone();
-        let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
         let (keygen_server_incoming, rx) = channels;
         let mut keygen_server_outgoing = self
             .client
@@ -278,6 +205,20 @@ impl Party for TofndParty {
             .unwrap()
             .into_inner();
 
+        let all_share_count = {
+            if init.party_share_counts.is_empty() {
+                init.party_uids.len()
+            } else {
+                init.party_share_counts.iter().sum::<u32>() as usize
+            }
+        };
+        let my_share_count = {
+            if init.party_share_counts.is_empty() {
+                1
+            } else {
+                init.party_share_counts[init.my_party_index as usize] as usize
+            }
+        };
         // the first outbound message is keygen init info
         keygen_server_incoming
             .send(proto::MessageIn {
@@ -286,56 +227,48 @@ impl Party for TofndParty {
             .unwrap();
 
         let mut result: Option<KeygenResult> = None;
+        let mut msg_count = 1;
         while let Some(msg) = keygen_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
-                #[cfg(not(feature = "malicious"))]
-                proto::message_out::Data::Traffic(_) => {
-                    delivery.deliver(&msg, &my_uid);
-                }
-                // in malicous case, if we are stallers we skip the message
-                #[cfg(feature = "malicious")]
+                #[allow(clippy::unused)] // allow unsused traffin in non malicious
                 proto::message_out::Data::Traffic(traffic) => {
-                    // check if I am not a staller, send the message. This is for timeout tests
-                    if !self.should_timeout_keygen(&traffic) {
-                        // if I am disrupting, create a _duplicate_ message and disrupt it. This is for disrupt tests
-                        if let Some(traffic) = self.disrupt_keygen(&traffic) {
-                            let mut disrupt_msg = msg.clone();
-                            disrupt_msg.data = Some(proto::message_out::Data::Traffic(traffic));
-                            delivery.deliver(&disrupt_msg, &my_uid);
+                    // in malicous case, if we are stallers we skip the message
+                    #[cfg(feature = "malicious")]
+                    {
+                        let round = keygen_round(msg_count, all_share_count, my_share_count);
+                        if self.malicious_data.timeout_round == round {
+                            warn!("{} is stalling a message in round {}", my_uid, round);
+                            continue; // tough is the life of the staller
                         }
-                        // if I am a spoofer, create a _duplicate_ message and spoof it. This is for spoof tests
-                        if let Some(traffic) = self.spoof_keygen(&traffic) {
-                            let mut spoofed_msg = msg.clone();
-                            spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
-                            delivery.deliver(&spoofed_msg, &my_uid);
+                        if self.malicious_data.disrupt_round == round {
+                            warn!("{} is disrupting a message in round {}", my_uid, round);
+                            let mut t = traffic.clone();
+                            t.payload = traffic.payload[0..traffic.payload.len() / 2].to_vec();
+                            let mut m = msg.clone();
+                            m.data = Some(proto::message_out::Data::Traffic(t));
+                            delivery.deliver(&m, &my_uid);
                         }
-                        // finally, act normally and send the correct message
-                        delivery.deliver(&msg, &my_uid);
                     }
+                    delivery.deliver(&msg, &my_uid);
                 }
                 proto::message_out::Data::KeygenResult(res) => {
                     result = Some(res.clone());
-                    info!("party [{}] keygen finished!", my_display_name);
+                    info!("party [{}] keygen finished!", my_uid);
                     break;
                 }
-                _ => panic!(
-                    "party [{}] keygen errpr: bad outgoing message type",
-                    my_display_name
-                ),
+                _ => panic!("party [{}] keygen error: bad outgoing message type", my_uid),
             };
+            msg_count += 1;
         }
 
         if result.is_none() {
-            warn!(
-                "party [{}] keygen execution was not completed",
-                my_display_name
-            );
+            warn!("party [{}] keygen execution was not completed", my_uid);
             return KeygenResult::default();
         }
 
-        info!("party [{}] keygen execution complete", my_display_name);
+        info!("party [{}] keygen execution complete", my_uid);
 
         result.unwrap()
     }
@@ -378,7 +311,6 @@ impl Party for TofndParty {
         mut delivery: Deliverer,
         my_uid: &str,
     ) -> SignResult {
-        let my_display_name = format!("{}:{}", my_uid, self.server_port); // uid:port
         let (sign_server_incoming, rx) = channels;
         let mut sign_server_outgoing = self
             .client
@@ -386,6 +318,10 @@ impl Party for TofndParty {
             .await
             .unwrap()
             .into_inner();
+
+        // TODO: support multiple shares for sign
+        let all_share_count = init.party_uids.len();
+        let my_share_count = 1;
 
         // the first outbound message is sign init info
         sign_server_incoming
@@ -396,67 +332,58 @@ impl Party for TofndParty {
 
         // use Option of SignResult to avoid giving a default value to SignResult
         let mut result: Option<SignResult> = None;
+        let mut msg_count = 1;
         while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
-                // in honest case, we always send the message
-                #[cfg(not(feature = "malicious"))]
-                proto::message_out::Data::Traffic(_) => {
-                    delivery.deliver(&msg, &my_uid);
-                }
-                // in malicous case, if we are stallers we skip the message
-                #[cfg(feature = "malicious")]
+                #[allow(clippy::unused)] // allow unsused traffin in non malicious
                 proto::message_out::Data::Traffic(traffic) => {
-                    // check if I am not a staller, send the message. This is for timeout tests
-                    if !self.should_timeout_sign(&traffic) {
-                        // if I am disrupting, create a _duplicate_ message and disrupt it. This is for disrupt tests
-                        if let Some(traffic) = self.disrupt_sign(&traffic) {
-                            let mut disrupt_msg = msg.clone();
-                            disrupt_msg.data = Some(proto::message_out::Data::Traffic(traffic));
-                            delivery.deliver(&disrupt_msg, &my_uid);
+                    // in malicous case, if we are stallers we skip the message
+                    #[cfg(feature = "malicious")]
+                    {
+                        let round = sign_round(msg_count, all_share_count, my_share_count);
+                        if self.malicious_data.timeout_round == round {
+                            warn!("{} is stalling a message in round {}", my_uid, round - 4); // subtract keygen rounds
+                            continue; // tough is the life of the staller
                         }
-                        // if I am a spoofer, create a _duplicate_ message and spoof it. This is for spoof tests
-                        if let Some(traffic) = self.spoof_sign(&traffic) {
-                            let mut spoofed_msg = msg.clone();
-                            spoofed_msg.data = Some(proto::message_out::Data::Traffic(traffic));
-                            delivery.deliver(&spoofed_msg, &my_uid);
+                        if self.malicious_data.disrupt_round == round {
+                            warn!("{} is disrupting a message in round {}", my_uid, round);
+                            let mut t = traffic.clone();
+                            t.payload = traffic.payload[0..traffic.payload.len() / 2].to_vec();
+                            let mut m = msg.clone();
+                            m.data = Some(proto::message_out::Data::Traffic(t));
+                            delivery.deliver(&m, &my_uid);
                         }
-                        // finally, act normally and send the correct message
-                        delivery.deliver(&msg, &my_uid);
                     }
+                    delivery.deliver(&msg, &my_uid);
                 }
                 proto::message_out::Data::SignResult(res) => {
                     result = Some(res.clone());
-                    info!("party [{}] sign finished!", my_display_name);
+                    info!("party [{}] sign finished!", my_uid);
                     break;
                 }
                 proto::message_out::Data::NeedRecover(res) => {
                     info!(
                         "party [{}] needs recover for session [{}]",
-                        my_display_name, res.session_id
+                        my_uid, res.session_id
                     );
                     // when recovery is needed, sign is canceled. We abort the protocol manualy instead of waiting parties to time out
                     // no worries that we don't wait for enough time, we will not be checking criminals in this case
                     delivery.send_timeouts(0);
                     break;
                 }
-                _ => panic!(
-                    "party [{}] sign error: bad outgoing message type",
-                    my_display_name
-                ),
+                _ => panic!("party [{}] sign error: bad outgoing message type", my_uid),
             };
+            msg_count += 1;
         }
 
         // return default value for SignResult if socket closed before I received the result
         if result.is_none() {
-            warn!(
-                "party [{}] sign execution was not completed",
-                my_display_name
-            );
+            warn!("party [{}] sign execution was not completed", my_uid);
             return SignResult::default();
         }
-        info!("party [{}] sign execution complete", my_display_name);
+        info!("party [{}] sign execution complete", my_uid);
 
         result.unwrap() // it's safe to unwrap here
     }

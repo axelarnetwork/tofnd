@@ -2,7 +2,10 @@
 //! A [KeygenInitSanitized] struct is created out of the raw incoming [proto::KeygenInit] message and a key is reserved inside the KvStore
 //! If [proto::KeygenInit] fails to be parsed, a [TofndError] is returned
 
+// tonic cruft
 use futures_util::StreamExt;
+
+// spans for logging
 use tracing::Span;
 
 use tofn::protocol::gg20::keygen::validate_params;
