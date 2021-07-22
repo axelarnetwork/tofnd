@@ -4,7 +4,7 @@
 
 use super::{
     proto,
-    types::{Context, PartyShareCounts, TofndKeygenOutput},
+    types::{Context, TofndKeygenOutput},
     Gg20Service, ProtocolCommunication,
 };
 
@@ -27,15 +27,16 @@ impl Gg20Service {
         ctx: &Context,
         execute_span: Span,
     ) -> TofndKeygenOutput {
-        // try to create keygen with context
-        let party_share_counts = match PartyShareCounts::from_vec(ctx.share_counts.clone()) {
-            Ok(party_share_counts) => party_share_counts,
-            Err(_) => {
-                return Err(From::from("failed to create party_share_counts"));
-            }
-        };
+        // // TODO: move this in cxt
+        // // try to create keygen with context
+        // let party_share_counts = match PartyShareCounts::from_vec(ctx.share_counts.clone()) {
+        //     Ok(party_share_counts) => party_share_counts,
+        //     Err(_) => {
+        //         return Err(From::from("failed to create party_share_counts"));
+        //     }
+        // };
         let keygen = match new_keygen(
-            party_share_counts,
+            ctx.share_counts()?,
             ctx.threshold,
             ctx.tofn_index(),
             &self.seed().await.unwrap(),

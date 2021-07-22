@@ -76,6 +76,16 @@ impl Context {
         }
     }
 
+    /// get share_counts in the form of tofn::PartyShareCounts
+    pub fn share_counts(&self) -> Result<PartyShareCounts, TofndError> {
+        match PartyShareCounts::from_vec(self.share_counts.clone()) {
+            Ok(party_share_counts) => Ok(party_share_counts.clone()),
+            Err(_) => {
+                return Err(From::from("failed to create party_share_counts"));
+            }
+        }
+    }
+
     /// get party's tofn index based on `tofnd_index` and `tofnd_subindex`
     pub fn tofn_index(&self) -> TypedUsize<KeygenPartyIndex> {
         TypedUsize::from_usize(map_tofnd_to_tofn_idx(
