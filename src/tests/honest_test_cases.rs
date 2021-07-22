@@ -4,6 +4,8 @@ use crate::tests::{run_restart_recover_test_cases, run_restart_test_cases, run_t
 #[cfg(feature = "malicious")]
 use super::malicious::MaliciousData;
 
+use crate::proto::message_out::CriminalList;
+
 use tracing_test::traced_test; // logs for tests
 
 #[traced_test]
@@ -31,15 +33,13 @@ impl TestCase {
         threshold: usize,
         signer_indices: Vec<usize>,
     ) -> TestCase {
-        let expected_keygen_crimes = vec![vec![]; uid_count];
-        let expected_crimes = vec![vec![]; uid_count];
         TestCase {
             uid_count,
             share_counts,
             threshold,
             signer_indices,
-            expected_keygen_crimes,
-            expected_sign_crimes: expected_crimes,
+            expected_keygen_faults: CriminalList::default(),
+            expected_sign_faults: CriminalList::default(),
             #[cfg(feature = "malicious")]
             malicious_data: MaliciousData::empty(uid_count),
         }

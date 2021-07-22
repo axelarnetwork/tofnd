@@ -35,7 +35,7 @@ pub(super) fn map_tofn_to_tofnd_idx(
     )))
 }
 
-pub(super) async fn execute_protocol(
+pub(super) async fn _execute_protocol(
     protocol: &mut impl Protocol,
     mut chan: ProtocolCommunication<
         Option<proto::TrafficIn>,

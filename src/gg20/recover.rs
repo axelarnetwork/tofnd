@@ -5,7 +5,11 @@ use super::{
     service::Gg20Service, types::PartyInfo,
 };
 use crate::TofndError;
-use tofn::protocol::gg20::{keygen::SecretRecoveryKey, SecretKeyShare};
+use tofn::refactor::{
+    collections::TypedUsize,
+    keygen::{SecretKeyShare, SecretRecoveryKey},
+    sdk::api::PartyShareCounts,
+};
 
 impl Gg20Service {
     pub(super) async fn handle_recover(
@@ -80,6 +84,13 @@ impl Gg20Service {
 
         let starting_tofn_index = map_tofnd_to_tofn_idx(my_tofnd_index, 0, party_share_counts);
 
+        let party_share_counts = match PartyShareCounts::from_vec(party_share_counts.to_owned()) {
+            Ok(party_share_counts) => party_share_counts,
+            Err(_) => {
+                return Err(From::from("Unable to create PartyShareCounts"));
+            }
+        };
+
         // gather secret key shares from recovery infos
         let mut secret_key_shares = Vec::with_capacity(*my_share_count);
         for i in 0..*my_share_count {
@@ -87,18 +98,18 @@ impl Gg20Service {
                 &secret_recovery_key,
                 &session_nonce,
                 &deserialized_share_recovery_infos,
-                starting_tofn_index + i, // create tofn share index from starting tofn index + share count
+                TypedUsize::from_usize(starting_tofn_index + i), // create tofn share index from starting tofn index + share count
+                party_share_counts.clone(),
                 threshold,
             );
             // check that recovery was successful for share starting_tofn_index + i
             match recovered_secret_key_share {
                 Ok(secret_key_share) => secret_key_shares.push(secret_key_share),
-                Err(err) => {
+                Err(_) => {
                     return Err(From::from(format!(
-                        "Unable to recover share [{}] of party [{}]. {}",
+                        "Unable to recover share [{}] of party [{}]",
                         i,
                         starting_tofn_index + i,
-                        err
                     )))
                 }
             }
