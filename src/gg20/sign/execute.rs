@@ -57,7 +57,7 @@ impl Gg20Service {
                 Ok(res)
             }
             Err(err) => Err(From::from(format!(
-                "Sign was not completed due to faults: {}",
+                "Sign was not completed due to error: {}",
                 err
             ))),
         }

@@ -64,7 +64,10 @@ impl Gg20Service {
                 info!("Keygen completed");
                 Ok(res)
             }
-            Err(_) => Err(From::from("Keygen was not completed due to faults")),
+            Err(err) => Err(From::from(format!(
+                "Keygen was not completed due to error: {}",
+                err,
+            ))),
         }
     }
 }
