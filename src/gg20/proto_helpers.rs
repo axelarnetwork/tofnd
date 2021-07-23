@@ -1,5 +1,7 @@
-use tofn::collections::FillVecMap;
+//! Wrappers for sending and receiving [proto] messages
+
 use tofn::{
+    collections::FillVecMap,
     gg20::{keygen::RealKeygenPartyIndex, sign::RealSignParticipantIndex},
     sdk::api::Fault,
 };
@@ -97,12 +99,3 @@ impl ProtoCriminalList {
         Self { criminals }
     }
 }
-
-// impl From<CrimeType> for ProtoCrimeType {
-//     fn from(crime_type: CrimeType) -> Self {
-//         match crime_type {
-//             CrimeType::Malicious => Self::Malicious,
-//             CrimeType::NonMalicious => Self::NonMalicious,
-//         }
-//     }
-// }

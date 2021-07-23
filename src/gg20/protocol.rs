@@ -1,4 +1,5 @@
 //! Abstract functionality used by keygen, sign, etc.
+
 use tofn::{
     collections::TypedUsize,
     sdk::api::{Protocol, ProtocolOutput, Round},
