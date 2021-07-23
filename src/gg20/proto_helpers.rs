@@ -1,9 +1,9 @@
+//! Wrappers for sending and receiving [proto] messages
+
 use tofn::{
-    protocol::CrimeType,
-    refactor::{
-        collections::FillVecMap, keygen::RealKeygenPartyIndex, sdk::api::Fault,
-        sign::RealSignParticipantIndex,
-    },
+    collections::FillVecMap,
+    gg20::{keygen::RealKeygenPartyIndex, sign::RealSignParticipantIndex},
+    sdk::api::Fault,
 };
 
 use crate::proto;
@@ -97,14 +97,5 @@ impl ProtoCriminalList {
             })
             .collect();
         Self { criminals }
-    }
-}
-
-impl From<CrimeType> for ProtoCrimeType {
-    fn from(crime_type: CrimeType) -> Self {
-        match crime_type {
-            CrimeType::Malicious => Self::Malicious,
-            CrimeType::NonMalicious => Self::NonMalicious,
-        }
     }
 }

@@ -4,7 +4,7 @@
 //!  2. all secret share data - data used to allow parties to participate to future Signs; stored in KvStore
 //!  3. all secret share recovery info - information used to allow client to issue secret share recovery in case of data loss; sent to client
 
-use tofn::refactor::keygen::SecretKeyShare;
+use tofn::gg20::keygen::SecretKeyShare;
 
 use super::{
     proto::{self, message_out::keygen_result},
