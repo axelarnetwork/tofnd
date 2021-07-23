@@ -1,7 +1,7 @@
 //! Abstract functionality used by keygen, sign, etc.
 use tofn::{
-    refactor::collections::TypedUsize,
-    refactor::sdk::api::{Protocol, ProtocolOutput, Round},
+    collections::TypedUsize,
+    sdk::api::{Protocol, ProtocolOutput, Round},
 };
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 

@@ -6,9 +6,9 @@ use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SH
 use std::path::PathBuf;
 
 #[cfg(feature = "malicious")]
-use tofn::refactor::keygen::malicious::Behaviour as KeygenBehaviour;
-#[cfg(feature = "malicious")]
-use tofn::refactor::sign::malicious::Behaviour as SignBehaviour;
+use tofn::gg20::{
+    keygen::malicious::Behaviour as KeygenBehaviour, sign::malicious::Behaviour as SignBehaviour,
+};
 
 /// Gg20Service
 #[derive(Clone)]
@@ -46,14 +46,10 @@ pub async fn new_service(
 
 #[cfg(test)]
 pub mod tests {
+    use super::*;
     use super::{FileIo, Gg20Service, KeySharesKv, MnemonicKv};
     use crate::proto;
     use std::path::PathBuf;
-
-    #[cfg(feature = "malicious")]
-    use tofn::refactor::keygen::malicious::Behaviour as KeygenBehaviour;
-    #[cfg(feature = "malicious")]
-    use tofn::refactor::sign::malicious::Behaviour as SignBehaviour;
 
     // append a subfolder name to db path.
     // this will allows the creaton of two distict kv stores under 'db_path'

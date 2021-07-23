@@ -4,9 +4,9 @@ use crate::proto::message_out::{
 };
 // use tofn::refactor::collections::TypedUsize;
 
-use tofn::refactor::{
+use tofn::{
     collections::TypedUsize,
-    sign::malicious::Behaviour::{self, *},
+    gg20::sign::malicious::Behaviour::{self, *},
 };
 
 use super::super::{run_test_cases, TestCase};

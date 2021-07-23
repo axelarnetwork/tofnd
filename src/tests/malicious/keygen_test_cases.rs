@@ -2,9 +2,9 @@ use crate::proto::message_out::{
     criminal_list::{criminal::CrimeType, Criminal},
     CriminalList,
 };
-use tofn::refactor::collections::TypedUsize;
+use tofn::collections::TypedUsize;
 
-use tofn::refactor::keygen::malicious::Behaviour::{self, *};
+use tofn::gg20::keygen::malicious::Behaviour::{self, *};
 
 use super::super::{run_test_cases, TestCase};
 use super::{Disrupt, MaliciousData, Timeout};

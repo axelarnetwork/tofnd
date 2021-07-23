@@ -1,9 +1,7 @@
+use tofn::collections::FillVecMap;
 use tofn::{
-    protocol::CrimeType,
-    refactor::{
-        collections::FillVecMap, keygen::RealKeygenPartyIndex, sdk::api::Fault,
-        sign::RealSignParticipantIndex,
-    },
+    gg20::{keygen::RealKeygenPartyIndex, sign::RealSignParticipantIndex},
+    sdk::api::Fault,
 };
 
 use crate::proto;
@@ -100,11 +98,11 @@ impl ProtoCriminalList {
     }
 }
 
-impl From<CrimeType> for ProtoCrimeType {
-    fn from(crime_type: CrimeType) -> Self {
-        match crime_type {
-            CrimeType::Malicious => Self::Malicious,
-            CrimeType::NonMalicious => Self::NonMalicious,
-        }
-    }
-}
+// impl From<CrimeType> for ProtoCrimeType {
+//     fn from(crime_type: CrimeType) -> Self {
+//         match crime_type {
+//             CrimeType::Malicious => Self::Malicious,
+//             CrimeType::NonMalicious => Self::NonMalicious,
+//         }
+//     }
+// }
