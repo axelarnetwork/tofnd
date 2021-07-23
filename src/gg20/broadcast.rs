@@ -1,4 +1,6 @@
-//! This module handles the routing of incoming traffic. Receives and validates messages until the connection is closed by the client, or an error occurs.
+//! This module handles the routing of incoming traffic.
+//! Receives and validates messages until the connection is closed by the client.
+//! The incoming messages come from the gRPC stream and are forwarded to shares' internal channels.
 
 // tonic cruft
 use super::proto;
@@ -9,7 +11,7 @@ use tonic::Status;
 // logging
 use tracing::{error, info, span, warn, Level, Span};
 
-/// Results for routing
+/// Results of routing
 #[derive(Debug, PartialEq)]
 enum RoutingResult {
     Continue { traffic: proto::TrafficIn },
@@ -17,34 +19,40 @@ enum RoutingResult {
     Skip,
 }
 
-/// Receives incoming from a gRPC stream and vector of out going channels;
-/// Loops until client closes the socket, or an `Abort` message is received  
+/// Receives incoming from a gRPC stream and broadcasts them to internal channels;
+/// Loops until client closes the socket, or a message containing [proto::message_in::Data::Abort] is received  
 /// Empty and unknown messages are ignored
-pub(super) async fn route_messages(
-    in_stream: &mut tonic::Streaming<proto::MessageIn>,
-    mut out_channels: Vec<mpsc::UnboundedSender<Option<proto::TrafficIn>>>,
+pub(super) async fn broadcast_messages(
+    in_grpc_stream: &mut tonic::Streaming<proto::MessageIn>,
+    mut out_internal_channels: Vec<mpsc::UnboundedSender<Option<proto::TrafficIn>>>,
     span: Span,
 ) {
     // loop until `stop` is received
     loop {
         // read message from stream
-        let msg_data = in_stream.next().await;
+        let msg_data = in_grpc_stream.next().await;
 
-        // validate message
-        let traffic = match validate_message(msg_data, span.clone()) {
+        // check incoming message
+        let traffic = match open_message(msg_data, span.clone()) {
             RoutingResult::Continue { traffic } => traffic,
             RoutingResult::Stop => break,
             RoutingResult::Skip => continue,
         };
 
         // send the message to all channels
-        for out_channel in &mut out_channels {
+        for out_channel in &mut out_internal_channels {
             let _ = out_channel.send(Some(traffic.clone()));
         }
     }
 }
 
-fn validate_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> RoutingResult {
+/// gets a gPRC [proto::MessageIn] and checks the type
+/// available messages are:
+/// [proto::message_in::Data::Traffic]    -> return [RoutingResult::Continue]
+/// [proto::message_in::Data::Abort]      -> return [RoutingResult::Stop]
+/// [proto::message_in::Data::KeygenInit] -> return [RoutingResult::Skip]
+/// [proto::message_in::Data::SignInit]   -> return [RoutingResult::Skip]
+fn open_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> RoutingResult {
     // start routing span
     let route_span = span!(parent: &span, Level::INFO, "routing");
     let _start = route_span.enter();
@@ -85,7 +93,7 @@ fn validate_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -
             warn!("received abort message");
             return RoutingResult::Stop;
         }
-        _ => {
+        proto::message_in::Data::KeygenInit(_) | proto::message_in::Data::SignInit(_) => {
             warn!("ignore incoming msg: expect `data` to be TrafficIn type");
             return RoutingResult::Skip;
         }
@@ -146,14 +154,14 @@ mod tests {
         let span = span!(Level::INFO, "test-span");
 
         for test_case in test_cases {
-            let result = validate_message(Some(Ok(test_case.message_in)), span.clone());
+            let result = open_message(Some(Ok(test_case.message_in)), span.clone());
             assert_eq!(result, test_case.expected_result);
         }
 
-        let result = validate_message(Some(Err(tonic::Status::ok("test status"))), span.clone());
+        let result = open_message(Some(Err(tonic::Status::ok("test status"))), span.clone());
         assert_eq!(result, RoutingResult::Stop);
 
-        let result = validate_message(None, span);
+        let result = open_message(None, span);
         assert_eq!(result, RoutingResult::Stop);
     }
 }

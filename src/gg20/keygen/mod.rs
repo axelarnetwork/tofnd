@@ -14,7 +14,9 @@
 //!
 //! All relevant helper structs and types are defined in [self::types]
 
-use super::{proto, routing::route_messages, service::Gg20Service, types::ProtocolCommunication};
+use super::{
+    broadcast::broadcast_messages, proto, service::Gg20Service, types::ProtocolCommunication,
+};
 use crate::TofndError;
 
 use tonic::Status;
@@ -91,7 +93,7 @@ impl Gg20Service {
         // spin up router thread and return immediately
         let span = keygen_span.clone();
         tokio::spawn(async move {
-            route_messages(&mut stream_in, keygen_senders, span).await;
+            broadcast_messages(&mut stream_in, keygen_senders, span).await;
         });
 
         // 4.
