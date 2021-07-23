@@ -45,7 +45,6 @@ impl FileIo {
         // delegate zeroization for entropy; no need to worry about mnemonic, it is cleaned automatically
         let mnemonic = bip39_from_entropy(entropy)?;
         let phrase = mnemonic.phrase();
-        info!("Phrase from entropy: {}", phrase);
         let filepath = self.next_filepath();
         let mut file = std::fs::File::create(filepath.clone())?;
         file.write_all(phrase.as_bytes())?;
