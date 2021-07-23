@@ -15,11 +15,11 @@ pub mod proto_helpers;
 use tracing::{error, info, span, Level};
 
 // gRPC
+mod broadcast;
 mod keygen;
 pub mod mnemonic;
 mod protocol;
 mod recover;
-mod routing;
 pub mod service;
 mod sign;
 pub mod types;
