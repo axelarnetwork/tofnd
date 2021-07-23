@@ -1,10 +1,10 @@
 //! Helper structs and implementations for [crate::gg20::sign].
 
 use super::super::MessageDigest;
-use tofn::refactor::collections::{Subset, TypedUsize};
-use tofn::refactor::keygen::{GroupPublicInfo, RealKeygenPartyIndex, ShareSecretInfo};
-use tofn::refactor::sdk::api::ProtocolOutput;
-use tofn::refactor::sign::{RealSignParticipantIndex, SignParties};
+use tofn::collections::{Subset, TypedUsize};
+use tofn::gg20::keygen::{GroupPublicInfo, RealKeygenPartyIndex, ShareSecretInfo};
+use tofn::gg20::sign::{RealSignParticipantIndex, SignParties};
+use tofn::sdk::api::ProtocolOutput;
 
 /// tofn's ProtocolOutput for Sign
 pub type TofnSignOutput = ProtocolOutput<Vec<u8>, RealSignParticipantIndex>;

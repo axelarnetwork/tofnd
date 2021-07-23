@@ -8,7 +8,7 @@ use super::{
     Gg20Service, ProtocolCommunication,
 };
 use crate::gg20::protocol;
-use tofn::refactor::sign::new_sign;
+use tofn::gg20::sign::new_sign;
 
 // logging
 use tracing::{info, Span};

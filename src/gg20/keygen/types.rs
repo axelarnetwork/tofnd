@@ -2,9 +2,9 @@
 
 use crate::TofndError;
 
-use tofn::refactor::{
+use tofn::{
     collections::TypedUsize,
-    keygen::{KeygenPartyShareCounts, RealKeygenPartyIndex, SecretKeyShare},
+    gg20::keygen::{KeygenPartyShareCounts, RealKeygenPartyIndex, SecretKeyShare},
     sdk::api::ProtocolOutput,
 };
 
