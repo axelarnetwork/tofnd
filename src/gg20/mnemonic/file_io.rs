@@ -8,7 +8,10 @@ use std::{
 use tracing::info;
 
 use super::super::mnemonic::bip39_bindings::bip39_from_entropy;
-use crate::TofndError;
+use crate::{
+    gg20::types::{Entropy, Password},
+    TofndError,
+};
 
 /// Standard names
 const EXPORT_FILE: &str = "export";
@@ -41,7 +44,7 @@ impl FileIo {
     }
 
     /// Creates a file that contains an entropy in it's human-readable form
-    pub(super) fn entropy_to_next_file(&self, entropy: Vec<u8>) -> Result<(), TofndError> {
+    pub(super) fn entropy_to_next_file(&self, entropy: Entropy) -> Result<(), TofndError> {
         // delegate zeroization for entropy; no need to worry about mnemonic, it is cleaned automatically
         let mnemonic = bip39_from_entropy(entropy)?;
         let phrase = mnemonic.phrase();
@@ -54,14 +57,14 @@ impl FileIo {
     }
 
     /// Returns the phrase from a file
-    pub(super) fn phrase_from_file(&self, filename: &str) -> Result<String, TofndError> {
+    pub(super) fn phrase_from_file(&self, filename: &str) -> Result<Password, TofndError> {
         let mut filepath = self.path.clone();
         filepath.push(filename);
         let mut file = std::fs::File::open(filepath)?;
         let mut mnemonic_phrase = String::new();
         // if read_to_string fails, we don't need to worry about zeroizing mnemonic phrase; we never got it
         file.read_to_string(&mut mnemonic_phrase)?;
-        Ok(mnemonic_phrase)
+        Ok(Password(mnemonic_phrase))
     }
 }
 
@@ -83,7 +86,7 @@ mod tests {
         let filename = filepath.file_name().unwrap().to_str().unwrap();
         let file_content = io.phrase_from_file(filename).unwrap();
         let expected_content = bip39_to_phrase(entropy_copy).unwrap();
-        assert_eq!(file_content, expected_content);
+        assert_eq!(file_content.0, expected_content.0);
     }
 
     #[test]
