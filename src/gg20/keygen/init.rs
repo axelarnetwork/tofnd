@@ -107,6 +107,14 @@ impl Gg20Service {
             )));
         }
 
+        let total_shares = party_share_counts.iter().sum::<usize>();
+        if total_shares <= threshold {
+            return Err(From::from(format!(
+                "threshold is not satisfied: t = {}, total number of shares = {}",
+                threshold, total_shares,
+            )));
+        }
+
         // sort uids and share counts
         // we need to sort uids and shares because the caller does not necessarily
         // send the same vectors (in terms of order) to all tofnd instances.
