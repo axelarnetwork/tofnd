@@ -8,7 +8,7 @@ use super::{
     Gg20Service, ProtocolCommunication,
 };
 
-use tofn::refactor::keygen::new_keygen;
+use tofn::gg20::keygen::new_keygen;
 
 use crate::gg20::protocol;
 

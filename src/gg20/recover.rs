@@ -2,9 +2,9 @@
 
 use super::{keygen::types::KeygenInitSanitized, proto, service::Gg20Service, types::PartyInfo};
 use crate::TofndError;
-use tofn::refactor::{
+use tofn::{
     collections::TypedUsize,
-    keygen::{SecretKeyShare, SecretRecoveryKey},
+    gg20::keygen::{SecretKeyShare, SecretRecoveryKey},
     sdk::api::PartyShareCounts,
 };
 

@@ -1380,9 +1380,9 @@ checksum = "bc881b2c22681370c6a780e47af9840ef841837bc98118431d4e1868bd0c1086"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.27"
+version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0d8caf72986c1a598726adc988bb5984792ef84f5ee5aa50209145ee8077038"
+checksum = "5c7ed8b8c7b886ea3ed7dde405212185f423ab44682667c8c6dd14aa1d9f6612"
 dependencies = [
  "unicode-xid",
 ]
@@ -1932,7 +1932,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=main#83b871dcd189e55de5b2f5c58db07f510e20b0ea"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=main#a31e2f4889014806896f367e900d92cc95838c69"
 dependencies = [
  "bincode",
  "ecdsa",
@@ -1947,6 +1947,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "tracing",
+ "zeroize",
 ]
 
 [[package]]

@@ -160,7 +160,7 @@ impl Gg20Service {
     }
 }
 
-use tofn::protocol::gg20::keygen::SecretRecoveryKey;
+use tofn::gg20::keygen::SecretRecoveryKey;
 /// ease tofn API
 impl Gg20Service {
     pub async fn seed(&self) -> Result<SecretRecoveryKey, TofndError> {
@@ -182,9 +182,10 @@ mod tests {
     use tracing_test::traced_test; // logs for tests
 
     #[cfg(feature = "malicious")]
-    use tofn::refactor::keygen::malicious::Behaviour as KeygenBehaviour;
-    #[cfg(feature = "malicious")]
-    use tofn::refactor::sign::malicious::Behaviour as SignBehaviour;
+    use tofn::gg20::{
+        keygen::malicious::Behaviour as KeygenBehaviour,
+        sign::malicious::Behaviour as SignBehaviour,
+    };
 
     // create a service
     fn get_service(testdir: PathBuf) -> Gg20Service {

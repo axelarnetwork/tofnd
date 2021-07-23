@@ -2,14 +2,13 @@ use crate::proto::message_out::{
     criminal_list::{criminal::CrimeType, Criminal},
     CriminalList,
 };
-// use tofn::refactor::collections::TypedUsize;
 
-use tofn::refactor::{
+use tofn::{
     collections::TypedUsize,
-    sign::malicious::Behaviour::{self, *},
+    gg20::sign::malicious::Behaviour::{self, *},
 };
 
-use super::super::{run_test_cases, TestCase};
+use super::super::{run_restart_test_cases, run_test_cases, TestCase};
 use super::{Disrupt, MaliciousData, Timeout};
 
 use tracing_test::traced_test; // log for tests
@@ -20,17 +19,11 @@ async fn malicious_general_cases() {
     run_test_cases(&generate_basic_cases()).await;
 }
 
-// #[traced_test]
-// #[tokio::test]
-// async fn malicious_general_cases_with_restart() {
-//     run_restart_test_cases(&generate_basic_cases()).await;
-// }
-
-// #[traced_test]
-// #[tokio::test]
-// async fn malicious_multiple_per_round_cases() {
-//     run_test_cases(&generate_multiple_malicious_per_round()).await;
-// }
+#[traced_test]
+#[tokio::test]
+async fn malicious_general_cases_with_restart() {
+    run_restart_test_cases(&generate_basic_cases()).await;
+}
 
 #[traced_test]
 #[tokio::test]
@@ -174,32 +167,25 @@ impl TestCase {
 fn generate_basic_cases() -> Vec<TestCase> {
     let victim = TypedUsize::from_usize(0);
     let behaviours = vec![
-        // R3BadSigmaI,  // TODO: enable when it returns no error
         R1BadProof { victim },
-        // R1BadGammaI,
+        R1BadGammaI,
         R2FalseAccusation { victim },
         R2BadMta { victim },
         R2BadMtaWc { victim },
         R3FalseAccusationMta { victim },
-        // R3FalseAccusationMtaWc { victim },
-        // R3BadProof,
-        // R3BadDeltaI,
-        // R3BadKI,
-        // R3BadAlpha { victim },
-        // R3BadBeta { victim },
-        // R4BadReveal,
-        // R5BadProof { victim },
-        // R6FalseAccusation { victim },
-        // R6BadProof,
-        // R6FalseFailRandomizer,
-        // R7BadSI,
-        // R1BadCommit,                 v--- TODO: do these behaviours exist?
-        // R1BadEncryptionKeyProof,
-        // R1BadZkSetupProof,
-        // R2BadShare { victim },
-        // R2BadEncryption { victim },
-        // R3FalseAccusation { victim },
-        // R3BadXIWitness,
+        R3FalseAccusationMtaWc { victim },
+        R3BadProof,
+        R3BadDeltaI,
+        R3BadKI,
+        R3BadAlpha { victim },
+        R3BadBeta { victim },
+        R4BadReveal,
+        R5BadProof { victim },
+        R6FalseAccusation { victim },
+        R6BadProof,
+        R6FalseFailRandomizer,
+        R7BadSI,
+        // R3BadSigmaI,  // TODO: enable when it is implemented
     ];
 
     behaviours
@@ -219,10 +205,6 @@ fn generate_basic_cases() -> Vec<TestCase> {
         })
         .collect()
 }
-
-// TODO:
-// fn generate_multiple_malicious_per_round() -> Vec<TestCase> {
-// }
 
 fn timeout_cases() -> Vec<TestCase> {
     // let timeout_rounds = vec![1];

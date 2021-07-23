@@ -8,7 +8,7 @@ use futures_util::StreamExt;
 // spans for logging
 use tracing::Span;
 
-use tofn::protocol::gg20::keygen::validate_params;
+// use tofn::protocol::gg20::keygen::validate_params;
 
 use super::{proto, types::KeygenInitSanitized, Gg20Service, TofndError};
 use crate::kv_manager::KeyReservation;
@@ -107,17 +107,19 @@ impl Gg20Service {
             )));
         }
 
+        let total_shares = party_share_counts.iter().sum::<usize>();
+        if total_shares <= threshold {
+            return Err(From::from(format!(
+                "threshold is not satisfied: t = {}, total number of shares = {}",
+                threshold, total_shares,
+            )));
+        }
+
         // sort uids and share counts
         // we need to sort uids and shares because the caller does not necessarily
         // send the same vectors (in terms of order) to all tofnd instances.
         let (my_new_index, sorted_uids, sorted_share_counts) =
             sort_uids_and_shares(my_index, args.party_uids, party_share_counts)?;
-
-        // get total number of shares of all parties
-        let total_shares = sorted_share_counts.iter().sum();
-
-        // invoke tofn parameter validation
-        validate_params(total_shares, threshold, my_index)?;
 
         Ok(KeygenInitSanitized {
             new_key_uid: args.new_key_uid,

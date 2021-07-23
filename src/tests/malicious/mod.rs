@@ -1,10 +1,10 @@
 pub mod keygen_test_cases;
 use keygen_test_cases::KeygenData;
-pub(super) type KeygenBehaviour = tofn::refactor::keygen::malicious::Behaviour;
+pub(super) type KeygenBehaviour = tofn::gg20::keygen::malicious::Behaviour;
 
 pub mod sign_test_cases;
 use sign_test_cases::SignData;
-pub(super) type SignBehaviour = tofn::refactor::sign::malicious::Behaviour;
+pub(super) type SignBehaviour = tofn::gg20::sign::malicious::Behaviour;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Timeout {
