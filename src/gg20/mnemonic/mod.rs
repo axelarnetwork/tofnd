@@ -14,9 +14,11 @@ use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed};
 
 pub(super) mod file_io;
 use file_io::IMPORT_FILE;
-use zeroize::Zeroize;
 
-use super::{service::Gg20Service, types::Entropy};
+use super::{
+    service::Gg20Service,
+    types::{Entropy, Password},
+};
 use crate::TofndError;
 use std::convert::TryInto;
 use tracing::{error, info};
@@ -61,7 +63,7 @@ impl Gg20Service {
 
     /// inserts entropy to the kv-store and writes inserted value to an "export" file.
     /// takes ownership of entropy to delegate zeroization.
-    async fn handle_insert(&mut self, mut entropy: Vec<u8>) -> Result<(), TofndError> {
+    async fn handle_insert(&mut self, entropy: Entropy) -> Result<(), TofndError> {
         let reservation = self.mnemonic_kv.reserve_key(MNEMONIC_KEY.to_owned()).await;
         match reservation {
             // if we can reserve, try put
@@ -80,7 +82,7 @@ impl Gg20Service {
             // if we cannot reserve, return failure
             Err(err) => {
                 // we also have to zeroize because `entropy to file` was not executed
-                entropy.zeroize();
+                drop(entropy);
                 error!("Cannot reserve mnemonic: {:?}", err);
                 Err(err)
             }
@@ -167,7 +169,9 @@ impl Gg20Service {
         let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
         // A user may decide to protect their mnemonic with a passphrase. If not, pass an empty password
         // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
-        Ok(bip39_seed(mnemonic, "".to_owned())?.as_bytes().try_into()?)
+        Ok(bip39_seed(mnemonic, Password("".to_owned()))?
+            .as_bytes()
+            .try_into()?)
     }
 }
 
@@ -217,7 +221,7 @@ mod tests {
 
         let entropy = bip39_new_w24();
         let phrase = bip39_to_phrase(entropy).unwrap();
-        file.write_all(phrase.as_bytes()).unwrap();
+        file.write_all(phrase.0.as_bytes()).unwrap();
     }
 
     #[traced_test]
