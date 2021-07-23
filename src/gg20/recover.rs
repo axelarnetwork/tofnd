@@ -1,4 +1,6 @@
 //! This module handles the recover gRPC.
+//! Request includes [proto::message_in::Data::KeygenInit] struct and encrypted recovery info.
+//! The recovery info is decrypted by party's mnemonic seed and saved in the KvStore.
 
 use super::{keygen::types::KeygenInitSanitized, proto, service::Gg20Service, types::PartyInfo};
 use crate::TofndError;

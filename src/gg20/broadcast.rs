@@ -1,6 +1,6 @@
 //! This module handles the routing of incoming traffic.
-//! Receives and validates messages until the connection is closed by the client, or an error occurs.
-//! The incoming messages come from the gRPC stream and are forwarded to shares' internal channels
+//! Receives and validates messages until the connection is closed by the client.
+//! The incoming messages come from the gRPC stream and are forwarded to shares' internal channels.
 
 // tonic cruft
 use super::proto;
