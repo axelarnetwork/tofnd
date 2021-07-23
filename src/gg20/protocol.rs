@@ -85,6 +85,7 @@ fn handle_outgoing<F, K, P>(
     // send outgoing bcasts
     if let Some(bcast) = round.bcast_out() {
         debug!("generating out bcast");
+        // send message to gRPC client
         sender.send(Ok(proto::MessageOut::new_bcast(bcast)))?
     }
     // send outgoing p2ps
@@ -106,8 +107,12 @@ fn handle_outgoing<F, K, P>(
                 p2ps_out.len() - 1
             );
             p2p_msg_count += 1;
-            // TODO: 'reveiver_id' is not needed from the client anymore and should be removed from the protofile
-            sender.send(Ok(proto::MessageOut::new_p2p("receiver_id", p2p)))?
+
+            // send message to gRPC client
+            sender.send(Ok(proto::MessageOut::new_p2p(
+                &party_uids[tofnd_idx.as_usize()],
+                p2p,
+            )))?
         }
     }
     debug!("finished");
@@ -128,13 +133,13 @@ async fn handle_incoming<F, K, P>(
 
     // loop until no more messages are needed for this round
     while round.expecting_more_msgs_this_round() {
-        // get message from router
+        // get internal message from broadcaster
         let traffic = receiver.recv().await.ok_or(format!(
             "{}: stream closed by client before protocol has completed",
             round_count
         ));
 
-        // we have to unpeal traffic
+        // we have to unpeel traffic
         let traffic = match traffic {
             Ok(traffic_opt) => match traffic_opt {
                 Some(traffic) => traffic,
