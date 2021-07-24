@@ -185,7 +185,7 @@ fn generate_basic_cases() -> Vec<TestCase> {
         R6BadProof,
         R6FalseFailRandomizer,
         R7BadSI,
-        // R3BadSigmaI,  // TODO: enable when it is implemented
+        R3BadSigmaI,
     ];
 
     behaviours
