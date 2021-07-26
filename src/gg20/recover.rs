@@ -6,8 +6,11 @@ use super::{keygen::types::KeygenInitSanitized, proto, service::Gg20Service, typ
 use crate::TofndError;
 use tofn::{
     collections::TypedUsize,
-    gg20::keygen::{SecretKeyShare, SecretRecoveryKey},
-    sdk::api::PartyShareCounts,
+    gg20::keygen::{
+        KeyShareRecoveryInfo, KeygenPartyId, KeygenPartyShareCounts, SecretKeyShare,
+        SecretRecoveryKey,
+    },
+    sdk::api::{PartyShareCounts, TofnResult},
 };
 
 impl Gg20Service {
@@ -29,7 +32,7 @@ impl Gg20Service {
 
         // recover secret key shares from request
         let secret_key_shares = {
-            let secret_key_shares = Self::recover_secret_key_shares(
+            let secret_key_shares = self.recover_secret_key_shares(
                 &secret_recovery_key,
                 &request.share_recovery_infos,
                 keygen_init_sanitized.my_index,
@@ -53,8 +56,42 @@ impl Gg20Service {
             .await?)
     }
 
+    // allow for users to select whether to use big primes or not
+    fn recover(
+        &self,
+        secret_recovery_key: &SecretRecoveryKey,
+        session_nonce: &[u8],
+        recovery_infos: &[KeyShareRecoveryInfo],
+        party_id: TypedUsize<KeygenPartyId>,
+        subshare_id: usize, // in 0..party_share_counts[party_id]
+        party_share_counts: KeygenPartyShareCounts,
+        threshold: usize,
+    ) -> TofnResult<SecretKeyShare> {
+        match self.safe_keygen {
+            true => SecretKeyShare::recover(
+                secret_recovery_key,
+                session_nonce,
+                recovery_infos,
+                party_id,
+                subshare_id,
+                party_share_counts,
+                threshold,
+            ),
+            false => SecretKeyShare::recover_unsafe(
+                secret_recovery_key,
+                session_nonce,
+                recovery_infos,
+                party_id,
+                subshare_id,
+                party_share_counts,
+                threshold,
+            ),
+        }
+    }
+
     /// get recovered secret key shares from serilized share recovery info
     fn recover_secret_key_shares(
+        &self,
         secret_recovery_key: &SecretRecoveryKey,
         serialized_share_recovery_infos: &[Vec<u8>],
         my_tofnd_index: usize,
@@ -91,7 +128,7 @@ impl Gg20Service {
         // gather secret key shares from recovery infos
         let mut secret_key_shares = Vec::with_capacity(*my_share_count);
         for i in 0..*my_share_count {
-            let recovered_secret_key_share = SecretKeyShare::recover(
+            let recovered_secret_key_share = self.recover(
                 &secret_recovery_key,
                 &session_nonce,
                 &deserialized_share_recovery_infos,
