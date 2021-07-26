@@ -2,12 +2,12 @@
 
 use super::super::MessageDigest;
 use tofn::collections::{Subset, TypedUsize};
-use tofn::gg20::keygen::{GroupPublicInfo, RealKeygenPartyIndex, ShareSecretInfo};
-use tofn::gg20::sign::{RealSignParticipantIndex, SignParties};
+use tofn::gg20::keygen::{GroupPublicInfo, KeygenPartyId, ShareSecretInfo};
+use tofn::gg20::sign::{SignParties, SignPartyId};
 use tofn::sdk::api::ProtocolOutput;
 
 /// tofn's ProtocolOutput for Sign
-pub type TofnSignOutput = ProtocolOutput<Vec<u8>, RealSignParticipantIndex>;
+pub type TofnSignOutput = ProtocolOutput<Vec<u8>, SignPartyId>;
 /// tofnd's ProtocolOutput for Sign
 pub type TofndSignOutput = Result<TofnSignOutput, TofndError>;
 
@@ -29,7 +29,7 @@ pub(super) struct Context {
     pub(super) sign_share_counts: Vec<usize>,
     pub(super) tofnd_subindex: usize,
     pub(super) share: ShareSecretInfo,
-    pub(super) sign_parties: Subset<RealKeygenPartyIndex>,
+    pub(super) sign_parties: Subset<KeygenPartyId>,
 }
 
 impl Context {
