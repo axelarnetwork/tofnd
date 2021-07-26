@@ -4,11 +4,14 @@
 
 use super::{
     proto,
-    types::{Context, TofndKeygenOutput},
+    types::{Context, PartyShareCounts, TofndKeygenOutput},
     Gg20Service, ProtocolCommunication,
 };
 
-use tofn::gg20::keygen::new_keygen;
+use tofn::{
+    gg20::keygen::{new_keygen, new_keygen_unsafe, KeygenProtocol},
+    sdk::api::TofnResult,
+};
 
 use crate::gg20::protocol;
 
@@ -16,6 +19,36 @@ use crate::gg20::protocol;
 use tracing::{info, Span};
 
 impl Gg20Service {
+    // allow for users to select whether to use big primes or not
+    async fn new_keygen(
+        &self,
+        party_share_counts: PartyShareCounts,
+        ctx: &Context,
+    ) -> TofnResult<KeygenProtocol> {
+        match self.safe_keygen {
+            true => new_keygen(
+                party_share_counts,
+                ctx.threshold,
+                ctx.tofnd_index,
+                ctx.tofnd_subindex,
+                &self.seed().await.unwrap(),
+                &ctx.nonce(),
+                #[cfg(feature = "malicious")]
+                self.keygen_behaviour.clone(),
+            ),
+            false => new_keygen_unsafe(
+                party_share_counts,
+                ctx.threshold,
+                ctx.tofnd_index,
+                ctx.tofnd_subindex,
+                &self.seed().await.unwrap(),
+                &ctx.nonce(),
+                #[cfg(feature = "malicious")]
+                self.keygen_behaviour.clone(),
+            ),
+        }
+    }
+
     /// create and execute keygen protocol and returning the result.
     /// if the protocol cannot be instantiated, return a TofndError
     pub(super) async fn execute_keygen(
@@ -28,16 +61,8 @@ impl Gg20Service {
         execute_span: Span,
     ) -> TofndKeygenOutput {
         // try to create keygen with context
-        let keygen = match new_keygen(
-            ctx.share_counts()?,
-            ctx.threshold,
-            ctx.tofnd_index,
-            ctx.tofnd_subindex,
-            &self.seed().await.unwrap(),
-            &ctx.nonce(),
-            #[cfg(feature = "malicious")]
-            self.keygen_behaviour.clone(),
-        ) {
+        let party_share_counts = ctx.share_counts()?;
+        let keygen = match self.new_keygen(party_share_counts, &ctx).await {
             Ok(keygen) => keygen,
             Err(_) => {
                 return Err(From::from("keygen instantiation failed"));

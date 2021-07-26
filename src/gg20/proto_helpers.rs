@@ -2,13 +2,13 @@
 
 use tofn::{
     collections::FillVecMap,
-    gg20::{keygen::RealKeygenPartyIndex, sign::RealSignParticipantIndex},
+    gg20::{keygen::KeygenPartyId, sign::SignPartyId},
     sdk::api::Fault,
 };
 
 use crate::proto;
-type KeygenFaults = FillVecMap<RealKeygenPartyIndex, Fault>;
-type SignFaults = FillVecMap<RealSignParticipantIndex, Fault>;
+type KeygenFaults = FillVecMap<KeygenPartyId, Fault>;
+type SignFaults = FillVecMap<SignPartyId, Fault>;
 type KeygenResulData = Result<proto::message_out::keygen_result::KeygenOutput, KeygenFaults>;
 type SignResultData = Result<Vec<u8>, SignFaults>;
 use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;

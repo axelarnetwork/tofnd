@@ -4,7 +4,7 @@ use crate::TofndError;
 
 use tofn::{
     collections::TypedUsize,
-    gg20::keygen::{KeygenPartyShareCounts, RealKeygenPartyIndex, SecretKeyShare},
+    gg20::keygen::{KeygenPartyId, KeygenPartyShareCounts, SecretKeyShare},
     sdk::api::ProtocolOutput,
 };
 
@@ -13,7 +13,7 @@ pub(super) type PartyShareCounts = KeygenPartyShareCounts;
 use tracing::{info, span, Level, Span};
 
 /// tofn's ProtocolOutput for Keygen
-pub type TofnKeygenOutput = ProtocolOutput<SecretKeyShare, RealKeygenPartyIndex>;
+pub type TofnKeygenOutput = ProtocolOutput<SecretKeyShare, KeygenPartyId>;
 /// tofnd's ProtocolOutput for Keygen
 pub type TofndKeygenOutput = Result<TofnKeygenOutput, TofndError>;
 
@@ -54,7 +54,7 @@ pub struct Context {
     pub(super) uids: Vec<String>, // all party uids; alligned with `share_counts`
     pub(super) share_counts: Vec<usize>, // all party share counts; alligned with `uids`
     pub(super) threshold: usize,  // protocol's threshold
-    pub(super) tofnd_index: TypedUsize<RealKeygenPartyIndex>, // tofnd index of party
+    pub(super) tofnd_index: TypedUsize<KeygenPartyId>, // tofnd index of party
     pub(super) tofnd_subindex: usize, // index of party's share
     pub(super) nonce: String,     // session nonce; we use session's uid
 }
