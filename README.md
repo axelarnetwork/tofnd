@@ -37,7 +37,9 @@ Terminate the server with `ctrl+C`.
 The gRPC service is called `GG20`.
 
 ## Run the tests
+![](./docs/keygen.svg)
 
+![](./docs/sign.svg)
 ```
 $ cargo test
 ```
