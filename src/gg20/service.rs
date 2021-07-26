@@ -16,6 +16,7 @@ pub struct Gg20Service {
     pub(super) shares_kv: KeySharesKv,
     pub(super) mnemonic_kv: MnemonicKv,
     pub(super) io: FileIo,
+    pub(super) safe_keygen: bool,
     #[cfg(feature = "malicious")]
     pub(super) keygen_behaviour: KeygenBehaviour,
     #[cfg(feature = "malicious")]
@@ -32,6 +33,7 @@ pub async fn new_service(
         shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
         mnemonic_kv: MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME),
         io: FileIo::new(PathBuf::new()),
+        safe_keygen: false, // use unsafe keygen for tests for sake of time
         #[cfg(feature = "malicious")]
         keygen_behaviour,
         #[cfg(feature = "malicious")]
@@ -74,6 +76,7 @@ pub mod tests {
             shares_kv: KeySharesKv::with_db_name(shares_db_name.to_owned()),
             mnemonic_kv: MnemonicKv::with_db_name(mnemonic_db_name.to_owned()),
             io: FileIo::new(path),
+            safe_keygen: false,
             #[cfg(feature = "malicious")]
             keygen_behaviour,
             #[cfg(feature = "malicious")]
