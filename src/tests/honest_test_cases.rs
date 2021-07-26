@@ -8,25 +8,9 @@ use crate::proto::message_out::CriminalList;
 
 use tracing_test::traced_test; // logs for tests
 
-fn set_up_logs() {
-    use tracing::Level;
-    // set up environment variable for log level
-    // set up an event subscriber for logs
-    tracing_subscriber::fmt()
-        // .with_env_filter("tofnd=info,[Keygen]=info")
-        .with_max_level(Level::DEBUG)
-        // .json()
-        // .with_ansi(atty::is(atty::Stream::Stdout))
-        // .without_time()
-        // .with_target(false)
-        // .with_current_span(false)
-        .init();
-}
-
-// #[traced_test]
+#[traced_test]
 #[tokio::test]
 async fn honest_test_cases() {
-    set_up_logs();
     run_test_cases(&generate_honest_cases()).await;
 }
 

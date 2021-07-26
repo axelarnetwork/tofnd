@@ -57,6 +57,7 @@ impl Gg20Service {
     }
 
     // allow for users to select whether to use big primes or not
+    #[allow(clippy::too_many_arguments)]
     fn recover(
         &self,
         secret_recovery_key: &SecretRecoveryKey,
