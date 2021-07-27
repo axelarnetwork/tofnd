@@ -12,6 +12,7 @@ use tofn::{
     },
     sdk::api::{PartyShareCounts, TofnResult},
 };
+use zeroize::{self, Zeroize};
 
 impl Gg20Service {
     pub(super) async fn handle_recover(
@@ -27,11 +28,10 @@ impl Gg20Service {
             Self::keygen_sanitize_args(keygen_init)?
         };
 
-        // get mnemonic seed
-        let secret_recovery_key = self.seed().await?;
-
         // recover secret key shares from request
         let secret_key_shares = {
+            // get mnemonic seed
+            let mut secret_recovery_key = self.seed().await?;
             let secret_key_shares = self.recover_secret_key_shares(
                 &secret_recovery_key,
                 &request.share_recovery_infos,
@@ -40,6 +40,8 @@ impl Gg20Service {
                 &keygen_init_sanitized.party_share_counts,
                 keygen_init_sanitized.threshold,
             );
+            // TODO: derive zeroize for SecretRecoveryKey in tofn
+            secret_recovery_key.zeroize();
             match secret_key_shares {
                 Ok(secret_key_shares) => secret_key_shares,
                 Err(err) => {
