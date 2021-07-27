@@ -8,7 +8,6 @@ edition = "2018"
 tonic = "0.5"
 tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "main"}
 # tofn = { path = "../tofn" }
-testdir = "0.4.0"
 bincode = {version = "1.2.1", default-features = false}
 sled = {version = "0.34", default-features = false}
 
@@ -41,6 +40,8 @@ tonic-build = {version = "0.5"}
 lazy_static = { version = "1.4", default-features = false}
 # enable logging for tests
 tracing-test = {version = "0.1.0", default-features = false}
+
+testdir = {version = "0.4.0", default-features = false}
 
 [features]
 # when we compile tofnd with malicious build, also use malicious build for tofn
