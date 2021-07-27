@@ -88,7 +88,7 @@ impl Gg20Service {
         }
 
         // 3.
-        // spin up router thread and return immediately
+        // spin up broadcaster thread and return immediately
         let span = sign_span.clone();
         tokio::spawn(async move {
             broadcast_messages(&mut stream_in, sign_senders, span).await;
