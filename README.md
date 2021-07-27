@@ -53,9 +53,9 @@ OPTIONS:
 
 # Mnemonic
 
-Tofnd uses the [tiny-bip39](https://docs.rs/crate/tiny-bip39/0.8.0) crate to enable users manage mnemonic passphrases. Currently, each party can use only one passphrase.
+`Tofnd` uses the [tiny-bip39](https://docs.rs/crate/tiny-bip39/0.8.0) crate to enable users manage mnemonic passphrases. Currently, each party can use only one passphrase.
 
-The mnemonic is used to enable _recovery_ of shares in case of unexpected loss. See more about recovery under the [Recover](#Recover) section.
+Mnemonic is used to enable _recovery_ of shares in case of unexpected loss. See more about recovery under the [Recover](#Recover) section.
 
 ## Mnemonic options
 
@@ -71,18 +71,20 @@ The command line API supports the following commands:
 
 * `Update` updates existing mnemonic from file _./import_; Succeeds when there is an existing mnemonic, fails otherwise. The old passphrase is written to file _./export_.
 
+If an _./export_ file already exists, then a new one is created with a new id, e.g. _./export_2_, _./export_3_, etc.
+
 ## Zeroization
 
 We use the [zeroize](https://docs.rs/zeroize/1.1.1/zeroize/) crate to clear sensitive info for memory as a good procatie. The data we clean are related to the mnemonic:
 1. entropy
 2. passwords
-3. seeds
+3. passphrases
 
 Note that, [tiny-bip39](https://docs.rs/crate/tiny-bip39/0.8.0) also uses `zeroize` internally.
 
 # KV Store
 
-To persist information between different gRPCs (i.e. keygen and sign), we use a key-value storage based on [sled](https://sled.rs/).
+To persist information between different gRPCs (i.e. _keygen_ and _sign_), we use a key-value storage based on [sled](https://sled.rs/).
 
 `Tofnd` uses two separate KV Stores:
 1. `Share KV Store`. Stores all user's shares when `keygen` protocol is completed, and uses them for `sign` protocol. Default path is _./kvstore/shares_.
@@ -108,9 +110,11 @@ Tofnd currently supports the following gRPCs:
 
 ## Diagrams
 
-See a generic protocol sequence diagram, [here](https://github.com/axelarnetwork/tofnd/blob/readme/docs/protocol.pdf)
+**TODO: change links after merge**
 
-See [keygen](https://github.com/axelarnetwork/tofnd/blob/readme/diagrams/keygen.svg) and [sign](https://github.com/axelarnetwork/tofnd/blob/readme/diagrams/keygen.svg) diagrams of detailed message flow of each protocol. By opening the `.svg` files at a new tab (instead of previewing from github), hyperlinks will be available that will point you to the code block in which the underlying operation is implemented.
+See a generic protocol sequence diagram, [here](https://github.com/axelarnetwork/tofnd/blob/readme/diagrams/protocol.pdf).
+
+See [keygen](https://github.com/axelarnetwork/tofnd/blob/readme/diagrams/keygen.svg) and [sign](https://github.com/axelarnetwork/tofnd/blob/readme/diagrams/keygen.svg) diagrams of detailed message flow of each protocol. By opening the `.svg` files at a new tab (instead of previewing from github), hyperlinks will be available that will point you to the code block in which the underlying operations are implemented.
 
 ## Keygen
 The _keygen_ gRPC executes the keygen protocol as implemented in [tofn](https://github.com/axelarnetwork/tofn) and described in [GG20](https://eprint.iacr.org/2020/540.pdf).
@@ -140,26 +144,26 @@ This struct includes:
 1. The information that is needed by the party in order to participate in subsequent _sign_ protocols that are associated with the completed _keygen_.
 2. The `public key` of the current _keygen_.
 
-Since multiple shares per party are supported, _keygen_'s result may produce multiple `SecretKeyShare`s. The collection of `SecretKeyShare`s is stored in the `Share KV Store` as the _value_ with the `session id` as the _key_.
+Since multiple shares per party are supported, _keygen_'s result may produce multiple `SecretKeyShare`s. The collection of `SecretKeyShare`s is stored in the `Share KV Store` as the _value_ with the `key_uid` as _key_.
 
-Each `SecretKeyShare` is then encrypted using the party's `mnemonic`, and the encrypted data is sent to the client as bytes, along with the `public key`. The encrypted `SecretKeyShare`s are sent to facilitate recovery in case of data loss.
+Each `SecretKeyShare` is then encrypted using the party's `mnemonic`, and the encrypted data is sent to the client as bytes, along with the `public key`. We send the encrypted `SecretKeyShare`s to facilitate _recovery_ in case of data loss.
 
 The gRPC message of _keygen_'s data is the following:
 ```
 message KeygenOutput {
     bytes pub_key = 1;                       // pub_key
-    repeated bytes share_recovery_infos = 2; // recovery nfo
+    repeated bytes share_recovery_infos = 2; // recovery info
 }
 ```
 
 ### Unsuccessful keygen
 
-The `tofn` library supports fault detection. That is, if a party does not follow the protocol (e.g. by corrupting zero knowledge proofs, stalling messages etc), the fault detection mechanism is triggered, and the protocol ends prematurely with all honest parties composing a faulter list.
+The `tofn` library supports fault detection. That is, if a party does not follow the protocol (e.g. by corrupting zero knowledge proofs, stalling messages etc), a fault detection mechanism is triggered, and the protocol ends prematurely with all honest parties composing a faulter list.
 
 In this case, instead of the aforementioned result, _keygen_ returns a `Vec<Faulters>`, which is sent over the gRPC stream before closing the connection.
 
 ### File structure
-The _keygen_ protocol is implemented in [tofnd/src/gg20/keygen](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/keygen), which has the following file structure:
+_Keygen_ is implemented in [tofnd/src/gg20/keygen](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/keygen), which has the following file structure:
 
 ```
 ├── keygen
@@ -177,7 +181,7 @@ The _keygen_ protocol is implemented in [tofnd/src/gg20/keygen](https://github.c
 * In `types.rs`, useful structs that are needed in the rest of the modules are defined.
 
 ## Sign
-The sign gRPC executes the sign protocol as implemented in [tofn](https://github.com/axelarnetwork/tofn) and described in [GG20](https://eprint.iacr.org/2020/540.pdf).
+The _sign_ gRPC executes the sign protocol as implemented in [tofn](https://github.com/axelarnetwork/tofn) and described in [GG20](https://eprint.iacr.org/2020/540.pdf).
 
 The initialization of _sign_ is actualized by the following message:
 
