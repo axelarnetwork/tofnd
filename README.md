@@ -104,17 +104,15 @@ For `tofn` support on multiple shares, see [here](https://github.com/axelarnetwo
 Tofnd currently supports the following gRPCs:
 1. `keygen`
 2. `sign`
-3. `recover`.
+3. `recover`
 
 `Keygen` and `sign` use [bidirectional streaming](https://grpc.io/docs/what-is-grpc/core-concepts/#bidirectional-streaming-rpc) and `recover` is [unary](https://grpc.io/docs/what-is-grpc/core-concepts/#bidirectional-streaming-rpc).
 
 ## Diagrams
 
-**TODO: change links after merge**
+See a generic protocol sequence diagram, [here](https://github.com/axelarnetwork/tofnd/blob/recovery-api/diagrams/protocol.pdf).
 
-See a generic protocol sequence diagram, [here](https://github.com/axelarnetwork/tofnd/blob/readme/diagrams/protocol.pdf).
-
-See [keygen](https://github.com/axelarnetwork/tofnd/blob/readme/diagrams/keygen.svg) and [sign](https://github.com/axelarnetwork/tofnd/blob/readme/diagrams/keygen.svg) diagrams of detailed message flow of each protocol. By opening the `.svg` files at a new tab (instead of previewing from github), hyperlinks will be available that will point you to the code block in which the underlying operations are implemented.
+See [keygen](https://github.com/axelarnetwork/tofnd/blob/recovery-api/diagrams/keygen.svg) and [sign](https://github.com/axelarnetwork/tofnd/blob/recovery-api/diagrams/keygen.svg) diagrams of detailed message flow of each protocol. By opening the `.svg` files at a new tab (instead of previewing from github), hyperlinks will be available that will point you to the code block in which the underlying operations are implemented.
 
 ## Keygen
 The _keygen_ gRPC executes the keygen protocol as implemented in [tofn](https://github.com/axelarnetwork/tofn) and described in [GG20](https://eprint.iacr.org/2020/540.pdf).
