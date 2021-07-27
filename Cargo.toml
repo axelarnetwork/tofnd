@@ -41,9 +41,6 @@ tonic-build = "0.5"
 lazy_static = "1.4"
 # enable logging for tests
 tracing-test = "0.1.0"
-# iterate enums
-strum = "0.20"
-strum_macros = "0.20"
 
 [features]
 # when we compile tofnd with malicious build, also use malicious build for tofn
