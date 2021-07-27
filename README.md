@@ -92,7 +92,7 @@ To persist information between different gRPCs (i.e. _keygen_ and _sign_), we us
 
 ## Security
 
-**Important note**: Currently, the `mnemonic KV Store` is **not** encrypted. The mnemonic entropy is stored in clear text on disk.
+**Important note**: Currently, the `mnemonic KV Store` is **not** encrypted. The mnemonic entropy is stored in clear text on disk. Our current security model assumes secure device access.
 
 # Multiple shares
 
