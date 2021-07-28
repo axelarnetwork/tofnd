@@ -63,7 +63,7 @@ The command line API supports the following commands:
 
 * `Noop` does nothing and always succeeds; useful when the container restarts with the same mnemonic.  
 
-* `Create` creates a new mnemonic; Succeeds when there is no other mnemonic already imported, fails otherwise. The new passphrase is written in a file named _./export_.
+* `Create` creates a new mnemonic if there none exists, otherwise does nothing. The new passphrase is written in a file named _./export_.
 
 * `Import` adds a new mnemonic from file _./import_ file; Succeeds when there is no other mnemonic already imported, fails otherwise.
 
@@ -96,7 +96,11 @@ To persist information between different gRPCs (i.e. _keygen_ and _sign_), we us
 
 # Multiple shares
 
-Multiple shares are handled internally. That is, if a party has 3 shares, the `tofnd` binary spawns 3 protocol execution threads, and each thread invokes `tofn` functions independently. At the end of the protocol, the outputs of all 3 party's shares are aggregated and a single result is created and sent to the client. Naturally, the same applies for any number of shares.
+Multiple shares are handled internally. That is, if a party has 3 shares, the `tofnd` binary spawns 3 protocol execution threads, and each thread invokes `tofn` functions independently.
+
+When a message is received from the gRPC client, it is broadcasted to all shares. This is done in the [broadcast](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/broadcast.rs) module.
+
+At the end of the protocol, the outputs of all N party's shares are aggregated and a single result is created and sent to the client. There are separate modules [keygen result](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/keygen/result.rs) and [sign result](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/sign/result.rs) that handles the aggregation results for each protocol.
 
 For `tofn` support on multiple shares, see [here](https://github.com/axelarnetwork/tofn#support-for-multiple-shares-per-party).
 

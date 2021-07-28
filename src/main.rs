@@ -52,7 +52,7 @@ async fn main() -> Result<(), TofndError> {
     warn_for_malicious_build();
 
     #[cfg(feature = "malicious")]
-    let (port, mnemonic_cmd, keygen_behaviour, sign_behaviour) = parse_args()?;
+    let (port, mnemonic_cmd, behaviours) = parse_args()?;
 
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
@@ -67,11 +67,9 @@ async fn main() -> Result<(), TofndError> {
     let my_service = gg20::service::new_service(
         mnemonic_cmd,
         #[cfg(feature = "malicious")]
-        keygen_behaviour,
-        #[cfg(feature = "malicious")]
-        sign_behaviour,
+        behaviours,
     )
-    .await;
+    .await?;
 
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
@@ -88,6 +86,7 @@ fn addr(port: u16) -> SocketAddr {
 }
 
 // graceful shutdown https://hyper.rs/guides/server/graceful-shutdown/
+// can't use Result<> here because `serve_with_incoming_shutdown` expects F: Future<Output = ()>,
 async fn shutdown_signal() {
     // Wait for the CTRL+C signal
     tokio::signal::ctrl_c()

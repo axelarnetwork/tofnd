@@ -8,21 +8,23 @@ use super::{
     Gg20Service, ProtocolCommunication,
 };
 
+use crate::gg20::protocol;
 use tofn::{
-    gg20::keygen::{new_keygen, new_keygen_unsafe, KeygenProtocol},
+    gg20::keygen::{new_keygen, new_keygen_unsafe, KeygenProtocol, SecretRecoveryKey},
     sdk::api::TofnResult,
 };
-
-use crate::gg20::protocol;
 
 // logging
 use tracing::{info, Span};
 
 impl Gg20Service {
-    // allow for users to select whether to use big primes or not
+    /// create a new keygen.
+    /// The field of Gg20Service `safe_keygen` dictates whether the new keygen will use big primes of not
+    /// TODO: support `cfg(feature="unsafe")` in the future instead of matching `gg20.safe_keygen`
     async fn new_keygen(
         &self,
         party_share_counts: PartyShareCounts,
+        seed: &SecretRecoveryKey,
         ctx: &Context,
     ) -> TofnResult<KeygenProtocol> {
         match self.safe_keygen {
@@ -31,20 +33,20 @@ impl Gg20Service {
                 ctx.threshold,
                 ctx.tofnd_index,
                 ctx.tofnd_subindex,
-                &self.seed().await.unwrap(),
+                seed,
                 &ctx.nonce(),
                 #[cfg(feature = "malicious")]
-                self.keygen_behaviour.clone(),
+                self.behaviours.keygen.clone(),
             ),
             false => new_keygen_unsafe(
                 party_share_counts,
                 ctx.threshold,
                 ctx.tofnd_index,
                 ctx.tofnd_subindex,
-                &self.seed().await.unwrap(),
+                &seed,
                 &ctx.nonce(),
                 #[cfg(feature = "malicious")]
-                self.keygen_behaviour.clone(),
+                self.behaviours.keygen.clone(),
             ),
         }
     }
@@ -62,12 +64,10 @@ impl Gg20Service {
     ) -> TofndKeygenOutput {
         // try to create keygen with context
         let party_share_counts = ctx.share_counts()?;
-        let keygen = match self.new_keygen(party_share_counts, &ctx).await {
-            Ok(keygen) => keygen,
-            Err(_) => {
-                return Err(From::from("keygen instantiation failed"));
-            }
-        };
+        let keygen = self
+            .new_keygen(party_share_counts, &self.seed().await?, &ctx)
+            .await
+            .map_err(|_| "keygen instantiation failed".to_string())?;
 
         // execute protocol and wait for completion
         let protocol_result = protocol::execute_protocol(
@@ -79,15 +79,10 @@ impl Gg20Service {
         )
         .await;
 
-        match protocol_result {
-            Ok(res) => {
-                info!("Keygen completed");
-                Ok(res)
-            }
-            Err(err) => Err(From::from(format!(
-                "Keygen was not completed due to error: {}",
-                err,
-            ))),
-        }
+        let res = protocol_result
+            .map_err(|err| format!("Keygen was not completed due to error: {}", err))?;
+
+        info!("Keygen completed");
+        Ok(res)
     }
 }

@@ -13,7 +13,7 @@ use tracing::{error, info, span, warn, Level, Span};
 
 /// Results of routing
 #[derive(Debug, PartialEq)]
-enum RoutingResult {
+enum RoutingStatus {
     Continue { traffic: proto::TrafficIn },
     Stop,
     Skip,
@@ -34,9 +34,9 @@ pub(super) async fn broadcast_messages(
 
         // check incoming message
         let traffic = match open_message(msg_data, span.clone()) {
-            RoutingResult::Continue { traffic } => traffic,
-            RoutingResult::Stop => break,
-            RoutingResult::Skip => continue,
+            RoutingStatus::Continue { traffic } => traffic,
+            RoutingStatus::Stop => break,
+            RoutingStatus::Skip => continue,
         };
 
         // send the message to all channels
@@ -52,7 +52,7 @@ pub(super) async fn broadcast_messages(
 /// [proto::message_in::Data::Abort]      -> return [RoutingResult::Stop]
 /// [proto::message_in::Data::KeygenInit] -> return [RoutingResult::Skip]
 /// [proto::message_in::Data::SignInit]   -> return [RoutingResult::Skip]
-fn open_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> RoutingResult {
+fn open_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> RoutingStatus {
     // start routing span
     let route_span = span!(parent: &span, Level::INFO, "routing");
     let _start = route_span.enter();
@@ -64,7 +64,7 @@ fn open_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> Ro
         Some(msg_result) => msg_result,
         None => {
             info!("Stream closed");
-            return RoutingResult::Stop;
+            return RoutingStatus::Stop;
         }
     };
 
@@ -73,7 +73,7 @@ fn open_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> Ro
         Ok(msg_in) => msg_in.data,
         Err(err) => {
             error!("Stream closed due to error {}", err);
-            return RoutingResult::Stop;
+            return RoutingStatus::Stop;
         }
     };
 
@@ -82,7 +82,7 @@ fn open_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> Ro
         Some(msg_data) => msg_data,
         None => {
             warn!("ignore incoming msg: missing `data` field");
-            return RoutingResult::Skip;
+            return RoutingStatus::Skip;
         }
     };
 
@@ -91,16 +91,16 @@ fn open_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> Ro
         proto::message_in::Data::Traffic(t) => t,
         proto::message_in::Data::Abort(_) => {
             warn!("received abort message");
-            return RoutingResult::Stop;
+            return RoutingStatus::Stop;
         }
         proto::message_in::Data::KeygenInit(_) | proto::message_in::Data::SignInit(_) => {
             warn!("ignore incoming msg: expect `data` to be TrafficIn type");
-            return RoutingResult::Skip;
+            return RoutingStatus::Skip;
         }
     };
 
     // return traffic
-    RoutingResult::Continue { traffic }
+    RoutingStatus::Continue { traffic }
 }
 
 #[cfg(test)]
@@ -109,11 +109,11 @@ mod tests {
 
     struct TestCase {
         message_in: proto::MessageIn,
-        expected_result: RoutingResult,
+        expected_result: RoutingStatus,
     }
 
     impl TestCase {
-        fn new(message_in: proto::MessageIn, expected_result: RoutingResult) -> Self {
+        fn new(message_in: proto::MessageIn, expected_result: RoutingStatus) -> Self {
             TestCase {
                 message_in,
                 expected_result,
@@ -130,25 +130,25 @@ mod tests {
         let test_cases = vec![
             TestCase::new(
                 new_msg_in(proto::message_in::Data::Abort(true)),
-                RoutingResult::Stop,
+                RoutingStatus::Stop,
             ),
             TestCase::new(
                 new_msg_in(proto::message_in::Data::KeygenInit(
                     proto::KeygenInit::default(),
                 )),
-                RoutingResult::Skip,
+                RoutingStatus::Skip,
             ),
             TestCase::new(
                 new_msg_in(proto::message_in::Data::SignInit(proto::SignInit::default())),
-                RoutingResult::Skip,
+                RoutingStatus::Skip,
             ),
             TestCase::new(
                 new_msg_in(proto::message_in::Data::Traffic(proto::TrafficIn::default())),
-                RoutingResult::Continue {
+                RoutingStatus::Continue {
                     traffic: proto::TrafficIn::default(),
                 },
             ),
-            TestCase::new(proto::MessageIn { data: None }, RoutingResult::Skip),
+            TestCase::new(proto::MessageIn { data: None }, RoutingStatus::Skip),
         ];
 
         let span = span!(Level::INFO, "test-span");
@@ -159,9 +159,9 @@ mod tests {
         }
 
         let result = open_message(Some(Err(tonic::Status::ok("test status"))), span.clone());
-        assert_eq!(result, RoutingResult::Stop);
+        assert_eq!(result, RoutingStatus::Stop);
 
         let result = open_message(None, span);
-        assert_eq!(result, RoutingResult::Stop);
+        assert_eq!(result, RoutingStatus::Stop);
     }
 }

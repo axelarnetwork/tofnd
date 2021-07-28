@@ -58,12 +58,9 @@ where
         .await?;
 
         // check if everything was ok this round
-        party = match round.execute_next_round() {
-            Ok(party) => party,
-            Err(_) => {
-                return Err(From::from("Error in tofn::execute_next_round"));
-            }
-        };
+        party = round
+            .execute_next_round()
+            .map_err(|_| "Error in tofn::execute_next_round")?;
     }
 
     match party {
@@ -93,13 +90,15 @@ fn handle_outgoing<F, K, P>(
         let mut p2p_msg_count = 1;
         for (i, p2p) in p2ps_out.iter() {
             // get tofnd index from tofn
-            let tofnd_idx = match round.info().party_share_counts().share_to_party_id(i) {
-                Ok(tofnd_idx) => tofnd_idx,
-                Err(_) => {
+            let tofnd_idx = round
+                .info()
+                .party_share_counts()
+                .share_to_party_id(i)
+                .map_err(|_| {
                     error!("Unable to get tofnd index for party {}", i);
-                    return Err(From::from(""));
-                }
-            };
+                    ""
+                })?;
+
             debug!(
                 "out p2p to [{}] ({}/{})",
                 party_uids[tofnd_idx.as_usize()],
@@ -139,16 +138,18 @@ async fn handle_incoming<F, K, P>(
             round_count
         ));
 
-        // we have to unpeel traffic
+        // unpeel TrafficIn
         let traffic = match traffic {
             Ok(traffic_opt) => match traffic_opt {
                 Some(traffic) => traffic,
                 None => {
+                    // if data is missing, ignore the message,
                     warn!("ignore incoming msg: missing `data` field");
                     continue;
                 }
             },
             Err(_) => {
+                // if channel is closed, stop
                 error!("internal channel closed prematurely");
                 break;
             }
