@@ -32,7 +32,7 @@ impl Gg20Service {
             &ctx.sign_parties,
             &ctx.msg_to_sign(),
             #[cfg(feature = "malicious")]
-            self.sign_behaviour.clone(),
+            self.behaviours.sign.clone(),
         ) {
             Ok(sign) => sign,
             Err(_) => {

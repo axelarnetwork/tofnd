@@ -6,9 +6,7 @@ use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SH
 use std::path::PathBuf;
 
 #[cfg(feature = "malicious")]
-use tofn::gg20::{
-    keygen::malicious::Behaviour as KeygenBehaviour, sign::malicious::Behaviour as SignBehaviour,
-};
+pub mod malicious;
 
 /// Gg20Service
 #[derive(Clone)]
@@ -18,16 +16,13 @@ pub struct Gg20Service {
     pub(super) io: FileIo,
     pub(super) safe_keygen: bool,
     #[cfg(feature = "malicious")]
-    pub(super) keygen_behaviour: KeygenBehaviour,
-    #[cfg(feature = "malicious")]
-    pub(super) sign_behaviour: SignBehaviour,
+    pub(super) behaviours: malicious::Behaviours,
 }
 
 /// create a new Gg20 gRPC server
 pub async fn new_service(
     mnemonic_cmd: Cmd,
-    #[cfg(feature = "malicious")] keygen_behaviour: KeygenBehaviour,
-    #[cfg(feature = "malicious")] sign_behaviour: SignBehaviour,
+    #[cfg(feature = "malicious")] behaviours: malicious::Behaviours,
 ) -> impl proto::gg20_server::Gg20 {
     let mut gg20 = Gg20Service {
         shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
@@ -35,9 +30,7 @@ pub async fn new_service(
         io: FileIo::new(PathBuf::new()),
         safe_keygen: false, // use unsafe keygen for tests for sake of time
         #[cfg(feature = "malicious")]
-        keygen_behaviour,
-        #[cfg(feature = "malicious")]
-        sign_behaviour,
+        behaviours,
     };
 
     gg20.handle_mnemonic(mnemonic_cmd)
@@ -48,10 +41,12 @@ pub async fn new_service(
 
 #[cfg(test)]
 pub mod tests {
-    use super::*;
     use super::{FileIo, Gg20Service, KeySharesKv, MnemonicKv};
     use crate::proto;
     use std::path::PathBuf;
+
+    #[cfg(feature = "malicious")]
+    use super::malicious::Behaviours;
 
     // append a subfolder name to db path.
     // this will allows the creaton of two distict kv stores under 'db_path'
@@ -65,8 +60,7 @@ pub mod tests {
     pub async fn with_db_name(
         db_path: &str,
         mnemonic_cmd: crate::gg20::mnemonic::Cmd,
-        #[cfg(feature = "malicious")] keygen_behaviour: KeygenBehaviour,
-        #[cfg(feature = "malicious")] sign_behaviour: SignBehaviour,
+        #[cfg(feature = "malicious")] behaviours: Behaviours,
     ) -> impl proto::gg20_server::Gg20 {
         let (shares_db_name, mnemonic_db_name) = create_db_names(db_path);
         let mut path = PathBuf::new();
@@ -78,9 +72,7 @@ pub mod tests {
             io: FileIo::new(path),
             safe_keygen: false,
             #[cfg(feature = "malicious")]
-            keygen_behaviour,
-            #[cfg(feature = "malicious")]
-            sign_behaviour,
+            behaviours,
         };
 
         gg20.handle_mnemonic(mnemonic_cmd)

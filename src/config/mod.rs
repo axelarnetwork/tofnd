@@ -40,6 +40,8 @@ pub fn parse_args() -> Result<(u16, Cmd), TofndError> {
 }
 
 #[cfg(feature = "malicious")]
+use super::gg20::service::malicious::Behaviours;
+#[cfg(feature = "malicious")]
 use clap::SubCommand;
 #[cfg(feature = "malicious")]
 use tofn::{
@@ -51,7 +53,7 @@ use tofn::{
 };
 
 #[cfg(feature = "malicious")]
-pub fn parse_args() -> Result<(u16, Cmd, KeygenBehaviour, SignBehaviour), TofndError> {
+pub fn parse_args() -> Result<(u16, Cmd, Behaviours), TofndError> {
     let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
     let default_mnemonic_cmd = "create";
 
@@ -133,9 +135,10 @@ pub fn parse_args() -> Result<(u16, Cmd, KeygenBehaviour, SignBehaviour), TofndE
     }
 
     // TODO: parse keygen malicious types aswell
-    let keygen_behaviour = KeygenBehaviour::R1BadCommit;
-    let sign_behaviour = match_string_to_behaviour(sign_behaviour, victim);
-    Ok((port, mnemonic_cmd, keygen_behaviour, sign_behaviour))
+    let keygen = KeygenBehaviour::R1BadCommit;
+    let sign = match_string_to_behaviour(sign_behaviour, victim);
+    let behaviours = Behaviours { keygen, sign };
+    Ok((port, mnemonic_cmd, behaviours))
 }
 
 #[cfg(feature = "malicious")]

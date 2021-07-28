@@ -34,7 +34,7 @@ impl Gg20Service {
                 seed,
                 &ctx.nonce(),
                 #[cfg(feature = "malicious")]
-                self.keygen_behaviour.clone(),
+                self.behaviours.keygen.clone(),
             ),
             false => new_keygen_unsafe(
                 party_share_counts,
@@ -44,7 +44,7 @@ impl Gg20Service {
                 &seed,
                 &ctx.nonce(),
                 #[cfg(feature = "malicious")]
-                self.keygen_behaviour.clone(),
+                self.behaviours.keygen.clone(),
             ),
         }
     }

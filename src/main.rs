@@ -52,7 +52,7 @@ async fn main() -> Result<(), TofndError> {
     warn_for_malicious_build();
 
     #[cfg(feature = "malicious")]
-    let (port, mnemonic_cmd, keygen_behaviour, sign_behaviour) = parse_args()?;
+    let (port, mnemonic_cmd, behaviours) = parse_args()?;
 
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
@@ -67,9 +67,7 @@ async fn main() -> Result<(), TofndError> {
     let my_service = gg20::service::new_service(
         mnemonic_cmd,
         #[cfg(feature = "malicious")]
-        keygen_behaviour,
-        #[cfg(feature = "malicious")]
-        sign_behaviour,
+        behaviours,
     )
     .await;
 

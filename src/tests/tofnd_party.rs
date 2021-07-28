@@ -15,6 +15,8 @@ use tracing::{info, warn};
 
 #[cfg(feature = "malicious")]
 use super::malicious::PartyMaliciousData;
+#[cfg(feature = "malicious")]
+use gg20::service::malicious::Behaviours;
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -42,11 +44,10 @@ impl TofndParty {
             &db_path,
             mnemonic_cmd,
             #[cfg(feature = "malicious")]
-            #[cfg(feature = "malicious")]
-            init_party.malicious_data.keygen_behaviour.clone(),
-            // TODO: cahnge hard-coded honest
-            #[cfg(feature = "malicious")]
-            init_party.malicious_data.sign_behaviour.clone(),
+            Behaviours {
+                keygen: init_party.malicious_data.keygen_behaviour.clone(),
+                sign: init_party.malicious_data.sign_behaviour.clone(),
+            },
         )
         .await;
 

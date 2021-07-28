@@ -186,6 +186,8 @@ mod tests {
     use tracing_test::traced_test; // logs for tests
 
     #[cfg(feature = "malicious")]
+    use crate::gg20::service::malicious::Behaviours;
+    #[cfg(feature = "malicious")]
     use tofn::gg20::{
         keygen::malicious::Behaviour as KeygenBehaviour,
         sign::malicious::Behaviour as SignBehaviour,
@@ -205,9 +207,10 @@ mod tests {
             io: FileIo::new(testdir),
             safe_keygen: false, // use unsafe keygen for tests for sake of time
             #[cfg(feature = "malicious")]
-            keygen_behaviour: KeygenBehaviour::Honest,
-            #[cfg(feature = "malicious")]
-            sign_behaviour: SignBehaviour::Honest,
+            behaviours: Behaviours {
+                keygen: KeygenBehaviour::Honest,
+                sign: SignBehaviour::Honest,
+            },
         }
     }
 
