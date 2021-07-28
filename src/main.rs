@@ -69,7 +69,7 @@ async fn main() -> Result<(), TofndError> {
         #[cfg(feature = "malicious")]
         behaviours,
     )
-    .await;
+    .await?;
 
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 

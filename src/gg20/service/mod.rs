@@ -3,6 +3,7 @@
 use super::mnemonic::{file_io::FileIo, Cmd};
 use super::proto;
 use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SHARE_KV_NAME};
+use crate::TofndError;
 use std::path::PathBuf;
 
 #[cfg(feature = "malicious")]
@@ -23,7 +24,7 @@ pub struct Gg20Service {
 pub async fn new_service(
     mnemonic_cmd: Cmd,
     #[cfg(feature = "malicious")] behaviours: malicious::Behaviours,
-) -> impl proto::gg20_server::Gg20 {
+) -> Result<impl proto::gg20_server::Gg20, TofndError> {
     let mut gg20 = Gg20Service {
         shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
         mnemonic_kv: MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME),
@@ -33,15 +34,13 @@ pub async fn new_service(
         behaviours,
     };
 
-    gg20.handle_mnemonic(mnemonic_cmd)
-        .await
-        .expect("Unable to complete mnemonic command.");
-    gg20
+    gg20.handle_mnemonic(mnemonic_cmd).await?;
+    Ok(gg20)
 }
 
 #[cfg(test)]
 pub mod tests {
-    use super::{FileIo, Gg20Service, KeySharesKv, MnemonicKv};
+    use super::{FileIo, Gg20Service, KeySharesKv, MnemonicKv, TofndError};
     use crate::proto;
     use std::path::PathBuf;
 
@@ -61,7 +60,7 @@ pub mod tests {
         db_path: &str,
         mnemonic_cmd: crate::gg20::mnemonic::Cmd,
         #[cfg(feature = "malicious")] behaviours: Behaviours,
-    ) -> impl proto::gg20_server::Gg20 {
+    ) -> Result<impl proto::gg20_server::Gg20, TofndError> {
         let (shares_db_name, mnemonic_db_name) = create_db_names(db_path);
         let mut path = PathBuf::new();
         path.push(db_path);
@@ -75,10 +74,8 @@ pub mod tests {
             behaviours,
         };
 
-        gg20.handle_mnemonic(mnemonic_cmd)
-            .await
-            .expect("Unable to complete mnemonic command.");
-        gg20
+        gg20.handle_mnemonic(mnemonic_cmd).await?;
+        Ok(gg20)
     }
 
     pub fn get_db_path(name: &str) -> std::path::PathBuf {

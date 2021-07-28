@@ -55,7 +55,8 @@ impl TofndParty {
                 sign: init_party.malicious_data.sign_behaviour.clone(),
             },
         )
-        .await;
+        .await
+        .expect("unable to create service");
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
