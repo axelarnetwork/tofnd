@@ -96,11 +96,11 @@ To persist information between different gRPCs (i.e. _keygen_ and _sign_), we us
 
 # Multiple shares
 
-Multiple shares are handled internally. That is, if a party has 3 shares, the `tofnd` binary spawns 3 protocol execution threads, and each thread invokes `tofn` functions independently. 
+Multiple shares are handled internally. That is, if a party has 3 shares, the `tofnd` binary spawns 3 protocol execution threads, and each thread invokes `tofn` functions independently.
 
-When a message is receiverd from the gRPC client, it is broadcasted to all shares. This is done in the [broadcast](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/broadcast.rs) module.
+When a message is received from the gRPC client, it is broadcasted to all shares. This is done in the [broadcast](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/broadcast.rs) module.
 
-At the end of the protocol, the outputs of all N party's shares are aggregated and a single result is created and sent to the client. There are separate modules [keygen result](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/keygen/result.rs) and [sign result](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/sign/result.rs) that handles the aggreagation results for each protocol.
+At the end of the protocol, the outputs of all N party's shares are aggregated and a single result is created and sent to the client. There are separate modules [keygen result](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/keygen/result.rs) and [sign result](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/sign/result.rs) that handles the aggregation results for each protocol.
 
 For `tofn` support on multiple shares, see [here](https://github.com/axelarnetwork/tofn#support-for-multiple-shares-per-party).
 

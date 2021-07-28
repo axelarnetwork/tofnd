@@ -138,7 +138,7 @@ async fn handle_incoming<F, K, P>(
             round_count
         ));
 
-        // unpeel trafficIn
+        // unpeel TrafficIn
         let traffic = match traffic {
             Ok(traffic_opt) => match traffic_opt {
                 Some(traffic) => traffic,

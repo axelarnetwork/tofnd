@@ -3,7 +3,7 @@ use clap::{App, Arg};
 
 use crate::gg20::mnemonic::Cmd;
 
-// TODO: examine if using a config file can replace command lines
+// TODO: examine if using a config file can replace commandline args
 
 #[cfg(not(feature = "malicious"))]
 pub fn parse_args() -> Result<(u16, Cmd), TofndError> {
