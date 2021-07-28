@@ -18,7 +18,9 @@ use tofn::{
 use tracing::{info, Span};
 
 impl Gg20Service {
-    // allow for users to select whether to use big primes or not
+    /// create a new keygen.
+    /// The field of Gg20Service `safe_keygen` dictates whether the new keygen will use big primes of not
+    /// TODO: support `cfg(feature="unsafe")` in the future instead of matching `gg20.safe_keygen`
     async fn new_keygen(
         &self,
         party_share_counts: PartyShareCounts,
