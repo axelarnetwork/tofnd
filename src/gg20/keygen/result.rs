@@ -51,7 +51,7 @@ impl Gg20Service {
         for secret_key_share in secret_key_shares.iter() {
             let recovery_info = secret_key_share
                 .recovery_info()
-                .map_err(|_| format!("Unable to get recovery info"))?;
+                .map_err(|_| "Unable to get recovery info".to_string())?;
             share_recovery_infos.push(bincode::serialize(&recovery_info)?);
         }
 

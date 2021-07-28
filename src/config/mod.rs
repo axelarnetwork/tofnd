@@ -149,6 +149,7 @@ fn match_string_to_behaviour(behaviour: &str, victim: usize) -> SignBehaviour {
     // will be added that potentially need different set of arguments.
     // Adjust this as needed to support that.
     match behaviour {
+        "Honest" => Honest,
         "R1BadProof " => R1BadProof { victim },
         "R1BadGammaI" => R1BadGammaI,
         "R2FalseAccusation " => R2FalseAccusation { victim },
@@ -168,6 +169,6 @@ fn match_string_to_behaviour(behaviour: &str, victim: usize) -> SignBehaviour {
         "R6BadProof" => R6BadProof,
         "R6FalseFailRandomizer" => R6FalseFailRandomizer,
         "R7BadSI" => R7BadSI,
-        "Honest" | _ => Honest,
+        _ => Honest,
     }
 }

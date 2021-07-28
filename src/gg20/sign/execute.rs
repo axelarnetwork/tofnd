@@ -34,7 +34,7 @@ impl Gg20Service {
             #[cfg(feature = "malicious")]
             self.behaviours.sign.clone(),
         )
-        .map_err(|_| format!("sign instantiation failed"))?;
+        .map_err(|_| "sign instantiation failed".to_string())?;
 
         // execute protocol and wait for completion
         let protocol_result = protocol::execute_protocol(

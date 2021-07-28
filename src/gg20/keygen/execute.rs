@@ -67,7 +67,7 @@ impl Gg20Service {
         let keygen = self
             .new_keygen(party_share_counts, &self.seed().await?, &ctx)
             .await
-            .map_err(|_| format!("keygen instantiation failed"))?;
+            .map_err(|_| "keygen instantiation failed".to_string())?;
 
         // execute protocol and wait for completion
         let protocol_result = protocol::execute_protocol(
