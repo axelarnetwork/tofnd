@@ -8,12 +8,11 @@ use super::{
     Gg20Service, ProtocolCommunication,
 };
 
+use crate::gg20::protocol;
 use tofn::{
-    gg20::keygen::{new_keygen, new_keygen_unsafe, KeygenProtocol},
+    gg20::keygen::{new_keygen, new_keygen_unsafe, KeygenProtocol, SecretRecoveryKey},
     sdk::api::TofnResult,
 };
-
-use crate::gg20::protocol;
 
 // logging
 use tracing::{info, Span};
@@ -23,6 +22,7 @@ impl Gg20Service {
     async fn new_keygen(
         &self,
         party_share_counts: PartyShareCounts,
+        seed: &SecretRecoveryKey,
         ctx: &Context,
     ) -> TofnResult<KeygenProtocol> {
         match self.safe_keygen {
@@ -31,7 +31,7 @@ impl Gg20Service {
                 ctx.threshold,
                 ctx.tofnd_index,
                 ctx.tofnd_subindex,
-                &self.seed().await.unwrap(),
+                seed,
                 &ctx.nonce(),
                 #[cfg(feature = "malicious")]
                 self.keygen_behaviour.clone(),
@@ -41,7 +41,7 @@ impl Gg20Service {
                 ctx.threshold,
                 ctx.tofnd_index,
                 ctx.tofnd_subindex,
-                &self.seed().await.unwrap(),
+                &seed,
                 &ctx.nonce(),
                 #[cfg(feature = "malicious")]
                 self.keygen_behaviour.clone(),
@@ -62,7 +62,10 @@ impl Gg20Service {
     ) -> TofndKeygenOutput {
         // try to create keygen with context
         let party_share_counts = ctx.share_counts()?;
-        let keygen = match self.new_keygen(party_share_counts, &ctx).await {
+        let keygen = match self
+            .new_keygen(party_share_counts, &self.seed().await?, &ctx)
+            .await
+        {
             Ok(keygen) => keygen,
             Err(_) => {
                 return Err(From::from("keygen instantiation failed"));
