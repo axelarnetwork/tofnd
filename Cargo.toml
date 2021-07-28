@@ -43,6 +43,13 @@ tracing-test = {version = "0.1.0", default-features = false}
 
 testdir = {version = "0.4.0", default-features = false}
 
+# Don't abort in case there is a panic to clean up data
+[profile.dev]
+panic = "unwind"
+
+[profile.release]
+panic = "unwind"
+
 [features]
 # when we compile tofnd with malicious build, also use malicious build for tofn
 malicious = ["tofn/malicious"]
