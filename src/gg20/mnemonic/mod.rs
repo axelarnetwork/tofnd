@@ -91,10 +91,11 @@ impl Gg20Service {
 
     /// Creates a new entropy and delegates 1) insertion to the kv-store, and 2) write to an "export" file
     /// If a mnemonic already exists in the kv store, fall back to that
+    /// TODO: In the future we might want to throw an error here if mnemonic already exists.
     async fn handle_create(&mut self) -> Result<(), TofndError> {
         info!("Creating mnemonic");
         // if we already have a mnemonic in kv-store, use that instead of creating a new one.
-        // we do this to facilitate "create mnemonic" as the default behaviour
+        // we do this to use "create mnemonic" as the default behaviour for now.
         if self.mnemonic_kv.get(MNEMONIC_KEY).await.is_ok() {
             info!("Existing menomonic was found.");
             return Ok(());
