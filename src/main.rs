@@ -86,6 +86,7 @@ fn addr(port: u16) -> SocketAddr {
 }
 
 // graceful shutdown https://hyper.rs/guides/server/graceful-shutdown/
+// can't use Result<> here because `serve_with_incoming_shutdown` expects F: Future<Output = ()>,
 async fn shutdown_signal() {
     // Wait for the CTRL+C signal
     tokio::signal::ctrl_c()
