@@ -2,7 +2,7 @@
 //!
 //! Currently, the API supports the following [Cmd] commands:
 //!     [Cmd::Noop]: does nothing; Always succeeds; useful when the container restarts with the same mnemonic.
-//!     [Cmd::Create]: creates a new mnemonic; Succeeds when there is no other mnemonic already imported, fails otherwise.
+//!     [Cmd::Create]: creates a new mnemonic; Creates a new mnemonic when none is already imported, otherwise does nothing.
 //!     [Cmd::Import]: adds a new mnemonic from "import" file; Succeeds when there is no other mnemonic already imported, fails otherwise.
 //!     [Cmd::Export]: writes the existing mnemonic to a file; Succeeds when there is an existing mnemonic, fails otherwise.
 //!     [Cmd::Update]: updates existing mnemonic from file "import"; Succeeds when there is an existing mnemonic, fails otherwise.
@@ -62,7 +62,7 @@ impl Gg20Service {
     }
 
     /// inserts entropy to the kv-store and writes inserted value to an "export" file.
-    /// takes ownership of entropy to delegate zeroization.
+    /// takes ownership of entropy to delegate zeroization. Don't use `map_err` to make it more readable.
     async fn handle_insert(&mut self, entropy: Entropy) -> Result<(), TofndError> {
         let reservation = self.mnemonic_kv.reserve_key(MNEMONIC_KEY.to_owned()).await;
         match reservation {
@@ -91,10 +91,11 @@ impl Gg20Service {
 
     /// Creates a new entropy and delegates 1) insertion to the kv-store, and 2) write to an "export" file
     /// If a mnemonic already exists in the kv store, fall back to that
+    /// TODO: In the future we might want to throw an error here if mnemonic already exists.
     async fn handle_create(&mut self) -> Result<(), TofndError> {
         info!("Creating mnemonic");
         // if we already have a mnemonic in kv-store, use that instead of creating a new one.
-        // we do this to facilitate "create mnemonic" as the default behaviour
+        // we do this to use "create mnemonic" as the default behaviour for now.
         if self.mnemonic_kv.get(MNEMONIC_KEY).await.is_ok() {
             info!("Existing menomonic was found.");
             return Ok(());
@@ -124,18 +125,14 @@ impl Gg20Service {
         info!("Updating mnemonic");
 
         // try to delete the old mnemonic
-        let deleted_entropy = self.mnemonic_kv.remove(MNEMONIC_KEY).await;
-
-        let deleted_entropy = match deleted_entropy {
-            Ok(entropy) => entropy,
-            Err(err) => {
-                error!("Delete error: {}", err);
-                return Err(err);
-            }
-        };
+        let deleted_entropy = self.mnemonic_kv.remove(MNEMONIC_KEY).await.map_err(|err| {
+            error!("Delete error: {}", err);
+            err
+        })?;
 
         // if succeed, write mnemonic to a new file
         self.io.entropy_to_next_file(deleted_entropy)?;
+
         // insert new mnemonic
         let new_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
         let new_entropy = bip39_from_phrase(new_phrase)?;
@@ -147,18 +144,14 @@ impl Gg20Service {
         info!("Exporting mnemonic");
 
         // try to get mnemonic from kv-store
-        match self.mnemonic_kv.get(MNEMONIC_KEY).await {
-            // if get is ok return success
-            Ok(entropy) => {
-                info!("Mnemonic found in kv store");
-                Ok(self.io.entropy_to_next_file(entropy)?)
-            }
-            // else return failure
-            Err(err) => {
-                error!("Did not find mnemonic in kv store {:?}", err);
-                Err(err)
-            }
-        }
+        let entropy = self.mnemonic_kv.get(MNEMONIC_KEY).await.map_err(|err| {
+            error!("Did not find mnemonic in kv store {:?}", err);
+            err
+        })?;
+
+        // write to file
+        info!("Mnemonic found in kv store");
+        Ok(self.io.entropy_to_next_file(entropy)?)
     }
 }
 
@@ -186,6 +179,8 @@ mod tests {
     use tracing_test::traced_test; // logs for tests
 
     #[cfg(feature = "malicious")]
+    use crate::gg20::service::malicious::Behaviours;
+    #[cfg(feature = "malicious")]
     use tofn::gg20::{
         keygen::malicious::Behaviour as KeygenBehaviour,
         sign::malicious::Behaviour as SignBehaviour,
@@ -205,9 +200,10 @@ mod tests {
             io: FileIo::new(testdir),
             safe_keygen: false, // use unsafe keygen for tests for sake of time
             #[cfg(feature = "malicious")]
-            keygen_behaviour: KeygenBehaviour::Honest,
-            #[cfg(feature = "malicious")]
-            sign_behaviour: SignBehaviour::Honest,
+            behaviours: Behaviours {
+                keygen: KeygenBehaviour::Honest,
+                sign: SignBehaviour::Honest,
+            },
         }
     }
 

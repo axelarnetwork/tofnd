@@ -23,6 +23,8 @@ pub(super) fn bip39_new_w24() -> Entropy {
 /// create a mnemonic from entropy; takes ownership of entropy and zeroizes it afterwards
 pub(super) fn bip39_from_entropy(entropy: Entropy) -> Result<Mnemonic, TofndError> {
     let res = Mnemonic::from_entropy(&entropy.0, DEFAUT_LANG);
+    drop(entropy);
+    // matching feels better than `map_err` here
     match res {
         Ok(mnemonic) => Ok(mnemonic),
         Err(err) => Err(From::from(format!("Invalid entropy: {:?}", err))),
