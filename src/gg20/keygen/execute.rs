@@ -64,15 +64,10 @@ impl Gg20Service {
     ) -> TofndKeygenOutput {
         // try to create keygen with context
         let party_share_counts = ctx.share_counts()?;
-        let keygen = match self
+        let keygen = self
             .new_keygen(party_share_counts, &self.seed().await?, &ctx)
             .await
-        {
-            Ok(keygen) => keygen,
-            Err(_) => {
-                return Err(From::from("keygen instantiation failed"));
-            }
-        };
+            .map_err(|_| format!("keygen instantiation failed"))?;
 
         // execute protocol and wait for completion
         let protocol_result = protocol::execute_protocol(
@@ -84,15 +79,10 @@ impl Gg20Service {
         )
         .await;
 
-        match protocol_result {
-            Ok(res) => {
-                info!("Keygen completed");
-                Ok(res)
-            }
-            Err(err) => Err(From::from(format!(
-                "Keygen was not completed due to error: {}",
-                err,
-            ))),
-        }
+        let res = protocol_result
+            .map_err(|err| format!("Keygen was not completed due to error: {}", err))?;
+
+        info!("Keygen completed");
+        Ok(res)
     }
 }

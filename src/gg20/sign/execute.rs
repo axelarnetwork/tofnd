@@ -26,19 +26,15 @@ impl Gg20Service {
         execute_span: Span,
     ) -> TofndSignOutput {
         // try to create sign with context
-        let sign = match new_sign(
+        let sign = new_sign(
             &ctx.group(),
             &ctx.share,
             &ctx.sign_parties,
             &ctx.msg_to_sign(),
             #[cfg(feature = "malicious")]
             self.behaviours.sign.clone(),
-        ) {
-            Ok(sign) => sign,
-            Err(_) => {
-                return Err(From::from("sign instantiation failed"));
-            }
-        };
+        )
+        .map_err(|_| format!("sign instantiation failed"))?;
 
         // execute protocol and wait for completion
         let protocol_result = protocol::execute_protocol(
@@ -51,15 +47,10 @@ impl Gg20Service {
         )
         .await;
 
-        match protocol_result {
-            Ok(res) => {
-                info!("Sign completed");
-                Ok(res)
-            }
-            Err(err) => Err(From::from(format!(
-                "Sign was not completed due to error: {}",
-                err
-            ))),
-        }
+        let res = protocol_result
+            .map_err(|err| format!("Sign was not completed due to error: {}", err))?;
+
+        info!("Sign completed");
+        Ok(res)
     }
 }

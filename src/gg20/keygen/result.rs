@@ -30,6 +30,7 @@ impl Gg20Service {
         keygen_init: KeygenInitSanitized,
     ) -> Result<(), TofndError> {
         // wait all keygen threads and aggregate results
+        // can't use `map_err` because of `.await` func :(
         let keygen_outputs = match Self::aggregate_keygen_outputs(aggregator_receivers).await {
             Ok(keygen_outputs) => keygen_outputs,
             Err(err) => {
@@ -48,12 +49,9 @@ impl Gg20Service {
         // try to retrieve recovery info from all shares
         let mut share_recovery_infos = vec![];
         for secret_key_share in secret_key_shares.iter() {
-            let recovery_info = match secret_key_share.recovery_info() {
-                Ok(recovery_info) => recovery_info,
-                Err(_) => {
-                    return Err(From::from("Unable to get recovery info"));
-                }
-            };
+            let recovery_info = secret_key_share
+                .recovery_info()
+                .map_err(|_| format!("Unable to get recovery info"))?;
             share_recovery_infos.push(bincode::serialize(&recovery_info)?);
         }
 
@@ -133,6 +131,7 @@ impl Gg20Service {
     }
 
     /// check that all shares returned the same public key
+    // TODO: replace hashmap with a simpler solution, such as using PartialEq
     fn validate_pubkey(
         pub_key_map: std::collections::HashMap<Vec<u8>, i32>,
     ) -> Result<Vec<u8>, TofndError> {
