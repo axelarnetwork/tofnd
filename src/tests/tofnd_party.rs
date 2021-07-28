@@ -1,9 +1,15 @@
+// TODO: To facilitate timeout and disruption tests we need to count incoming messages.
+//       This brings a bunch of functions and counters that are needed only for malicious build
+//       For now, we use `#[allow(allow)]` instead of `#[cfg(feature = "malicious")]` because it
+//       produces less friction in the code. Should implement a beeter solution soon.
+
 use super::{mock::SenderReceiver, Deliverer, InitParty, Party};
 use crate::{
     addr,
     gg20::{self, mnemonic::Cmd},
     proto,
 };
+
 use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
 use std::path::Path;
@@ -98,6 +104,7 @@ impl TofndParty {
 // r2 -> bcast
 // r3 -> bcast + p2ps
 // r4 -> bcast
+#[allow(unused)] // allow unsused traffin in non malicious
 fn keygen_round(msg_count: usize, all_share_counts: usize, my_share_count: usize) -> usize {
     let bcast = 1;
     let p2ps = all_share_counts - 1;
@@ -134,6 +141,7 @@ fn keygen_round(msg_count: usize, all_share_counts: usize, my_share_count: usize
 // r5 -> bcast + p2ps
 // r6 -> bcast
 // r7 -> bcast
+#[allow(unused)] // allow unsused traffin in non malicious
 fn sign_round(msg_count: usize, all_share_counts: usize, my_share_count: usize) -> usize {
     let bcast = 1;
     let p2ps = all_share_counts - 1;
@@ -206,6 +214,7 @@ impl Party for TofndParty {
             .unwrap()
             .into_inner();
 
+        #[allow(unused_variables)]
         let all_share_count = {
             if init.party_share_counts.is_empty() {
                 init.party_uids.len()
@@ -213,6 +222,7 @@ impl Party for TofndParty {
                 init.party_share_counts.iter().sum::<u32>() as usize
             }
         };
+        #[allow(unused_variables)]
         let my_share_count = {
             if init.party_share_counts.is_empty() {
                 1
@@ -228,12 +238,14 @@ impl Party for TofndParty {
             .unwrap();
 
         let mut result: Option<KeygenResult> = None;
+
+        #[allow(unused_variables)]
         let mut msg_count = 1;
         while let Some(msg) = keygen_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
-                #[allow(clippy::unused)] // allow unsused traffin in non malicious
+                #[allow(unused_variables)] // allow unsused traffin in non malicious
                 proto::message_out::Data::Traffic(traffic) => {
                     // in malicous case, if we are stallers we skip the message
                     #[cfg(feature = "malicious")]
@@ -321,7 +333,9 @@ impl Party for TofndParty {
             .into_inner();
 
         // TODO: support multiple shares for sign
+        #[allow(unused_variables)] // allow unsused traffin in non malicious
         let all_share_count = init.party_uids.len();
+        #[allow(unused_variables)] // allow unsused traffin in non malicious
         let my_share_count = 1;
 
         // the first outbound message is sign init info
@@ -333,12 +347,13 @@ impl Party for TofndParty {
 
         // use Option of SignResult to avoid giving a default value to SignResult
         let mut result: Option<SignResult> = None;
+        #[allow(unused_variables)] // allow unsused traffin in non malicious
         let mut msg_count = 1;
         while let Some(msg) = sign_server_outgoing.message().await.unwrap() {
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
-                #[allow(clippy::unused)] // allow unsused traffin in non malicious
+                #[allow(unused_variables)] // allow unsused traffin in non malicious
                 proto::message_out::Data::Traffic(traffic) => {
                     // in malicous case, if we are stallers we skip the message
                     #[cfg(feature = "malicious")]
