@@ -30,8 +30,11 @@ pub fn parse_args() -> Result<(u16, Cmd), TofndError> {
         )
         .get_matches();
 
-    let port = matches.value_of("port").unwrap().parse::<u16>()?;
-    let mnemonic_cmd = matches.value_of("mnemonic").unwrap().to_string();
+    let port = matches
+        .value_of("port")
+        .ok_or("port value")?
+        .parse::<u16>()?;
+    let mnemonic_cmd = matches.value_of("mnemonic").ok_or("cmd value")?.to_string();
     let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
     Ok((port, mnemonic_cmd))
 }
@@ -111,16 +114,22 @@ pub fn parse_args() -> Result<(u16, Cmd, KeygenBehaviour, SignBehaviour), TofndE
         )
         .get_matches();
 
-    let port = matches.value_of("port").unwrap().parse::<u16>()?;
-    let mnemonic_cmd = matches.value_of("mnemonic").unwrap().to_string();
+    let port = matches
+        .value_of("port")
+        .ok_or("port value")?
+        .parse::<u16>()?;
+    let mnemonic_cmd = matches.value_of("mnemonic").ok_or("cmd value")?.to_string();
     let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
 
     // Set a default behaviour
     let mut sign_behaviour = "Honest";
     let mut victim = 0;
     if let Some(matches) = matches.subcommand_matches("malicious") {
-        sign_behaviour = matches.value_of("behaviour").unwrap();
-        victim = matches.value_of("victim").unwrap().parse::<usize>()?;
+        sign_behaviour = matches.value_of("behaviour").ok_or("behaviour value")?;
+        victim = matches
+            .value_of("victim")
+            .ok_or("victim value")?
+            .parse::<usize>()?;
     }
 
     // TODO: parse keygen malicious types aswell
@@ -137,7 +146,6 @@ fn match_string_to_behaviour(behaviour: &str, victim: usize) -> SignBehaviour {
     // will be added that potentially need different set of arguments.
     // Adjust this as needed to support that.
     match behaviour {
-        "Honest" => Honest,
         "R1BadProof " => R1BadProof { victim },
         "R1BadGammaI" => R1BadGammaI,
         "R2FalseAccusation " => R2FalseAccusation { victim },
@@ -157,6 +165,6 @@ fn match_string_to_behaviour(behaviour: &str, victim: usize) -> SignBehaviour {
         "R6BadProof" => R6BadProof,
         "R6FalseFailRandomizer" => R6FalseFailRandomizer,
         "R7BadSI" => R7BadSI,
-        _ => panic!("Unknown behaviour"),
+        "Honest" | _ => Honest,
     }
 }
