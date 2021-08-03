@@ -36,11 +36,9 @@ impl proto::MessageOut {
             })),
         }
     }
-    pub(super) fn need_recover(session_id: String) -> Self {
+    pub(super) fn need_recover() -> Self {
         proto::MessageOut {
-            data: Some(proto::message_out::Data::NeedRecover(
-                proto::message_out::NeedRecover { session_id },
-            )),
+            data: Some(proto::message_out::Data::NeedRecover(true)),
         }
     }
 
