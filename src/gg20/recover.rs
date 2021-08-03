@@ -36,7 +36,7 @@ impl Gg20Service {
                 &secret_recovery_key,
                 &request.share_recovery_infos,
                 keygen_init_sanitized.my_index,
-                &keygen_init_sanitized.new_key_uid.as_bytes(),
+                keygen_init_sanitized.new_key_uid.as_bytes(),
                 &keygen_init_sanitized.party_share_counts,
                 keygen_init_sanitized.threshold,
             )
@@ -123,8 +123,8 @@ impl Gg20Service {
         let mut secret_key_shares = Vec::with_capacity(*my_share_count);
         for i in 0..*my_share_count {
             secret_key_shares.push(self.recover(
-                &secret_recovery_key,
-                &session_nonce,
+                secret_recovery_key,
+                session_nonce,
                 &deserialized_share_recovery_infos,
                 TypedUsize::from_usize(my_tofnd_index),
                 i,

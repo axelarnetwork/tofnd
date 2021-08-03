@@ -34,7 +34,7 @@ impl Gg20Service {
                 ctx.tofnd_index,
                 ctx.tofnd_subindex,
                 seed,
-                &ctx.nonce(),
+                ctx.nonce(),
                 #[cfg(feature = "malicious")]
                 self.behaviours.keygen.clone(),
             ),
@@ -43,8 +43,8 @@ impl Gg20Service {
                 ctx.threshold,
                 ctx.tofnd_index,
                 ctx.tofnd_subindex,
-                &seed,
-                &ctx.nonce(),
+                seed,
+                ctx.nonce(),
                 #[cfg(feature = "malicious")]
                 self.behaviours.keygen.clone(),
             ),
@@ -65,7 +65,7 @@ impl Gg20Service {
         // try to create keygen with context
         let party_share_counts = ctx.share_counts()?;
         let keygen = self
-            .new_keygen(party_share_counts, &self.seed().await?, &ctx)
+            .new_keygen(party_share_counts, &self.seed().await?, ctx)
             .await
             .map_err(|_| "keygen instantiation failed".to_string())?;
 

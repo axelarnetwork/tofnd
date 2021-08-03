@@ -228,7 +228,7 @@ async fn init_party(
 
     // assume party already has a mnemonic, so we pass Cmd::Noop
     party_options[party_index] =
-        Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, &testdir).await);
+        Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, testdir).await);
 
     party_options
         .into_iter()
@@ -252,7 +252,7 @@ async fn init_parties_from_test_case(
         #[cfg(feature = "malicious")]
         &test_case.malicious_data,
     );
-    init_parties(&init_parties_t, &dir).await
+    init_parties(&init_parties_t, dir).await
 }
 
 // keygen wrapper
@@ -286,7 +286,7 @@ async fn basic_keygen(
     )
     .await;
 
-    let success = successful_keygen_results(results.clone(), &expected_keygen_faults);
+    let success = successful_keygen_results(results.clone(), expected_keygen_faults);
     (parties, keygen_init, results, success)
 }
 
@@ -312,7 +312,7 @@ async fn restart_party(
         party_index,
         dir,
         #[cfg(feature = "malicious")]
-        &malicious_data,
+        malicious_data,
     )
     .await;
     parties
@@ -349,7 +349,7 @@ async fn basic_keygen_and_sign(
     let parties = match restart {
         true => {
             restart_party(
-                &dir,
+                dir,
                 parties,
                 test_case.signer_indices[0],
                 delete_shares,
@@ -394,7 +394,7 @@ async fn basic_keygen_and_sign(
         expect_timeout,
     )
     .await;
-    check_sign_results(results, &expected_sign_faults);
+    check_sign_results(results, expected_sign_faults);
 
     clean_up(parties).await;
 }
@@ -543,7 +543,7 @@ async fn execute_keygen(
 ) -> (Vec<TofndParty>, Vec<KeygenResult>, proto::KeygenInit) {
     info!("Expecting timeout: [{}]", expect_timeout);
     let share_count = parties.len();
-    let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(&party_uids);
+    let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(party_uids);
     let mut keygen_join_handles = Vec::with_capacity(share_count);
     for (i, (mut party, channel_pair)) in parties
         .into_iter()
