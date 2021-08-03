@@ -37,19 +37,13 @@ where
         round_count += 1;
 
         // handle outgoing traffic
-        handle_outgoing(
-            &chans.sender,
-            &round,
-            &party_uids,
-            round_count,
-            span.clone(),
-        )?;
+        handle_outgoing(&chans.sender, &round, party_uids, round_count, span.clone())?;
 
         // collect incoming traffic
         handle_incoming(
             &mut chans.receiver,
             &mut round,
-            &party_uids,
+            party_uids,
             total_round_p2p_msgs,
             total_num_of_shares,
             round_count,

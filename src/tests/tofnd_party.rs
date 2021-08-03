@@ -47,7 +47,7 @@ impl TofndParty {
 
         // start service with respect to the current build
         let my_service = gg20::service::tests::with_db_name(
-            &db_path,
+            db_path,
             mnemonic_cmd,
             #[cfg(feature = "malicious")]
             Behaviours {
@@ -370,10 +370,10 @@ impl Party for TofndParty {
                             t.payload = traffic.payload[0..traffic.payload.len() / 2].to_vec();
                             let mut m = msg.clone();
                             m.data = Some(proto::message_out::Data::Traffic(t));
-                            delivery.deliver(&m, &my_uid);
+                            delivery.deliver(&m, my_uid);
                         }
                     }
-                    delivery.deliver(&msg, &my_uid);
+                    delivery.deliver(&msg, my_uid);
                 }
                 proto::message_out::Data::SignResult(res) => {
                     result = Some(res.clone());
