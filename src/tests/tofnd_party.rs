@@ -312,6 +312,9 @@ impl Party for TofndParty {
             Some(proto::recover_response::Response::Fail) => {
                 warn!("Got fail from recover")
             }
+            Some(proto::recover_response::Response::Unspecified) => {
+                panic!("Unspecified recovery response. Expecting Success/Fail")
+            }
             None => {
                 panic!("Invalid recovery response. Could not convert i32 to enum")
             }
