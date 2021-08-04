@@ -48,7 +48,7 @@ where
         self.sender.send(ReserveKey { key, resp: resp_tx })?;
         resp_rx.await?
     }
-    pub async fn unreserve_key(&mut self, reservation: KeyReservation) {
+    pub async fn unreserve_key(&self, reservation: KeyReservation) {
         let _ = self.sender.send(UnreserveKey { reservation });
     }
     pub async fn put(
