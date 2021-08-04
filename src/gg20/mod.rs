@@ -16,11 +16,11 @@ use tracing::{error, info, span, Level};
 
 // gRPC
 mod broadcast;
+mod key_presence;
 mod keygen;
 pub mod mnemonic;
 mod protocol;
 mod recover;
-mod key_presence;
 pub mod service;
 mod sign;
 pub mod types;
@@ -36,7 +36,7 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         &self,
         request: tonic::Request<proto::RecoverRequest>,
     ) -> Result<Response<proto::RecoverResponse>, Status> {
-        let request = request.into_inner(); 
+        let request = request.into_inner();
 
         let mut gg20 = self.clone();
 
@@ -71,7 +71,7 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
             Ok(res) => {
                 info!("Key presence check completed succesfully!");
                 res
-            },
+            }
             Err(err) => {
                 error!("Unable to complete key presence check: {}", err);
                 proto::key_presence_response::Response::Fail

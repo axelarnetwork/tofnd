@@ -7,7 +7,6 @@ use crate::TofndError;
 use tracing::info;
 use zeroize::{self, Zeroize};
 
-
 impl Gg20Service {
     pub(super) async fn handle_key_presence(
         &mut self,
@@ -25,11 +24,17 @@ impl Gg20Service {
         // try to get party info related to session id
         match self.shares_kv.get(&request.key_uid).await {
             Ok(_) => {
-                info!("Found session-id {} in kv store during key presence check", request.key_uid);
+                info!(
+                    "Found session-id {} in kv store during key presence check",
+                    request.key_uid
+                );
                 Ok(proto::key_presence_response::Response::Present)
-            },
+            }
             Err(_) => {
-                info!("Did not find session-id {} in kv store during key presence check", request.key_uid);
+                info!(
+                    "Did not find session-id {} in kv store during key presence check",
+                    request.key_uid
+                );
                 Ok(proto::key_presence_response::Response::Absent)
             }
         }
