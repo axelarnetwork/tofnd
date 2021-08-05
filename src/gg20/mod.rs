@@ -16,6 +16,7 @@ use tracing::{error, info, span, Level};
 
 // gRPC
 mod broadcast;
+mod key_presence;
 mod keygen;
 pub mod mnemonic;
 mod protocol;
@@ -53,6 +54,31 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
 
         Ok(Response::new(proto::RecoverResponse {
             // the prost way to convert enums to i32 https://github.com/danburkert/prost#enumerations
+            response: response as i32,
+        }))
+    }
+
+    /// KeyPresence unary gRPC. See [key_presence].
+    async fn key_presence(
+        &self,
+        request: tonic::Request<proto::KeyPresenceRequest>,
+    ) -> Result<Response<proto::KeyPresenceResponse>, Status> {
+        let request = request.into_inner();
+
+        let mut gg20 = self.clone();
+
+        let response = match gg20.handle_key_presence(request).await {
+            Ok(res) => {
+                info!("Key presence check completed succesfully!");
+                res
+            }
+            Err(err) => {
+                error!("Unable to complete key presence check: {}", err);
+                proto::key_presence_response::Response::Fail
+            }
+        };
+
+        Ok(Response::new(proto::KeyPresenceResponse {
             response: response as i32,
         }))
     }

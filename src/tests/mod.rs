@@ -296,6 +296,7 @@ async fn restart_party(
     parties: Vec<TofndParty>,
     party_index: usize,
     delete_shares: bool,
+    key_uid: String,
     #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
 ) -> Vec<TofndParty> {
     // shutdown party with party_index
@@ -307,7 +308,7 @@ async fn restart_party(
     }
 
     // reinit party with
-    let parties = init_party(
+    let mut parties = init_party(
         party_options,
         party_index,
         dir,
@@ -315,6 +316,17 @@ async fn restart_party(
         malicious_data,
     )
     .await;
+
+    if delete_shares {
+        // Check that session for the party doing recovery is absent in kvstore
+        let is_key_present = parties[party_index].execute_key_presence(key_uid).await;
+
+        assert!(
+            !is_key_present,
+            "Expected session to be absent after a restart"
+        );
+    }
+
     parties
 }
 
@@ -336,6 +348,9 @@ async fn basic_keygen_and_sign(
     // use test case params to create parties
     let (parties, party_uids) = init_parties_from_test_case(test_case, dir).await;
 
+    // Check that the session is not present in the kvstore
+    let parties = execute_key_presence(parties, new_key_uid.into(), false).await;
+
     // execute keygen and return everything that will be needed later on
     let (parties, keygen_init, keygen_results, success) =
         basic_keygen(test_case, parties, party_uids.clone(), new_key_uid).await;
@@ -345,6 +360,9 @@ async fn basic_keygen_and_sign(
         return;
     }
 
+    // Check that the session is present in the kvstore
+    let parties = execute_key_presence(parties, new_key_uid.into(), true).await;
+
     // restart party if restart is enabled and return new parties' set
     let parties = match restart {
         true => {
@@ -353,6 +371,7 @@ async fn basic_keygen_and_sign(
                 parties,
                 test_case.signer_indices[0],
                 delete_shares,
+                keygen_init.new_key_uid.clone(),
                 #[cfg(feature = "malicious")]
                 &test_case.malicious_data,
             )
@@ -381,6 +400,9 @@ async fn basic_keygen_and_sign(
     let expect_timeout = false;
     #[cfg(feature = "malicious")]
     let expect_timeout = test_case.malicious_data.sign_data.timeout.is_some();
+
+    // Check that the session is present in the kvstore
+    let parties = execute_key_presence(parties, new_key_uid.into(), true).await;
 
     // execute sign
     let new_sig_uid = "Gus-test-sig";
@@ -588,6 +610,40 @@ async fn execute_keygen(
     (parties, results, init)
 }
 
+async fn execute_key_presence(
+    parties: Vec<TofndParty>,
+    key_uid: String,
+    expected_key_present: bool,
+) -> Vec<TofndParty> {
+    let mut handles = Vec::new();
+
+    for mut party in parties {
+        let key_uid = key_uid.clone();
+
+        let handle = tokio::spawn(async move {
+            let res = party.execute_key_presence(key_uid).await;
+            (party, res)
+        });
+
+        handles.push(handle);
+    }
+
+    let mut parties = Vec::new();
+
+    for handle in handles {
+        let (party, is_key_present) = handle.await.unwrap();
+        assert_eq!(
+            is_key_present, expected_key_present,
+            "Key presence expected to be {} but observed {}",
+            expected_key_present, is_key_present
+        );
+
+        parties.push(party);
+    }
+
+    parties
+}
+
 async fn execute_recover(
     mut parties: Vec<TofndParty>,
     recover_party_index: usize,
@@ -595,10 +651,23 @@ async fn execute_recover(
     recovery_infos: Vec<Vec<u8>>,
 ) -> Vec<TofndParty> {
     // create keygen init for recovered party
+    let key_uid = keygen_init.new_key_uid.clone();
+
     keygen_init.my_party_index = recover_party_index as i32;
     parties[recover_party_index]
         .execute_recover(keygen_init, recovery_infos)
         .await;
+
+    // Check that session for the party doing recovery is absent in kvstore
+    let is_key_present = parties[recover_party_index]
+        .execute_key_presence(key_uid)
+        .await;
+
+    assert!(
+        is_key_present,
+        "Expected session to be present after a recovery"
+    );
+
     parties
 }
 
