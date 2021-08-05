@@ -44,7 +44,7 @@ impl Gg20Service {
             Err(err) => {
                 // if no such session id exists, send a message to client that indicates that recovery is needed and stop sign
                 error!("Unable to find session-id {} in kv store. Issuing share recovery and exit sign {:?}", sign_init.key_uid, err);
-                Self::send_kv_store_failure(&sign_init.key_uid, &mut out_stream)?;
+                Self::send_kv_store_failure(&mut out_stream)?;
                 return Err(err);
             }
         };
@@ -60,10 +60,9 @@ impl Gg20Service {
 
     /// send "need recover" message to client
     fn send_kv_store_failure(
-        session_id: &str,
         out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     ) -> Result<(), TofndError> {
-        Ok(out_stream.send(Ok(proto::MessageOut::need_recover(session_id.to_owned())))?)
+        Ok(out_stream.send(Ok(proto::MessageOut::need_recover()))?)
     }
 
     /// sanitize arguments of incoming message.

@@ -312,6 +312,9 @@ impl Party for TofndParty {
             Some(proto::recover_response::Response::Fail) => {
                 warn!("Got fail from recover")
             }
+            Some(proto::recover_response::Response::Unspecified) => {
+                panic!("Unspecified recovery response. Expecting Success/Fail")
+            }
             None => {
                 panic!("Invalid recovery response. Could not convert i32 to enum")
             }
@@ -380,11 +383,8 @@ impl Party for TofndParty {
                     info!("party [{}] sign finished!", my_uid);
                     break;
                 }
-                proto::message_out::Data::NeedRecover(res) => {
-                    info!(
-                        "party [{}] needs recover for session [{}]",
-                        my_uid, res.session_id
-                    );
+                proto::message_out::Data::NeedRecover(_) => {
+                    info!("party [{}] needs recover", my_uid);
                     // when recovery is needed, sign is canceled. We abort the protocol manualy instead of waiting parties to time out
                     // no worries that we don't wait for enough time, we will not be checking criminals in this case
                     delivery.send_timeouts(0);
