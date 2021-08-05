@@ -18,9 +18,6 @@ impl Gg20Service {
         // TODO: derive zeroize for SecretRecoveryKey in tofn
         secret_recovery_key.zeroize();
 
-        // TODO: Reserve a dummy key to test kv store
-        // let reservation = self.shares_kv.reserve_key("dummy".into()).await?;
-
         // try to get party info related to session id
         match self.shares_kv.get(&request.key_uid).await {
             Ok(_) => {

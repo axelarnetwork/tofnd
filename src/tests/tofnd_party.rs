@@ -321,6 +321,32 @@ impl Party for TofndParty {
         }
     }
 
+    async fn execute_key_presence(&mut self, key_uid: String) -> bool {
+        let key_presence_request = proto::KeyPresenceRequest { key_uid };
+
+        let response = self
+            .client
+            .key_presence(Request::new(key_presence_request))
+            .await
+            .unwrap()
+            .into_inner();
+
+        // prost way to convert i32 to enums https://github.com/danburkert/prost#enumerations
+        match proto::key_presence_response::Response::from_i32(response.response) {
+            Some(proto::key_presence_response::Response::Present) => true,
+            Some(proto::key_presence_response::Response::Absent) => false,
+            Some(proto::key_presence_response::Response::Fail) => {
+                panic!("key presence request failed")
+            }
+            Some(proto::key_presence_response::Response::Unspecified) => {
+                panic!("Unspecified key presence response")
+            }
+            None => {
+                panic!("Invalid key presence response. Could not convert i32 to enum")
+            }
+        }
+    }
+
     async fn execute_sign(
         &mut self,
         init: proto::SignInit,
