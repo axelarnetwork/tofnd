@@ -360,7 +360,7 @@ async fn basic_keygen_and_sign(
         return;
     }
 
-    // Check that the session is not present in the kvstore
+    // Check that the session is present in the kvstore
     let parties = execute_key_presence(parties, new_key_uid.into(), true).await;
 
     // restart party if restart is enabled and return new parties' set
@@ -401,7 +401,7 @@ async fn basic_keygen_and_sign(
     #[cfg(feature = "malicious")]
     let expect_timeout = test_case.malicious_data.sign_data.timeout.is_some();
 
-    // Check that the session is not present in the kvstore
+    // Check that the session is present in the kvstore
     let parties = execute_key_presence(parties, new_key_uid.into(), true).await;
 
     // execute sign
