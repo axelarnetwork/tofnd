@@ -5,7 +5,6 @@
 use super::{proto, service::Gg20Service};
 use crate::TofndError;
 use tracing::info;
-use zeroize::{self, Zeroize};
 
 impl Gg20Service {
     pub(super) async fn handle_key_presence(
@@ -13,10 +12,9 @@ impl Gg20Service {
         request: proto::KeyPresenceRequest,
     ) -> Result<proto::key_presence_response::Response, TofndError> {
         // check if mnemonic is available
-        let mut secret_recovery_key = self.seed().await?;
+        let secret_recovery_key = self.seed().await?;
 
-        // TODO: derive zeroize for SecretRecoveryKey in tofn
-        secret_recovery_key.zeroize();
+        drop(secret_recovery_key);
 
         // try to get party info related to session id
         match self.shares_kv.get(&request.key_uid).await {

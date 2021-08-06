@@ -29,7 +29,7 @@ pub async fn new_service(
         shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
         mnemonic_kv: MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME),
         io: FileIo::new(PathBuf::new()),
-        safe_keygen: false, // use unsafe keygen for tests for sake of time
+        safe_keygen: true,
         #[cfg(feature = "malicious")]
         behaviours,
     };
