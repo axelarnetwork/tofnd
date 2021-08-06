@@ -4,7 +4,9 @@ use crate::TofndError;
 
 use tofn::{
     collections::TypedUsize,
-    gg20::keygen::{KeygenPartyId, KeygenPartyShareCounts, SecretKeyShare},
+    gg20::keygen::{
+        KeygenPartyId, KeygenPartyShareCounts, PartyKeyPair, PartyZkSetup, SecretKeyShare,
+    },
     sdk::api::ProtocolOutput,
 };
 
@@ -56,14 +58,18 @@ pub struct Context {
     pub(super) threshold: usize,  // protocol's threshold
     pub(super) tofnd_index: TypedUsize<KeygenPartyId>, // tofnd index of party
     pub(super) tofnd_subindex: usize, // index of party's share
-    pub(super) nonce: String,     // session nonce; we use session's uid
+    pub(super) party_keypair: PartyKeyPair,
+    pub(super) party_zksetup: PartyZkSetup,
 }
+
 impl Context {
     /// create a new Context
     pub fn new(
         keygen_init: &KeygenInitSanitized,
         tofnd_index: usize,
         tofnd_subindex: usize,
+        party_keypair: PartyKeyPair,
+        party_zksetup: PartyZkSetup,
     ) -> Self {
         let tofnd_index = TypedUsize::from_usize(tofnd_index);
         Context {
@@ -72,7 +78,8 @@ impl Context {
             threshold: keygen_init.threshold,
             tofnd_index,
             tofnd_subindex,
-            nonce: keygen_init.new_key_uid.clone(),
+            party_keypair,
+            party_zksetup,
         }
     }
 
@@ -84,16 +91,10 @@ impl Context {
         }
     }
 
-    /// return `nonce` field as bytes
-    pub fn nonce(&self) -> &[u8] {
-        self.nonce.as_bytes()
-    }
-
     /// export state; used for logging
     pub fn log_info(&self) -> String {
         format!(
-            "[{}] [uid:{}, share:{}/{}]",
-            self.nonce,
+            "[uid:{}, share:{}/{}]",
             self.uids[self.tofnd_index.as_usize()],
             self.tofnd_subindex + 1,
             self.share_counts[self.tofnd_index.as_usize()]

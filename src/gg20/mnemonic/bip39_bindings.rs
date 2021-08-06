@@ -22,10 +22,8 @@ pub(super) fn bip39_new_w24() -> Entropy {
 
 /// create a mnemonic from entropy; takes ownership of entropy and zeroizes it afterwards
 pub(super) fn bip39_from_entropy(entropy: Entropy) -> Result<Mnemonic, TofndError> {
-    let res = Mnemonic::from_entropy(&entropy.0, DEFAUT_LANG);
-    drop(entropy);
     // matching feels better than `map_err` here
-    match res {
+    match Mnemonic::from_entropy(&entropy.0, DEFAUT_LANG) {
         Ok(mnemonic) => Ok(mnemonic),
         Err(err) => Err(From::from(format!("Invalid entropy: {:?}", err))),
     }
@@ -34,9 +32,7 @@ pub(super) fn bip39_from_entropy(entropy: Entropy) -> Result<Mnemonic, TofndErro
 /// create a mnemonic from entropy
 /// takes ownership of phrase and zeroizes it
 pub(super) fn bip39_from_phrase(phrase: Password) -> Result<Entropy, TofndError> {
-    let res = Mnemonic::from_phrase(&phrase.0, DEFAUT_LANG);
-    drop(phrase);
-    match res {
+    match Mnemonic::from_phrase(&phrase.0, DEFAUT_LANG) {
         Ok(mnemonic) => Ok(Entropy(mnemonic.entropy().to_owned())),
         Err(err) => Err(From::from(format!("Invalid entropy: {:?}", err))),
     }
@@ -52,7 +48,6 @@ pub(super) fn bip39_seed(entropy: Entropy, password: Password) -> Result<Seed, T
             err
         ))),
     };
-    drop(password);
     res
 }
 
@@ -65,12 +60,10 @@ pub mod tests {
 
     /// create a mnemonic from entropy; takes ownership of entropy and zeroizes it after
     pub fn bip39_to_phrase(entropy: Entropy) -> Result<Password, TofndError> {
-        let res = match Mnemonic::from_entropy(&entropy.0, DEFAUT_LANG) {
+        match Mnemonic::from_entropy(&entropy.0, DEFAUT_LANG) {
             Ok(mnemonic) => Ok(Password(mnemonic.phrase().to_owned())),
             Err(err) => Err(From::from(format!("Invalid entropy: {:?}", err))),
-        };
-        drop(entropy);
-        res
+        }
     }
 
     #[traced_test]

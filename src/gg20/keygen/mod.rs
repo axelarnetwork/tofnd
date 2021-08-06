@@ -21,6 +21,10 @@ use crate::TofndError;
 
 use tonic::Status;
 
+use tofn::gg20::keygen::{
+    create_party_keypair_and_zksetup, create_party_keypair_and_zksetup_unsafe,
+};
+
 // tonic cruft
 use tokio::sync::{mpsc, oneshot};
 
@@ -60,6 +64,15 @@ impl Gg20Service {
         let mut keygen_senders = Vec::with_capacity(my_share_count);
         let mut aggregator_receivers = Vec::with_capacity(my_share_count);
 
+        let secret_recovery_key = self.seed().await?;
+        let session_nonce = keygen_init.new_key_uid.as_bytes();
+
+        let (party_keypair, party_zksetup) = match self.safe_keygen {
+            true => create_party_keypair_and_zksetup(&secret_recovery_key, session_nonce),
+            false => create_party_keypair_and_zksetup_unsafe(&secret_recovery_key, session_nonce),
+        }
+        .map_err(|_| "Party keypair generation failed".to_string())?;
+
         for my_tofnd_subindex in 0..my_share_count {
             // channels for communication between router (sender) and protocol threads (receivers)
             let (keygen_sender, keygen_receiver) = mpsc::unbounded_channel();
@@ -71,7 +84,13 @@ impl Gg20Service {
             // wrap channels needed by internal threads; receiver chan for router and sender chan gRPC stream
             let chans = ProtocolCommunication::new(keygen_receiver, stream_out_sender.clone());
             // wrap all context data needed for each thread
-            let ctx = Context::new(&keygen_init, keygen_init.my_index, my_tofnd_subindex);
+            let ctx = Context::new(
+                &keygen_init,
+                keygen_init.my_index,
+                my_tofnd_subindex,
+                party_keypair.clone(),
+                party_zksetup.clone(),
+            );
             // clone gg20 service because tokio thread takes ownership
             let gg20 = self.clone();
 
@@ -83,7 +102,7 @@ impl Gg20Service {
             // spawn keygen thread and continue immediately
             tokio::spawn(async move {
                 // wait for keygen's result inside thread
-                let secret_key_share = gg20.execute_keygen(chans, &ctx, execute_span.clone()).await;
+                let secret_key_share = gg20.execute_keygen(chans, &ctx, execute_span).await;
                 // send result to aggregator
                 let _ = aggregator_sender.send(secret_key_share);
             });

@@ -7,12 +7,11 @@ use crate::TofndError;
 use tofn::{
     collections::TypedUsize,
     gg20::keygen::{
-        KeyShareRecoveryInfo, KeygenPartyId, KeygenPartyShareCounts, SecretKeyShare,
-        SecretRecoveryKey,
+        recover_party_keypair, recover_party_keypair_unsafe, KeyShareRecoveryInfo, KeygenPartyId,
+        KeygenPartyShareCounts, PartyKeyPair, SecretKeyShare, SecretRecoveryKey,
     },
     sdk::api::PartyShareCounts,
 };
-use zeroize::{self, Zeroize};
 
 impl Gg20Service {
     pub(super) async fn handle_recover(
@@ -30,7 +29,7 @@ impl Gg20Service {
 
         // recover secret key shares from request
         // get mnemonic seed
-        let mut secret_recovery_key = self.seed().await?;
+        let secret_recovery_key = self.seed().await?;
         let secret_key_shares = self
             .recover_secret_key_shares(
                 &secret_recovery_key,
@@ -42,9 +41,6 @@ impl Gg20Service {
             )
             .map_err(|err| format!("Failed to acquire secret key share {}", err))?;
 
-        // TODO: derive zeroize for SecretRecoveryKey in tofn
-        secret_recovery_key.zeroize();
-
         Ok(self
             .update_share_kv_store(keygen_init_sanitized, secret_key_shares)
             .await?)
@@ -54,34 +50,21 @@ impl Gg20Service {
     #[allow(clippy::too_many_arguments)]
     fn recover(
         &self,
-        secret_recovery_key: &SecretRecoveryKey,
-        session_nonce: &[u8],
+        party_keypair: &PartyKeyPair,
         recovery_infos: &[KeyShareRecoveryInfo],
         party_id: TypedUsize<KeygenPartyId>,
         subshare_id: usize, // in 0..party_share_counts[party_id]
         party_share_counts: KeygenPartyShareCounts,
         threshold: usize,
     ) -> Result<SecretKeyShare, TofndError> {
-        let recover = match self.safe_keygen {
-            true => SecretKeyShare::recover(
-                secret_recovery_key,
-                session_nonce,
-                recovery_infos,
-                party_id,
-                subshare_id,
-                party_share_counts,
-                threshold,
-            ),
-            false => SecretKeyShare::recover_unsafe(
-                secret_recovery_key,
-                session_nonce,
-                recovery_infos,
-                party_id,
-                subshare_id,
-                party_share_counts,
-                threshold,
-            ),
-        };
+        let recover = SecretKeyShare::recover(
+            party_keypair,
+            recovery_infos,
+            party_id,
+            subshare_id,
+            party_share_counts,
+            threshold,
+        );
 
         // map error and return result
         recover.map_err(|_| {
@@ -119,12 +102,17 @@ impl Gg20Service {
         let party_share_counts = PartyShareCounts::from_vec(party_share_counts.to_owned())
             .map_err(|_| format!("PartyCounts::from_vec() error for {:?}", party_share_counts))?;
 
+        let party_keypair = match self.safe_keygen {
+            true => recover_party_keypair(secret_recovery_key, session_nonce),
+            false => recover_party_keypair_unsafe(secret_recovery_key, session_nonce),
+        }
+        .map_err(|_| "party keypair recovery failed".to_string())?;
+
         // gather secret key shares from recovery infos
         let mut secret_key_shares = Vec::with_capacity(*my_share_count);
         for i in 0..*my_share_count {
             secret_key_shares.push(self.recover(
-                secret_recovery_key,
-                session_nonce,
+                &party_keypair,
                 &deserialized_share_recovery_infos,
                 TypedUsize::from_usize(my_tofnd_index),
                 i,

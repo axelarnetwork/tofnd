@@ -10,7 +10,7 @@ use super::{
 
 use crate::gg20::protocol;
 use tofn::{
-    gg20::keygen::{new_keygen, new_keygen_unsafe, KeygenProtocol, SecretRecoveryKey},
+    gg20::keygen::{new_keygen, KeygenProtocol},
     sdk::api::TofnResult,
 };
 
@@ -24,31 +24,18 @@ impl Gg20Service {
     async fn new_keygen(
         &self,
         party_share_counts: PartyShareCounts,
-        seed: &SecretRecoveryKey,
         ctx: &Context,
     ) -> TofnResult<KeygenProtocol> {
-        match self.safe_keygen {
-            true => new_keygen(
-                party_share_counts,
-                ctx.threshold,
-                ctx.tofnd_index,
-                ctx.tofnd_subindex,
-                seed,
-                ctx.nonce(),
-                #[cfg(feature = "malicious")]
-                self.behaviours.keygen.clone(),
-            ),
-            false => new_keygen_unsafe(
-                party_share_counts,
-                ctx.threshold,
-                ctx.tofnd_index,
-                ctx.tofnd_subindex,
-                seed,
-                ctx.nonce(),
-                #[cfg(feature = "malicious")]
-                self.behaviours.keygen.clone(),
-            ),
-        }
+        new_keygen(
+            party_share_counts,
+            ctx.threshold,
+            ctx.tofnd_index,
+            ctx.tofnd_subindex,
+            &ctx.party_keypair,
+            &ctx.party_zksetup,
+            #[cfg(feature = "malicious")]
+            self.behaviours.keygen.clone(),
+        )
     }
 
     /// create and execute keygen protocol and returning the result.
@@ -65,9 +52,9 @@ impl Gg20Service {
         // try to create keygen with context
         let party_share_counts = ctx.share_counts()?;
         let keygen = self
-            .new_keygen(party_share_counts, &self.seed().await?, ctx)
+            .new_keygen(party_share_counts, ctx)
             .await
-            .map_err(|_| "keygen instantiation failed".to_string())?;
+            .map_err(|_| "keygen protocol instantiation failed".to_string())?;
 
         // execute protocol and wait for completion
         let protocol_result = protocol::execute_protocol(
