@@ -39,6 +39,8 @@ pub fn warn_for_malicious_build() {
     warn!("WARNING: THIS tofnd BINARY AS COMPILED IN 'MALICIOUS' MODE.  MALICIOUS BEHAVIOUR IS INTENTIONALLY INSERTED INTO SOME MESSAGES.  THIS BEHAVIOUR WILL CAUSE OTHER tofnd PROCESSES TO IDENTIFY THE CURRENT PROCESS AS MALICIOUS.");
 }
 
+const DEFAULT_PATH_ROOT: &str = ".tofnd";
+
 #[tokio::main]
 async fn main() -> Result<(), TofndError> {
     // set up log subscriber

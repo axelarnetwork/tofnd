@@ -3,7 +3,7 @@
 use super::mnemonic::{file_io::FileIo, Cmd};
 use super::proto;
 use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SHARE_KV_NAME};
-use crate::TofndError;
+use crate::{TofndError, DEFAULT_PATH_ROOT};
 use std::path::PathBuf;
 
 #[cfg(feature = "malicious")]
@@ -28,7 +28,7 @@ pub async fn new_service(
     let mut gg20 = Gg20Service {
         shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
         mnemonic_kv: MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME),
-        io: FileIo::new(PathBuf::new()),
+        io: FileIo::new(PathBuf::from(DEFAULT_PATH_ROOT)),
         safe_keygen: true,
         #[cfg(feature = "malicious")]
         behaviours,

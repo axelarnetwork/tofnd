@@ -17,7 +17,7 @@ type Responder<T> = oneshot::Sender<Result<T, Box<dyn Error + Send + Sync>>>;
 const DEFAULT_RESERV: &str = "";
 
 // default kv path
-const DEFAULT_KV_PATH: &str = ".kvstore";
+const DEFAULT_KV_PATH: &str = "kvstore";
 
 // "actor" pattern (KV is the "handle"): https://ryhl.io/blog/actors-with-tokio/
 // see also https://tokio.rs/tokio/tutorial/channels
@@ -30,7 +30,9 @@ where
     V: Debug + Send + Sync + Serialize + DeserializeOwned,
 {
     pub fn new(kv_name: &str) -> Self {
-        let kv_path = PathBuf::from(DEFAULT_KV_PATH).join(kv_name);
+        let kv_path = PathBuf::from(DEFAULT_PATH_ROOT)
+            .join(DEFAULT_KV_PATH)
+            .join(kv_name);
         // use to_string_lossy() instead of to_str() to avoid handling Option<&str>
         let kv_path = kv_path.to_string_lossy().to_string();
         Self::with_db_name(kv_path)
@@ -119,6 +121,8 @@ enum Command<V> {
     },
 }
 use Command::*;
+
+use crate::DEFAULT_PATH_ROOT;
 
 /// Returns the db with name `db_name`, or creates a new if such DB does not exist
 /// Default path DB path is the executable's directory; The caller can specify a
