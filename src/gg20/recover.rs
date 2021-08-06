@@ -41,8 +41,6 @@ impl Gg20Service {
             )
             .map_err(|err| format!("Failed to acquire secret key share {}", err))?;
 
-        drop(secret_recovery_key);
-
         Ok(self
             .update_share_kv_store(keygen_init_sanitized, secret_key_shares)
             .await?)
@@ -122,8 +120,6 @@ impl Gg20Service {
                 threshold,
             )?);
         }
-
-        drop(party_keypair);
 
         Ok(secret_key_shares)
     }

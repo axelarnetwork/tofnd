@@ -81,8 +81,6 @@ impl Gg20Service {
             },
             // if we cannot reserve, return failure
             Err(err) => {
-                // we also have to zeroize because `entropy to file` was not executed
-                drop(entropy);
                 error!("Cannot reserve mnemonic: {:?}", err);
                 Err(err)
             }

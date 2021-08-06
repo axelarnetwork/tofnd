@@ -12,9 +12,7 @@ impl Gg20Service {
         request: proto::KeyPresenceRequest,
     ) -> Result<proto::key_presence_response::Response, TofndError> {
         // check if mnemonic is available
-        let secret_recovery_key = self.seed().await?;
-
-        drop(secret_recovery_key);
+        let _ = self.seed().await?;
 
         // try to get party info related to session id
         match self.shares_kv.get(&request.key_uid).await {

@@ -73,8 +73,6 @@ impl Gg20Service {
         }
         .map_err(|_| "Party keypair generation failed".to_string())?;
 
-        drop(secret_recovery_key);
-
         for my_tofnd_subindex in 0..my_share_count {
             // channels for communication between router (sender) and protocol threads (receivers)
             let (keygen_sender, keygen_receiver) = mpsc::unbounded_channel();
@@ -109,9 +107,6 @@ impl Gg20Service {
                 let _ = aggregator_sender.send(secret_key_share);
             });
         }
-
-        drop(party_keypair);
-        drop(party_zksetup);
 
         // 3.
         // spin up broadcaster thread and return immediately
