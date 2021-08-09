@@ -45,14 +45,14 @@ async fn main() -> Result<(), TofndError> {
     set_up_logs();
 
     #[cfg(not(feature = "malicious"))]
-    let (port, safe_keygen, mnemonic_cmd) = parse_args()?;
+    let (port, mnemonic_cmd) = parse_args()?;
 
     // print a warning log if we are running in malicious mode
     #[cfg(feature = "malicious")]
     warn_for_malicious_build();
 
     #[cfg(feature = "malicious")]
-    let (port, safe_keygen, mnemonic_cmd, behaviours) = parse_args()?;
+    let (port, mnemonic_cmd, behaviours) = parse_args()?;
 
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
