@@ -6,7 +6,7 @@ use crate::gg20::mnemonic::Cmd;
 // TODO: examine if using a config file can replace commandline args
 
 #[cfg(not(feature = "malicious"))]
-pub fn parse_args() -> Result<(u16, bool, Cmd), TofndError> {
+pub fn parse_args() -> Result<(u16, Cmd), TofndError> {
     // Note that we want lower-case letters as impot, as enum type start with capitals
     let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
     let default_mnemonic_cmd = "create";
@@ -19,12 +19,6 @@ pub fn parse_args() -> Result<(u16, bool, Cmd), TofndError> {
                 .short("p")
                 .required(false)
                 .default_value("50051"),
-        )
-        .arg(
-            Arg::with_name("unsafe")
-                .long("unsafe")
-                .required(false)
-                .takes_value(false),
         )
         .arg(
             Arg::with_name("mnemonic")
@@ -40,10 +34,9 @@ pub fn parse_args() -> Result<(u16, bool, Cmd), TofndError> {
         .value_of("port")
         .ok_or("port value")?
         .parse::<u16>()?;
-    let safe_keygen = !matches.is_present("unsafe");
     let mnemonic_cmd = matches.value_of("mnemonic").ok_or("cmd value")?.to_string();
     let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
-    Ok((port, safe_keygen, mnemonic_cmd))
+    Ok((port, mnemonic_cmd))
 }
 
 #[cfg(feature = "malicious")]
@@ -60,7 +53,7 @@ use tofn::{
 };
 
 #[cfg(feature = "malicious")]
-pub fn parse_args() -> Result<(u16, bool, Cmd, Behaviours), TofndError> {
+pub fn parse_args() -> Result<(u16, Cmd, Behaviours), TofndError> {
     let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
     let default_mnemonic_cmd = "create";
 
@@ -103,12 +96,6 @@ pub fn parse_args() -> Result<(u16, bool, Cmd, Behaviours), TofndError> {
                 .default_value("50051"),
         )
         .arg(
-            Arg::with_name("unsafe")
-                .long("unsafe")
-                .required(false)
-                .takes_value(false),
-        )
-        .arg(
             Arg::with_name("mnemonic")
                 .long("mnemonic")
                 .short("m")
@@ -133,7 +120,6 @@ pub fn parse_args() -> Result<(u16, bool, Cmd, Behaviours), TofndError> {
         .value_of("port")
         .ok_or("port value")?
         .parse::<u16>()?;
-    let safe_keygen = !matches.is_present("unsafe");
     let mnemonic_cmd = matches.value_of("mnemonic").ok_or("cmd value")?.to_string();
     let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
 
@@ -152,7 +138,7 @@ pub fn parse_args() -> Result<(u16, bool, Cmd, Behaviours), TofndError> {
     let keygen = KeygenBehaviour::R1BadCommit;
     let sign = match_string_to_behaviour(sign_behaviour, victim);
     let behaviours = Behaviours { keygen, sign };
-    Ok((port, safe_keygen, mnemonic_cmd, behaviours))
+    Ok((port, mnemonic_cmd, behaviours))
 }
 
 #[cfg(feature = "malicious")]

@@ -20,9 +20,11 @@ use config::parse_args;
 type TofndError = Box<dyn std::error::Error + Send + Sync>;
 
 fn set_up_logs() {
-    // enable only tofnd and tofn debug logs - disable serde, tonic, tokio, etc.
+    // set up environment variable for log level
+    // set up an event subscriber for logs
     tracing_subscriber::fmt()
-        .with_env_filter("tofnd=debug,tofn=debug")
+        .with_env_filter("tofnd=info,[Keygen]=info")
+        .with_max_level(Level::DEBUG)
         .json()
         .with_ansi(atty::is(atty::Stream::Stdout))
         .without_time()
@@ -37,11 +39,6 @@ pub fn warn_for_malicious_build() {
     warn!("WARNING: THIS tofnd BINARY AS COMPILED IN 'MALICIOUS' MODE.  MALICIOUS BEHAVIOUR IS INTENTIONALLY INSERTED INTO SOME MESSAGES.  THIS BEHAVIOUR WILL CAUSE OTHER tofnd PROCESSES TO IDENTIFY THE CURRENT PROCESS AS MALICIOUS.");
 }
 
-fn warn_for_unsafe_execution() {
-    use tracing::warn;
-    warn!("WARNING: THIS tofnd BINARY IS NOT SAFE: SAFE PRIMES ARE NOT USED BECAUSE '--unsafe' FLAG IS ENABLED.  USE '--unsafe' FLAG ONLY FOR TESTING.");
-}
-
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 
 #[tokio::main]
@@ -50,18 +47,14 @@ async fn main() -> Result<(), TofndError> {
     set_up_logs();
 
     #[cfg(not(feature = "malicious"))]
-    let (port, safe_keygen, mnemonic_cmd) = parse_args()?;
+    let (port, mnemonic_cmd) = parse_args()?;
 
     // print a warning log if we are running in malicious mode
     #[cfg(feature = "malicious")]
     warn_for_malicious_build();
 
     #[cfg(feature = "malicious")]
-    let (port, safe_keygen, mnemonic_cmd, behaviours) = parse_args()?;
-
-    if !safe_keygen {
-        warn_for_unsafe_execution();
-    }
+    let (port, mnemonic_cmd, behaviours) = parse_args()?;
 
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
@@ -74,7 +67,6 @@ async fn main() -> Result<(), TofndError> {
     );
 
     let my_service = gg20::service::new_service(
-        safe_keygen,
         mnemonic_cmd,
         #[cfg(feature = "malicious")]
         behaviours,
