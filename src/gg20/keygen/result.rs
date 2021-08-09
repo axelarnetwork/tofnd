@@ -23,7 +23,7 @@ use tonic::Status;
 impl Gg20Service {
     /// aggregate results from all keygen threads, create a record and insert it in the KvStore
     pub(super) async fn aggregate_results(
-        &mut self,
+        &self,
         aggregator_receivers: Vec<oneshot::Receiver<TofndKeygenOutput>>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         key_uid_reservation: KeyReservation,

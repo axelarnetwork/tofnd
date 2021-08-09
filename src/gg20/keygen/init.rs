@@ -18,7 +18,7 @@ impl Gg20Service {
     /// On success, it reserves a key in the KVStrore and returns a sanitized struct ready to be used by the protocol.
     /// On failure, returns a TofndError and no changes are been made in the KvStore.
     pub(super) async fn handle_keygen_init(
-        &mut self,
+        &self,
         stream: &mut tonic::Streaming<proto::MessageIn>,
         keygen_span: Span,
     ) -> Result<(KeygenInitSanitized, KeyReservation), TofndError> {
@@ -49,7 +49,7 @@ impl Gg20Service {
     // makes all needed assertions on incoming data, and create structures that are
     // needed for the execution of the protocol
     pub(super) async fn process_keygen_init(
-        &mut self,
+        &self,
         keygen_init: proto::KeygenInit,
     ) -> Result<(KeygenInitSanitized, KeyReservation), TofndError> {
         // sanitize arguments

@@ -738,7 +738,7 @@ async fn execute_sign(
     )
 }
 
-fn abort_parties(mut unblocker: Deliverer, time: u64) {
+fn abort_parties(unblocker: Deliverer, time: u64) {
     // send an abort message if protocol is taking too much time
     info!("I will send an abort message in {} seconds", time);
     std::thread::spawn(move || {

@@ -38,9 +38,7 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
     ) -> Result<Response<proto::RecoverResponse>, Status> {
         let request = request.into_inner();
 
-        let mut gg20 = self.clone();
-
-        let response = gg20.handle_recover(request).await;
+        let response = self.handle_recover(request).await;
         let response = match response {
             Ok(()) => {
                 info!("Recovery completed successfully!");
@@ -65,9 +63,7 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
     ) -> Result<Response<proto::KeyPresenceResponse>, Status> {
         let request = request.into_inner();
 
-        let mut gg20 = self.clone();
-
-        let response = match gg20.handle_key_presence(request).await {
+        let response = match self.handle_key_presence(request).await {
             Ok(res) => {
                 info!("Key presence check completed succesfully!");
                 res
@@ -95,7 +91,8 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         let span = span!(Level::INFO, "Keygen");
         let _enter = span.enter();
         let s = span.clone();
-        let mut gg20 = self.clone();
+        let gg20 = self.clone();
+
         tokio::spawn(async move {
             // can't return an error from a spawned thread
             if let Err(e) = gg20.handle_keygen(stream_in, msg_sender, s).await {
@@ -118,7 +115,7 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         let span = span!(Level::INFO, "Sign");
         let _enter = span.enter();
         let s = span.clone();
-        let mut gg20 = self.clone();
+        let gg20 = self.clone();
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread

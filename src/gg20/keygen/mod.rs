@@ -29,7 +29,7 @@ use tofn::gg20::keygen::{
 use tokio::sync::{mpsc, oneshot};
 
 // logging
-use tracing::{span, Level, Span};
+use tracing::{Level, Span, info, span};
 
 pub mod types;
 use types::*;
@@ -40,7 +40,7 @@ mod result;
 impl Gg20Service {
     /// handle keygen gRPC
     pub async fn handle_keygen(
-        &mut self,
+        &self,
         mut stream_in: tonic::Streaming<proto::MessageIn>,
         mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         keygen_span: Span,
@@ -68,11 +68,15 @@ impl Gg20Service {
         let secret_recovery_key = self.seed().await?;
         let session_nonce = keygen_init.new_key_uid.as_bytes();
 
+        info!("Generating keypair for party {} ...", keygen_init.my_index);
+
         let (party_keypair, party_zksetup) = match self.safe_keygen {
             true => create_party_keypair_and_zksetup(&secret_recovery_key, session_nonce),
             false => create_party_keypair_and_zksetup_unsafe(&secret_recovery_key, session_nonce),
         }
         .map_err(|_| "Party keypair generation failed".to_string())?;
+
+        info!("Finished generating keypair for party {}", keygen_init.my_index);
 
         for my_tofnd_subindex in 0..my_share_count {
             // channels for communication between router (sender) and protocol threads (receivers)

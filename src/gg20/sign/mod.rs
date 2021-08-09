@@ -34,7 +34,7 @@ impl Gg20Service {
     // we wrap the functionality of sign gRPC here because we can't handle errors
     // conveniently when spawning theads.
     pub async fn handle_sign(
-        &mut self,
+        &self,
         mut stream_in: tonic::Streaming<proto::MessageIn>,
         mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         sign_span: Span,

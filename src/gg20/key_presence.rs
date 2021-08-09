@@ -8,7 +8,7 @@ use tracing::info;
 
 impl Gg20Service {
     pub(super) async fn handle_key_presence(
-        &mut self,
+        &self,
         request: proto::KeyPresenceRequest,
     ) -> Result<proto::key_presence_response::Response, TofndError> {
         // check if mnemonic is available

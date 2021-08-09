@@ -12,10 +12,11 @@ use tofn::{
     },
     sdk::api::PartyShareCounts,
 };
+use tracing::info;
 
 impl Gg20Service {
     pub(super) async fn handle_recover(
-        &mut self,
+        &self,
         request: proto::RecoverRequest,
     ) -> Result<(), TofndError> {
         // get keygen init sanitized from request
@@ -102,11 +103,15 @@ impl Gg20Service {
         let party_share_counts = PartyShareCounts::from_vec(party_share_counts.to_owned())
             .map_err(|_| format!("PartyCounts::from_vec() error for {:?}", party_share_counts))?;
 
+        info!("Recovering keypair for party {} ...", my_tofnd_index);
+
         let party_keypair = match self.safe_keygen {
             true => recover_party_keypair(secret_recovery_key, session_nonce),
             false => recover_party_keypair_unsafe(secret_recovery_key, session_nonce),
         }
         .map_err(|_| "party keypair recovery failed".to_string())?;
+
+        info!("Finished recovering keypair for party {}", my_tofnd_index);
 
         // gather secret key shares from recovery infos
         let mut secret_key_shares = Vec::with_capacity(*my_share_count);
@@ -126,7 +131,7 @@ impl Gg20Service {
 
     /// attempt to write recovered secret key shares to the kv-store
     async fn update_share_kv_store(
-        &mut self,
+        &self,
         keygen_init_sanitized: KeygenInitSanitized,
         secret_key_shares: Vec<SecretKeyShare>,
     ) -> Result<(), TofndError> {
