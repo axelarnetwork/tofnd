@@ -22,6 +22,7 @@ pub struct Gg20Service {
 
 /// create a new Gg20 gRPC server
 pub async fn new_service(
+    safe_keygen: bool,
     mnemonic_cmd: Cmd,
     #[cfg(feature = "malicious")] behaviours: malicious::Behaviours,
 ) -> Result<impl proto::gg20_server::Gg20, TofndError> {
@@ -29,7 +30,7 @@ pub async fn new_service(
         shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
         mnemonic_kv: MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME),
         io: FileIo::new(PathBuf::from(DEFAULT_PATH_ROOT)),
-        safe_keygen: true,
+        safe_keygen,
         #[cfg(feature = "malicious")]
         behaviours,
     };
