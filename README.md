@@ -33,7 +33,8 @@ We use [clap](https://clap.rs/) to manage command line arguments.
 
 Users can specify:
 1. The port number of the gRPC server (default is 50051).
-2. `mnemonic` operations for their `tofnd` instance (default is `Create`).
+2. The option to run in _unsafe_ mode. By default, this option is off, and Big Primes are used for keygen. Use the `--unsafe` flag only for testing.
+3. `mnemonic` operations for their `tofnd` instance (default is `Create`).
 For more information, see on mnemonic options, see [Mnemonic](#mnemonic).
 
 ```
@@ -44,6 +45,7 @@ USAGE:
 
 FLAGS:
     -h, --help       Prints help information
+        --unsafe
     -V, --version    Prints version information
 
 OPTIONS:
