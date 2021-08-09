@@ -39,7 +39,7 @@ pub fn warn_for_malicious_build() {
 
 fn warn_for_unsafe_execution() {
     use tracing::warn;
-    warn!("WARNING: THIS tofnd BINARY IS NOT SAFE: BIG PRIMES ARE NOT USED BECAUSE '--unsafe' FLAG IS ENABLED.  USE '--unsafe' FLAG ONLY FOR TESTING.");
+    warn!("WARNING: THIS tofnd BINARY IS NOT SAFE: SAFE PRIMES ARE NOT USED BECAUSE '--unsafe' FLAG IS ENABLED.  USE '--unsafe' FLAG ONLY FOR TESTING.");
 }
 
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
