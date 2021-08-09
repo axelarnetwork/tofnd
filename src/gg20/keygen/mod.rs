@@ -64,6 +64,7 @@ impl Gg20Service {
         let mut keygen_senders = Vec::with_capacity(my_share_count);
         let mut aggregator_receivers = Vec::with_capacity(my_share_count);
 
+        // computation of (party_keypair, party_zksetup) is intensive so we compute them here once
         let secret_recovery_key = self.seed().await?;
         let session_nonce = keygen_init.new_key_uid.as_bytes();
 
