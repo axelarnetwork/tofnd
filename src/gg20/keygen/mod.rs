@@ -29,7 +29,7 @@ use tofn::gg20::keygen::{
 use tokio::sync::{mpsc, oneshot};
 
 // logging
-use tracing::{Level, Span, info, span};
+use tracing::{info, span, Level, Span};
 
 pub mod types;
 use types::*;
@@ -76,7 +76,10 @@ impl Gg20Service {
         }
         .map_err(|_| "Party keypair generation failed".to_string())?;
 
-        info!("Finished generating keypair for party {}", keygen_init.my_index);
+        info!(
+            "Finished generating keypair for party {}",
+            keygen_init.my_index
+        );
 
         for my_tofnd_subindex in 0..my_share_count {
             // channels for communication between router (sender) and protocol threads (receivers)
