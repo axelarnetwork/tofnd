@@ -74,6 +74,7 @@ async fn main() -> Result<(), TofndError> {
     );
 
     let my_service = gg20::service::new_service(
+        safe_keygen,
         mnemonic_cmd,
         #[cfg(feature = "malicious")]
         behaviours,
