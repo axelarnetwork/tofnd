@@ -20,9 +20,11 @@ use config::parse_args;
 type TofndError = Box<dyn std::error::Error + Send + Sync>;
 
 fn set_up_logs() {
-    // enable only tofnd and tofn debug logs - disable serde, tonic, tokio, etc.
+    // set up environment variable for log level
+    // set up an event subscriber for logs
     tracing_subscriber::fmt()
-        .with_env_filter("tofnd=debug,tofn=debug")
+        .with_env_filter("tofnd=info,[Keygen]=info")
+        .with_max_level(Level::DEBUG)
         .json()
         .with_ansi(atty::is(atty::Stream::Stdout))
         .without_time()
