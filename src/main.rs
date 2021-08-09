@@ -37,6 +37,11 @@ pub fn warn_for_malicious_build() {
     warn!("WARNING: THIS tofnd BINARY AS COMPILED IN 'MALICIOUS' MODE.  MALICIOUS BEHAVIOUR IS INTENTIONALLY INSERTED INTO SOME MESSAGES.  THIS BEHAVIOUR WILL CAUSE OTHER tofnd PROCESSES TO IDENTIFY THE CURRENT PROCESS AS MALICIOUS.");
 }
 
+fn warn_for_unsafe_execution() {
+    use tracing::warn;
+    warn!("WARNING: THIS tofnd BINARY IS NOT SAFE: BIG PRIMES ARE NOT USED BECAUSE '--unsafe' FLAG IS ENABLED.  USE '--unsafe' FLAG ONLY FOR TESTING.");
+}
+
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 
 #[tokio::main]
@@ -53,6 +58,10 @@ async fn main() -> Result<(), TofndError> {
 
     #[cfg(feature = "malicious")]
     let (port, safe_keygen, mnemonic_cmd, behaviours) = parse_args()?;
+
+    if !safe_keygen {
+        warn_for_unsafe_execution();
+    }
 
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
