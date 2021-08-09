@@ -53,12 +53,12 @@ impl KeygenInitSanitized {
 
 /// Context holds the all arguments that need to be passed from keygen gRPC call into protocol execution
 pub struct Context {
-    pub(super) key_id: String, // session id; used for logs
-    pub(super) uids: Vec<String>, // all party uids; alligned with `share_counts`
+    pub(super) key_id: String,           // session id; used for logs
+    pub(super) uids: Vec<String>,        // all party uids; alligned with `share_counts`
     pub(super) share_counts: Vec<usize>, // all party share counts; alligned with `uids`
-    pub(super) threshold: usize,  // protocol's threshold
+    pub(super) threshold: usize,         // protocol's threshold
     pub(super) tofnd_index: TypedUsize<KeygenPartyId>, // tofnd index of party
-    pub(super) tofnd_subindex: usize, // index of party's share
+    pub(super) tofnd_subindex: usize,    // index of party's share
     pub(super) party_keypair: PartyKeyPair,
     pub(super) party_zksetup: PartyZkSetup,
 }
