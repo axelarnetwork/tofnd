@@ -59,6 +59,9 @@ impl Gg20Service {
         // 2.
         // find my share count to allocate channel vectors
         let my_share_count = keygen_init.my_shares_count();
+        if my_share_count == 0 {
+            return Err(format!("Party {} has 0 shares assigned", keygen_init.my_index).into());
+        }
 
         // create in and out channels for each share, and spawn as many threads
         let mut keygen_senders = Vec::with_capacity(my_share_count);
@@ -118,9 +121,8 @@ impl Gg20Service {
 
         // 3.
         // spin up broadcaster thread and return immediately
-        let span = keygen_span.clone();
         tokio::spawn(async move {
-            broadcast_messages(&mut stream_in, keygen_senders, span).await;
+            broadcast_messages(&mut stream_in, keygen_senders, keygen_span).await;
         });
 
         // 4.

@@ -54,6 +54,10 @@ impl Gg20Service {
         // 2.
         // find my share count to allocate channel vectors
         let my_share_count = party_info.shares.len();
+        if my_share_count == 0 {
+            return Err(format!("Party {} has 0 shares assigned", party_info.tofnd.index).into());
+        }
+
         // create in and out channels for each share, and spawn as many threads
         let mut sign_senders = Vec::with_capacity(my_share_count);
         let mut aggregator_receivers = Vec::with_capacity(my_share_count);

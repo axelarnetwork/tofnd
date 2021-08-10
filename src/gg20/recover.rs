@@ -94,11 +94,14 @@ impl Gg20Service {
         }
 
         // get my share count safely
-        let my_share_count = party_share_counts.get(my_tofnd_index).ok_or(format!(
+        let my_share_count = *party_share_counts.get(my_tofnd_index).ok_or(format!(
             "index {} is out of party_share_counts bounds {}",
             my_tofnd_index,
             party_share_counts.len()
         ))?;
+        if my_share_count == 0 {
+            return Err(format!("Party {} has 0 shares assigned", my_tofnd_index).into());
+        }
 
         let party_share_counts = PartyShareCounts::from_vec(party_share_counts.to_owned())
             .map_err(|_| format!("PartyCounts::from_vec() error for {:?}", party_share_counts))?;
@@ -114,8 +117,8 @@ impl Gg20Service {
         info!("Finished recovering keypair for party {}", my_tofnd_index);
 
         // gather secret key shares from recovery infos
-        let mut secret_key_shares = Vec::with_capacity(*my_share_count);
-        for i in 0..*my_share_count {
+        let mut secret_key_shares = Vec::with_capacity(my_share_count);
+        for i in 0..my_share_count {
             secret_key_shares.push(self.recover(
                 &party_keypair,
                 &deserialized_share_recovery_infos,

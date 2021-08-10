@@ -70,19 +70,21 @@ impl PartyInfo {
         tofnd_index: usize,
     ) -> Self {
         // grap the first share to acquire common data
-        let s = secret_key_shares[0].clone();
-        let common = s.group().clone();
+        let common = secret_key_shares[0].group().clone();
+
         // aggregate share data into a vector
-        let mut shares = Vec::new();
-        for share in secret_key_shares {
-            shares.push(share.share().clone());
-        }
+        let shares = secret_key_shares
+            .into_iter()
+            .map(|share| share.share().clone())
+            .collect();
+
         // add tofnd data
         let tofnd = TofndInfo {
             party_uids: uids,
             share_counts,
             index: tofnd_index,
         };
+
         PartyInfo {
             common,
             shares,
