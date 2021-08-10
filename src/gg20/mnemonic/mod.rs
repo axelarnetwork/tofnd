@@ -51,7 +51,7 @@ impl Cmd {
 /// implement mnemonic-specific functions for Gg20Service
 impl Gg20Service {
     /// async function that handles all mnemonic commands
-    pub async fn handle_mnemonic(&mut self, cmd: Cmd) -> Result<(), TofndError> {
+    pub async fn handle_mnemonic(&self, cmd: Cmd) -> Result<(), TofndError> {
         match cmd {
             Cmd::Noop => Ok(()),
             Cmd::Create => self.handle_create().await,
@@ -63,7 +63,7 @@ impl Gg20Service {
 
     /// inserts entropy to the kv-store and writes inserted value to an "export" file.
     /// takes ownership of entropy to delegate zeroization. Don't use `map_err` to make it more readable.
-    async fn handle_insert(&mut self, entropy: Entropy) -> Result<(), TofndError> {
+    async fn handle_insert(&self, entropy: Entropy) -> Result<(), TofndError> {
         let reservation = self.mnemonic_kv.reserve_key(MNEMONIC_KEY.to_owned()).await;
         match reservation {
             // if we can reserve, try put
@@ -90,7 +90,7 @@ impl Gg20Service {
     /// Creates a new entropy and delegates 1) insertion to the kv-store, and 2) write to an "export" file
     /// If a mnemonic already exists in the kv store, fall back to that
     /// TODO: In the future we might want to throw an error here if mnemonic already exists.
-    async fn handle_create(&mut self) -> Result<(), TofndError> {
+    async fn handle_create(&self) -> Result<(), TofndError> {
         info!("Creating mnemonic");
         // if we already have a mnemonic in kv-store, use that instead of creating a new one.
         // we do this to use "create mnemonic" as the default behaviour for now.
@@ -106,7 +106,7 @@ impl Gg20Service {
 
     // Inserts a new mnemonic to the kv-store, and writes the phrase to an "export" file
     // Fails if a mnemonic already exists in the kv store
-    async fn handle_import(&mut self) -> Result<(), TofndError> {
+    async fn handle_import(&self) -> Result<(), TofndError> {
         info!("Importing mnemonic");
         let imported_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
         let imported_entropy = bip39_from_phrase(imported_phrase)?;
@@ -119,7 +119,7 @@ impl Gg20Service {
     // 3. reads a new mnemonic from "import" file
     // 4. delegates the insertions of the new mnemonics to the kv-store, and writes the phrase to an "export" file
     // Fails if a mnemonic already exists in the kv store, of if no "import" file exists
-    async fn handle_update(&mut self) -> Result<(), TofndError> {
+    async fn handle_update(&self) -> Result<(), TofndError> {
         info!("Updating mnemonic");
 
         // try to delete the old mnemonic
@@ -138,7 +138,7 @@ impl Gg20Service {
     }
 
     /// Exports the current mnemonic to an "export" file
-    async fn handle_export(&mut self) -> Result<(), TofndError> {
+    async fn handle_export(&self) -> Result<(), TofndError> {
         info!("Exporting mnemonic");
 
         // try to get mnemonic from kv-store
@@ -224,7 +224,7 @@ mod tests {
     async fn test_create() {
         let testdir = testdir!();
         // create a service
-        let mut gg20 = get_service(testdir);
+        let gg20 = get_service(testdir);
         // first attempt should succeed
         assert!(gg20.handle_create().await.is_ok());
         // second attempt should also succeed
@@ -236,7 +236,7 @@ mod tests {
     async fn test_import() {
         let testdir = testdir!();
         // create a service
-        let mut gg20 = get_service(testdir.clone());
+        let gg20 = get_service(testdir.clone());
         create_import_file(testdir);
         // first attempt should succeed
         assert!(gg20.handle_import().await.is_ok());
@@ -249,7 +249,7 @@ mod tests {
     async fn test_update() {
         let testdir = testdir!();
         // create a service
-        let mut gg20 = get_service(testdir.clone());
+        let gg20 = get_service(testdir.clone());
         // first attempt to update should fail
         assert!(gg20.handle_update().await.is_err());
         create_import_file(testdir);
@@ -266,7 +266,7 @@ mod tests {
     async fn test_export() {
         let testdir = testdir!();
         // create a service
-        let mut gg20 = get_service(testdir.clone());
+        let gg20 = get_service(testdir.clone());
         // export should fail
         assert!(gg20.handle_export().await.is_err());
         create_import_file(testdir);

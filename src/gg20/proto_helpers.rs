@@ -9,7 +9,7 @@ use tofn::{
 use crate::proto;
 type KeygenFaults = FillVecMap<KeygenPartyId, Fault>;
 type SignFaults = FillVecMap<SignPartyId, Fault>;
-type KeygenResulData = Result<proto::message_out::keygen_result::KeygenOutput, KeygenFaults>;
+type KeygenResultData = Result<proto::message_out::keygen_result::KeygenOutput, KeygenFaults>;
 type SignResultData = Result<Vec<u8>, SignFaults>;
 use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;
 use proto::message_out::criminal_list::Criminal as ProtoCriminal;
@@ -42,7 +42,7 @@ impl proto::MessageOut {
         }
     }
 
-    pub(super) fn new_keygen_result(participant_uids: &[String], result: KeygenResulData) -> Self {
+    pub(super) fn new_keygen_result(participant_uids: &[String], result: KeygenResultData) -> Self {
         let result = match result {
             Ok(keygen_output) => ProtoKeygenData(keygen_output),
             Err(faults) => ProtoKeygenCriminals(ProtoCriminalList::from_tofn_faults(

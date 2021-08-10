@@ -43,7 +43,7 @@ where
         Self { sender }
     }
     pub async fn reserve_key(
-        &mut self,
+        &self,
         key: String,
     ) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
         let (resp_tx, resp_rx) = oneshot::channel();
@@ -54,7 +54,7 @@ where
         let _ = self.sender.send(UnreserveKey { reservation });
     }
     pub async fn put(
-        &mut self,
+        &self,
         reservation: KeyReservation,
         value: V,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -74,7 +74,7 @@ where
         })?;
         resp_rx.await?
     }
-    pub async fn remove(&mut self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
+    pub async fn remove(&self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.sender.send(Remove {
             key: key.to_string(),

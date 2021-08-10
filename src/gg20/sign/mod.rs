@@ -34,7 +34,7 @@ impl Gg20Service {
     // we wrap the functionality of sign gRPC here because we can't handle errors
     // conveniently when spawning theads.
     pub async fn handle_sign(
-        &mut self,
+        &self,
         mut stream_in: tonic::Streaming<proto::MessageIn>,
         mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         sign_span: Span,
@@ -54,6 +54,10 @@ impl Gg20Service {
         // 2.
         // find my share count to allocate channel vectors
         let my_share_count = party_info.shares.len();
+        if my_share_count == 0 {
+            return Err(format!("Party {} has 0 shares assigned", party_info.tofnd.index).into());
+        }
+
         // create in and out channels for each share, and spawn as many threads
         let mut sign_senders = Vec::with_capacity(my_share_count);
         let mut aggregator_receivers = Vec::with_capacity(my_share_count);

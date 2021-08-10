@@ -21,7 +21,7 @@ impl Gg20Service {
     /// On success, it extracts the PartyInfo from the KVStrore and returns a sanitized struct ready to be used by the protocol.
     /// On failure, returns a TofndError and no changes are been made in the KvStore.
     pub(super) async fn handle_sign_init(
-        &mut self,
+        &self,
         in_stream: &mut tonic::Streaming<proto::MessageIn>,
         mut out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         sign_span: Span,

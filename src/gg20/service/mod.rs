@@ -26,7 +26,7 @@ pub async fn new_service(
     mnemonic_cmd: Cmd,
     #[cfg(feature = "malicious")] behaviours: malicious::Behaviours,
 ) -> Result<impl proto::gg20_server::Gg20, TofndError> {
-    let mut gg20 = Gg20Service {
+    let gg20 = Gg20Service {
         shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
         mnemonic_kv: MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME),
         io: FileIo::new(PathBuf::from(DEFAULT_PATH_ROOT)),
@@ -66,7 +66,7 @@ pub mod tests {
         let mut path = PathBuf::new();
         path.push(db_path);
 
-        let mut gg20 = Gg20Service {
+        let gg20 = Gg20Service {
             shares_kv: KeySharesKv::with_db_name(shares_db_name.to_owned()),
             mnemonic_kv: MnemonicKv::with_db_name(mnemonic_db_name.to_owned()),
             io: FileIo::new(path),

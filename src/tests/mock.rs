@@ -45,7 +45,7 @@ impl Deliverer {
             .collect();
         (Deliverer { senders }, channels)
     }
-    pub fn deliver(&mut self, msg: &proto::MessageOut, from: &str) {
+    pub fn deliver(&self, msg: &proto::MessageOut, from: &str) {
         let msg = msg.data.as_ref().expect("missing data");
         let msg = match msg {
             proto::message_out::Data::Traffic(t) => t,
@@ -64,14 +64,14 @@ impl Deliverer {
         };
 
         // deliver all msgs to all parties (even p2p msgs)
-        for (_, sender) in self.senders.iter_mut() {
+        for (_, sender) in self.senders.iter() {
             // we need to catch for errors in case the receiver's channel closes unexpectedly
             if let Err(err) = sender.send(msg_in.clone()) {
                 error!("Error in deliverer while sending message: {:?}", err);
             }
         }
     }
-    pub fn send_timeouts(&mut self, secs: u64) {
+    pub fn send_timeouts(&self, secs: u64) {
         let abort = proto::message_in::Data::Abort(false);
         let msg_in = proto::MessageIn { data: Some(abort) };
 
@@ -80,7 +80,7 @@ impl Deliverer {
         std::thread::sleep(t);
 
         // deliver to all parties
-        for (_, sender) in self.senders.iter_mut() {
+        for (_, sender) in self.senders.iter() {
             sender.send(msg_in.clone()).unwrap();
         }
     }

@@ -204,7 +204,7 @@ impl Party for TofndParty {
         &mut self,
         init: proto::KeygenInit,
         channels: SenderReceiver,
-        mut delivery: Deliverer,
+        delivery: Deliverer,
     ) -> KeygenResult {
         let my_uid = init.party_uids[usize::try_from(init.my_party_index).unwrap()].clone();
         let (keygen_server_incoming, rx) = channels;
@@ -351,7 +351,7 @@ impl Party for TofndParty {
         &mut self,
         init: proto::SignInit,
         channels: SenderReceiver,
-        mut delivery: Deliverer,
+        delivery: Deliverer,
         my_uid: &str,
     ) -> SignResult {
         let (sign_server_incoming, rx) = channels;

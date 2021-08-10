@@ -29,7 +29,7 @@ use tofn::gg20::keygen::{
 use tokio::sync::{mpsc, oneshot};
 
 // logging
-use tracing::{span, Level, Span};
+use tracing::{info, span, Level, Span};
 
 pub mod types;
 use types::*;
@@ -40,7 +40,7 @@ mod result;
 impl Gg20Service {
     /// handle keygen gRPC
     pub async fn handle_keygen(
-        &mut self,
+        &self,
         mut stream_in: tonic::Streaming<proto::MessageIn>,
         mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         keygen_span: Span,
@@ -59,6 +59,9 @@ impl Gg20Service {
         // 2.
         // find my share count to allocate channel vectors
         let my_share_count = keygen_init.my_shares_count();
+        if my_share_count == 0 {
+            return Err(format!("Party {} has 0 shares assigned", keygen_init.my_index).into());
+        }
 
         // create in and out channels for each share, and spawn as many threads
         let mut keygen_senders = Vec::with_capacity(my_share_count);
@@ -68,11 +71,18 @@ impl Gg20Service {
         let secret_recovery_key = self.seed().await?;
         let session_nonce = keygen_init.new_key_uid.as_bytes();
 
+        info!("Generating keypair for party {} ...", keygen_init.my_index);
+
         let (party_keypair, party_zksetup) = match self.safe_keygen {
             true => create_party_keypair_and_zksetup(&secret_recovery_key, session_nonce),
             false => create_party_keypair_and_zksetup_unsafe(&secret_recovery_key, session_nonce),
         }
         .map_err(|_| "Party keypair generation failed".to_string())?;
+
+        info!(
+            "Finished generating keypair for party {}",
+            keygen_init.my_index
+        );
 
         for my_tofnd_subindex in 0..my_share_count {
             // channels for communication between router (sender) and protocol threads (receivers)
@@ -111,9 +121,8 @@ impl Gg20Service {
 
         // 3.
         // spin up broadcaster thread and return immediately
-        let span = keygen_span.clone();
         tokio::spawn(async move {
-            broadcast_messages(&mut stream_in, keygen_senders, span).await;
+            broadcast_messages(&mut stream_in, keygen_senders, keygen_span).await;
         });
 
         // 4.

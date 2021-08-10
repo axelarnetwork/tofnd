@@ -23,7 +23,7 @@ use tonic::Status;
 impl Gg20Service {
     /// aggregate results from all keygen threads, create a record and insert it in the KvStore
     pub(super) async fn aggregate_results(
-        &mut self,
+        &self,
         aggregator_receivers: Vec<oneshot::Receiver<TofndKeygenOutput>>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         key_uid_reservation: KeyReservation,
@@ -47,13 +47,16 @@ impl Gg20Service {
             Self::process_keygen_outputs(&keygen_init, keygen_outputs, stream_out_sender)?;
 
         // try to retrieve recovery info from all shares
-        let mut share_recovery_infos = vec![];
-        for secret_key_share in secret_key_shares.iter() {
-            let recovery_info = secret_key_share
-                .recovery_info()
-                .map_err(|_| "Unable to get recovery info".to_string())?;
-            share_recovery_infos.push(bincode::serialize(&recovery_info)?);
-        }
+        let share_recovery_infos = secret_key_shares
+            .iter()
+            .map(|secret_key_share| {
+                let recovery_info = secret_key_share
+                    .recovery_info()
+                    .map_err(|_| "Unable to get recovery info".to_string())?;
+
+                bincode::serialize(&recovery_info).map_err(|e| e.to_string())
+            })
+            .collect::<Result<_, _>>()?;
 
         // combine responses from all keygen threads to a single struct
         let kv_data = PartyInfo::get_party_info(
@@ -85,37 +88,49 @@ impl Gg20Service {
         keygen_outputs: Vec<TofnKeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     ) -> Result<(Vec<u8>, Vec<SecretKeyShare>), TofndError> {
-        // all shares must return the same public key. To ease pub key uniqueness, we use a hasmap
-        let mut pub_key_map = std::collections::HashMap::new();
+        // Collect all key shares unless there's a protocol fault
+        let keygen_outputs = keygen_outputs
+            .into_iter()
+            .collect::<Result<Vec<SecretKeyShare>, _>>();
 
-        // prepare a vec to hold secret key shares for each share
-        let mut secret_key_shares = Vec::with_capacity(keygen_outputs.len());
+        match keygen_outputs {
+            Ok(secret_key_shares) => {
+                if secret_key_shares.is_empty() {
+                    return Err(format!(
+                        "Party {} created no secret key shares",
+                        keygen_init.my_index
+                    )
+                    .into());
+                }
 
-        for keygen_output in keygen_outputs {
-            match keygen_output {
-                // if keygen output was ok, hold `secret_key_share` in a vec and add public key to a hasmap
-                Ok(secret_key_share) => {
-                    let pub_key = secret_key_share.group().pubkey_bytes();
-                    secret_key_shares.push(secret_key_share);
-                    // hashmap [pub key -> count] with default value 0
-                    *pub_key_map.entry(pub_key).or_insert(0) += 1;
+                // check that all shares returned the same public key
+                let share_id = secret_key_shares[0].share().index();
+                let pub_key = secret_key_shares[0].group().pubkey_bytes();
+
+                for secret_key_share in &secret_key_shares[1..] {
+                    if pub_key != secret_key_share.group().pubkey_bytes() {
+                        return Err(format!(
+                            "Party {}'s share {} and {} returned different public key",
+                            keygen_init.my_index,
+                            share_id,
+                            secret_key_share.share().index()
+                        )
+                        .into());
+                    }
                 }
-                // if keygen output was an error, send discovered criminals to client and exit
-                Err(crimes) => {
-                    // send crimes and exit with an error
-                    stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
-                        &keygen_init.party_uids,
-                        Err(crimes.clone()),
-                    )))?;
-                    return Err(From::from(format!("Crimes found: {:?}", crimes)));
-                }
+
+                Ok((pub_key, secret_key_shares))
+            }
+            Err(crimes) => {
+                // send crimes and exit with an error
+                stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
+                    &keygen_init.party_uids,
+                    Err(crimes.clone()),
+                )))?;
+
+                Err(format!("Party {} found crimes: {:?}", keygen_init.my_index, crimes).into())
             }
         }
-
-        // assert that all shares returned the same public key
-        let pub_key = Self::validate_pubkey(pub_key_map)?;
-
-        Ok((pub_key, secret_key_shares))
     }
 
     /// wait all keygen threads and get keygen outputs
@@ -123,28 +138,12 @@ impl Gg20Service {
         aggregator_receivers: Vec<Receiver<TofndKeygenOutput>>,
     ) -> Result<Vec<TofnKeygenOutput>, TofndError> {
         let mut keygen_outputs = Vec::with_capacity(aggregator_receivers.len());
+
         for aggregator in aggregator_receivers {
             let res = aggregator.await??;
             keygen_outputs.push(res);
         }
-        Ok(keygen_outputs)
-    }
 
-    /// check that all shares returned the same public key
-    // TODO: replace hashmap with a simpler solution, such as using PartialEq
-    fn validate_pubkey(
-        pub_key_map: std::collections::HashMap<Vec<u8>, i32>,
-    ) -> Result<Vec<u8>, TofndError> {
-        if pub_key_map.len() != 1 {
-            return Err(From::from(format!(
-                "Shares returned different public key {:?}",
-                pub_key_map
-            )));
-        }
-        Ok(pub_key_map
-            .keys()
-            .last()
-            .ok_or("no keys in pubkey hashmap")?
-            .to_owned())
+        Ok(keygen_outputs)
     }
 }
