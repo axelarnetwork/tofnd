@@ -49,6 +49,8 @@ async fn main() -> Result<(), TofndError> {
     // set up log subscriber
     set_up_logs();
 
+    warn!("Test log");
+
     #[cfg(not(feature = "malicious"))]
     let (port, safe_keygen, mnemonic_cmd) = parse_args()?;
 
