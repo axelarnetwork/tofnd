@@ -53,6 +53,26 @@ OPTIONS:
     -p, --port <port>             [default: 50051]
 ```
 
+# Docker
+
+To run `tofnd` inside a container, run:
+
+```
+docker-compose up
+```
+
+For testing purposes, `docker-compose.unsafe.yml` is available which is equivelent to `cargo run -- --unsafe`. To create an unsafe `tofnd` container, run
+
+```
+docker-compose -f docker-compose.unsafe.yml up
+```
+
+We use [data containers](https://docs.docker.com/engine/reference/commandline/volume_create/) to persist data across restarts. To clean up storage, remove all `tofnd` containers, and run
+
+```
+docker volume rm tofnd_tofnd
+```
+
 # Mnemonic
 
 `Tofnd` uses the [tiny-bip39](https://docs.rs/crate/tiny-bip39/0.8.0) crate to enable users manage mnemonic passphrases. Currently, each party can use only one passphrase.
