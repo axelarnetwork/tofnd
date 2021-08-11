@@ -35,7 +35,7 @@ impl Gg20Service {
             .await?
         {
             warn!(
-                "Attempting to recover shares for {} which already existing in kv-store",
+                "Attempting to recover shares for party {} which already exist in kv-store",
                 keygen_init_sanitized.new_key_uid
             );
             return Ok(());
