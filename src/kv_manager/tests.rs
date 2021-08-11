@@ -162,6 +162,14 @@ fn test_exists() {
     let exists = handle_exists(&kv, &key);
     assert!(exists.is_ok());
     assert!(exists.unwrap()); // check that the result is true
+
+    // remove key
+    let _ = handle_remove::<String>(&kv, key.clone()).unwrap();
+
+    // exists should fail
+    let exists = handle_exists(&kv, &key);
+    assert!(exists.is_ok());
+    assert!(!exists.unwrap()); // check that the result is false
 }
 
 #[test]
