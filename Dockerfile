@@ -44,5 +44,5 @@ COPY ./entrypoint.sh /
 
 VOLUME [ "/.tofnd" ]
 
-ENV UNSAFE_FLAG ""
-ENTRYPOINT /entrypoint.sh $UNSAFE_FLAG
+ENV UNSAFE ""
+ENTRYPOINT ["/entrypoint.sh"]

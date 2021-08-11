@@ -9,6 +9,6 @@ services:
     image: axelar/tofnd
     volumes:
       - tofnd:/.tofnd
-    # Attention! Use --unsafe only for testing
+    # Attention! Use UNSAFE=true only for testing
     environment:
-      - UNSAFE_FLAG=--unsafe
+      - UNSAFE=true

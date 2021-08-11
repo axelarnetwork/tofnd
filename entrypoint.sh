@@ -1,4 +1,9 @@
 #!/bin/bash
 
 set -e
-exec tofnd "$@"
+
+if [ -n "${UNSAFE}" ]; then \
+    exec tofnd --unsafe "$@"; \
+else \
+    exec tofnd "$@"; \
+fi
