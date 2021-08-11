@@ -331,11 +331,6 @@ async fn restart_party(
 }
 
 // main testing function
-    // don't allow to delete shares without restarting
-    if delete_shares && !restart {
-        panic!("cannot delete shares without restarting");
-    }
-
 async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool, recover: bool) {
     // set up a key uid
     let new_key_uid = "Gus-test-key";
