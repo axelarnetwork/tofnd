@@ -56,28 +56,28 @@ struct TestCase {
 
 async fn run_test_cases(test_cases: &[TestCase]) {
     let restart = false;
-    let delete_shares = false;
+    let recover = false;
     let dir = testdir!();
     for test_case in test_cases {
-        basic_keygen_and_sign(test_case, &dir, restart, delete_shares).await;
+        basic_keygen_and_sign(test_case, &dir, restart, recover).await;
     }
 }
 
 async fn run_restart_test_cases(test_cases: &[TestCase]) {
     let restart = true;
-    let delete_shares = false;
+    let recover = false;
     let dir = testdir!();
     for test_case in test_cases {
-        basic_keygen_and_sign(test_case, &dir, restart, delete_shares).await;
+        basic_keygen_and_sign(test_case, &dir, restart, recover).await;
     }
 }
 
 async fn run_restart_recover_test_cases(test_cases: &[TestCase]) {
     let restart = true;
-    let delete_shares = true;
+    let recover = true;
     let dir = testdir!();
     for test_case in test_cases {
-        basic_keygen_and_sign(test_case, &dir, restart, delete_shares).await;
+        basic_keygen_and_sign(test_case, &dir, restart, recover).await;
     }
 }
 
@@ -295,15 +295,15 @@ async fn restart_party(
     dir: &Path,
     parties: Vec<TofndParty>,
     party_index: usize,
-    delete_shares: bool,
+    recover: bool,
     key_uid: String,
     #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
 ) -> Vec<TofndParty> {
     // shutdown party with party_index
     let (party_options, shutdown_db_path) = shutdown_party(parties, party_index).await;
 
-    if delete_shares {
-        // delete party's shares
+    if recover {
+        // if we are going to recover, delete party's shares
         delete_party_shares(shutdown_db_path);
     }
 
@@ -317,7 +317,7 @@ async fn restart_party(
     )
     .await;
 
-    if delete_shares {
+    if recover {
         // Check that session for the party doing recovery is absent in kvstore
         let is_key_present = parties[party_index].execute_key_presence(key_uid).await;
 
@@ -331,17 +331,12 @@ async fn restart_party(
 }
 
 // main testing function
-async fn basic_keygen_and_sign(
-    test_case: &TestCase,
-    dir: &Path,
-    restart: bool,
-    delete_shares: bool,
-) {
     // don't allow to delete shares without restarting
     if delete_shares && !restart {
         panic!("cannot delete shares without restarting");
     }
 
+async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool, recover: bool) {
     // set up a key uid
     let new_key_uid = "Gus-test-key";
 
@@ -370,7 +365,7 @@ async fn basic_keygen_and_sign(
                 dir,
                 parties,
                 test_case.signer_indices[0],
-                delete_shares,
+                recover,
                 keygen_init.new_key_uid.clone(),
                 #[cfg(feature = "malicious")]
                 &test_case.malicious_data,
@@ -381,7 +376,7 @@ async fn basic_keygen_and_sign(
     };
 
     // delete party's if recover is enabled and return new parties' set
-    let parties = match delete_shares {
+    let parties = match recover {
         true => {
             execute_recover(
                 parties,
