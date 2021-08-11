@@ -277,7 +277,7 @@ where
     Ok(value)
 }
 
-fn handle_exists(kv: &sled::Db, key: &String) -> Result<bool, Box<dyn Error + Send + Sync>> {
+fn handle_exists(kv: &sled::Db, key: &str) -> Result<bool, Box<dyn Error + Send + Sync>> {
     kv.contains_key(key).map_err(|err| {
         From::from(format!(
             "Could not perform 'contains_key' for {}: {}",

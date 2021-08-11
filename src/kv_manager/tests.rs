@@ -145,7 +145,7 @@ fn test_exists() {
     // exists should fail
     let exists = handle_exists(&kv, &key);
     assert!(exists.is_ok());
-    assert_eq!(exists.unwrap(), false);
+    assert!(!exists.unwrap()); // assert that the result is false
 
     // reserve key
     let reservation = handle_reserve(&kv, key.clone()).unwrap();
@@ -153,7 +153,7 @@ fn test_exists() {
     // exists should succeed
     let exists = handle_exists(&kv, &key);
     assert!(exists.is_ok());
-    assert_eq!(exists.unwrap(), true);
+    assert!(exists.unwrap()); // check that the result is true
 
     // put key
     handle_put(&kv, reservation, value).unwrap();
@@ -161,7 +161,7 @@ fn test_exists() {
     // exists should succeed
     let exists = handle_exists(&kv, &key);
     assert!(exists.is_ok());
-    assert_eq!(exists.unwrap(), true);
+    assert!(exists.unwrap()); // check that the result is true
 }
 
 #[test]
