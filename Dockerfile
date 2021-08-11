@@ -43,5 +43,4 @@ COPY --from=builder /tofnd/target/release/tofnd /usr/local/bin
 COPY ./entrypoint.sh /
 
 ENTRYPOINT ["/entrypoint.sh"]
-# CMD ["/tofnd"]
 VOLUME [ "/.tofnd" ]
