@@ -136,6 +136,43 @@ fn get_failure() {
 }
 
 #[test]
+fn test_exists() {
+    let kv_name = testdir!();
+    let kv = sled::open(&kv_name).unwrap();
+    let key: String = "key".to_string();
+    let value: String = "value".to_string();
+
+    // exists should fail
+    let exists = handle_exists(&kv, &key);
+    assert!(exists.is_ok());
+    assert!(!exists.unwrap()); // assert that the result is false
+
+    // reserve key
+    let reservation = handle_reserve(&kv, key.clone()).unwrap();
+
+    // exists should succeed
+    let exists = handle_exists(&kv, &key);
+    assert!(exists.is_ok());
+    assert!(exists.unwrap()); // check that the result is true
+
+    // put key
+    handle_put(&kv, reservation, value).unwrap();
+
+    // exists should succeed
+    let exists = handle_exists(&kv, &key);
+    assert!(exists.is_ok());
+    assert!(exists.unwrap()); // check that the result is true
+
+    // remove key
+    let _ = handle_remove::<String>(&kv, key.clone()).unwrap();
+
+    // exists should fail
+    let exists = handle_exists(&kv, &key);
+    assert!(exists.is_ok());
+    assert!(!exists.unwrap()); // check that the result is false
+}
+
+#[test]
 fn remove_success() {
     let kv_name = testdir!();
     let kv = sled::open(&kv_name).unwrap();

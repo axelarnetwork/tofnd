@@ -74,6 +74,14 @@ where
         })?;
         resp_rx.await?
     }
+    pub async fn exists(&self, key: &str) -> Result<bool, Box<dyn Error + Send + Sync>> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        self.sender.send(Exists {
+            key: key.to_string(),
+            resp: resp_tx,
+        })?;
+        resp_rx.await?
+    }
     pub async fn remove(&self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.sender.send(Remove {
@@ -114,6 +122,10 @@ enum Command<V> {
     Get {
         key: String, // TODO should be &str except lifetimes...
         resp: Responder<V>,
+    },
+    Exists {
+        key: String, // TODO should be &str except lifetimes...
+        resp: Responder<bool>,
     },
     Remove {
         key: String, // TODO should be &str except lifetimes...
@@ -183,6 +195,11 @@ where
             }
             Get { key, resp } => {
                 if resp.send(handle_get(&kv, key)).is_err() {
+                    warn!("receiver dropped");
+                }
+            }
+            Exists { key, resp } => {
+                if resp.send(handle_exists(&kv, &key)).is_err() {
                     warn!("receiver dropped");
                 }
             }
@@ -258,6 +275,15 @@ where
 
     // return value
     Ok(value)
+}
+
+fn handle_exists(kv: &sled::Db, key: &str) -> Result<bool, Box<dyn Error + Send + Sync>> {
+    kv.contains_key(key).map_err(|err| {
+        From::from(format!(
+            "Could not perform 'contains_key' for {}: {}",
+            key, err
+        ))
+    })
 }
 
 // helper function to delete a value

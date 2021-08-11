@@ -12,7 +12,7 @@ use tofn::{
     },
     sdk::api::PartyShareCounts,
 };
-use tracing::info;
+use tracing::{info, warn};
 
 impl Gg20Service {
     pub(super) async fn handle_recover(
@@ -27,6 +27,19 @@ impl Gg20Service {
             };
             Self::keygen_sanitize_args(keygen_init)?
         };
+
+        // check if key-uid already exists in kv-store. If yes, return success and don't update the kv-store
+        if self
+            .shares_kv
+            .exists(&keygen_init_sanitized.new_key_uid)
+            .await?
+        {
+            warn!(
+                "Attempting to recover shares for party {} which already exist in kv-store",
+                keygen_init_sanitized.new_key_uid
+            );
+            return Ok(());
+        }
 
         // recover secret key shares from request
         // get mnemonic seed
