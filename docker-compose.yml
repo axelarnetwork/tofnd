@@ -1,0 +1,11 @@
+volumes:
+  tofnd:
+
+services:
+  tofnd:
+    build: .
+    container_name: tofnd
+    hostname: tofnd
+    image: axelar/tofnd
+    volumes:
+      - tofnd:/.tofnd
