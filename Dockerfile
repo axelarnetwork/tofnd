@@ -44,3 +44,4 @@ COPY ./entrypoint.sh /
 
 ENTRYPOINT ["/entrypoint.sh"]
 # CMD ["/tofnd"]
+VOLUME [ "/.tofnd" ]
