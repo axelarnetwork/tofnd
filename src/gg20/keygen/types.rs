@@ -11,6 +11,8 @@ use tofn::{
 };
 
 pub(super) type PartyShareCounts = KeygenPartyShareCounts;
+pub const MAX_PARTY_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_PARTY_SHARE_COUNT;
+pub const MAX_TOTAL_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_TOTAL_SHARE_COUNT;
 
 use tracing::{info, span, Level, Span};
 
