@@ -121,9 +121,11 @@ impl Gg20Service {
 
         info!("Recovering keypair for party {} ...", my_tofnd_index);
 
+        let party_id = TypedUsize::<KeygenPartyId>::from_usize(my_tofnd_index);
+
         let party_keypair = match self.safe_keygen {
-            true => recover_party_keypair(secret_recovery_key, session_nonce),
-            false => recover_party_keypair_unsafe(secret_recovery_key, session_nonce),
+            true => recover_party_keypair(party_id, secret_recovery_key, session_nonce),
+            false => recover_party_keypair_unsafe(party_id, secret_recovery_key, session_nonce),
         }
         .map_err(|_| "party keypair recovery failed".to_string())?;
 
@@ -135,7 +137,7 @@ impl Gg20Service {
             secret_key_shares.push(self.recover(
                 &party_keypair,
                 &deserialized_share_recovery_infos,
-                TypedUsize::from_usize(my_tofnd_index),
+                party_id,
                 i,
                 party_share_counts.clone(),
                 threshold,
