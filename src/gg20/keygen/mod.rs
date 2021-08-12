@@ -21,8 +21,11 @@ use crate::TofndError;
 
 use tonic::Status;
 
-use tofn::gg20::keygen::{
-    create_party_keypair_and_zksetup, create_party_keypair_and_zksetup_unsafe,
+use tofn::{
+    collections::TypedUsize,
+    gg20::keygen::{
+        create_party_keypair_and_zksetup, create_party_keypair_and_zksetup_unsafe, KeygenPartyId,
+    },
 };
 
 // tonic cruft
@@ -73,9 +76,15 @@ impl Gg20Service {
 
         info!("Generating keypair for party {} ...", keygen_init.my_index);
 
+        let party_id = TypedUsize::<KeygenPartyId>::from_usize(keygen_init.my_index);
+
         let (party_keypair, party_zksetup) = match self.safe_keygen {
-            true => create_party_keypair_and_zksetup(&secret_recovery_key, session_nonce),
-            false => create_party_keypair_and_zksetup_unsafe(&secret_recovery_key, session_nonce),
+            true => create_party_keypair_and_zksetup(party_id, &secret_recovery_key, session_nonce),
+            false => create_party_keypair_and_zksetup_unsafe(
+                party_id,
+                &secret_recovery_key,
+                session_nonce,
+            ),
         }
         .map_err(|_| "Party keypair generation failed".to_string())?;
 
