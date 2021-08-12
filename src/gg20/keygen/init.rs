@@ -134,6 +134,11 @@ impl Gg20Service {
                 "threshold is not satisfied: t = {}, total number of shares = {}",
                 threshold, total_shares,
             )));
+        } else if total_shares > MAX_TOTAL_SHARE_COUNT {
+            return Err(From::from(format!(
+                "total shares count is {}, but maximum number of share count is {}.",
+                total_shares, MAX_PARTY_SHARE_COUNT,
+            )));
         }
 
         // sort uids and share counts
@@ -266,6 +271,16 @@ mod tests {
         };
         let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
         assert_eq!(&res.party_share_counts, &vec![MAX_PARTY_SHARE_COUNT]);
+
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
+            party_share_counts: vec![MAX_TOTAL_SHARE_COUNT as u32 - 1, 1], // should be ok
+            my_party_index: 0,
+            threshold: 1,
+        };
+        let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
+        assert_eq!(&res.party_share_counts, &vec![MAX_TOTAL_SHARE_COUNT - 1, 1]);
     }
 
     #[test]
@@ -306,5 +321,13 @@ mod tests {
         };
         assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
+            party_share_counts: vec![MAX_TOTAL_SHARE_COUNT as u32, 1], // total share count is more than max total shares
+            my_party_index: 0,
+            threshold: 1,
+        };
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
     }
 }
