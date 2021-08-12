@@ -120,9 +120,9 @@ To persist information between different gRPCs (i.e. _keygen_ and _sign_), we us
 
 Multiple shares are handled internally. That is, if a party has 3 shares, the `tofnd` binary spawns 3 protocol execution threads, and each thread invokes `tofn` functions independently.
 
-When a message is received from the gRPC client, it is broadcasted to all shares. This is done in the [broadcast](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/broadcast.rs) module.
+When a message is received from the gRPC client, it is broadcasted to all shares. This is done in the [broadcast](https://github.com/axelarnetwork/tofnd/tree/main/src/gg20/broadcast.rs) module.
 
-At the end of the protocol, the outputs of all N party's shares are aggregated and a single result is created and sent to the client. There are separate modules [keygen result](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/keygen/result.rs) and [sign result](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/sign/result.rs) that handles the aggregation results for each protocol.
+At the end of the protocol, the outputs of all N party's shares are aggregated and a single result is created and sent to the client. There are separate modules [keygen result](https://github.com/axelarnetwork/tofnd/tree/main/src/gg20/keygen/result.rs) and [sign result](https://github.com/axelarnetwork/tofnd/tree/main/src/gg20/sign/result.rs) that handles the aggregation results for each protocol.
 
 For `tofn` support on multiple shares, see [here](https://github.com/axelarnetwork/tofn#support-for-multiple-shares-per-party).
 
@@ -136,9 +136,9 @@ Tofnd currently supports the following gRPCs:
 
 ## Diagrams
 
-See a generic protocol sequence diagram, [here](https://github.com/axelarnetwork/tofnd/blob/recovery-api/diagrams/protocol.pdf).
+See a generic protocol sequence diagram, [here](https://github.com/axelarnetwork/tofnd/blob/main/diagrams/protocol.pdf).
 
-See [keygen](https://github.com/axelarnetwork/tofnd/blob/recovery-api/diagrams/keygen.svg) and [sign](https://github.com/axelarnetwork/tofnd/blob/recovery-api/diagrams/sign.svg) diagrams of detailed message flow of each protocol. By opening the `.svg` files at a new tab (instead of previewing from github), hyperlinks will be available that will point you to the code block in which the underlying operations are implemented.
+See [keygen](https://github.com/axelarnetwork/tofnd/blob/main/diagrams/keygen.svg) and [sign](https://github.com/axelarnetwork/tofnd/blob/main/diagrams/sign.svg) diagrams of detailed message flow of each protocol. By opening the `.svg` files at a new tab (instead of previewing from github), hyperlinks will be available that will point you to the code block in which the underlying operations are implemented.
 
 ## Keygen
 The _keygen_ gRPC executes the keygen protocol as implemented in [tofn](https://github.com/axelarnetwork/tofn) and described in [GG20](https://eprint.iacr.org/2020/540.pdf).
@@ -187,7 +187,7 @@ The `tofn` library supports fault detection. That is, if a party does not follow
 In this case, instead of the aforementioned result, _keygen_ returns a `Vec<Faulters>`, which is sent over the gRPC stream before closing the connection.
 
 ### File structure
-_Keygen_ is implemented in [tofnd/src/gg20/keygen](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/keygen), which has the following file structure:
+_Keygen_ is implemented in [tofnd/src/gg20/keygen](https://github.com/axelarnetwork/tofnd/tree/main/src/gg20/keygen), which has the following file structure:
 
 ```
 ├── keygen
@@ -249,7 +249,7 @@ message NeedRecover {
 The client then proceeds by triggering _recover_ gRPC, and then starts the _sign_ again for the recovered party. Other participants are not affected.
 
 ### File structure
-The keygen protocol is implemented in [tofnd/src/gg20/sign](https://github.com/axelarnetwork/tofnd/tree/recovery-api/src/gg20/sign), which, similar to _keygen_, has the following file structure:
+The keygen protocol is implemented in [tofnd/src/gg20/sign](https://github.com/axelarnetwork/tofnd/tree/main/src/gg20/sign), which, similar to _keygen_, has the following file structure:
 
 ```
 ├── sign
