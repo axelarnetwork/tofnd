@@ -10,7 +10,11 @@ use tracing::Span;
 
 // use tofn::protocol::gg20::keygen::validate_params;
 
-use super::{proto, types::KeygenInitSanitized, Gg20Service, TofndError};
+use super::{
+    proto,
+    types::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
+    Gg20Service, TofndError,
+};
 use crate::kv_manager::KeyReservation;
 
 impl Gg20Service {
@@ -107,11 +111,37 @@ impl Gg20Service {
             )));
         }
 
+        // check if my_index is inside party_uids
+        if my_index >= args.party_uids.len() {
+            return Err(From::from(format!(
+                "my index is {}, but there are only {} parties.",
+                my_index,
+                args.party_uids.len(),
+            )));
+        }
+
+        // if party's shares are above max, return error
+        for party_share_count in &party_share_counts {
+            if *party_share_count > MAX_PARTY_SHARE_COUNT {
+                return Err(From::from(format!(
+                    "party {} has {} shares, but maximum number of shares per party is {}.",
+                    args.party_uids[my_index],
+                    args.party_share_counts[my_index],
+                    MAX_PARTY_SHARE_COUNT,
+                )));
+            }
+        }
+
         let total_shares = party_share_counts.iter().sum::<usize>();
         if total_shares <= threshold {
             return Err(From::from(format!(
                 "threshold is not satisfied: t = {}, total number of shares = {}",
                 threshold, total_shares,
+            )));
+        } else if total_shares > MAX_TOTAL_SHARE_COUNT {
+            return Err(From::from(format!(
+                "total shares count is {}, but maximum number of share count is {}.",
+                total_shares, MAX_PARTY_SHARE_COUNT,
             )));
         }
 
@@ -235,6 +265,26 @@ mod tests {
         };
         let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
         assert_eq!(&res.party_share_counts, &vec![1, 1]);
+
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned()],
+            party_share_counts: vec![MAX_PARTY_SHARE_COUNT as u32], // should be ok
+            my_party_index: 0,
+            threshold: 1,
+        };
+        let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
+        assert_eq!(&res.party_share_counts, &vec![MAX_PARTY_SHARE_COUNT]);
+
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
+            party_share_counts: vec![MAX_TOTAL_SHARE_COUNT as u32 - 1, 1], // should be ok
+            my_party_index: 0,
+            threshold: 1,
+        };
+        let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
+        assert_eq!(&res.party_share_counts, &vec![MAX_TOTAL_SHARE_COUNT - 1, 1]);
     }
 
     #[test]
@@ -262,6 +312,24 @@ mod tests {
             party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
             party_share_counts: vec![1, 1],
             my_party_index: 2, // index out of bounds
+            threshold: 1,
+        };
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
+
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned()],
+            party_share_counts: vec![(MAX_PARTY_SHARE_COUNT + 1) as u32], // party has more than max number of shares
+            my_party_index: 0,
+            threshold: 1,
+        };
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
+
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
+            party_share_counts: vec![MAX_TOTAL_SHARE_COUNT as u32, 1], // total share count is more than max total shares
+            my_party_index: 0,
             threshold: 1,
         };
         assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
