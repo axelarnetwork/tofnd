@@ -121,11 +121,15 @@ impl Gg20Service {
         }
 
         // if party's shares are above max, return error
-        if party_share_counts[my_index] > MAX_PARTY_SHARE_COUNT {
-            return Err(From::from(format!(
-                "party {} has {} shares, but maximum number of shares per party is {}.",
-                args.party_uids[my_index], args.party_share_counts[my_index], MAX_PARTY_SHARE_COUNT,
-            )));
+        for party_share_count in &party_share_counts {
+            if *party_share_count > MAX_PARTY_SHARE_COUNT {
+                return Err(From::from(format!(
+                    "party {} has {} shares, but maximum number of shares per party is {}.",
+                    args.party_uids[my_index],
+                    args.party_share_counts[my_index],
+                    MAX_PARTY_SHARE_COUNT,
+                )));
+            }
         }
 
         let total_shares = party_share_counts.iter().sum::<usize>();
