@@ -12,7 +12,11 @@ pub(super) trait Party: Sync + Send {
         channels: SenderReceiver,
         delivery: Deliverer,
     ) -> KeygenResult;
-    async fn execute_recover(&mut self, init: proto::KeygenInit, recovery_infos: Vec<Vec<u8>>);
+    async fn execute_recover(
+        &mut self,
+        keygen_init: proto::KeygenInit,
+        keygen_output: proto::KeygenOutput,
+    );
     async fn execute_key_presence(&mut self, key_uid: String) -> bool;
     async fn execute_sign(
         &mut self,

@@ -290,12 +290,11 @@ impl Party for TofndParty {
     async fn execute_recover(
         &mut self,
         keygen_init: proto::KeygenInit,
-        share_recovery_infos: Vec<Vec<u8>>,
+        keygen_output: proto::KeygenOutput,
     ) {
-        let keygen_init = Some(keygen_init);
         let recover_request = proto::RecoverRequest {
-            keygen_init,
-            share_recovery_infos,
+            keygen_init: Some(keygen_init),
+            keygen_output: Some(keygen_output),
         };
         let response = self
             .client
