@@ -7,8 +7,8 @@
 use tofn::gg20::keygen::SecretKeyShare;
 
 use super::{
-    proto::{self, message_out::keygen_result},
-    types::{KeygenInitSanitized, TofnKeygenOutput, TofndKeygenOutput},
+    proto::{self},
+    types::{Bytes, KeygenInitSanitized, TofnKeygenOutput, TofndKeygenOutput},
     Gg20Service,
 };
 use crate::{gg20::types::PartyInfo, kv_manager::KeyReservation, TofndError};
@@ -47,16 +47,7 @@ impl Gg20Service {
             Self::process_keygen_outputs(&keygen_init, keygen_outputs, stream_out_sender)?;
 
         // try to retrieve recovery info from all shares
-        let share_recovery_infos = secret_key_shares
-            .iter()
-            .map(|secret_key_share| {
-                let recovery_info = secret_key_share
-                    .recovery_info()
-                    .map_err(|_| "Unable to get recovery info".to_string())?;
-
-                bincode::serialize(&recovery_info).map_err(|e| e.to_string())
-            })
-            .collect::<Result<_, _>>()?;
+        let (group_info, recovery_info) = Self::get_recovery_data(&secret_key_shares)?;
 
         // combine responses from all keygen threads to a single struct
         let kv_data = PartyInfo::get_party_info(
@@ -73,9 +64,10 @@ impl Gg20Service {
         Ok(
             stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
                 &keygen_init.party_uids,
-                Ok(keygen_result::KeygenOutput {
+                Ok(proto::KeygenOutput {
                     pub_key,
-                    share_recovery_infos,
+                    group_info,
+                    recovery_info,
                 }),
             )))?,
         )
@@ -131,6 +123,29 @@ impl Gg20Service {
                 Err(format!("Party {} found crimes: {:?}", keygen_init.my_index, crimes).into())
             }
         }
+    }
+
+    fn get_recovery_data(
+        secret_key_shares: &[SecretKeyShare],
+    ) -> Result<(Bytes, Vec<Bytes>), TofndError> {
+        // try to get common recovery info. These are common across all parties.
+        let group_info = secret_key_shares[0]
+            .group()
+            .all_shares_bytes()
+            .map_err(|_| "unable to call all_shares_bytes(): {}".to_string())?;
+
+        // try to retrieve private recovery info from all party's shares
+        let recovery_info = secret_key_shares
+            .iter()
+            .enumerate()
+            .map(|(index, secret_key_share)| {
+                secret_key_share
+                    .recovery_info()
+                    .map_err(|_| format!("Unable to get recovery info for share {}", index))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok((group_info, recovery_info))
     }
 
     /// wait all keygen threads and get keygen outputs

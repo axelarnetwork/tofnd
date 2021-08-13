@@ -20,6 +20,8 @@ use tracing::{info, span, Level, Span};
 pub type TofnKeygenOutput = ProtocolOutput<SecretKeyShare, KeygenPartyId>;
 /// tofnd's ProtocolOutput for Keygen
 pub type TofndKeygenOutput = Result<TofnKeygenOutput, TofndError>;
+/// type for bytes
+pub type Bytes = Vec<u8>;
 
 /// KeygenInitSanitized holds all arguments needed by Keygen in the desired form; populated by proto::KeygenInit
 /// pub because it is also needed by recovery module
