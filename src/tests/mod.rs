@@ -173,14 +173,14 @@ fn check_sign_results(results: Vec<SignResult>, expected_faults: &CriminalList) 
     true
 }
 
-fn gather_recover_info(results: &[KeygenResult]) -> Vec<Vec<u8>> {
+fn gather_recover_info(results: &[KeygenResult]) -> Vec<proto::KeygenOutput> {
     // gather recover info
     let mut recover_infos = vec![];
     for result in results.iter() {
         let result_data = result.keygen_result_data.clone().unwrap();
         match result_data {
             KeygenData(output) => {
-                recover_infos.extend(output.share_recovery_infos.clone());
+                recover_infos.push(output);
             }
             KeygenCriminals(_) => {}
         }
@@ -638,14 +638,14 @@ async fn execute_recover(
     mut parties: Vec<TofndParty>,
     recover_party_index: usize,
     mut keygen_init: proto::KeygenInit,
-    recovery_infos: Vec<Vec<u8>>,
+    keygen_outputs: Vec<proto::KeygenOutput>,
 ) -> Vec<TofndParty> {
     // create keygen init for recovered party
     let key_uid = keygen_init.new_key_uid.clone();
 
     keygen_init.my_party_index = recover_party_index as i32;
     parties[recover_party_index]
-        .execute_recover(keygen_init, recovery_infos)
+        .execute_recover(keygen_init, keygen_outputs[recover_party_index].clone())
         .await;
 
     // Check that session for the party doing recovery is absent in kvstore
