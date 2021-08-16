@@ -8,7 +8,7 @@ use tofn::gg20::keygen::SecretKeyShare;
 
 use super::{
     proto::{self},
-    types::{Bytes, KeygenInitSanitized, TofnKeygenOutput, TofndKeygenOutput},
+    types::{BytesVec, KeygenInitSanitized, TofnKeygenOutput, TofndKeygenOutput},
     Gg20Service,
 };
 use crate::{gg20::types::PartyInfo, kv_manager::KeyReservation, TofndError};
@@ -79,7 +79,7 @@ impl Gg20Service {
         keygen_init: &KeygenInitSanitized,
         keygen_outputs: Vec<TofnKeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
-    ) -> Result<(Vec<u8>, Vec<SecretKeyShare>), TofndError> {
+    ) -> Result<(BytesVec, Vec<SecretKeyShare>), TofndError> {
         // Collect all key shares unless there's a protocol fault
         let keygen_outputs = keygen_outputs
             .into_iter()
@@ -127,7 +127,7 @@ impl Gg20Service {
 
     fn get_recovery_data(
         secret_key_shares: &[SecretKeyShare],
-    ) -> Result<(Bytes, Vec<Bytes>), TofndError> {
+    ) -> Result<(BytesVec, Vec<BytesVec>), TofndError> {
         // try to get common recovery info. These are common across all parties.
         let group_info = secret_key_shares[0]
             .group()
