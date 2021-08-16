@@ -34,8 +34,8 @@ impl Gg20Service {
         // check if key-uid already exists in kv-store. If yes, return success and don't update the kv-store
         if self.shares_kv.exists(&keygen_init.new_key_uid).await? {
             warn!(
-                "Attempting to recover shares for party {} which already exist in kv-store",
-                keygen_init.new_key_uid
+                "Request to recover shares for [key {}, party {}] but shares already exist in kv-store. Abort request.",
+                keygen_init.new_key_uid, keygen_init.party_uids[keygen_init.my_index]
             );
             return Ok(());
         }
