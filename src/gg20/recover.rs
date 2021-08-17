@@ -104,22 +104,23 @@ impl Gg20Service {
         let recovery_info_vec: Vec<BytesVec> = bincode::deserialize(&output.recovery_info)?;
 
         // gather secret key shares from recovery infos
-        let mut secret_key_shares = Vec::with_capacity(my_share_count);
-        // TODO: make recover() handle all shares of the party to simplify the API?
-        for (i, share_recovery_info_bytes) in recovery_info_vec.iter().enumerate() {
-            let secret_key_share = SecretKeyShare::recover(
-                &party_keypair,
-                share_recovery_info_bytes, // request recovery for ith share
-                &output.group_info,
-                &output.pub_key,
-                party_id,
-                i,
-                party_share_counts.clone(),
-                init.threshold,
-            )
-            .map_err(|_| format!("Cannot recover share [{}] of party [{}]", i, party_id,))?;
-            secret_key_shares.push(secret_key_share);
-        }
+        let secret_key_shares = recovery_info_vec
+            .iter()
+            .enumerate()
+            .map(|(i, share_recovery_info_bytes)| {
+                SecretKeyShare::recover(
+                    &party_keypair,
+                    share_recovery_info_bytes, // request recovery for ith share
+                    &output.group_info,
+                    &output.pub_key,
+                    party_id,
+                    i,
+                    party_share_counts.clone(),
+                    init.threshold,
+                )
+                .map_err(|_| format!("Cannot recover share [{}] of party [{}]", i, party_id))
+            })
+            .collect::<Result<_, _>>()?;
 
         Ok(secret_key_shares)
     }
