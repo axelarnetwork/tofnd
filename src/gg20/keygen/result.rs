@@ -136,7 +136,7 @@ impl Gg20Service {
 
     fn get_recovery_data(
         secret_key_shares: &[SecretKeyShare],
-    ) -> Result<(BytesVec, Vec<BytesVec>), TofndError> {
+    ) -> Result<(BytesVec, BytesVec), TofndError> {
         // try to get common recovery info. These are common across all parties.
         let group_info = secret_key_shares[0]
             .group()
@@ -154,6 +154,8 @@ impl Gg20Service {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        // We use an additional layer of serialization to simpify the protobuf definition
+        let recovery_info = bincode::serialize(&recovery_info)?;
         Ok((group_info, recovery_info))
     }
 

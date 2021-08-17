@@ -9,7 +9,7 @@ use tofn::{
         recover_party_keypair, recover_party_keypair_unsafe, KeygenPartyId, SecretKeyShare,
         SecretRecoveryKey,
     },
-    sdk::api::PartyShareCounts,
+    sdk::api::{BytesVec, PartyShareCounts},
 };
 
 // logging
@@ -100,10 +100,13 @@ impl Gg20Service {
 
         info!("Finished recovering keypair for party {}", init.my_index);
 
+        // We use an additional layer of deserialization to simpify the protobuf definition
+        let recovery_info_vec: Vec<BytesVec> = bincode::deserialize(&output.recovery_info)?;
+
         // gather secret key shares from recovery infos
         let mut secret_key_shares = Vec::with_capacity(my_share_count);
         // TODO: make recover() handle all shares of the party to simplify the API?
-        for (i, share_recovery_info_bytes) in output.recovery_info.iter().enumerate() {
+        for (i, share_recovery_info_bytes) in recovery_info_vec.iter().enumerate() {
             let secret_key_share = SecretKeyShare::recover(
                 &party_keypair,
                 share_recovery_info_bytes, // request recovery for ith share
