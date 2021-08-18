@@ -50,8 +50,9 @@ impl Gg20Service {
         let (pub_key, secret_key_shares) =
             Self::process_keygen_outputs(&keygen_init, keygen_outputs, stream_out_sender)?;
 
-        let (group_info, recovery_info) =
-            Self::get_recovery_data(&secret_key_shares).map_err(|err| anyhow!(err));
+        // try to retrieve recovery info from all shares
+        let (group_recover_info, private_recover_info) =
+            Self::get_recovery_data(&secret_key_shares).map_err(|err| anyhow!(err))?;
 
         // combine responses from all keygen threads to a single struct
         let kv_data = PartyInfo::get_party_info(
@@ -73,8 +74,8 @@ impl Gg20Service {
                 &keygen_init.party_uids,
                 Ok(proto::KeygenOutput {
                     pub_key,
-                    group_info,
-                    recovery_info,
+                    group_recover_info,
+                    private_recover_info,
                 }),
             )))?,
         )

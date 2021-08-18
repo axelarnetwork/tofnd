@@ -101,7 +101,7 @@ impl Gg20Service {
         info!("Finished recovering keypair for party {}", init.my_index);
 
         // We use an additional layer of deserialization to simpify the protobuf definition
-        let recovery_info_vec: Vec<BytesVec> = bincode::deserialize(&output.recovery_info)?;
+        let recovery_info_vec: Vec<BytesVec> = bincode::deserialize(&output.private_recover_info)?;
 
         // gather secret key shares from recovery infos
         let secret_key_shares = recovery_info_vec
@@ -111,7 +111,7 @@ impl Gg20Service {
                 SecretKeyShare::recover(
                     &party_keypair,
                     share_recovery_info_bytes, // request recovery for ith share
-                    &output.group_info,
+                    &output.group_recover_info,
                     &output.pub_key,
                     party_id,
                     i,
