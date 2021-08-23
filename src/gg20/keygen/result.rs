@@ -96,14 +96,24 @@ impl Gg20Service {
                     .into());
                 }
 
-                // check that all shares returned the same public key
+                // check that all shares returned the same public key and group recover info
                 let share_id = secret_key_shares[0].share().index();
                 let pub_key = secret_key_shares[0].group().pubkey_bytes();
+                let group_info = secret_key_shares[0].group().all_shares();
 
                 for secret_key_share in &secret_key_shares[1..] {
                     if pub_key != secret_key_share.group().pubkey_bytes() {
                         return Err(format!(
                             "Party {}'s share {} and {} returned different public key",
+                            keygen_init.my_index,
+                            share_id,
+                            secret_key_share.share().index()
+                        )
+                        .into());
+                    }
+                    if group_info != secret_key_share.group().all_shares() {
+                        return Err(format!(
+                            "Party {}'s share {} and {} returned different group recovery info",
                             keygen_init.my_index,
                             share_id,
                             secret_key_share.share().index()
@@ -130,6 +140,7 @@ impl Gg20Service {
         secret_key_shares: &[SecretKeyShare],
     ) -> Result<(BytesVec, BytesVec), TofndError> {
         // try to get common recovery info. These are common across all parties.
+        // uniquness check has been done on `process_keygen_outputs()`
         let group_bytes = secret_key_shares[0]
             .group()
             .all_shares_bytes()
