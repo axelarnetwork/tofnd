@@ -90,6 +90,16 @@ impl Gg20Service {
         // use an additional layer of deserialization to simpify the protobuf definition
         // deserialize recovery info here to catch errors before spending cycles on keypair recovery
         let private_info_vec: Vec<BytesVec> = bincode::deserialize(&output.private_recover_info)?;
+        if private_info_vec.len() != my_share_count {
+            return Err(format!(
+                "Party {} has {} shares assigned, but retrieved {} shares from client",
+                init.my_index,
+                my_share_count,
+                private_info_vec.len()
+            )
+            .into());
+        }
+
         info!("Recovering keypair for party {} ...", init.my_index);
 
         let party_id = TypedUsize::<KeygenPartyId>::from_usize(init.my_index);
