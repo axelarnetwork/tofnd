@@ -19,18 +19,30 @@ impl Gg20Service {
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         participant_uids: &[String],
     ) -> Result<(), TofndError> {
+        // create vec to store all sign outputs
+        // cannot use aggregator_receivers.map(|aggr| aggr.await??) because map() does not support async funcs
+        let mut sign_outputs = Vec::with_capacity(aggregator_receivers.len());
+
         //  wait all sign threads and get signature
-        let mut sign_output = None;
         for aggregator in aggregator_receivers {
-            sign_output = Some(aggregator.await??);
+            let sign_output = aggregator.await??;
+            sign_outputs.push(sign_output);
         }
-        let sign_output = sign_output.ok_or("no output returned from waitgroup")?;
+
+        // check if all signatures are the same
+        if !is_all_same(&sign_outputs) {
+            return Err(format!("Not all signatures are the same: {:#?}", sign_outputs).into());
+        }
 
         // send signature to client
         stream_out_sender.send(Ok(proto::MessageOut::new_sign_result(
             participant_uids,
-            sign_output,
+            sign_outputs[0].clone(),
         )))?;
         Ok(())
     }
+}
+
+fn is_all_same<T: PartialEq>(slice: &[T]) -> bool {
+    slice.windows(2).all(|w| w[0] == w[1])
 }
