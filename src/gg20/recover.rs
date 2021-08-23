@@ -59,7 +59,7 @@ impl Gg20Service {
         init: &KeygenInitSanitized,
         output: &proto::KeygenOutput,
     ) -> Result<Vec<SecretKeyShare>, TofndError> {
-        // get my share count safely
+        // check my share count safely
         let my_share_count = *init.party_share_counts.get(init.my_index).ok_or(format!(
             "index {} is out of party_share_counts bounds {}",
             init.my_index,
@@ -69,6 +69,7 @@ impl Gg20Service {
             return Err(format!("Party {} has 0 shares assigned", init.my_index).into());
         }
 
+        // check party share counts
         let party_share_counts = PartyShareCounts::from_vec(init.party_share_counts.to_owned())
             .map_err(|_| {
                 format!(
@@ -77,6 +78,7 @@ impl Gg20Service {
                 )
             })?;
 
+        // check private recovery infos
         // use an additional layer of deserialization to simpify the protobuf definition
         // deserialize recovery info here to catch errors before spending cycles on keypair recovery
         let private_info_vec: Vec<BytesVec> = bincode::deserialize(&output.private_recover_info)?;
@@ -94,6 +96,7 @@ impl Gg20Service {
 
         let party_id = TypedUsize::<KeygenPartyId>::from_usize(init.my_index);
 
+        // try to recover keypairs
         let session_nonce = init.new_key_uid.as_bytes();
         let party_keypair = match self.safe_keygen {
             true => recover_party_keypair(party_id, secret_recovery_key, session_nonce),
@@ -103,7 +106,7 @@ impl Gg20Service {
 
         info!("Finished recovering keypair for party {}", init.my_index);
 
-        // gather secret key shares from recovery infos
+        // try to gather secret key shares from recovery infos
         let secret_key_shares = private_info_vec
             .iter()
             .enumerate()

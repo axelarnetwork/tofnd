@@ -130,13 +130,13 @@ impl Gg20Service {
         secret_key_shares: &[SecretKeyShare],
     ) -> Result<(BytesVec, BytesVec), TofndError> {
         // try to get common recovery info. These are common across all parties.
-        let group_info = secret_key_shares[0]
+        let group_bytes = secret_key_shares[0]
             .group()
             .all_shares_bytes()
             .map_err(|_| "unable to call all_shares_bytes(): {}".to_string())?;
 
         // try to retrieve private recovery info from all party's shares
-        let recovery_info = secret_key_shares
+        let private_infos = secret_key_shares
             .iter()
             .enumerate()
             .map(|(index, secret_key_share)| {
@@ -147,8 +147,8 @@ impl Gg20Service {
             .collect::<Result<Vec<_>, _>>()?;
 
         // We use an additional layer of serialization to simpify the protobuf definition
-        let recovery_info = bincode::serialize(&recovery_info)?;
-        Ok((group_info, recovery_info))
+        let private_bytes = bincode::serialize(&private_infos)?;
+        Ok((group_bytes, private_bytes))
     }
 
     /// wait all keygen threads and get keygen outputs
