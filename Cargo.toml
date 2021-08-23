@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 tonic = "0.5"
-tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "main"}
+tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "roundtype_refactor"}
 # tofn = { path = "../tofn" }
 bincode = {version = "1.2.1", default-features = false}
 sled = {version = "0.34", default-features = false}
