@@ -2,8 +2,11 @@
 
 set -e
 
+ARGS=""
 if [ -n "${UNSAFE}" ]; then \
-    exec tofnd --unsafe "$@"; \
-else \
-    exec tofnd "$@"; \
+    ARGS="$ARGS --unsafe"; \
 fi
+if [ -n "${MNEMONIC_CMD}" ]; then \
+    ARGS="$ARGS -m $MNEMONIC_CMD"; \
+fi
+exec tofnd $ARGS "$@"; \

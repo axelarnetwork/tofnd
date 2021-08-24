@@ -9,3 +9,8 @@ services:
     image: axelar/tofnd
     volumes:
       - tofnd:/.tofnd
+    environment:
+      # ATTENTION: use --unsafe only for testing
+      - UNSAFE=true
+      # available cmds: create (default), stored, update, import, export
+      - MNEMONIC_CMD=create 

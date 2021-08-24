@@ -45,4 +45,5 @@ COPY ./entrypoint.sh /
 VOLUME [ "/.tofnd" ]
 
 ENV UNSAFE ""
+ENV MNEMONIC_CMD ""
 ENTRYPOINT ["/entrypoint.sh"]
