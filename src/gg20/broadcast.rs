@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 use tonic::Status;
 
 // logging
-use tracing::{info, span, warn, Level, Span};
+use tracing::{debug, info, span, warn, Level, Span};
 
 /// Results of routing
 #[derive(Debug, PartialEq)]
@@ -79,8 +79,9 @@ fn open_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> Ro
     // https://github.com/axelarnetwork/tofnd/issues/167
     let msg_data_opt = match msg_result {
         Ok(msg_in) => msg_in.data,
-        Err(_) => {
+        Err(err) => {
             info!("Stream closed");
+            debug!("Stream closed with err {}", err);
             return RoutingStatus::Stop;
         }
     };
