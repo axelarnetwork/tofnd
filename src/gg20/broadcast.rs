@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 use tonic::Status;
 
 // logging
-use tracing::{error, info, span, warn, Level, Span};
+use tracing::{info, span, warn, Level, Span};
 
 /// Results of routing
 #[derive(Debug, PartialEq)]
@@ -69,10 +69,18 @@ fn open_message(msg: Option<Result<proto::MessageIn, Status>>, span: Span) -> Ro
     };
 
     // get data option
+
+    // TODO examine why this happens: Sometimes, when the connection is
+    // closed by the client, instead of a `None` message, we get a `Some`
+    // message containing an "error reading a body from connection: protocol
+    // error: not a result of an error" error Removing for now to prevent this
+    // message from appearing while doing keygen/signs but will need to
+    // find out why this happens
+    // https://github.com/axelarnetwork/tofnd/issues/167
     let msg_data_opt = match msg_result {
         Ok(msg_in) => msg_in.data,
-        Err(err) => {
-            error!("Stream closed due to error {}", err);
+        Err(_) => {
+            info!("Stream closed");
             return RoutingStatus::Stop;
         }
     };
