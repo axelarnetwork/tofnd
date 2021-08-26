@@ -13,6 +13,10 @@ copy-binary-from-image: guard-SEMVER
 	mv bin/tofnd bin/tofnd-linux-arm64-${SEMVER}
 	cd bin && sha256sum * > SHA256SUMS
 
+.PHONY: upload-binaries-to-s3
+upload-binaries-to-s3: guard-S3_PATH
+	aws s3 cp ./bin ${S3_PATH}/ --recursive
+
 .PHONY: docker-image-all
 docker-image-all: git-submodule-setup
 	make docker-image
