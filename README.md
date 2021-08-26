@@ -85,15 +85,15 @@ The command line API supports the following commands:
 
 * `Noop` does nothing and always succeeds; useful when the container restarts with the same mnemonic.  
 
-* `Create` creates a new mnemonic if there none exists, otherwise does nothing. The new passphrase is written in a file named _./export_.
+* `Create` creates a new mnemonic if there none exists, otherwise does nothing. The new passphrase is written in a file named _./tofnd/export_.
 
-* `Import` adds a new mnemonic from file _./import_ file; Succeeds when there is no other mnemonic already imported, fails otherwise.
+* `Import` adds a new mnemonic from file _./tofnd/import_ file; Succeeds when there is no other mnemonic already imported, fails otherwise.
 
-* `Export` writes the existing mnemonic to file _./export_; Succeeds when there is an existing mnemonic, fails otherwise.
+* `Export` writes the existing mnemonic to file _./tofnd/export_; Succeeds when there is an existing mnemonic, fails otherwise.
 
-* `Update` updates existing mnemonic from file _./import_; Succeeds when there is an existing mnemonic, fails otherwise. The old passphrase is written to file _./export_.
+* `Update` updates existing mnemonic from file _./tofnd/import_; Succeeds when there is an existing mnemonic, fails otherwise. The old passphrase is written to file _./export_.
 
-If an _./export_ file already exists, then a new one is created with a new id, e.g. _./export_2_, _./export_3_, etc.
+If a _./tofnd/export_ file already exists, then a new one is created with a new id, e.g. _./tofnd/export_2_, _./tofnd/export_3_, etc.
 
 ## Zeroization
 
