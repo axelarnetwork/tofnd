@@ -1,4 +1,4 @@
-name: Release Binaries
+name: Upload Binaries and Docker Image
 
 on:
   workflow_dispatch:
