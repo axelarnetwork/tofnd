@@ -4,10 +4,9 @@
 use super::{proto, types::TofnSignOutput, Gg20Service};
 use crate::TofndError;
 
-use tokio::sync::oneshot;
-
 // tonic cruft
 use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 use tonic::Status;
 
 impl Gg20Service {
@@ -29,9 +28,22 @@ impl Gg20Service {
             sign_outputs.push(sign_output);
         }
 
-        // check if all signatures are the same
-        if !is_all_same(&sign_outputs) {
-            return Err(format!("Not all signatures are the same: {:#?}", sign_outputs).into());
+        // sanity check: check if all shares produced the same signature
+        let first_sign_output = &sign_outputs[0];
+        // skip() first element of sign outputs to avoid extra loop
+        for (i, sign_output) in sign_outputs.iter().enumerate().skip(1) {
+            if sign_output != first_sign_output {
+                let mut error_msg = format!(
+                    "Signature mismatch between shares [{}] and [{}]. More mismatches may exist.",
+                    0, i
+                );
+                error_msg = format!(
+                    "{}\nReceived signatures: {:#?}",
+                    error_msg,
+                    sign_output.iter().enumerate().collect::<Vec<_>>()
+                );
+                return Err(error_msg.into());
+            }
         }
 
         // send signature to client
@@ -41,8 +53,4 @@ impl Gg20Service {
         )))?;
         Ok(())
     }
-}
-
-fn is_all_same<T: PartialEq>(slice: &[T]) -> bool {
-    slice.windows(2).all(|w| w[0] == w[1])
 }
