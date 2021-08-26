@@ -47,7 +47,7 @@ impl Gg20Service {
             Self::process_keygen_outputs(&keygen_init, keygen_outputs, stream_out_sender)?;
 
         // try to retrieve private recovery info from all shares
-        let private_recover_info = Self::get_recovery_data(&secret_key_shares)?;
+        let private_recover_info = Self::get_private_recovery_data(&secret_key_shares)?;
 
         // combine responses from all keygen threads to a single struct
         let kv_data = PartyInfo::get_party_info(
@@ -150,7 +150,9 @@ impl Gg20Service {
     }
 
     /// Create private recovery info out of a vec with all parties' SecretKeyShares
-    fn get_recovery_data(secret_key_shares: &[SecretKeyShare]) -> Result<BytesVec, TofndError> {
+    fn get_private_recovery_data(
+        secret_key_shares: &[SecretKeyShare],
+    ) -> Result<BytesVec, TofndError> {
         // try to retrieve private recovery info from all party's shares
         let private_infos = secret_key_shares
             .iter()
