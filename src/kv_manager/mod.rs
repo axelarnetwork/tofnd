@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 // Provided by the requester and used by the manager task to send the command response back to the requester.
 // TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
@@ -29,7 +29,7 @@ impl<V: 'static> Kv<V>
 where
     V: Debug + Send + Sync + Serialize + DeserializeOwned,
 {
-    pub fn new(kv_name: &str) -> Self {
+    pub fn new(kv_name: &str) -> sled::Result<Self> {
         let kv_path = PathBuf::from(DEFAULT_PATH_ROOT)
             .join(DEFAULT_KV_PATH)
             .join(kv_name);
@@ -37,10 +37,15 @@ where
         let kv_path = kv_path.to_string_lossy().to_string();
         Self::with_db_name(kv_path)
     }
-    pub fn with_db_name(db_name: String) -> Self {
+    pub fn with_db_name(db_name: String) -> sled::Result<Self> {
         let (sender, rx) = mpsc::unbounded_channel();
-        tokio::spawn(kv_cmd_handler(rx, db_name));
-        Self { sender }
+
+        // get kv store from db name before entering the kv_cmd_handler because
+        // it's more convenient to return an error from outside of a tokio::span
+        let kv = get_kv_store(&db_name)?;
+
+        tokio::spawn(kv_cmd_handler(rx, kv));
+        Ok(Self { sender })
     }
     pub async fn reserve_key(
         &self,
@@ -159,19 +164,12 @@ fn get_kv_store(db_name: &str) -> sled::Result<sled::Db> {
 }
 
 // private handler function to process commands as per the "actor" pattern (see above)
-async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::UnboundedReceiver<Command<V>>, db_name: String)
+async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::UnboundedReceiver<Command<V>>, kv: sled::Db)
 where
     V: Serialize + DeserializeOwned,
 {
     // if resp.send() fails then log a warning and continue
     // see discussion https://github.com/axelarnetwork/tofnd/pull/15#discussion_r595426775
-    let kv = match get_kv_store(&db_name) {
-        Ok(kv) => kv,
-        Err(err) => {
-            error!("Unable to open kv store {}: {}", db_name, err);
-            return;
-        }
-    };
     while let Some(cmd) = rx.recv().await {
         // TODO better error handling and logging: we should log when `handle_*` fails
         // TODO refactor repeated code

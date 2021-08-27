@@ -26,10 +26,23 @@ pub async fn new_service(
     mnemonic_cmd: Cmd,
     #[cfg(feature = "malicious")] behaviours: malicious::Behaviours,
 ) -> Result<impl proto::gg20_server::Gg20, TofndError> {
+    let shares_kv = KeySharesKv::new(DEFAULT_SHARE_KV_NAME).map_err(|err| {
+        format!(
+            "Shares kvstore is corrupted. Please remove it and recover your shares. Error: {}",
+            err
+        )
+    })?;
+    let mnemonic_kv = MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME).map_err(|err| {
+        format!(
+            "Your mnemonic kv store is corrupted. Please remove it and import your mnemonic again. Error: {}", err
+        )
+    })?;
+    let io = FileIo::new(PathBuf::from(DEFAULT_PATH_ROOT));
+
     let gg20 = Gg20Service {
-        shares_kv: KeySharesKv::new(DEFAULT_SHARE_KV_NAME),
-        mnemonic_kv: MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME),
-        io: FileIo::new(PathBuf::from(DEFAULT_PATH_ROOT)),
+        shares_kv,
+        mnemonic_kv,
+        io,
         safe_keygen,
         #[cfg(feature = "malicious")]
         behaviours,
@@ -67,8 +80,8 @@ pub mod tests {
         path.push(db_path);
 
         let gg20 = Gg20Service {
-            shares_kv: KeySharesKv::with_db_name(shares_db_name.to_owned()),
-            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_db_name.to_owned()),
+            shares_kv: KeySharesKv::with_db_name(shares_db_name.to_owned()).unwrap(),
+            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_db_name.to_owned()).unwrap(),
             io: FileIo::new(path),
             safe_keygen: false,
             #[cfg(feature = "malicious")]
