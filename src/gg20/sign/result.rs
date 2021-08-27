@@ -3,10 +3,9 @@
 
 use super::{proto, types::TofnSignOutput, Gg20Service};
 
-use tokio::sync::oneshot;
-
 // tonic cruft
 use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 use tonic::Status;
 
 // error handling
@@ -22,18 +21,38 @@ impl Gg20Service {
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         participant_uids: &[String],
     ) -> TofndResult<()> {
+        // create vec to store all sign outputs
+        // cannot use aggregator_receivers.map(|aggr| aggr.await??) because map() does not support async funcs
+        let mut sign_outputs = Vec::with_capacity(aggregator_receivers.len());
+
         //  wait all sign threads and get signature
-        let mut sign_output = None;
         for aggregator in aggregator_receivers {
-            sign_output = Some(aggregator.await??);
+            let sign_output = aggregator.await??;
+            sign_outputs.push(sign_output);
         }
-        let sign_output =
-            sign_output.ok_or_else(|| anyhow!("no output returned from waitgroup"))?;
+
+        // sanity check: check if all shares produced the same signature
+        let first_sign_output = &sign_outputs[0];
+        // skip() first element of sign outputs to avoid extra loop
+        for (i, sign_output) in sign_outputs.iter().enumerate().skip(1) {
+            if sign_output != first_sign_output {
+                let mut error_msg = format!(
+                    "Signature mismatch between shares [{}] and [{}]. More mismatches may exist.",
+                    0, i
+                );
+                error_msg = format!(
+                    "{}\nReceived signatures: {:#?}",
+                    error_msg,
+                    sign_output.iter().enumerate().collect::<Vec<_>>()
+                );
+                return Err(error_msg.into());
+            }
+        }
 
         // send signature to client
         stream_out_sender.send(Ok(proto::MessageOut::new_sign_result(
             participant_uids,
-            sign_output,
+            sign_outputs[0].clone(),
         )))?;
         Ok(())
     }
