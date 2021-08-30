@@ -193,8 +193,8 @@ mod tests {
         let mnemonic_kv_path = mnemonic_kv_path.to_str().unwrap();
 
         Gg20Service {
-            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned()),
-            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned()),
+            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned()).unwrap(),
+            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned()).unwrap(),
             io: FileIo::new(testdir),
             safe_keygen: false, // use unsafe keygen for tests for sake of time
             #[cfg(feature = "malicious")]
