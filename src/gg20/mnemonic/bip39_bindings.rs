@@ -7,22 +7,13 @@
 //!   All functions that accept and/or return structs that implement zeroization:
 //!   [super::Password], [super::Entropy], [bip39::Mnemonic], [bip39::Seed]
 
+use super::error::bip39::{Bip39Error::*, Bip39Result};
 use super::Entropy;
 use crate::gg20::types::Password;
 use bip39::{Language, Mnemonic, Seed};
 
 // TODO: we can enrich the API so that users can decide which language they want to use
 const DEFAUT_LANG: Language = Language::English;
-
-#[derive(thiserror::Error, Debug)]
-pub enum Bip39Error {
-    #[error("invalid entropy")]
-    FromEntropy,
-    #[error("invalid phrase")]
-    FromPhrase,
-}
-use Bip39Error::*;
-type Bip39Result<Success> = Result<Success, Bip39Error>;
 
 /// create a new 24 word mnemonic
 pub(super) fn bip39_new_w24() -> Entropy {

@@ -10,10 +10,15 @@
 //!     In [Cmd::Update] command, a new "export" file is created that contains the replaced pasphrase.
 
 pub mod bip39_bindings; // this also needed in tests
-use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed, Bip39Error};
+use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed};
 
 pub(super) mod file_io;
-use file_io::{FileIoError, IMPORT_FILE};
+use file_io::IMPORT_FILE;
+
+mod error;
+use error::mnemonic::{
+    InnerMnemonicError::*, InnerMnemonicResult, MnemonicError::*, MnemonicResult,
+};
 
 use super::{
     service::Gg20Service,
@@ -25,36 +30,6 @@ use tracing::{error, info};
 
 // default key to store mnemonic
 const MNEMONIC_KEY: &str = "mnemonic";
-
-#[derive(thiserror::Error, Debug)]
-pub enum InnerMnemonicError {
-    #[error("Cannot create mnemonic")]
-    FileIoErr(#[from] FileIoError),
-    #[error("Cannot import mnemonic")]
-    KvErr(#[from] super::super::kv_manager::KvError),
-    #[error("Bit39 error")]
-    Bip39Error(#[from] Bip39Error),
-}
-use InnerMnemonicError::*;
-
-type InnerMnemonicResult<Success> = Result<Success, InnerMnemonicError>;
-
-#[derive(thiserror::Error, Debug)]
-pub enum MnemonicError {
-    #[error("Command not found {0}")]
-    WrongCommand(String),
-    #[error("Cannot create mnemonic")]
-    CreateErr(InnerMnemonicError),
-    #[error("Cannot import mnemonic")]
-    ImportErr(InnerMnemonicError),
-    #[error("Cannot export mnemonic")]
-    ExportErr(InnerMnemonicError),
-    #[error("Cannot import mnemonic")]
-    UpdateErr(InnerMnemonicError),
-}
-
-type MnemonicResult<Success> = Result<Success, MnemonicError>;
-use MnemonicError::*;
 
 pub enum Cmd {
     Noop,

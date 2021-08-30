@@ -7,21 +7,14 @@ use std::{
 
 use tracing::info;
 
-use super::bip39_bindings::{bip39_from_entropy, Bip39Error};
+use super::bip39_bindings::bip39_from_entropy;
 use crate::gg20::types::{Entropy, Password};
 
 /// Standard names
 const EXPORT_FILE: &str = "export";
 pub(super) const IMPORT_FILE: &str = "import";
 
-#[derive(thiserror::Error, Debug)]
-pub enum FileIoError {
-    #[error("Bip39Error")]
-    Bip39(#[from] Bip39Error),
-    #[error("File IO")]
-    FileIo(#[from] std::io::Error),
-}
-type FileIoResult<Success> = Result<Success, FileIoError>;
+use super::error::file_io::FileIoResult;
 
 /// FileIO wraps all IO functionality
 #[derive(Clone)]
