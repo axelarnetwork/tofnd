@@ -36,6 +36,7 @@ use tracing::{info, span, Level, Span};
 
 pub mod types;
 use types::*;
+mod error;
 mod execute;
 mod init;
 mod result;
