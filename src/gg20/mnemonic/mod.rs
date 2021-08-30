@@ -10,10 +10,10 @@
 //!     In [Cmd::Update] command, a new "export" file is created that contains the replaced pasphrase.
 
 pub mod bip39_bindings; // this also needed in tests
-use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed};
+use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed, Bip39Error};
 
 pub(super) mod file_io;
-use file_io::IMPORT_FILE;
+use file_io::{FileIoError, IMPORT_FILE};
 
 use super::{
     service::Gg20Service,
@@ -26,6 +26,36 @@ use tracing::{error, info};
 // default key to store mnemonic
 const MNEMONIC_KEY: &str = "mnemonic";
 
+#[derive(thiserror::Error, Debug)]
+pub enum InnerMnemonicError {
+    #[error("Cannot create mnemonic")]
+    FileIoErr(#[from] FileIoError),
+    #[error("Cannot import mnemonic")]
+    KvErr(#[from] super::super::kv_manager::KvError),
+    #[error("Bit39 error")]
+    Bip39Error(#[from] Bip39Error),
+}
+use InnerMnemonicError::*;
+
+type InnerMnemonicResult<Success> = Result<Success, InnerMnemonicError>;
+
+#[derive(thiserror::Error, Debug)]
+pub enum MnemonicError {
+    #[error("Command not found {0}")]
+    WrongCommand(String),
+    #[error("Cannot create mnemonic")]
+    CreateErr(InnerMnemonicError),
+    #[error("Cannot import mnemonic")]
+    ImportErr(InnerMnemonicError),
+    #[error("Cannot export mnemonic")]
+    ExportErr(InnerMnemonicError),
+    #[error("Cannot import mnemonic")]
+    UpdateErr(InnerMnemonicError),
+}
+
+type MnemonicResult<Success> = Result<Success, MnemonicError>;
+use MnemonicError::*;
+
 pub enum Cmd {
     Noop,
     Create,
@@ -35,14 +65,14 @@ pub enum Cmd {
 }
 
 impl Cmd {
-    pub fn from_string(cmd_str: &str) -> Result<Self, TofndError> {
+    pub fn from_string(cmd_str: &str) -> MnemonicResult<Self> {
         let cmd = match cmd_str {
             "stored" => Self::Noop,
             "create" => Self::Create,
             "import" => Self::Import,
             "update" => Self::Update,
             "export" => Self::Export,
-            _ => return Err(From::from(format!("No {} cmd was found", cmd_str))),
+            _ => return Err(WrongCommand(cmd_str.to_string())),
         };
         Ok(cmd)
     }
@@ -51,19 +81,20 @@ impl Cmd {
 /// implement mnemonic-specific functions for Gg20Service
 impl Gg20Service {
     /// async function that handles all mnemonic commands
-    pub async fn handle_mnemonic(&self, cmd: Cmd) -> Result<(), TofndError> {
+    pub async fn handle_mnemonic(&self, cmd: Cmd) -> MnemonicResult<()> {
         match cmd {
             Cmd::Noop => Ok(()),
-            Cmd::Create => self.handle_create().await,
-            Cmd::Import => self.handle_import().await,
-            Cmd::Update => self.handle_update().await,
-            Cmd::Export => self.handle_export().await,
+            Cmd::Create => self.handle_create().await.map_err(|err| CreateErr(err)),
+            Cmd::Import => self.handle_import().await.map_err(|err| ImportErr(err)),
+            Cmd::Update => self.handle_update().await.map_err(|err| UpdateErr(err)),
+            Cmd::Export => self.handle_export().await.map_err(|err| ExportErr(err)),
         }
     }
 
     /// inserts entropy to the kv-store and writes inserted value to an "export" file.
-    /// takes ownership of entropy to delegate zeroization. Don't use `map_err` to make it more readable.
-    async fn handle_insert(&self, entropy: Entropy) -> Result<(), TofndError> {
+    /// takes ownership of entropy to delegate zeroization.
+    async fn handle_insert(&self, entropy: Entropy) -> InnerMnemonicResult<()> {
+        // Don't use `map_err` to make it more readable.
         let reservation = self.mnemonic_kv.reserve_key(MNEMONIC_KEY.to_owned()).await;
         match reservation {
             // if we can reserve, try put
@@ -76,13 +107,13 @@ impl Gg20Service {
                 // else return failure
                 Err(err) => {
                     error!("Cannot put mnemonic in kv store: {:?}", err);
-                    Err(err)
+                    Err(KvErr(err))
                 }
             },
             // if we cannot reserve, return failure
             Err(err) => {
                 error!("Cannot reserve mnemonic: {:?}", err);
-                Err(err)
+                Err(KvErr(err))
             }
         }
     }
@@ -90,7 +121,7 @@ impl Gg20Service {
     /// Creates a new entropy and delegates 1) insertion to the kv-store, and 2) write to an "export" file
     /// If a mnemonic already exists in the kv store, fall back to that
     /// TODO: In the future we might want to throw an error here if mnemonic already exists.
-    async fn handle_create(&self) -> Result<(), TofndError> {
+    async fn handle_create(&self) -> InnerMnemonicResult<()> {
         info!("Creating mnemonic");
         // if we already have a mnemonic in kv-store, use that instead of creating a new one.
         // we do this to use "create mnemonic" as the default behaviour for now.
@@ -106,11 +137,11 @@ impl Gg20Service {
 
     // Inserts a new mnemonic to the kv-store, and writes the phrase to an "export" file
     // Fails if a mnemonic already exists in the kv store
-    async fn handle_import(&self) -> Result<(), TofndError> {
+    async fn handle_import(&self) -> InnerMnemonicResult<()> {
         info!("Importing mnemonic");
         let imported_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
         let imported_entropy = bip39_from_phrase(imported_phrase)?;
-        Ok(self.handle_insert(imported_entropy).await?)
+        self.handle_insert(imported_entropy).await
     }
 
     /// Updates a mnemonic.
@@ -119,26 +150,30 @@ impl Gg20Service {
     // 3. reads a new mnemonic from "import" file
     // 4. delegates the insertions of the new mnemonics to the kv-store, and writes the phrase to an "export" file
     // Fails if a mnemonic already exists in the kv store, of if no "import" file exists
-    async fn handle_update(&self) -> Result<(), TofndError> {
+    async fn handle_update(&self) -> InnerMnemonicResult<()> {
         info!("Updating mnemonic");
 
         // try to delete the old mnemonic
         let deleted_entropy = self.mnemonic_kv.remove(MNEMONIC_KEY).await.map_err(|err| {
             error!("Delete error: {}", err);
-            err
+            KvErr(err)
         })?;
 
-        // if succeed, write mnemonic to a new file
+        // try to write mnemonic to a new file
         self.io.entropy_to_next_file(deleted_entropy)?;
 
-        // insert new mnemonic
+        // try to insert new mnemonic
         let new_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
+
+        // try to get entropy from passphrase
         let new_entropy = bip39_from_phrase(new_phrase)?;
+
+        // try to insert entropy to kv store
         Ok(self.handle_insert(new_entropy).await?)
     }
 
     /// Exports the current mnemonic to an "export" file
-    async fn handle_export(&self) -> Result<(), TofndError> {
+    async fn handle_export(&self) -> InnerMnemonicResult<()> {
         info!("Exporting mnemonic");
 
         // try to get mnemonic from kv-store
