@@ -8,11 +8,21 @@
 //!   [super::Password], [super::Entropy], [bip39::Mnemonic], [bip39::Seed]
 
 use super::Entropy;
-use crate::{gg20::types::Password, TofndError};
+use crate::gg20::types::Password;
 use bip39::{Language, Mnemonic, Seed};
 
 // TODO: we can enrich the API so that users can decide which language they want to use
 const DEFAUT_LANG: Language = Language::English;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Bip39Error {
+    #[error("invalid entropy")]
+    FromEntropy,
+    #[error("invalid phrase")]
+    FromPhrase,
+}
+use Bip39Error::*;
+type Bip39Result<Success> = Result<Success, Bip39Error>;
 
 /// create a new 24 word mnemonic
 pub(super) fn bip39_new_w24() -> Entropy {
@@ -20,35 +30,28 @@ pub(super) fn bip39_new_w24() -> Entropy {
     Entropy(mnemonic.entropy().to_owned())
 }
 
-/// create a mnemonic from entropy; takes ownership of entropy and zeroizes it afterwards
-pub(super) fn bip39_from_entropy(entropy: Entropy) -> Result<Mnemonic, TofndError> {
-    // matching feels better than `map_err` here
-    match Mnemonic::from_entropy(&entropy.0, DEFAUT_LANG) {
-        Ok(mnemonic) => Ok(mnemonic),
-        Err(err) => Err(From::from(format!("Invalid entropy: {:?}", err))),
-    }
+/// create a [Mnemonic] from [Entropy]; takes ownership of entropy and zeroizes it before exit
+pub(super) fn bip39_from_entropy(entropy: Entropy) -> Bip39Result<Mnemonic> {
+    // try to get mnemonic from entropy
+    Mnemonic::from_entropy(&entropy.0, DEFAUT_LANG).map_err(|_| FromEntropy)
 }
 
-/// create a mnemonic from entropy
-/// takes ownership of phrase and zeroizes it
-pub(super) fn bip39_from_phrase(phrase: Password) -> Result<Entropy, TofndError> {
+/// create an [Entropy] from [Mnemonic]; takes ownership of phrase and zeroizes it before exit
+pub(super) fn bip39_from_phrase(phrase: Password) -> Bip39Result<Entropy> {
+    // matching feels better than map_err() here
     match Mnemonic::from_phrase(&phrase.0, DEFAUT_LANG) {
         Ok(mnemonic) => Ok(Entropy(mnemonic.entropy().to_owned())),
-        Err(err) => Err(From::from(format!("Invalid entropy: {:?}", err))),
+        Err(_) => Err(FromPhrase),
     }
 }
 
-/// extract seed from mnemonic; takes ownership of entropy and password and zeroizes them before exit
-pub(super) fn bip39_seed(entropy: Entropy, password: Password) -> Result<Seed, TofndError> {
-    // pass ownership of entropy and delegate zeroization
-    let res = match bip39_from_entropy(entropy) {
+/// extract [Seed] from [Mnemonic]; takes ownership of entropy and password and zeroizes them before exit
+pub(super) fn bip39_seed(entropy: Entropy, password: Password) -> Bip39Result<Seed> {
+    // matching feels better than map_err() here
+    match bip39_from_entropy(entropy) {
         Ok(mnemonic) => Ok(Seed::new(&mnemonic, &password.0)),
-        Err(err) => Err(From::from(format!(
-            "could not create bip39 from entropy: {}",
-            err
-        ))),
-    };
-    res
+        Err(_) => Err(FromEntropy),
+    }
 }
 
 #[cfg(test)]
@@ -59,10 +62,10 @@ pub mod tests {
     use tracing_test::traced_test;
 
     /// create a mnemonic from entropy; takes ownership of entropy and zeroizes it after
-    pub fn bip39_to_phrase(entropy: Entropy) -> Result<Password, TofndError> {
+    pub fn bip39_to_phrase(entropy: Entropy) -> Bip39Result<Password> {
         match Mnemonic::from_entropy(&entropy.0, DEFAUT_LANG) {
             Ok(mnemonic) => Ok(Password(mnemonic.phrase().to_owned())),
-            Err(err) => Err(From::from(format!("Invalid entropy: {:?}", err))),
+            Err(_) => Err(FromEntropy),
         }
     }
 
