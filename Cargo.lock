@@ -1878,6 +1878,7 @@ dependencies = [
  "serde",
  "sled",
  "testdir",
+ "thiserror",
  "tiny-bip39",
  "tofn",
  "tokio",
