@@ -35,7 +35,7 @@ impl Gg20Service {
             .next()
             .await
             .ok_or(StreamClosedByClient)?
-            .map_err(|err| StreamClosedByServer(err))?;
+            .map_err(StreamClosedByServer)?;
 
         // try to get message data
         let msg_data = msg.data.ok_or(NoneMessage)?;
@@ -111,8 +111,7 @@ impl Gg20Service {
             return Err(Sanitize(format!(
                 "uid vector and share counts vector not alligned: {:?}, {:?}",
                 args.party_uids, party_share_counts,
-            ))
-            .into());
+            )));
         }
 
         // check if my_index is inside party_uids
@@ -121,8 +120,7 @@ impl Gg20Service {
                 "my index is {}, but there are only {} parties.",
                 my_index,
                 args.party_uids.len(),
-            ))
-            .into());
+            )));
         }
 
         // if party's shares are above max, return error
@@ -133,8 +131,7 @@ impl Gg20Service {
                     args.party_uids[my_index],
                     args.party_share_counts[my_index],
                     MAX_PARTY_SHARE_COUNT,
-                ))
-                .into());
+                )));
             }
         }
 
@@ -143,14 +140,12 @@ impl Gg20Service {
             return Err(Sanitize(format!(
                 "threshold is not satisfied: t = {}, total number of shares = {}",
                 threshold, total_shares,
-            ))
-            .into());
+            )));
         } else if total_shares > MAX_TOTAL_SHARE_COUNT {
             return Err(Sanitize(format!(
                 "total shares count is {}, but maximum number of share count is {}.",
                 total_shares, MAX_PARTY_SHARE_COUNT,
-            ))
-            .into());
+            )));
         }
 
         // sort uids and share counts
@@ -158,7 +153,7 @@ impl Gg20Service {
         // send the same vectors (in terms of order) to all tofnd instances.
         let (my_new_index, sorted_uids, sorted_share_counts) =
             sort_uids_and_shares(my_index, args.party_uids, party_share_counts)
-                .map_err(|err| Sanitize(err.into()))?;
+                .map_err(Sanitize)?;
 
         Ok(KeygenInitSanitized {
             new_key_uid: args.new_key_uid,

@@ -59,10 +59,10 @@ impl Gg20Service {
     pub async fn handle_mnemonic(&self, cmd: Cmd) -> MnemonicResult<()> {
         match cmd {
             Cmd::Noop => Ok(()),
-            Cmd::Create => self.handle_create().await.map_err(|err| CreateErr(err)),
-            Cmd::Import => self.handle_import().await.map_err(|err| ImportErr(err)),
-            Cmd::Update => self.handle_update().await.map_err(|err| UpdateErr(err)),
-            Cmd::Export => self.handle_export().await.map_err(|err| ExportErr(err)),
+            Cmd::Create => self.handle_create().await.map_err(CreateErr),
+            Cmd::Import => self.handle_import().await.map_err(ImportErr),
+            Cmd::Update => self.handle_update().await.map_err(UpdateErr),
+            Cmd::Export => self.handle_export().await.map_err(ExportErr),
         }
     }
 
