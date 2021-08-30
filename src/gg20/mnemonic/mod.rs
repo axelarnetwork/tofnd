@@ -17,15 +17,13 @@ use file_io::IMPORT_FILE;
 
 mod error;
 use error::mnemonic::{
-    InnerMnemonicError::*, InnerMnemonicResult, MnemonicError::*, MnemonicResult,
+    InnerMnemonicError::*, InnerMnemonicResult, MnemonicError::*, MnemonicResult, SeedResult,
 };
 
 use super::{
     service::Gg20Service,
     types::{Entropy, Password},
 };
-use crate::TofndError;
-use std::convert::TryInto;
 use tracing::{error, info};
 
 // default key to store mnemonic
@@ -166,7 +164,8 @@ impl Gg20Service {
 use tofn::gg20::keygen::SecretRecoveryKey;
 /// ease tofn API
 impl Gg20Service {
-    pub async fn seed(&self) -> Result<SecretRecoveryKey, TofndError> {
+    pub async fn seed(&self) -> SeedResult<SecretRecoveryKey> {
+        use std::convert::TryInto;
         let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
         // A user may decide to protect their mnemonic with a passphrase. If not, pass an empty password
         // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed

@@ -29,6 +29,8 @@ pub(super) mod mnemonic {
         KvErr(#[from] crate::kv_manager::KvError),
         #[error("Bip39 error {0}")]
         Bip39Error(#[from] super::bip39::Bip39Error),
+        #[error("Failed to convert to SecretRecoveryKey")]
+        IntoSecretRecoveryKey(#[from] std::array::TryFromSliceError),
     }
     pub type InnerMnemonicResult<Success> = Result<Success, InnerMnemonicError>;
 
@@ -46,4 +48,5 @@ pub(super) mod mnemonic {
         UpdateErr(InnerMnemonicError),
     }
     pub type MnemonicResult<Success> = Result<Success, MnemonicError>;
+    pub type SeedResult<Success> = Result<Success, InnerMnemonicError>;
 }
