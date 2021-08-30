@@ -17,7 +17,7 @@ use super::{
     types::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
     Gg20Service,
 };
-use crate::kv_manager::KeyReservation;
+use crate::kv_manager::types::KeyReservation;
 
 impl Gg20Service {
     /// Receives a message from the stream and tries to handle keygen init operations.

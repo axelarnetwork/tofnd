@@ -1,4 +1,10 @@
-use super::*;
+//! [sled_bindings] tests
+
+use super::{
+    error::InnerKvError::LogicalErr,
+    sled_bindings::{handle_exists, handle_get, handle_put, handle_remove, handle_reserve},
+    types::{KeyReservation, DEFAULT_RESERV},
+};
 
 // testdir creates a test directory at $TMPDIR.
 // Mac: /var/folders/v4/x_j3jj7d6ql4gjdf7b7jvjhm0000gn/T/testdir-of-$(USER)
@@ -10,12 +16,6 @@ use testdir::testdir;
 fn clean_up(kv_name: &str, kv: sled::Db) {
     assert!(kv.flush().is_ok());
     std::fs::remove_dir_all(kv_name).unwrap();
-}
-
-impl PartialEq for KeyReservation {
-    fn eq(&self, other: &Self) -> bool {
-        self.key == other.key
-    }
 }
 
 #[test]
@@ -46,8 +46,8 @@ fn reserve_failure() {
     let key: String = "key".to_string();
     handle_reserve(&kv, key.clone()).unwrap();
     // try reserving twice
-    assert!(handle_reserve(&kv, key).is_err());
-
+    let err = handle_reserve(&kv, key).err().unwrap();
+    assert!(matches!(err, LogicalErr(_)));
     clean_up(kv_name.to_str().unwrap(), kv);
 }
 
@@ -74,7 +74,10 @@ fn put_failure_no_reservation() {
 
     let value: String = "value".to_string();
     // try to add put a key without reservation and get an error
-    assert!(handle_put(&kv, KeyReservation { key: key.clone() }, value).is_err());
+    let err = handle_put(&kv, KeyReservation { key: key.clone() }, value)
+        .err()
+        .unwrap();
+    assert!(matches!(err, LogicalErr(_)));
     // check if key was inserted
     assert!(!kv.contains_key(&key).unwrap());
 
@@ -93,7 +96,10 @@ fn put_failure_put_twice() {
     handle_reserve(&kv, key.clone()).unwrap();
     handle_put(&kv, KeyReservation { key: key.clone() }, value).unwrap();
 
-    assert!(handle_put(&kv, KeyReservation { key: key.clone() }, value2).is_err());
+    let err = handle_put(&kv, KeyReservation { key: key.clone() }, value2)
+        .err()
+        .unwrap();
+    assert!(matches!(err, LogicalErr(_)));
 
     // check if value was changed
     // get bytes
@@ -129,8 +135,8 @@ fn get_failure() {
     let kv = sled::open(&kv_name).unwrap();
 
     let key: String = "key".to_string();
-    let res = handle_get::<String>(&kv, key);
-    assert!(res.is_err());
+    let err = handle_get::<String>(&kv, key).err().unwrap();
+    assert!(matches!(err, LogicalErr(_)));
 
     clean_up(kv_name.to_str().unwrap(), kv);
 }
@@ -192,8 +198,8 @@ fn remove_failure() {
     let kv = sled::open(&kv_name).unwrap();
 
     let key: String = "key".to_string();
-    let res = handle_remove::<String>(&kv, key);
-    assert!(res.is_err());
+    let err = handle_remove::<String>(&kv, key).err().unwrap();
+    assert!(matches!(err, LogicalErr(_)));
 
     clean_up(kv_name.to_str().unwrap(), kv);
 }

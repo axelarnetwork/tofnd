@@ -5,7 +5,7 @@ use zeroize::Zeroize;
 
 use tracing::{info, span, Level, Span};
 
-use crate::kv_manager::Kv;
+use crate::kv_manager::kv::Kv;
 
 pub(super) type MessageDigest = tofn::gg20::sign::MessageDigest;
 
