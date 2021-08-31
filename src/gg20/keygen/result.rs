@@ -57,7 +57,7 @@ impl Gg20Service {
                     .recovery_info()
                     .map_err(|_| anyhow!("Unable to get recovery info"))?;
 
-                bincode::serialize(&recovery_info).map_err(|e| anyhow!("{}", e))
+                bincode::serialize(&recovery_info).map_err(|e| anyhow!(e))
             })
             .collect::<Result<_>>()?;
 
@@ -73,7 +73,7 @@ impl Gg20Service {
         self.shares_kv
             .put(key_uid_reservation, kv_data)
             .await
-            .map_err(|err| anyhow!("{}", err))?;
+            .map_err(|err| anyhow!(err))?;
 
         // try to send result
         Ok(

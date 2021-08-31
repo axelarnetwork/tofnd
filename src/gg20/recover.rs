@@ -34,7 +34,7 @@ impl Gg20Service {
             .shares_kv
             .exists(&keygen_init_sanitized.new_key_uid)
             .await
-            .map_err(|err| anyhow!("{}", err.to_string()))?
+            .map_err(|err| anyhow!(err))?
         {
             warn!(
                 "Attempting to recover shares for party {} which already exist in kv-store",
