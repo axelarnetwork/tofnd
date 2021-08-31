@@ -1,6 +1,6 @@
 //! This module creates and executes the keygen protocol
 //! On success it returns [super::TofnKeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
-//! On failure it returns [super::TofndError] if [Keygen] struct cannot be instantiated.
+//! On failure it returns [anyhow!] error if [Keygen] struct cannot be instantiated.
 
 use super::{
     proto,
@@ -16,6 +16,9 @@ use tofn::{
 
 // logging
 use tracing::{info, Span};
+
+// error handling
+use anyhow::anyhow;
 
 impl Gg20Service {
     /// create a new keygen.
@@ -39,7 +42,7 @@ impl Gg20Service {
     }
 
     /// create and execute keygen protocol and returning the result.
-    /// if the protocol cannot be instantiated, return a TofndError
+    /// if the protocol cannot be instantiated, return a [anyhow!]
     pub(super) async fn execute_keygen(
         &self,
         chans: ProtocolCommunication<
@@ -54,7 +57,7 @@ impl Gg20Service {
         let keygen = self
             .new_keygen(party_share_counts, ctx)
             .await
-            .map_err(|_| "keygen protocol instantiation failed".to_string())?;
+            .map_err(|_| anyhow!("keygen protocol instantiation failed"))?;
 
         // execute protocol and wait for completion
         let protocol_result = protocol::execute_protocol(
@@ -67,7 +70,7 @@ impl Gg20Service {
         .await;
 
         let res = protocol_result
-            .map_err(|err| format!("Keygen was not completed due to error: {}", err))?;
+            .map_err(|err| anyhow!("Keygen was not completed due to error: {}", err))?;
 
         info!("Keygen completed");
         Ok(res)

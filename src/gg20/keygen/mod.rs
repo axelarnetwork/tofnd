@@ -17,7 +17,6 @@
 use super::{
     broadcast::broadcast_messages, proto, service::Gg20Service, types::ProtocolCommunication,
 };
-use crate::TofndError;
 
 use tonic::Status;
 
@@ -34,6 +33,9 @@ use tokio::sync::{mpsc, oneshot};
 // logging
 use tracing::{info, span, Level, Span};
 
+// error handling
+use anyhow::{anyhow, Result};
+
 pub mod types;
 use types::*;
 mod error;
@@ -48,7 +50,7 @@ impl Gg20Service {
         mut stream_in: tonic::Streaming<proto::MessageIn>,
         mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         keygen_span: Span,
-    ) -> Result<(), TofndError> {
+    ) -> Result<()> {
         // 1. Receive KeygenInit, open message, sanitize arguments -> init mod
         // 2. Spawn N keygen threads to execute the protocol in parallel; one of each of our shares -> execute mod
         // 3. Spawn 1 router thread to route messages from client to the respective keygen thread -> routing mod
@@ -64,7 +66,10 @@ impl Gg20Service {
         // find my share count to allocate channel vectors
         let my_share_count = keygen_init.my_shares_count();
         if my_share_count == 0 {
-            return Err(format!("Party {} has 0 shares assigned", keygen_init.my_index).into());
+            return Err(anyhow!(
+                "Party {} has 0 shares assigned",
+                keygen_init.my_index
+            ));
         }
 
         // create in and out channels for each share, and spawn as many threads
@@ -87,7 +92,7 @@ impl Gg20Service {
                 session_nonce,
             ),
         }
-        .map_err(|_| "Party keypair generation failed".to_string())?;
+        .map_err(|_| anyhow!("Party keypair generation failed"))?;
 
         info!(
             "Finished generating keypair for party {}",

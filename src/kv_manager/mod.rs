@@ -214,7 +214,7 @@ fn handle_reserve(kv: &sled::Db, key: String) -> KvResult<KeyReservation> {
     // If reserve key already exists inside our database, return an error
     if kv.contains_key(&key)? {
         return Err(From::from(format!(
-            "kv_manager key {} already reserved",
+            "kv_manager key <{}> already reserved",
             key
         )));
     }

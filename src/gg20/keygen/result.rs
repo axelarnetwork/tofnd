@@ -11,7 +11,7 @@ use super::{
     types::{KeygenInitSanitized, TofnKeygenOutput, TofndKeygenOutput},
     Gg20Service,
 };
-use crate::{gg20::types::PartyInfo, kv_manager::KeyReservation, TofndError};
+use crate::{gg20::types::PartyInfo, kv_manager::KeyReservation};
 
 // tonic cruft
 use tokio::sync::{
@@ -19,6 +19,9 @@ use tokio::sync::{
     oneshot::{self, Receiver},
 };
 use tonic::Status;
+
+// error handling
+use anyhow::{anyhow, Result};
 
 impl Gg20Service {
     /// aggregate results from all keygen threads, create a record and insert it in the KvStore
@@ -28,17 +31,17 @@ impl Gg20Service {
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         key_uid_reservation: KeyReservation,
         keygen_init: KeygenInitSanitized,
-    ) -> Result<(), TofndError> {
+    ) -> Result<()> {
         // wait all keygen threads and aggregate results
         // can't use `map_err` because of `.await` func :(
         let keygen_outputs = match Self::aggregate_keygen_outputs(aggregator_receivers).await {
             Ok(keygen_outputs) => keygen_outputs,
             Err(err) => {
                 self.shares_kv.unreserve_key(key_uid_reservation).await;
-                return Err(From::from(format!(
+                return Err(anyhow!(
                     "Error at Keygen output aggregation. Unreserving key {}",
                     err
-                )));
+                ));
             }
         };
 
@@ -52,11 +55,11 @@ impl Gg20Service {
             .map(|secret_key_share| {
                 let recovery_info = secret_key_share
                     .recovery_info()
-                    .map_err(|_| "Unable to get recovery info".to_string())?;
+                    .map_err(|_| anyhow!("Unable to get recovery info"))?;
 
-                bincode::serialize(&recovery_info).map_err(|e| e.to_string())
+                bincode::serialize(&recovery_info).map_err(|e| anyhow!("{}", e))
             })
-            .collect::<Result<_, _>>()?;
+            .collect::<Result<_>>()?;
 
         // combine responses from all keygen threads to a single struct
         let kv_data = PartyInfo::get_party_info(
@@ -67,7 +70,10 @@ impl Gg20Service {
         );
 
         // try to put data inside kv store
-        self.shares_kv.put(key_uid_reservation, kv_data).await?;
+        self.shares_kv
+            .put(key_uid_reservation, kv_data)
+            .await
+            .map_err(|err| anyhow!("{}", err))?;
 
         // try to send result
         Ok(
@@ -87,7 +93,7 @@ impl Gg20Service {
         keygen_init: &KeygenInitSanitized,
         keygen_outputs: Vec<TofnKeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
-    ) -> Result<(Vec<u8>, Vec<SecretKeyShare>), TofndError> {
+    ) -> Result<(Vec<u8>, Vec<SecretKeyShare>)> {
         // Collect all key shares unless there's a protocol fault
         let keygen_outputs = keygen_outputs
             .into_iter()
@@ -96,11 +102,10 @@ impl Gg20Service {
         match keygen_outputs {
             Ok(secret_key_shares) => {
                 if secret_key_shares.is_empty() {
-                    return Err(format!(
+                    return Err(anyhow!(
                         "Party {} created no secret key shares",
                         keygen_init.my_index
-                    )
-                    .into());
+                    ));
                 }
 
                 // check that all shares returned the same public key
@@ -109,13 +114,12 @@ impl Gg20Service {
 
                 for secret_key_share in &secret_key_shares[1..] {
                     if pub_key != secret_key_share.group().pubkey_bytes() {
-                        return Err(format!(
+                        return Err(anyhow!(
                             "Party {}'s share {} and {} returned different public key",
                             keygen_init.my_index,
                             share_id,
                             secret_key_share.share().index()
-                        )
-                        .into());
+                        ));
                     }
                 }
 
@@ -128,7 +132,11 @@ impl Gg20Service {
                     Err(crimes.clone()),
                 )))?;
 
-                Err(format!("Party {} found crimes: {:?}", keygen_init.my_index, crimes).into())
+                Err(anyhow!(
+                    "Party {} found crimes: {:?}",
+                    keygen_init.my_index,
+                    crimes
+                ))
             }
         }
     }
@@ -136,7 +144,7 @@ impl Gg20Service {
     /// wait all keygen threads and get keygen outputs
     async fn aggregate_keygen_outputs(
         aggregator_receivers: Vec<Receiver<TofndKeygenOutput>>,
-    ) -> Result<Vec<TofnKeygenOutput>, TofndError> {
+    ) -> Result<Vec<TofnKeygenOutput>> {
         let mut keygen_outputs = Vec::with_capacity(aggregator_receivers.len());
 
         for aggregator in aggregator_receivers {
