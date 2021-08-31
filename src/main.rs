@@ -8,6 +8,9 @@ mod kv_manager;
 // gather logs; need to set RUST_LOG=info
 use tracing::{info, span, Level};
 
+// error handling
+use anyhow::Result;
+
 // protocol buffers via tonic: https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md#writing-our-server
 pub mod proto {
     tonic::include_proto!("tofnd");
@@ -15,9 +18,6 @@ pub mod proto {
 
 mod config;
 use config::parse_args;
-
-// TODO make a custom error type https://github.com/tokio-rs/mini-redis/blob/c3bc304ac9f4b784f24b7f7012ed5a320594eb69/src/lib.rs#L58-L69
-type TofndError = Box<dyn std::error::Error + Send + Sync>;
 
 fn set_up_logs() {
     // enable only tofnd and tofn debug logs - disable serde, tonic, tokio, etc.
@@ -46,7 +46,7 @@ fn warn_for_unsafe_execution() {
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 
 #[tokio::main]
-async fn main() -> Result<(), TofndError> {
+async fn main() -> Result<()> {
     // set up log subscriber
     set_up_logs();
 
