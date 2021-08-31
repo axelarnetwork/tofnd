@@ -31,7 +31,7 @@ impl Gg20Service {
         let msg = stream
             .next()
             .await
-            .ok_or(anyhow!("stream closed by client"))?
+            .ok_or_else(|| anyhow!("stream closed by client"))?
             .map_err(|e| anyhow!("stream closed by server: {}", e))?;
 
         // try to get message data
