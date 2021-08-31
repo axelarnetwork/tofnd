@@ -1,12 +1,14 @@
-use crate::TofndError;
 use clap::{App, Arg};
+
+// error handling
+use anyhow::{anyhow, Result};
 
 use crate::gg20::mnemonic::Cmd;
 
 // TODO: examine if using a config file can replace commandline args
 
 #[cfg(not(feature = "malicious"))]
-pub fn parse_args() -> Result<(u16, bool, Cmd), TofndError> {
+pub fn parse_args() -> Result<(u16, bool, Cmd)> {
     // Note that we want lower-case letters as impot, as enum type start with capitals
     let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
     let default_mnemonic_cmd = "create";
@@ -38,10 +40,13 @@ pub fn parse_args() -> Result<(u16, bool, Cmd), TofndError> {
 
     let port = matches
         .value_of("port")
-        .ok_or("port value")?
+        .ok_or_else(|| anyhow!("port value"))?
         .parse::<u16>()?;
     let safe_keygen = !matches.is_present("unsafe");
-    let mnemonic_cmd = matches.value_of("mnemonic").ok_or("cmd value")?.to_string();
+    let mnemonic_cmd = matches
+        .value_of("mnemonic")
+        .ok_or_else(|| anyhow!("cmd value"))?
+        .to_string();
     let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
     Ok((port, safe_keygen, mnemonic_cmd))
 }
@@ -60,7 +65,7 @@ use tofn::{
 };
 
 #[cfg(feature = "malicious")]
-pub fn parse_args() -> Result<(u16, bool, Cmd, Behaviours), TofndError> {
+pub fn parse_args() -> Result<(u16, bool, Cmd, Behaviours)> {
     let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
     let default_mnemonic_cmd = "create";
 
@@ -131,20 +136,25 @@ pub fn parse_args() -> Result<(u16, bool, Cmd, Behaviours), TofndError> {
 
     let port = matches
         .value_of("port")
-        .ok_or("port value")?
+        .ok_or_else(|| anyhow!("port value"))?
         .parse::<u16>()?;
     let safe_keygen = !matches.is_present("unsafe");
-    let mnemonic_cmd = matches.value_of("mnemonic").ok_or("cmd value")?.to_string();
+    let mnemonic_cmd = matches
+        .value_of("mnemonic")
+        .ok_or_else(|| anyhow!("cmd value"))?
+        .to_string();
     let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
 
     // Set a default behaviour
     let mut sign_behaviour = "Honest";
     let mut victim = 0;
     if let Some(matches) = matches.subcommand_matches("malicious") {
-        sign_behaviour = matches.value_of("behaviour").ok_or("behaviour value")?;
+        sign_behaviour = matches
+            .value_of("behaviour")
+            .ok_or_else(|| anyhow!("behaviour value"))?;
         victim = matches
             .value_of("victim")
-            .ok_or("victim value")?
+            .ok_or_else(|| anyhow!("victim value"))?
             .parse::<usize>()?;
     }
 
