@@ -38,7 +38,6 @@ use anyhow::{anyhow, Result};
 
 pub mod types;
 use types::*;
-mod error;
 mod execute;
 mod init;
 mod result;

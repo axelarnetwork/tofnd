@@ -8,13 +8,10 @@ use futures_util::StreamExt;
 // spans for logging
 use tracing::Span;
 
-// use tofn::protocol::gg20::keygen::validate_params;
+// error handling
+use anyhow::{anyhow, Result};
 
 use super::{
-    error::init::{
-        Error::{self, *},
-        InitResult,
-    },
     proto,
     types::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
     Gg20Service,
@@ -29,21 +26,28 @@ impl Gg20Service {
         &self,
         stream: &mut tonic::Streaming<proto::MessageIn>,
         keygen_span: Span,
-    ) -> InitResult<(KeygenInitSanitized, KeyReservation)> {
+    ) -> Result<(KeygenInitSanitized, KeyReservation)> {
         // try to receive message
         let msg = stream
             .next()
             .await
-            .ok_or(StreamClosedByClient)?
-            .map_err(StreamClosedByServer)?;
+            .ok_or(anyhow!("stream closed by client"))?
+            .map_err(|e| anyhow!("stream closed by server: {}", e))?;
 
         // try to get message data
-        let msg_data = msg.data.ok_or(NoneMessage)?;
+        let msg_data = msg
+            .data
+            .ok_or_else(|| anyhow!("received `None` message from client"))?;
 
         // check if message is of expected type
         let keygen_init = match msg_data {
             proto::message_in::Data::KeygenInit(k) => k,
-            _ => return Err(WrongMessageType),
+            _ => {
+                return Err(anyhow!(
+                    "wrong message type; expecting KeygenInit, got {:?}",
+                    msg_data
+                ))
+            }
         };
 
         // try to process incoming message
@@ -61,16 +65,17 @@ impl Gg20Service {
     pub(super) async fn process_keygen_init(
         &self,
         keygen_init: proto::KeygenInit,
-    ) -> Result<(KeygenInitSanitized, KeyReservation), Error> {
+    ) -> Result<(KeygenInitSanitized, KeyReservation)> {
         // try to sanitize arguments
-        let keygen_init = Self::keygen_sanitize_args(keygen_init)?;
+        let keygen_init = Self::keygen_sanitize_args(keygen_init)
+            .map_err(|err| anyhow!("failed to sanitize KeygenInit: {}", err))?;
 
         // reserve key
         let key_uid_reservation = self
             .shares_kv
             .reserve_key(keygen_init.new_key_uid.clone())
             .await
-            .map_err(|err| Reserve(format!("Error: failed to reseve key: {}", err)))?;
+            .map_err(|err| anyhow!("failed to reseve key: {}", err))?;
 
         // return sanitized keygen init and key reservation
         Ok((keygen_init, key_uid_reservation))
@@ -89,17 +94,16 @@ impl Gg20Service {
     ///   keygen_init.party_share_counts = [3, 2, 1] . <- sorted with respect to party_uids
     ///   keygen_init.my_party_index = 0 .             <- index inside sorted array
     ///   keygen_init.threshold = 1                    <- same as in input
-    pub(crate) fn keygen_sanitize_args(args: proto::KeygenInit) -> InitResult<KeygenInitSanitized> {
+    pub(crate) fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized> {
         // convert `u32`s to `usize`s
         use std::convert::TryFrom;
-        let my_index = usize::try_from(args.my_party_index).map_err(|e| Sanitize(e.to_string()))?;
-        let threshold = usize::try_from(args.threshold).map_err(|e| Sanitize(e.to_string()))?;
+        let my_index = usize::try_from(args.my_party_index)?;
+        let threshold = usize::try_from(args.threshold)?;
         let mut party_share_counts = args
             .party_share_counts
             .iter()
             .map(|i| usize::try_from(*i))
-            .collect::<Result<Vec<usize>, _>>()
-            .map_err(|e| Sanitize(e.to_string()))?;
+            .collect::<Result<Vec<usize>, _>>()?;
 
         // if share_counts are not provided, fall back to 1 share per party
         if party_share_counts.is_empty() {
@@ -108,44 +112,47 @@ impl Gg20Service {
 
         // assert that uids and party shares are alligned
         if args.party_uids.len() != party_share_counts.len() {
-            return Err(Sanitize(format!(
+            return Err(anyhow!(
                 "uid vector and share counts vector not alligned: {:?}, {:?}",
-                args.party_uids, party_share_counts,
-            )));
+                args.party_uids,
+                party_share_counts,
+            ));
         }
 
         // check if my_index is inside party_uids
         if my_index >= args.party_uids.len() {
-            return Err(Sanitize(format!(
+            return Err(anyhow!(
                 "my index is {}, but there are only {} parties.",
                 my_index,
                 args.party_uids.len(),
-            )));
+            ));
         }
 
         // if party's shares are above max, return error
         for party_share_count in &party_share_counts {
             if *party_share_count > MAX_PARTY_SHARE_COUNT {
-                return Err(Sanitize(format!(
+                return Err(anyhow!(
                     "party {} has {} shares, but maximum number of shares per party is {}.",
                     args.party_uids[my_index],
                     args.party_share_counts[my_index],
                     MAX_PARTY_SHARE_COUNT,
-                )));
+                ));
             }
         }
 
         let total_shares = party_share_counts.iter().sum::<usize>();
         if total_shares <= threshold {
-            return Err(Sanitize(format!(
+            return Err(anyhow!(
                 "threshold is not satisfied: t = {}, total number of shares = {}",
-                threshold, total_shares,
-            )));
+                threshold,
+                total_shares,
+            ));
         } else if total_shares > MAX_TOTAL_SHARE_COUNT {
-            return Err(Sanitize(format!(
+            return Err(anyhow!(
                 "total shares count is {}, but maximum number of share count is {}.",
-                total_shares, MAX_PARTY_SHARE_COUNT,
-            )));
+                total_shares,
+                MAX_PARTY_SHARE_COUNT,
+            ));
         }
 
         // sort uids and share counts
@@ -153,7 +160,7 @@ impl Gg20Service {
         // send the same vectors (in terms of order) to all tofnd instances.
         let (my_new_index, sorted_uids, sorted_share_counts) =
             sort_uids_and_shares(my_index, args.party_uids, party_share_counts)
-                .map_err(Sanitize)?;
+                .map_err(|e| anyhow!(e))?;
 
         Ok(KeygenInitSanitized {
             new_key_uid: args.new_key_uid,
@@ -300,8 +307,7 @@ mod tests {
             my_party_index: 0,
             threshold: 1,
         };
-        let err = Gg20Service::keygen_sanitize_args(raw_keygen_init);
-        assert!(matches!(err, Err(Sanitize(_))));
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
         let raw_keygen_init = proto::KeygenInit {
             new_key_uid: "test_uid".to_owned(),
@@ -310,8 +316,7 @@ mod tests {
             my_party_index: 0,
             threshold: 2, // incorrect threshold
         };
-        let err = Gg20Service::keygen_sanitize_args(raw_keygen_init);
-        assert!(matches!(err, Err(Sanitize(_))));
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
         let raw_keygen_init = proto::KeygenInit {
             new_key_uid: "test_uid".to_owned(),
@@ -320,8 +325,7 @@ mod tests {
             my_party_index: 2, // index out of bounds
             threshold: 1,
         };
-        let err = Gg20Service::keygen_sanitize_args(raw_keygen_init);
-        assert!(matches!(err, Err(Sanitize(_))));
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
         let raw_keygen_init = proto::KeygenInit {
             new_key_uid: "test_uid".to_owned(),
@@ -330,8 +334,7 @@ mod tests {
             my_party_index: 0,
             threshold: 1,
         };
-        let err = Gg20Service::keygen_sanitize_args(raw_keygen_init);
-        assert!(matches!(err, Err(Sanitize(_))));
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
         let raw_keygen_init = proto::KeygenInit {
             new_key_uid: "test_uid".to_owned(),
@@ -340,7 +343,6 @@ mod tests {
             my_party_index: 0,
             threshold: 1,
         };
-        let err = Gg20Service::keygen_sanitize_args(raw_keygen_init);
-        assert!(matches!(err, Err(Sanitize(_))));
+        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
     }
 }
