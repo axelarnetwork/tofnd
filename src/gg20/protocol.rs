@@ -4,15 +4,16 @@ use tofn::{
     collections::TypedUsize,
     sdk::api::{Protocol, ProtocolOutput, Round},
 };
+
+// tonic cruft
+use super::{proto, ProtocolCommunication};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::TofndError;
-
+// logging
 use tracing::{debug, error, span, warn, Level, Span};
 
-use super::{proto, ProtocolCommunication};
-
-type TofndResult<T> = Result<T, TofndError>;
+// error handling
+use anyhow::{anyhow, Result};
 
 /// execute gg20 protocol
 pub(super) async fn execute_protocol<F, K, P>(
@@ -24,7 +25,7 @@ pub(super) async fn execute_protocol<F, K, P>(
     party_uids: &[String],
     party_share_counts: &[usize],
     span: Span,
-) -> TofndResult<ProtocolOutput<F, P>>
+) -> Result<ProtocolOutput<F, P>>
 where
     K: Clone,
 {
@@ -54,11 +55,11 @@ where
         // check if everything was ok this round
         party = round
             .execute_next_round()
-            .map_err(|_| "Error in tofn::execute_next_round")?;
+            .map_err(|_| anyhow!("Error in tofn::execute_next_round"))?;
     }
 
     match party {
-        Protocol::NotDone(_) => Err(From::from("Protocol failed to complete")),
+        Protocol::NotDone(_) => Err(anyhow!("Protocol failed to complete")),
         Protocol::Done(result) => Ok(result),
     }
 }
@@ -69,7 +70,7 @@ fn handle_outgoing<F, K, P>(
     party_uids: &[String],
     round_count: usize,
     span: Span,
-) -> TofndResult<()> {
+) -> Result<()> {
     let send_span = span!(parent: &span, Level::DEBUG, "outgoing", round = round_count);
     let _start = send_span.enter();
     debug!("begin");
@@ -88,10 +89,7 @@ fn handle_outgoing<F, K, P>(
                 .info()
                 .party_share_counts()
                 .share_to_party_id(i)
-                .map_err(|_| {
-                    error!("Unable to get tofnd index for party {}", i);
-                    ""
-                })?;
+                .map_err(|_| anyhow!("Unable to get tofnd index for party {}", i))?;
 
             debug!(
                 "out p2p to [{}] ({}/{})",
@@ -120,7 +118,7 @@ async fn handle_incoming<F, K, P>(
     total_num_of_shares: usize,
     round_count: usize,
     span: Span,
-) -> TofndResult<()> {
+) -> Result<()> {
     let mut p2p_msg_count = 0;
     let mut bcast_msg_count = 0;
 
@@ -174,17 +172,14 @@ async fn handle_incoming<F, K, P>(
         let from = party_uids
             .iter()
             .position(|uid| uid == &traffic.from_party_uid)
-            .ok_or("from uid does not exist in party uids")?;
+            .ok_or_else(|| anyhow!("from uid does not exist in party uids"))?;
 
         // try to set a message
         if round
             .msg_in(TypedUsize::from_usize(from), &traffic.payload)
             .is_err()
         {
-            return Err(From::from(format!(
-                "error calling tofn::msg_in with [from: {}]",
-                from
-            )));
+            return Err(anyhow!("error calling tofn::msg_in with [from: {}]", from));
         };
     }
 
