@@ -1,12 +1,12 @@
 //! This module handles the initialization of the Sign protocol.
 //! A [SignInitSanitized] struct is created out of the raw incoming [proto::SignInit] message and the session key is queried inside from KvStore.
-//! If [proto::SignInit] fails to be parsed, or no Keygen has been executed for the current session ID, a [TofndError] is returned
+//! If [proto::SignInit] fails to be parsed, or no Keygen has been executed for the current session ID, an [anyhow!] error is returned
 
 // try_into() for MessageDigest
 use std::convert::TryInto;
 
 use super::{proto, types::SignInitSanitized, Gg20Service};
-use crate::{gg20::types::PartyInfo, TofndError};
+use crate::gg20::types::PartyInfo;
 
 // tonic cruft
 use futures_util::StreamExt;
@@ -14,28 +14,31 @@ use tokio::sync::mpsc;
 use tonic::Status;
 
 // logging
-use tracing::{error, Span};
+use tracing::Span;
+
+// error handling
+use anyhow::{anyhow, Result};
 
 impl Gg20Service {
     /// Receives a message from the stream and tries to handle sign init operations.
     /// On success, it extracts the PartyInfo from the KVStrore and returns a sanitized struct ready to be used by the protocol.
-    /// On failure, returns a TofndError and no changes are been made in the KvStore.
+    /// On failure, returns an [anyhow!] error and no changes are been made in the KvStore.
     pub(super) async fn handle_sign_init(
         &self,
         in_stream: &mut tonic::Streaming<proto::MessageIn>,
         mut out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         sign_span: Span,
-    ) -> Result<(SignInitSanitized, PartyInfo), TofndError> {
+    ) -> Result<(SignInitSanitized, PartyInfo)> {
         let msg_type = in_stream
             .next()
             .await
-            .ok_or("sign: stream closed by client without sending a message")??
+            .ok_or_else(|| anyhow!("sign: stream closed by client without sending a message"))??
             .data
-            .ok_or("sign: missing `data` field in client message")?;
+            .ok_or_else(|| anyhow!("sign: missing `data` field in client message"))?;
 
         let sign_init = match msg_type {
             proto::message_in::Data::SignInit(k) => k,
-            _ => return Err(From::from("Expected sign init message")),
+            _ => return Err(anyhow!("Expected sign init message")),
         };
 
         // try to get party info related to session id
@@ -43,8 +46,8 @@ impl Gg20Service {
             Ok(party_info) => party_info,
             Err(err) => {
                 // if no such session id exists, send a message to client that indicates that recovery is needed and stop sign
-                error!("Unable to find session-id {} in kv store. Issuing share recovery and exit sign {:?}", sign_init.key_uid, err);
                 Self::send_kv_store_failure(&mut out_stream)?;
+                let err = anyhow!("Unable to find session-id {} in kv store. Issuing share recovery and exit sign {:?}", sign_init.key_uid, err);
                 return Err(err);
             }
         };
@@ -61,7 +64,7 @@ impl Gg20Service {
     /// send "need recover" message to client
     fn send_kv_store_failure(
         out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
-    ) -> Result<(), TofndError> {
+    ) -> Result<()> {
         Ok(out_stream.send(Ok(proto::MessageOut::need_recover()))?)
     }
 
@@ -76,16 +79,19 @@ impl Gg20Service {
     fn sign_sanitize_args(
         sign_init: proto::SignInit,
         all_party_uids: &[String],
-    ) -> Result<SignInitSanitized, TofndError> {
+    ) -> Result<SignInitSanitized> {
         // create a vector of the tofnd indices of the participant uids
         let participant_indices = sign_init
             .party_uids
             .iter()
             .map(|s| {
-                all_party_uids.iter().position(|k| k == s).ok_or(format!(
-                    "participant [{}] not found in key [{}]",
-                    s, sign_init.key_uid
-                ))
+                all_party_uids.iter().position(|k| k == s).ok_or_else(|| {
+                    anyhow!(
+                        "participant [{}] not found in key [{}]",
+                        s,
+                        sign_init.key_uid
+                    )
+                })
             })
             .collect::<Result<Vec<usize>, _>>()?;
 

@@ -1,5 +1,9 @@
 //! Helper structs and implementations for [crate::gg20::sign].
 
+// error handling
+use anyhow::{anyhow, Result};
+
+// tofn types
 use super::super::MessageDigest;
 use tofn::collections::{Subset, TypedUsize};
 use tofn::gg20::keygen::{GroupPublicInfo, KeygenPartyId, ShareSecretInfo};
@@ -9,7 +13,7 @@ use tofn::sdk::api::ProtocolOutput;
 /// tofn's ProtocolOutput for Sign
 pub type TofnSignOutput = ProtocolOutput<Vec<u8>, SignPartyId>;
 /// tofnd's ProtocolOutput for Sign
-pub type TofndSignOutput = Result<TofnSignOutput, TofndError>;
+pub type TofndSignOutput = Result<TofnSignOutput>;
 
 #[derive(Clone, Debug)]
 pub(super) struct SignInitSanitized {
@@ -21,7 +25,6 @@ pub(super) struct SignInitSanitized {
 }
 
 use crate::gg20::types::PartyInfo;
-use crate::TofndError;
 
 pub(super) struct Context {
     pub(super) sign_init: SignInitSanitized,
@@ -38,7 +41,7 @@ impl Context {
         sign_init: SignInitSanitized,
         party_info: PartyInfo,
         tofnd_subindex: usize,
-    ) -> Result<Self, TofndError> {
+    ) -> Result<Self> {
         // retrieve sign_share_couts and secret_key_shares here instead of adding
         // getters to immediatelly dicover potential errors
         let sign_share_counts = Self::get_sign_share_counts(
@@ -78,34 +81,29 @@ impl Context {
         keygen_uids: &[String],
         keygen_share_counts: &[usize],
         sign_uids: &[String],
-    ) -> Result<Vec<usize>, TofndError> {
+    ) -> Result<Vec<usize>> {
         if keygen_uids.len() != keygen_share_counts.len() {
-            return Err(From::from(
-                "misalligned keygen uids and keygen share counts",
-            ));
+            return Err(anyhow!("misalligned keygen uids and keygen share counts"));
         }
         let mut sign_share_counts = vec![];
         for sign_uid in sign_uids {
             let keygen_index = keygen_uids
                 .iter()
                 .position(|uid| uid == sign_uid)
-                .ok_or("Sign uid was not found")?;
+                .ok_or_else(|| anyhow!("Sign uid was not found"))?;
             let sign_share_count = *keygen_share_counts
                 .get(keygen_index)
-                .ok_or("invalid index")?;
+                .ok_or_else(|| anyhow!("invalid index"))?;
             sign_share_counts.push(sign_share_count);
         }
         Ok(sign_share_counts)
     }
 
-    fn get_share(
-        party_info: &PartyInfo,
-        tofnd_subindex: usize,
-    ) -> Result<ShareSecretInfo, TofndError> {
+    fn get_share(party_info: &PartyInfo, tofnd_subindex: usize) -> Result<ShareSecretInfo> {
         Ok(party_info
             .shares
             .get(tofnd_subindex)
-            .ok_or("failed to get ShareSecretInfo from PartyInfo")?
+            .ok_or_else(|| anyhow!("failed to get ShareSecretInfo from PartyInfo"))?
             .clone())
     }
 
@@ -126,17 +124,14 @@ impl Context {
     ///                          Some(())  -> party b with index 1 is a signer
     ///                          None      -> party c with index 2 is not a signer
     ///                          Some(())] -> party d with index 3 is a signer
-    pub(super) fn get_sign_parties(
-        length: usize,
-        sign_indices: &[usize],
-    ) -> Result<SignParties, TofndError> {
+    pub(super) fn get_sign_parties(length: usize, sign_indices: &[usize]) -> Result<SignParties> {
         let mut sign_parties = Subset::with_max_size(length);
         for signer_idx in sign_indices.iter() {
             if sign_parties
                 .add(TypedUsize::from_usize(*signer_idx))
                 .is_err()
             {
-                return Err(From::from("failed to call Subset::add"));
+                return Err(anyhow!("failed to call Subset::add"));
             }
         }
         Ok(sign_parties)
