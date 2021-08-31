@@ -3,7 +3,6 @@
 //! The recovery info is decrypted by party's mnemonic seed and saved in the KvStore.
 
 use super::{keygen::types::KeygenInitSanitized, proto, service::Gg20Service, types::PartyInfo};
-use crate::TofndError;
 use tofn::{
     collections::TypedUsize,
     gg20::keygen::{
@@ -12,18 +11,20 @@ use tofn::{
     },
     sdk::api::PartyShareCounts,
 };
+
+// logging
 use tracing::{info, warn};
 
+// error handling
+use anyhow::{anyhow, Result};
+
 impl Gg20Service {
-    pub(super) async fn handle_recover(
-        &self,
-        request: proto::RecoverRequest,
-    ) -> Result<(), TofndError> {
+    pub(super) async fn handle_recover(&self, request: proto::RecoverRequest) -> Result<()> {
         // get keygen init sanitized from request
         let keygen_init_sanitized = {
             let keygen_init = match request.keygen_init {
                 Some(keygen_init) => keygen_init,
-                None => return Err(From::from("missing keygen_init field in recovery request")),
+                None => return Err(anyhow!("missing keygen_init field in recovery request")),
             };
             Self::keygen_sanitize_args(keygen_init)?
         };
@@ -32,7 +33,8 @@ impl Gg20Service {
         if self
             .shares_kv
             .exists(&keygen_init_sanitized.new_key_uid)
-            .await?
+            .await
+            .map_err(|err| anyhow!("{}", err.to_string()))?
         {
             warn!(
                 "Attempting to recover shares for party {} which already exist in kv-store",
@@ -53,7 +55,7 @@ impl Gg20Service {
                 &keygen_init_sanitized.party_share_counts,
                 keygen_init_sanitized.threshold,
             )
-            .map_err(|err| format!("Failed to acquire secret key share {}", err))?;
+            .map_err(|err| anyhow!("Failed to acquire secret key share {}", err))?;
 
         Ok(self
             .update_share_kv_store(keygen_init_sanitized, secret_key_shares)
@@ -70,7 +72,7 @@ impl Gg20Service {
         subshare_id: usize, // in 0..party_share_counts[party_id]
         party_share_counts: KeygenPartyShareCounts,
         threshold: usize,
-    ) -> Result<SecretKeyShare, TofndError> {
+    ) -> Result<SecretKeyShare> {
         let recover = SecretKeyShare::recover(
             party_keypair,
             recovery_infos,
@@ -82,10 +84,11 @@ impl Gg20Service {
 
         // map error and return result
         recover.map_err(|_| {
-            From::from(format!(
+            anyhow!(
                 "Cannot recover share [{}] of party [{}]",
-                subshare_id, party_id,
-            ))
+                subshare_id,
+                party_id,
+            )
         })
     }
 
@@ -98,7 +101,7 @@ impl Gg20Service {
         session_nonce: &[u8],
         party_share_counts: &[usize],
         threshold: usize,
-    ) -> Result<Vec<SecretKeyShare>, TofndError> {
+    ) -> Result<Vec<SecretKeyShare>> {
         // gather deserialized share recovery infos. Avoid using map() because deserialization returns Result
         let mut deserialized_share_recovery_infos =
             Vec::with_capacity(serialized_share_recovery_infos.len());
@@ -107,17 +110,19 @@ impl Gg20Service {
         }
 
         // get my share count safely
-        let my_share_count = *party_share_counts.get(my_tofnd_index).ok_or(format!(
-            "index {} is out of party_share_counts bounds {}",
-            my_tofnd_index,
-            party_share_counts.len()
-        ))?;
+        let my_share_count = *party_share_counts.get(my_tofnd_index).ok_or_else(|| {
+            anyhow!(
+                "index {} is out of party_share_counts bounds {}",
+                my_tofnd_index,
+                party_share_counts.len()
+            )
+        })?;
         if my_share_count == 0 {
-            return Err(format!("Party {} has 0 shares assigned", my_tofnd_index).into());
+            return Err(anyhow!("Party {} has 0 shares assigned", my_tofnd_index));
         }
 
         let party_share_counts = PartyShareCounts::from_vec(party_share_counts.to_owned())
-            .map_err(|_| format!("PartyCounts::from_vec() error for {:?}", party_share_counts))?;
+            .map_err(|_| anyhow!("PartyCounts::from_vec() error for {:?}", party_share_counts))?;
 
         info!("Recovering keypair for party {} ...", my_tofnd_index);
 
@@ -127,7 +132,7 @@ impl Gg20Service {
             true => recover_party_keypair(party_id, secret_recovery_key, session_nonce),
             false => recover_party_keypair_unsafe(party_id, secret_recovery_key, session_nonce),
         }
-        .map_err(|_| "party keypair recovery failed".to_string())?;
+        .map_err(|_| anyhow!("party keypair recovery failed"))?;
 
         info!("Finished recovering keypair for party {}", my_tofnd_index);
 
@@ -152,12 +157,13 @@ impl Gg20Service {
         &self,
         keygen_init_sanitized: KeygenInitSanitized,
         secret_key_shares: Vec<SecretKeyShare>,
-    ) -> Result<(), TofndError> {
+    ) -> Result<()> {
         // try to make a reservation
         let reservation = self
             .shares_kv
             .reserve_key(keygen_init_sanitized.new_key_uid)
-            .await?;
+            .await
+            .map_err(|err| anyhow!("failed to complete reservation: {}", err.to_string()))?;
         // acquire kv-data
         let kv_data = PartyInfo::get_party_info(
             secret_key_shares,
@@ -166,6 +172,10 @@ impl Gg20Service {
             keygen_init_sanitized.my_index,
         );
         // try writing the data to the kv-store
-        Ok(self.shares_kv.put(reservation, kv_data).await?)
+        Ok(self
+            .shares_kv
+            .put(reservation, kv_data)
+            .await
+            .map_err(|err| anyhow!("failed to update kv store: {}", err.to_string()))?)
     }
 }
