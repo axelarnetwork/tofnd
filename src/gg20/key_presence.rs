@@ -8,13 +8,13 @@ use super::{proto, service::Gg20Service};
 use tracing::info;
 
 // error handling
-use anyhow::Result;
+use crate::TofndResult;
 
 impl Gg20Service {
     pub(super) async fn handle_key_presence(
         &self,
         request: proto::KeyPresenceRequest,
-    ) -> Result<proto::key_presence_response::Response> {
+    ) -> TofndResult<proto::key_presence_response::Response> {
         // check if mnemonic is available
         let _ = self.seed().await?;
 

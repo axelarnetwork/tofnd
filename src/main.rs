@@ -9,7 +9,7 @@ mod kv_manager;
 use tracing::{info, span, Level};
 
 // error handling
-use anyhow::Result;
+pub type TofndResult<Success> = anyhow::Result<Success>;
 
 // protocol buffers via tonic: https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md#writing-our-server
 pub mod proto {
@@ -46,7 +46,7 @@ fn warn_for_unsafe_execution() {
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> TofndResult<()> {
     // set up log subscriber
     set_up_logs();
 

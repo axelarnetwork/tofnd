@@ -12,13 +12,14 @@ pub(super) type PartyShareCounts = KeygenPartyShareCounts;
 pub const MAX_PARTY_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_PARTY_SHARE_COUNT;
 pub const MAX_TOTAL_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_TOTAL_SHARE_COUNT;
 
-use anyhow::{anyhow, Result};
+use crate::TofndResult;
+use anyhow::anyhow;
 use tracing::{info, span, Level, Span};
 
 /// tofn's ProtocolOutput for Keygen
 pub type TofnKeygenOutput = ProtocolOutput<SecretKeyShare, KeygenPartyId>;
 /// tofnd's ProtocolOutput for Keygen
-pub type TofndKeygenOutput = Result<TofnKeygenOutput>;
+pub type TofndKeygenOutput = TofndResult<TofnKeygenOutput>;
 
 /// KeygenInitSanitized holds all arguments needed by Keygen in the desired form; populated by proto::KeygenInit
 /// pub because it is also needed by recovery module
@@ -87,7 +88,7 @@ impl Context {
     }
 
     /// get share_counts in the form of tofn::PartyShareCounts
-    pub fn share_counts(&self) -> Result<PartyShareCounts> {
+    pub fn share_counts(&self) -> TofndResult<PartyShareCounts> {
         match PartyShareCounts::from_vec(self.share_counts.clone()) {
             Ok(party_share_counts) => Ok(party_share_counts),
             Err(_) => Err(anyhow!("failed to create party_share_counts")),

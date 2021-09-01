@@ -17,7 +17,8 @@ use tonic::Status;
 use tracing::Span;
 
 // error handling
-use anyhow::{anyhow, Result};
+use crate::TofndResult;
+use anyhow::anyhow;
 
 impl Gg20Service {
     /// Receives a message from the stream and tries to handle sign init operations.
@@ -28,7 +29,7 @@ impl Gg20Service {
         in_stream: &mut tonic::Streaming<proto::MessageIn>,
         mut out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         sign_span: Span,
-    ) -> Result<(SignInitSanitized, PartyInfo)> {
+    ) -> TofndResult<(SignInitSanitized, PartyInfo)> {
         let msg_type = in_stream
             .next()
             .await
@@ -64,7 +65,7 @@ impl Gg20Service {
     /// send "need recover" message to client
     fn send_kv_store_failure(
         out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
-    ) -> Result<()> {
+    ) -> TofndResult<()> {
         Ok(out_stream.send(Ok(proto::MessageOut::need_recover()))?)
     }
 
@@ -79,7 +80,7 @@ impl Gg20Service {
     fn sign_sanitize_args(
         sign_init: proto::SignInit,
         all_party_uids: &[String],
-    ) -> Result<SignInitSanitized> {
+    ) -> TofndResult<SignInitSanitized> {
         // create a vector of the tofnd indices of the participant uids
         let participant_indices = sign_init
             .party_uids

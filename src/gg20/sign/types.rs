@@ -1,7 +1,8 @@
 //! Helper structs and implementations for [crate::gg20::sign].
 
 // error handling
-use anyhow::{anyhow, Result};
+use crate::TofndResult;
+use anyhow::anyhow;
 
 // tofn types
 use super::super::MessageDigest;
@@ -13,7 +14,7 @@ use tofn::sdk::api::ProtocolOutput;
 /// tofn's ProtocolOutput for Sign
 pub type TofnSignOutput = ProtocolOutput<Vec<u8>, SignPartyId>;
 /// tofnd's ProtocolOutput for Sign
-pub type TofndSignOutput = Result<TofnSignOutput>;
+pub type TofndSignOutput = TofndResult<TofnSignOutput>;
 
 #[derive(Clone, Debug)]
 pub(super) struct SignInitSanitized {
@@ -41,7 +42,7 @@ impl Context {
         sign_init: SignInitSanitized,
         party_info: PartyInfo,
         tofnd_subindex: usize,
-    ) -> Result<Self> {
+    ) -> TofndResult<Self> {
         // retrieve sign_share_couts and secret_key_shares here instead of adding
         // getters to immediatelly dicover potential errors
         let sign_share_counts = Self::get_sign_share_counts(
@@ -81,7 +82,7 @@ impl Context {
         keygen_uids: &[String],
         keygen_share_counts: &[usize],
         sign_uids: &[String],
-    ) -> Result<Vec<usize>> {
+    ) -> TofndResult<Vec<usize>> {
         if keygen_uids.len() != keygen_share_counts.len() {
             return Err(anyhow!("misalligned keygen uids and keygen share counts"));
         }
@@ -99,7 +100,7 @@ impl Context {
         Ok(sign_share_counts)
     }
 
-    fn get_share(party_info: &PartyInfo, tofnd_subindex: usize) -> Result<ShareSecretInfo> {
+    fn get_share(party_info: &PartyInfo, tofnd_subindex: usize) -> TofndResult<ShareSecretInfo> {
         Ok(party_info
             .shares
             .get(tofnd_subindex)
@@ -124,7 +125,10 @@ impl Context {
     ///                          Some(())  -> party b with index 1 is a signer
     ///                          None      -> party c with index 2 is not a signer
     ///                          Some(())] -> party d with index 3 is a signer
-    pub(super) fn get_sign_parties(length: usize, sign_indices: &[usize]) -> Result<SignParties> {
+    pub(super) fn get_sign_parties(
+        length: usize,
+        sign_indices: &[usize],
+    ) -> TofndResult<SignParties> {
         let mut sign_parties = Subset::with_max_size(length);
         for signer_idx in sign_indices.iter() {
             if sign_parties

@@ -21,7 +21,8 @@ use tokio::sync::{
 use tonic::Status;
 
 // error handling
-use anyhow::{anyhow, Result};
+use crate::TofndResult;
+use anyhow::anyhow;
 
 impl Gg20Service {
     /// aggregate results from all keygen threads, create a record and insert it in the KvStore
@@ -31,7 +32,7 @@ impl Gg20Service {
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         key_uid_reservation: KeyReservation,
         keygen_init: KeygenInitSanitized,
-    ) -> Result<()> {
+    ) -> TofndResult<()> {
         // wait all keygen threads and aggregate results
         // can't use `map_err` because of `.await` func :(
         let keygen_outputs = match Self::aggregate_keygen_outputs(aggregator_receivers).await {
@@ -59,7 +60,7 @@ impl Gg20Service {
 
                 bincode::serialize(&recovery_info).map_err(|e| anyhow!(e))
             })
-            .collect::<Result<_>>()?;
+            .collect::<TofndResult<_>>()?;
 
         // combine responses from all keygen threads to a single struct
         let kv_data = PartyInfo::get_party_info(
@@ -93,7 +94,7 @@ impl Gg20Service {
         keygen_init: &KeygenInitSanitized,
         keygen_outputs: Vec<TofnKeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
-    ) -> Result<(Vec<u8>, Vec<SecretKeyShare>)> {
+    ) -> TofndResult<(Vec<u8>, Vec<SecretKeyShare>)> {
         // Collect all key shares unless there's a protocol fault
         let keygen_outputs = keygen_outputs
             .into_iter()
@@ -144,7 +145,7 @@ impl Gg20Service {
     /// wait all keygen threads and get keygen outputs
     async fn aggregate_keygen_outputs(
         aggregator_receivers: Vec<Receiver<TofndKeygenOutput>>,
-    ) -> Result<Vec<TofnKeygenOutput>> {
+    ) -> TofndResult<Vec<TofnKeygenOutput>> {
         let mut keygen_outputs = Vec::with_capacity(aggregator_receivers.len());
 
         for aggregator in aggregator_receivers {

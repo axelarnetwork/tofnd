@@ -1,14 +1,15 @@
 use clap::{App, Arg};
 
 // error handling
-use anyhow::{anyhow, Result};
+use crate::TofndResult;
+use anyhow::anyhow;
 
 use crate::gg20::mnemonic::Cmd;
 
 // TODO: examine if using a config file can replace commandline args
 
 #[cfg(not(feature = "malicious"))]
-pub fn parse_args() -> Result<(u16, bool, Cmd)> {
+pub fn parse_args() -> TofndResult<(u16, bool, Cmd)> {
     // Note that we want lower-case letters as impot, as enum type start with capitals
     let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
     let default_mnemonic_cmd = "create";
@@ -65,7 +66,7 @@ use tofn::{
 };
 
 #[cfg(feature = "malicious")]
-pub fn parse_args() -> Result<(u16, bool, Cmd, Behaviours)> {
+pub fn parse_args() -> TofndResult<(u16, bool, Cmd, Behaviours)> {
     let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
     let default_mnemonic_cmd = "create";
 

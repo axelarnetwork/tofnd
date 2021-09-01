@@ -24,7 +24,8 @@ use tonic::Status;
 use tracing::{span, Level, Span};
 
 // error handling
-use anyhow::{anyhow, Result};
+use crate::TofndResult;
+use anyhow::anyhow;
 
 pub mod types;
 use types::*;
@@ -40,7 +41,7 @@ impl Gg20Service {
         mut stream_in: tonic::Streaming<proto::MessageIn>,
         mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         sign_span: Span,
-    ) -> Result<()> {
+    ) -> TofndResult<()> {
         // 1. Receive SignInit, open message, sanitize arguments -> init mod
         // 2. Spawn N sign threads to execute the protocol in parallel; one of each of our shares -> execute mod
         // 3. Spawn 1 router thread to route messages from client to the respective sign thread -> routing mod

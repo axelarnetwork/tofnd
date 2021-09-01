@@ -10,17 +10,18 @@ use tokio::sync::mpsc;
 use tonic::Status;
 
 // error handling
-use anyhow::{anyhow, Result};
+use crate::TofndResult;
+use anyhow::anyhow;
 
 impl Gg20Service {
     /// handle results from all shares
     /// if all shares return a valid output, send the result to client
     /// if a share does not return a valid output, return an [anyhow!]
     pub(super) async fn handle_results(
-        aggregator_receivers: Vec<oneshot::Receiver<Result<TofnSignOutput>>>,
+        aggregator_receivers: Vec<oneshot::Receiver<TofndResult<TofnSignOutput>>>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         participant_uids: &[String],
-    ) -> Result<()> {
+    ) -> TofndResult<()> {
         //  wait all sign threads and get signature
         let mut sign_output = None;
         for aggregator in aggregator_receivers {

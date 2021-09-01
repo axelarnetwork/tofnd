@@ -13,7 +13,8 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::{debug, error, span, warn, Level, Span};
 
 // error handling
-use anyhow::{anyhow, Result};
+use crate::TofndResult;
+use anyhow::anyhow;
 
 /// execute gg20 protocol
 pub(super) async fn execute_protocol<F, K, P>(
@@ -25,7 +26,7 @@ pub(super) async fn execute_protocol<F, K, P>(
     party_uids: &[String],
     party_share_counts: &[usize],
     span: Span,
-) -> Result<ProtocolOutput<F, P>>
+) -> TofndResult<ProtocolOutput<F, P>>
 where
     K: Clone,
 {
@@ -70,7 +71,7 @@ fn handle_outgoing<F, K, P>(
     party_uids: &[String],
     round_count: usize,
     span: Span,
-) -> Result<()> {
+) -> TofndResult<()> {
     let send_span = span!(parent: &span, Level::DEBUG, "outgoing", round = round_count);
     let _start = send_span.enter();
     debug!("begin");
@@ -118,7 +119,7 @@ async fn handle_incoming<F, K, P>(
     total_num_of_shares: usize,
     round_count: usize,
     span: Span,
-) -> Result<()> {
+) -> TofndResult<()> {
     let mut p2p_msg_count = 0;
     let mut bcast_msg_count = 0;
 

@@ -16,10 +16,11 @@ use tofn::{
 use tracing::{info, warn};
 
 // error handling
-use anyhow::{anyhow, Result};
+use crate::TofndResult;
+use anyhow::anyhow;
 
 impl Gg20Service {
-    pub(super) async fn handle_recover(&self, request: proto::RecoverRequest) -> Result<()> {
+    pub(super) async fn handle_recover(&self, request: proto::RecoverRequest) -> TofndResult<()> {
         // get keygen init sanitized from request
         let keygen_init_sanitized = {
             let keygen_init = match request.keygen_init {
@@ -72,7 +73,7 @@ impl Gg20Service {
         subshare_id: usize, // in 0..party_share_counts[party_id]
         party_share_counts: KeygenPartyShareCounts,
         threshold: usize,
-    ) -> Result<SecretKeyShare> {
+    ) -> TofndResult<SecretKeyShare> {
         let recover = SecretKeyShare::recover(
             party_keypair,
             recovery_infos,
@@ -101,7 +102,7 @@ impl Gg20Service {
         session_nonce: &[u8],
         party_share_counts: &[usize],
         threshold: usize,
-    ) -> Result<Vec<SecretKeyShare>> {
+    ) -> TofndResult<Vec<SecretKeyShare>> {
         // gather deserialized share recovery infos. Avoid using map() because deserialization returns Result
         let mut deserialized_share_recovery_infos =
             Vec::with_capacity(serialized_share_recovery_infos.len());
@@ -157,13 +158,13 @@ impl Gg20Service {
         &self,
         keygen_init_sanitized: KeygenInitSanitized,
         secret_key_shares: Vec<SecretKeyShare>,
-    ) -> Result<()> {
+    ) -> TofndResult<()> {
         // try to make a reservation
         let reservation = self
             .shares_kv
             .reserve_key(keygen_init_sanitized.new_key_uid)
             .await
-            .map_err(|err| anyhow!("failed to complete reservation: {}", err.to_string()))?;
+            .map_err(|err| anyhow!("failed to complete reservation: {}", err))?;
         // acquire kv-data
         let kv_data = PartyInfo::get_party_info(
             secret_key_shares,
@@ -176,6 +177,6 @@ impl Gg20Service {
             .shares_kv
             .put(reservation, kv_data)
             .await
-            .map_err(|err| anyhow!("failed to update kv store: {}", err.to_string()))?)
+            .map_err(|err| anyhow!("failed to update kv store: {}", err))?)
     }
 }

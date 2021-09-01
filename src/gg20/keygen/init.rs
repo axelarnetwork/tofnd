@@ -9,7 +9,8 @@ use futures_util::StreamExt;
 use tracing::Span;
 
 // error handling
-use anyhow::{anyhow, Result};
+use crate::TofndResult;
+use anyhow::anyhow;
 
 use super::{
     proto,
@@ -26,7 +27,7 @@ impl Gg20Service {
         &self,
         stream: &mut tonic::Streaming<proto::MessageIn>,
         keygen_span: Span,
-    ) -> Result<(KeygenInitSanitized, KeyReservation)> {
+    ) -> TofndResult<(KeygenInitSanitized, KeyReservation)> {
         // try to receive message
         let msg = stream
             .next()
@@ -65,7 +66,7 @@ impl Gg20Service {
     pub(super) async fn process_keygen_init(
         &self,
         keygen_init: proto::KeygenInit,
-    ) -> Result<(KeygenInitSanitized, KeyReservation)> {
+    ) -> TofndResult<(KeygenInitSanitized, KeyReservation)> {
         // try to sanitize arguments
         let keygen_init = Self::keygen_sanitize_args(keygen_init)
             .map_err(|err| anyhow!("failed to sanitize KeygenInit: {}", err))?;
@@ -94,7 +95,9 @@ impl Gg20Service {
     ///   keygen_init.party_share_counts = [3, 2, 1] . <- sorted with respect to party_uids
     ///   keygen_init.my_party_index = 0 .             <- index inside sorted array
     ///   keygen_init.threshold = 1                    <- same as in input
-    pub(crate) fn keygen_sanitize_args(args: proto::KeygenInit) -> Result<KeygenInitSanitized> {
+    pub(crate) fn keygen_sanitize_args(
+        args: proto::KeygenInit,
+    ) -> TofndResult<KeygenInitSanitized> {
         // convert `u32`s to `usize`s
         use std::convert::TryFrom;
         let my_index = usize::try_from(args.my_party_index)?;
@@ -159,8 +162,7 @@ impl Gg20Service {
         // we need to sort uids and shares because the caller does not necessarily
         // send the same vectors (in terms of order) to all tofnd instances.
         let (my_new_index, sorted_uids, sorted_share_counts) =
-            sort_uids_and_shares(my_index, args.party_uids, party_share_counts)
-                .map_err(|e| anyhow!(e))?;
+            sort_uids_and_shares(my_index, args.party_uids, party_share_counts)?;
 
         Ok(KeygenInitSanitized {
             new_key_uid: args.new_key_uid,
@@ -177,11 +179,11 @@ fn sort_uids_and_shares(
     my_index: usize,
     uids: Vec<String>,
     share_counts: Vec<usize>,
-) -> Result<(usize, Vec<String>, Vec<usize>), String> {
+) -> TofndResult<(usize, Vec<String>, Vec<usize>)> {
     // save my uid
     let my_uid = uids
         .get(my_index)
-        .ok_or("Error: Index out of bounds")?
+        .ok_or_else(|| anyhow!("Error: Index out of bounds"))?
         .clone();
 
     // create a vec of (uid, share_count) and sort it
@@ -193,14 +195,14 @@ fn sort_uids_and_shares(
     let old_len = sorted_uids.len();
     sorted_uids.dedup();
     if old_len != sorted_uids.len() {
-        return Err(From::from("Error: party_uid vector contained a duplicate"));
+        return Err(anyhow!("Error: party_uid vector contained a duplicate"));
     }
 
     // find my new index
     let my_index = sorted_uids
         .iter()
         .position(|x| x == &my_uid)
-        .ok_or("Error: Lost my uid after sorting uids")?;
+        .ok_or_else(|| anyhow!("Error: Lost my uid after sorting uids"))?;
 
     Ok((my_index, sorted_uids, sorted_share_counts))
 }
