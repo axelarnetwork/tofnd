@@ -28,6 +28,7 @@ fn set_up_logs() {
         .without_time()
         .with_target(false)
         .with_current_span(false)
+        .flatten_event(true) // make logs complient with datadog
         .init();
 }
 
