@@ -7,15 +7,14 @@ use std::{
 
 use tracing::info;
 
-use super::super::mnemonic::bip39_bindings::bip39_from_entropy;
-use crate::{
-    gg20::types::{Entropy, Password},
-    TofndError,
-};
+use super::bip39_bindings::bip39_from_entropy;
+use crate::gg20::types::{Entropy, Password};
 
 /// Standard names
 const EXPORT_FILE: &str = "export";
 pub(super) const IMPORT_FILE: &str = "import";
+
+use super::error::file_io::FileIoResult;
 
 /// FileIO wraps all IO functionality
 #[derive(Clone)]
@@ -44,7 +43,7 @@ impl FileIo {
     }
 
     /// Creates a file that contains an entropy in it's human-readable form
-    pub(super) fn entropy_to_next_file(&self, entropy: Entropy) -> Result<(), TofndError> {
+    pub(super) fn entropy_to_next_file(&self, entropy: Entropy) -> FileIoResult<()> {
         // delegate zeroization for entropy; no need to worry about mnemonic, it is cleaned automatically
         let mnemonic = bip39_from_entropy(entropy)?;
         let phrase = mnemonic.phrase();
@@ -56,7 +55,7 @@ impl FileIo {
     }
 
     /// Returns the phrase from a file
-    pub(super) fn phrase_from_file(&self, filename: &str) -> Result<Password, TofndError> {
+    pub(super) fn phrase_from_file(&self, filename: &str) -> FileIoResult<Password> {
         let mut filepath = self.path.clone();
         filepath.push(filename);
         let mut file = std::fs::File::open(filepath)?;

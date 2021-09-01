@@ -1,6 +1,6 @@
 //! This module handles the initialization of the Keygen protocol.
 //! A [KeygenInitSanitized] struct is created out of the raw incoming [proto::KeygenInit] message and a key is reserved inside the KvStore
-//! If [proto::KeygenInit] fails to be parsed, a [TofndError] is returned
+//! If [proto::KeygenInit] fails to be parsed, an [InitResult] is returned
 
 // tonic cruft
 use futures_util::StreamExt;
@@ -8,36 +8,47 @@ use futures_util::StreamExt;
 // spans for logging
 use tracing::Span;
 
-// use tofn::protocol::gg20::keygen::validate_params;
+// error handling
+use crate::TofndResult;
+use anyhow::anyhow;
 
 use super::{
     proto,
     types::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
-    Gg20Service, TofndError,
+    Gg20Service,
 };
 use crate::kv_manager::KeyReservation;
 
 impl Gg20Service {
     /// Receives a message from the stream and tries to handle keygen init operations.
     /// On success, it reserves a key in the KVStrore and returns a sanitized struct ready to be used by the protocol.
-    /// On failure, returns a TofndError and no changes are been made in the KvStore.
+    /// On failure, returns a [KeygenInitError] and no changes are been made in the KvStore.
     pub(super) async fn handle_keygen_init(
         &self,
         stream: &mut tonic::Streaming<proto::MessageIn>,
         keygen_span: Span,
-    ) -> Result<(KeygenInitSanitized, KeyReservation), TofndError> {
-        // receive message
-        let msg_type = stream
+    ) -> TofndResult<(KeygenInitSanitized, KeyReservation)> {
+        // try to receive message
+        let msg = stream
             .next()
             .await
-            .ok_or("keygen: stream closed by client without sending a message")??
+            .ok_or_else(|| anyhow!("stream closed by client"))?
+            .map_err(|e| anyhow!("stream closed by server: {}", e))?;
+
+        // try to get message data
+        let msg_data = msg
             .data
-            .ok_or("keygen: missing `data` field in client message")?;
+            .ok_or_else(|| anyhow!("received `None` message from client"))?;
 
         // check if message is of expected type
-        let keygen_init = match msg_type {
+        let keygen_init = match msg_data {
             proto::message_in::Data::KeygenInit(k) => k,
-            _ => return Err(From::from("Expected keygen init message")),
+            _ => {
+                return Err(anyhow!(
+                    "wrong message type; expecting KeygenInit, got {:?}",
+                    msg_data
+                ))
+            }
         };
 
         // try to process incoming message
@@ -55,18 +66,17 @@ impl Gg20Service {
     pub(super) async fn process_keygen_init(
         &self,
         keygen_init: proto::KeygenInit,
-    ) -> Result<(KeygenInitSanitized, KeyReservation), TofndError> {
-        // sanitize arguments
-        let keygen_init = Self::keygen_sanitize_args(keygen_init)?;
+    ) -> TofndResult<(KeygenInitSanitized, KeyReservation)> {
+        // try to sanitize arguments
+        let keygen_init = Self::keygen_sanitize_args(keygen_init)
+            .map_err(|err| anyhow!("failed to sanitize KeygenInit: {}", err))?;
+
         // reserve key
-        let key_uid_reservation = match self
+        let key_uid_reservation = self
             .shares_kv
             .reserve_key(keygen_init.new_key_uid.clone())
             .await
-        {
-            Ok(reservation) => reservation,
-            Err(err) => return Err(From::from(format!("Error: failed to reseve key: {}", err))),
-        };
+            .map_err(|err| anyhow!("failed to reseve key: {}", err))?;
 
         // return sanitized keygen init and key reservation
         Ok((keygen_init, key_uid_reservation))
@@ -87,7 +97,7 @@ impl Gg20Service {
     ///   keygen_init.threshold = 1                    <- same as in input
     pub(crate) fn keygen_sanitize_args(
         args: proto::KeygenInit,
-    ) -> Result<KeygenInitSanitized, TofndError> {
+    ) -> TofndResult<KeygenInitSanitized> {
         // convert `u32`s to `usize`s
         use std::convert::TryFrom;
         let my_index = usize::try_from(args.my_party_index)?;
@@ -105,44 +115,47 @@ impl Gg20Service {
 
         // assert that uids and party shares are alligned
         if args.party_uids.len() != party_share_counts.len() {
-            return Err(From::from(format!(
+            return Err(anyhow!(
                 "uid vector and share counts vector not alligned: {:?}, {:?}",
-                args.party_uids, party_share_counts,
-            )));
+                args.party_uids,
+                party_share_counts,
+            ));
         }
 
         // check if my_index is inside party_uids
         if my_index >= args.party_uids.len() {
-            return Err(From::from(format!(
+            return Err(anyhow!(
                 "my index is {}, but there are only {} parties.",
                 my_index,
                 args.party_uids.len(),
-            )));
+            ));
         }
 
         // if party's shares are above max, return error
         for party_share_count in &party_share_counts {
             if *party_share_count > MAX_PARTY_SHARE_COUNT {
-                return Err(From::from(format!(
+                return Err(anyhow!(
                     "party {} has {} shares, but maximum number of shares per party is {}.",
                     args.party_uids[my_index],
                     args.party_share_counts[my_index],
                     MAX_PARTY_SHARE_COUNT,
-                )));
+                ));
             }
         }
 
         let total_shares = party_share_counts.iter().sum::<usize>();
         if total_shares <= threshold {
-            return Err(From::from(format!(
+            return Err(anyhow!(
                 "threshold is not satisfied: t = {}, total number of shares = {}",
-                threshold, total_shares,
-            )));
+                threshold,
+                total_shares,
+            ));
         } else if total_shares > MAX_TOTAL_SHARE_COUNT {
-            return Err(From::from(format!(
+            return Err(anyhow!(
                 "total shares count is {}, but maximum number of share count is {}.",
-                total_shares, MAX_PARTY_SHARE_COUNT,
-            )));
+                total_shares,
+                MAX_PARTY_SHARE_COUNT,
+            ));
         }
 
         // sort uids and share counts
@@ -166,11 +179,11 @@ fn sort_uids_and_shares(
     my_index: usize,
     uids: Vec<String>,
     share_counts: Vec<usize>,
-) -> Result<(usize, Vec<String>, Vec<usize>), TofndError> {
+) -> TofndResult<(usize, Vec<String>, Vec<usize>)> {
     // save my uid
     let my_uid = uids
         .get(my_index)
-        .ok_or("Error: Index out of bounds")?
+        .ok_or_else(|| anyhow!("Error: Index out of bounds"))?
         .clone();
 
     // create a vec of (uid, share_count) and sort it
@@ -182,14 +195,14 @@ fn sort_uids_and_shares(
     let old_len = sorted_uids.len();
     sorted_uids.dedup();
     if old_len != sorted_uids.len() {
-        return Err(From::from("Error: party_uid vector contained a duplicate"));
+        return Err(anyhow!("Error: party_uid vector contained a duplicate"));
     }
 
     // find my new index
     let my_index = sorted_uids
         .iter()
         .position(|x| x == &my_uid)
-        .ok_or("Error: Lost my uid after sorting uids")?;
+        .ok_or_else(|| anyhow!("Error: Lost my uid after sorting uids"))?;
 
     Ok((my_index, sorted_uids, sorted_share_counts))
 }

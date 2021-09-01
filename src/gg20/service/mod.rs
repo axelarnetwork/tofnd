@@ -3,8 +3,12 @@
 use super::mnemonic::{file_io::FileIo, Cmd};
 use super::proto;
 use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SHARE_KV_NAME};
-use crate::{TofndError, DEFAULT_PATH_ROOT};
+use crate::DEFAULT_PATH_ROOT;
 use std::path::PathBuf;
+
+// error handling
+use crate::TofndResult;
+use anyhow::anyhow;
 
 #[cfg(feature = "malicious")]
 pub mod malicious;
@@ -25,15 +29,15 @@ pub async fn new_service(
     safe_keygen: bool,
     mnemonic_cmd: Cmd,
     #[cfg(feature = "malicious")] behaviours: malicious::Behaviours,
-) -> Result<impl proto::gg20_server::Gg20, TofndError> {
+) -> TofndResult<impl proto::gg20_server::Gg20> {
     let shares_kv = KeySharesKv::new(DEFAULT_SHARE_KV_NAME).map_err(|err| {
-        format!(
+        anyhow!(
             "Shares kvstore is corrupted. Please remove it and recover your shares. Error: {}",
             err
         )
     })?;
     let mnemonic_kv = MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME).map_err(|err| {
-        format!(
+        anyhow!(
             "Your mnemonic kv store is corrupted. Please remove it and import your mnemonic again. Error: {}", err
         )
     })?;
@@ -54,8 +58,8 @@ pub async fn new_service(
 
 #[cfg(test)]
 pub mod tests {
-    use super::{FileIo, Gg20Service, KeySharesKv, MnemonicKv, TofndError};
-    use crate::proto;
+    use super::{FileIo, Gg20Service, KeySharesKv, MnemonicKv};
+    use crate::{proto, TofndResult};
     use std::path::PathBuf;
 
     #[cfg(feature = "malicious")]
@@ -74,7 +78,7 @@ pub mod tests {
         db_path: &str,
         mnemonic_cmd: crate::gg20::mnemonic::Cmd,
         #[cfg(feature = "malicious")] behaviours: Behaviours,
-    ) -> Result<impl proto::gg20_server::Gg20, TofndError> {
+    ) -> TofndResult<impl proto::gg20_server::Gg20> {
         let (shares_db_name, mnemonic_db_name) = create_db_names(db_path);
         let mut path = PathBuf::new();
         path.push(db_path);

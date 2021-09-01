@@ -1868,6 +1868,7 @@ dependencies = [
 name = "tofnd"
 version = "0.3.0"
 dependencies = [
+ "anyhow",
  "atty",
  "bincode",
  "clap",
@@ -1878,6 +1879,7 @@ dependencies = [
  "serde",
  "sled",
  "testdir",
+ "thiserror",
  "tiny-bip39",
  "tofn",
  "tokio",

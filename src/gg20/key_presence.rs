@@ -3,14 +3,18 @@
 //! The recovery info is decrypted by party's mnemonic seed and saved in the KvStore.
 
 use super::{proto, service::Gg20Service};
-use crate::TofndError;
+
+// logging
 use tracing::info;
+
+// error handling
+use crate::TofndResult;
 
 impl Gg20Service {
     pub(super) async fn handle_key_presence(
         &self,
         request: proto::KeyPresenceRequest,
-    ) -> Result<proto::key_presence_response::Response, TofndError> {
+    ) -> TofndResult<proto::key_presence_response::Response> {
         // check if mnemonic is available
         let _ = self.seed().await?;
 

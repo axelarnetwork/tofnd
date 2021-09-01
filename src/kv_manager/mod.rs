@@ -25,6 +25,10 @@ const DEFAULT_KV_PATH: &str = "kvstore";
 pub struct Kv<V> {
     sender: mpsc::UnboundedSender<Command<V>>,
 }
+
+pub type KvError = Box<dyn Error + Send + Sync>;
+type KvResult<Success> = Result<Success, KvError>;
+
 impl<V: 'static> Kv<V>
 where
     V: Debug + Send + Sync + Serialize + DeserializeOwned,
@@ -47,10 +51,7 @@ where
         tokio::spawn(kv_cmd_handler(rx, kv));
         Ok(Self { sender })
     }
-    pub async fn reserve_key(
-        &self,
-        key: String,
-    ) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
+    pub async fn reserve_key(&self, key: String) -> KvResult<KeyReservation> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.sender.send(ReserveKey { key, resp: resp_tx })?;
         resp_rx.await?
@@ -58,11 +59,7 @@ where
     pub async fn unreserve_key(&self, reservation: KeyReservation) {
         let _ = self.sender.send(UnreserveKey { reservation });
     }
-    pub async fn put(
-        &self,
-        reservation: KeyReservation,
-        value: V,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn put(&self, reservation: KeyReservation, value: V) -> KvResult<()> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.sender.send(Put {
             reservation,
@@ -71,7 +68,7 @@ where
         })?;
         resp_rx.await?
     }
-    pub async fn get(&self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
+    pub async fn get(&self, key: &str) -> KvResult<V> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.sender.send(Get {
             key: key.to_string(),
@@ -79,7 +76,7 @@ where
         })?;
         resp_rx.await?
     }
-    pub async fn exists(&self, key: &str) -> Result<bool, Box<dyn Error + Send + Sync>> {
+    pub async fn exists(&self, key: &str) -> KvResult<bool> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.sender.send(Exists {
             key: key.to_string(),
@@ -87,7 +84,7 @@ where
         })?;
         resp_rx.await?
     }
-    pub async fn remove(&self, key: &str) -> Result<V, Box<dyn Error + Send + Sync>> {
+    pub async fn remove(&self, key: &str) -> KvResult<V> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.sender.send(Remove {
             key: key.to_string(),
@@ -212,15 +209,12 @@ where
 }
 
 // helper function to reserve a key
-fn handle_reserve(
-    kv: &sled::Db,
-    key: String,
-) -> Result<KeyReservation, Box<dyn Error + Send + Sync>> {
+fn handle_reserve(kv: &sled::Db, key: String) -> KvResult<KeyReservation> {
     // search key in kv store.
     // If reserve key already exists inside our database, return an error
     if kv.contains_key(&key)? {
         return Err(From::from(format!(
-            "kv_manager key {} already reserved",
+            "kv_manager key <{}> already reserved",
             key
         )));
     }
@@ -233,11 +227,7 @@ fn handle_reserve(
 }
 
 // helper function to insert a value
-fn handle_put<V>(
-    kv: &sled::Db,
-    reservation: KeyReservation,
-    value: V,
-) -> Result<(), Box<dyn Error + Send + Sync>>
+fn handle_put<V>(kv: &sled::Db, reservation: KeyReservation, value: V) -> KvResult<()>
 where
     V: Serialize,
 {
@@ -259,7 +249,7 @@ where
 }
 
 // helper function to get a value
-fn handle_get<V>(kv: &sled::Db, key: String) -> Result<V, Box<dyn Error + Send + Sync>>
+fn handle_get<V>(kv: &sled::Db, key: String) -> KvResult<V>
 where
     V: DeserializeOwned,
 {
@@ -275,7 +265,7 @@ where
     Ok(value)
 }
 
-fn handle_exists(kv: &sled::Db, key: &str) -> Result<bool, Box<dyn Error + Send + Sync>> {
+fn handle_exists(kv: &sled::Db, key: &str) -> KvResult<bool> {
     kv.contains_key(key).map_err(|err| {
         From::from(format!(
             "Could not perform 'contains_key' for {}: {}",
@@ -285,7 +275,7 @@ fn handle_exists(kv: &sled::Db, key: &str) -> Result<bool, Box<dyn Error + Send 
 }
 
 // helper function to delete a value
-fn handle_remove<V>(kv: &sled::Db, key: String) -> Result<V, Box<dyn Error + Send + Sync>>
+fn handle_remove<V>(kv: &sled::Db, key: String) -> KvResult<V>
 where
     V: DeserializeOwned,
 {
