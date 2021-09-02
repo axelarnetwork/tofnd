@@ -10,7 +10,7 @@ docker-image-malicious: git-submodule-setup
 .PHONY: copy-binary
 copy-binary-from-image: guard-SEMVER
 	./scripts/copy-binaries-from-image.sh
-	mv bin/tofnd bin/tofnd-linux-arm64-${SEMVER}
+	mv bin/tofnd bin/tofnd-linux-amd64-${SEMVER}
 	cd bin && sha256sum * > SHA256SUMS
 
 .PHONY: upload-binaries-to-s3
