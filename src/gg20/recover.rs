@@ -86,7 +86,7 @@ impl Gg20Service {
         // map error and return result
         recover.map_err(|_| {
             anyhow!(
-                "Cannot recover share [{}] of party [{}]",
+                "Cannot recover share [{}] or party [{}]",
                 subshare_id,
                 party_id,
             )
