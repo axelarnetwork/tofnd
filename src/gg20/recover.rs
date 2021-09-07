@@ -75,7 +75,7 @@ impl Gg20Service {
             )
         })?;
         if my_share_count == 0 {
-            return Err(anyhow!("Party {} has 0 shares assigned", init.my_index).into());
+            return Err(anyhow!("Party {} has 0 shares assigned", init.my_index));
         }
 
         // check party share counts
