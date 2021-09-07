@@ -183,8 +183,9 @@ fn generate_basic_cases() -> Vec<TestCase> {
         R5BadProof { victim },
         R6FalseAccusation { victim },
         R6BadProof,
-        R6FalseFailRandomizer,
+        R6FalseType5Claim,
         R7BadSI,
+        R7FalseType7Claim,
         R3BadSigmaI,
     ];
 
