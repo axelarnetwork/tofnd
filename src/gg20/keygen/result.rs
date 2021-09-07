@@ -89,7 +89,7 @@ impl Gg20Service {
         keygen_init: &KeygenInitSanitized,
         keygen_outputs: Vec<TofnKeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
-    ) -> Result<(BytesVec, BytesVec, Vec<SecretKeyShare>), TofndError> {
+    ) -> TofndResult<(BytesVec, BytesVec, Vec<SecretKeyShare>)> {
         // Collect all key shares unless there's a protocol fault
         let keygen_outputs = keygen_outputs
             .into_iter()
@@ -110,7 +110,7 @@ impl Gg20Service {
                 let group_info = secret_key_shares[0]
                     .group()
                     .all_shares_bytes()
-                    .map_err(|_| "unable to call all_shares_bytes(): {}".to_string())?;
+                    .map_err(|_| anyhow!("unable to call all_shares_bytes()"))?;
 
                 // sanity check: pubkey and group recovery info should be the same across all shares
                 // Here we check that the first share produced the same info as the i-th.
@@ -129,15 +129,14 @@ impl Gg20Service {
                     let curr_group_info = secret_key_share
                         .group()
                         .all_shares_bytes()
-                        .map_err(|_| "unable to call all_shares_bytes(): {}".to_string())?;
+                        .map_err(|_| anyhow!("unable to call all_shares_bytes()"))?;
                     if group_info != curr_group_info {
-                        return Err(format!(
+                        return Err(anyhow!(
                             "Party {}'s share {} and {} returned different group recovery info",
                             keygen_init.my_index,
                             share_id,
                             secret_key_share.share().index()
-                        )
-                        .into());
+                        ));
                     }
                 }
 
@@ -160,9 +159,7 @@ impl Gg20Service {
     }
 
     /// Create private recovery info out of a vec with all parties' SecretKeyShares
-    fn get_private_recovery_data(
-        secret_key_shares: &[SecretKeyShare],
-    ) -> Result<BytesVec, TofndError> {
+    fn get_private_recovery_data(secret_key_shares: &[SecretKeyShare]) -> TofndResult<BytesVec> {
         // try to retrieve private recovery info from all party's shares
         let private_infos = secret_key_shares
             .iter()
@@ -170,9 +167,9 @@ impl Gg20Service {
             .map(|(index, secret_key_share)| {
                 secret_key_share
                     .recovery_info()
-                    .map_err(|_| format!("Unable to get recovery info for share {}", index))
+                    .map_err(|_| anyhow!("Unable to get recovery info for share {}", index))
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<TofndResult<Vec<_>>>()?;
 
         // We use an additional layer of serialization to simpify the protobuf definition
         let private_bytes = bincode::serialize(&private_infos)?;

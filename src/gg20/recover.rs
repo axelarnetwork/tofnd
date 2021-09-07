@@ -31,7 +31,7 @@ impl Gg20Service {
 
         let keygen_output = request
             .keygen_output
-            .ok_or_else(|| "missing keygen_output field in recovery request".to_string())?;
+            .ok_or_else(|| anyhow!("missing keygen_output field in recovery request"))?;
 
         // check if key-uid already exists in kv-store. If yes, return success and don't update the kv-store
         if self
@@ -65,16 +65,15 @@ impl Gg20Service {
         secret_recovery_key: &SecretRecoveryKey,
         init: &KeygenInitSanitized,
         output: &proto::KeygenOutput,
-    ) -> Result<Vec<SecretKeyShare>, TofndError> {
+    ) -> TofndResult<Vec<SecretKeyShare>> {
         // get my share count safely
-        let my_share_count = *init
-            .party_share_counts
-            .get(init.my_index)
-            .ok_or_else(anyhow!(
+        let my_share_count = *init.party_share_counts.get(init.my_index).ok_or_else(|| {
+            anyhow!(
                 "index {} is out of party_share_counts bounds {}",
                 init.my_index,
                 init.party_share_counts.len()
-            ))?;
+            )
+        })?;
         if my_share_count == 0 {
             return Err(anyhow!("Party {} has 0 shares assigned", init.my_index).into());
         }
@@ -93,13 +92,12 @@ impl Gg20Service {
         // deserialize recovery info here to catch errors before spending cycles on keypair recovery
         let private_info_vec: Vec<BytesVec> = bincode::deserialize(&output.private_recover_info)?;
         if private_info_vec.len() != my_share_count {
-            return Err(format!(
+            return Err(anyhow!(
                 "Party {} has {} shares assigned, but retrieved {} shares from client",
                 init.my_index,
                 my_share_count,
                 private_info_vec.len()
-            )
-            .into());
+            ));
         }
 
         info!("Recovering keypair for party {} ...", init.my_index);
@@ -131,9 +129,9 @@ impl Gg20Service {
                     party_share_counts.clone(),
                     init.threshold,
                 )
-                .map_err(|_| format!("Cannot recover share [{}] of party [{}]", i, party_id))
+                .map_err(|_| anyhow!("Cannot recover share [{}] of party [{}]", i, party_id))
             })
-            .collect::<Result<_, _>>()?;
+            .collect::<TofndResult<_>>()?;
 
         Ok(secret_key_shares)
     }

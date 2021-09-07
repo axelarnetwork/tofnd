@@ -45,7 +45,7 @@ impl Gg20Service {
                     error_msg,
                     sign_output.iter().enumerate().collect::<Vec<_>>()
                 );
-                return Err(error_msg.into());
+                return Err(anyhow!(error_msg));
             }
         }
 
