@@ -63,7 +63,7 @@ impl Gg20Service {
 
     // makes all needed assertions on incoming data, and create structures that are
     // needed for the execution of the protocol
-    pub(super) async fn process_keygen_init(
+    async fn process_keygen_init(
         &self,
         keygen_init: proto::KeygenInit,
     ) -> TofndResult<(KeygenInitSanitized, KeyReservation)> {

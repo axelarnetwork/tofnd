@@ -132,7 +132,9 @@ fn keygen_round(msg_count: usize, all_share_counts: usize, my_share_count: usize
     } else if r3_msgs < msg_count && msg_count <= r4_msgs {
         return 4;
     }
-    panic!("message counter overflow: {}. Max is {}", msg_count, last);
+
+    // return something that won't trigger a timeout in non-timeout malicous cases with multiple shares
+    usize::MAX
 }
 
 // r1 -> bcast + p2ps
@@ -290,12 +292,11 @@ impl Party for TofndParty {
     async fn execute_recover(
         &mut self,
         keygen_init: proto::KeygenInit,
-        share_recovery_infos: Vec<Vec<u8>>,
+        keygen_output: proto::KeygenOutput,
     ) {
-        let keygen_init = Some(keygen_init);
         let recover_request = proto::RecoverRequest {
-            keygen_init,
-            share_recovery_infos,
+            keygen_init: Some(keygen_init),
+            keygen_output: Some(keygen_output),
         };
         let response = self
             .client

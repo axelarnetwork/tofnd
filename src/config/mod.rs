@@ -192,8 +192,9 @@ fn match_string_to_behaviour(behaviour: &str, victim: usize) -> SignBehaviour {
         "R5BadProof " => R5BadProof { victim },
         "R6FalseAccusation " => R6FalseAccusation { victim },
         "R6BadProof" => R6BadProof,
-        "R6FalseFailRandomizer" => R6FalseFailRandomizer,
+        "R6FalseFailRandomizer" => R6FalseType5Claim,
         "R7BadSI" => R7BadSI,
+        "R7FalseFailRandomizer" => R7FalseType7Claim,
         _ => Honest,
     }
 }
