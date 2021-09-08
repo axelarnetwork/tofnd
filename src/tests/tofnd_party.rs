@@ -132,7 +132,9 @@ fn keygen_round(msg_count: usize, all_share_counts: usize, my_share_count: usize
     } else if r3_msgs < msg_count && msg_count <= r4_msgs {
         return 4;
     }
-    panic!("message counter overflow: {}. Max is {}", msg_count, last);
+
+    // return something that won't trigger a timeout in non-timeout malicous cases with multiple shares
+    usize::MAX
 }
 
 // r1 -> bcast + p2ps
