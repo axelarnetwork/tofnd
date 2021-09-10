@@ -1,4 +1,14 @@
-/// Custom error types for [crate::kv_manager] mod
+//! Custom error types for [kv_manager].
+
+/// Note: While tofnd generally uses the [anyhow] crate for error handling, we
+/// use the [thiserror] crate here for two reasons:
+/// 1. [crate::gg20::mnemonic] errors can be potentially consumed by the caller
+/// of tofnd, so an analytical display of errors might be helpful in the future.
+/// One of the errors that are propagated to [crate::gg20::mnemonic] are
+/// [crate::kv_manager::error]s
+/// 2. This can be used as an example on how analytical error handling can be
+/// incorporated in other modules
+/// For more info, see discussion in https://github.com/axelarnetwork/tofnd/issues/28
 
 #[allow(clippy::enum_variant_names)] // allow Err postfix
 #[derive(thiserror::Error, Debug)]

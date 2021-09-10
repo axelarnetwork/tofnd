@@ -1,3 +1,13 @@
+//! Custom error types for [mnemonic].
+
+/// Note: While tofnd generally uses the [anyhow] crate for error handling, we
+/// use the [thiserror] crate here for two reasons:
+/// 1. Mnemonic errors can be potentially consumed by the caller of tofnd, so an
+/// analytical display of errors might be helpful in the future
+/// 2. This can be used as an example on how analytical error handling can be
+/// incorporated in other modules
+/// For more info, see discussion in https://github.com/axelarnetwork/tofnd/issues/28
+
 pub(super) mod bip39 {
     #[derive(thiserror::Error, Debug)]
     pub enum Bip39Error {
