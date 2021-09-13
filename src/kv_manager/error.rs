@@ -29,6 +29,8 @@ pub enum KvError {
     RemoveErr(InnerKvError),
     #[error("Exits Error: {0}")]
     ExistsErr(InnerKvError),
+    #[error("Encryption Error: {0}")]
+    EncryptionErr(String),
 }
 pub type KvResult<Success> = Result<Success, KvError>;
 
