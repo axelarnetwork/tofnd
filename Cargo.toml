@@ -11,6 +11,11 @@ tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "main"}
 bincode = {version = "1.2.1", default-features = false}
 sled = {version = "0.34", default-features = false}
 
+# encrypted sled
+encrypted-sled = { version= "0.1.2", default-features = false}
+chacha20 = "0.8.1"
+rpassword = {version = "5.0.1", default-features = false}
+
 # logging
 log = {version = "0.4",default-features = false }
 tracing = {version = "0.1", default-features = false}
