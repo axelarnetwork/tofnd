@@ -2,6 +2,7 @@
 //! Errors are mapped to [super::error::KvError]
 
 use super::{
+    encryption::{encryption_cipher, prompt, EncryptedDb},
     error::{KvError::*, KvResult},
     sled_bindings::{handle_exists, handle_get, handle_put, handle_remove, handle_reserve},
     types::{
@@ -132,9 +133,13 @@ where
 /// Usage:
 ///  let my_db = get_kv_store(&"my_current_dir_db")?;
 ///  let my_db = get_kv_store(&"/tmp/my_tmp_bd")?;
-pub fn get_kv_store(db_name: &str) -> sled::Result<sled::Db> {
-    // create/open DB
-    let kv = sled::open(db_name)?;
+pub fn get_kv_store(db_name: &str) -> KvResult<EncryptedDb> {
+    // get encryption cipher
+    let cipher = encryption_cipher(prompt("Type password: ")?)
+        .map_err(|err| EncryptionErr(err.to_string()))?;
+
+    // create/open encrypted database
+    let kv = encrypted_sled::open(db_name, cipher)?;
 
     // log whether the DB was newly created or not
     if kv.was_recovered() {
@@ -149,7 +154,7 @@ pub fn get_kv_store(db_name: &str) -> sled::Result<sled::Db> {
 }
 
 // private handler function to process commands as per the "actor" pattern (see above)
-async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::UnboundedReceiver<Command<V>>, kv: sled::Db)
+async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::UnboundedReceiver<Command<V>>, kv: EncryptedDb)
 where
     V: Serialize + DeserializeOwned,
 {

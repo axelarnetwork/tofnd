@@ -30,6 +30,11 @@ pub async fn new_service(
     mnemonic_cmd: Cmd,
     #[cfg(feature = "malicious")] behaviours: malicious::Behaviours,
 ) -> TofndResult<impl proto::gg20_server::Gg20> {
+    // TODO: do we need to encrypt share kv store?
+    // 1. tofn already encrypts the shares. THere is no point at encrypting them twice.
+    // 2. we should keep tofn's encryption
+    // 3. we should be able to optionally enrypt kv stores. Not possible with encrypted_sled
+    //    1. should we have both kind of stores? sled + enrypted sled? Doesn't seem like a good idea
     let shares_kv = KeySharesKv::new(DEFAULT_SHARE_KV_NAME).map_err(|err| {
         anyhow!(
             "Shares kvstore is corrupted. Please remove it and recover your shares. Error: {}",

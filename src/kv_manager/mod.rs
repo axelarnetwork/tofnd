@@ -13,6 +13,8 @@ mod sled_bindings;
 /// definition of kv_manager types and default paths
 pub mod types;
 
+mod encryption;
+
 // tests for low-level operations
 #[cfg(test)]
 mod tests;

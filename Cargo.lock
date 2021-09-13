@@ -281,6 +281,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chacha20"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01b72a433d0cf2aef113ba70f62634c56fddb0f244e6377185c56a7cadbd8f91"
+dependencies = [
+ "cfg-if",
+ "cipher",
+ "cpufeatures",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -290,6 +301,15 @@ dependencies = [
  "num-integer",
  "num-traits",
  "winapi",
+]
+
+[[package]]
+name = "cipher"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ee52072ec15386f770805afd189a01c8841be8696bed250fa2f13c4c0d6dfb7"
+dependencies = [
+ "generic-array",
 ]
 
 [[package]]
@@ -488,6 +508,17 @@ dependencies = [
  "rand_core 0.6.3",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "encrypted-sled"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b62d6791cf875f9bb40b7be355f97f4c4ebe69c15b12eb86ffbbcd2198a2c59"
+dependencies = [
+ "bitflags",
+ "cipher",
+ "sled",
 ]
 
 [[package]]
@@ -1536,6 +1567,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rpassword"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffc936cf8a7ea60c58f030fd36a612a48f440610214dc54bc36431f9ea0c3efb"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "rust-gmp-kzen"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1871,13 +1912,15 @@ dependencies = [
  "anyhow",
  "atty",
  "bincode",
+ "chacha20",
  "clap",
+ "encrypted-sled",
  "futures-util",
  "lazy_static",
  "log",
  "prost",
+ "rpassword",
  "serde",
- "sled",
  "testdir",
  "thiserror",
  "tiny-bip39",

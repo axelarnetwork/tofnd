@@ -14,7 +14,7 @@
 #[derive(thiserror::Error, Debug)]
 pub enum KvError {
     #[error("Kv initialization Error: {0}")]
-    InitErr(#[from] sled::Error),
+    InitErr(#[from] encrypted_sled::Error),
     #[error("Recv Error: {0}")] // errors receiving from "actor pattern"'s channels
     RecvErr(#[from] tokio::sync::oneshot::error::RecvError),
     #[error("Send Error: {0}")] // errors sending to "actor pattern"'s channels
@@ -29,6 +29,8 @@ pub enum KvError {
     RemoveErr(InnerKvError),
     #[error("Exits Error: {0}")]
     ExistsErr(InnerKvError),
+    #[error("Password Error: {0}")]
+    PasswordErr(String),
     #[error("Encryption Error: {0}")]
     EncryptionErr(String),
 }
@@ -38,7 +40,7 @@ pub type KvResult<Success> = Result<Success, KvError>;
 #[derive(thiserror::Error, Debug)]
 pub enum InnerKvError {
     #[error("Sled Error: {0}")] // Delegate Sled's errors
-    SledErr(#[from] sled::Error),
+    SledErr(#[from] encrypted_sled::Error),
     #[error("Logical Error: {0}")] // Logical errors (eg double deletion)
     LogicalErr(String),
     #[error("Bincode Error: {0}")] // (De)serialization errors

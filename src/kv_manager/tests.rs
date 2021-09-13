@@ -1,7 +1,10 @@
 //! [sled_bindings] tests
 
+use crate::gg20::types::Password;
+
 use super::{
-    error::InnerKvError::LogicalErr,
+    encryption::{encryption_cipher, EncryptedDb},
+    error::InnerKvError::{BincodeErr, LogicalErr},
     sled_bindings::{handle_exists, handle_get, handle_put, handle_remove, handle_reserve},
     types::{KeyReservation, DEFAULT_RESERV},
 };
@@ -13,15 +16,27 @@ use super::{
 // https://doc.rust-lang.org/std/env/fn.temp_dir.html#unix
 use testdir::testdir;
 
-fn clean_up(kv_name: &str, kv: sled::Db) {
+fn clean_up(kv_name: &str, kv: EncryptedDb) {
     assert!(kv.flush().is_ok());
     std::fs::remove_dir_all(kv_name).unwrap();
+}
+
+fn open(kv_name: &std::path::Path) -> EncryptedDb {
+    encrypted_sled::open(
+        kv_name,
+        encryption_cipher(
+            Password("an example very very secret key.".to_owned()),
+            // Password("secret nonce".to_owned()), //TODO: keep nonce?
+        )
+        .unwrap(),
+    )
+    .unwrap()
 }
 
 #[test]
 fn reserve_success() {
     let kv_name = testdir!("reserve_success");
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = open(&kv_name);
 
     let key: String = "key".to_string();
     assert_eq!(
@@ -41,7 +56,7 @@ fn reserve_success() {
 #[test]
 fn reserve_failure() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = open(&kv_name);
 
     let key: String = "key".to_string();
     handle_reserve(&kv, key.clone()).unwrap();
@@ -54,7 +69,7 @@ fn reserve_failure() {
 #[test]
 fn put_success() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = open(&kv_name);
 
     let key: String = "key".to_string();
     handle_reserve(&kv, key.clone()).unwrap();
@@ -68,7 +83,7 @@ fn put_success() {
 #[test]
 fn put_failure_no_reservation() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = open(&kv_name);
 
     let key: String = "key".to_string();
 
@@ -87,7 +102,7 @@ fn put_failure_no_reservation() {
 #[test]
 fn put_failure_put_twice() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = open(&kv_name);
 
     let key: String = "key".to_string();
     let value = "value";
@@ -115,7 +130,7 @@ fn put_failure_put_twice() {
 #[test]
 fn get_success() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = open(&kv_name);
 
     let key: String = "key".to_string();
     let value = "value";
@@ -132,7 +147,7 @@ fn get_success() {
 #[test]
 fn get_failure() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = open(&kv_name);
 
     let key: String = "key".to_string();
     let err = handle_get::<String>(&kv, key).err().unwrap();
@@ -144,7 +159,7 @@ fn get_failure() {
 #[test]
 fn test_exists() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = open(&kv_name);
     let key: String = "key".to_string();
     let value: String = "value".to_string();
 
@@ -181,7 +196,7 @@ fn test_exists() {
 #[test]
 fn remove_success() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = open(&kv_name);
 
     let key: String = "key".to_string();
     let value = "value";
@@ -195,11 +210,51 @@ fn remove_success() {
 #[test]
 fn remove_failure() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = open(&kv_name);
 
     let key: String = "key".to_string();
     let err = handle_remove::<String>(&kv, key).err().unwrap();
     assert!(matches!(err, LogicalErr(_)));
 
     clean_up(kv_name.to_str().unwrap(), kv);
+}
+
+#[test]
+fn wrong_creadentials() {
+    let kv_name = testdir!("wrong_password");
+    let key: String = "key".to_string();
+    let value: String = "value".to_string();
+    {
+        let kv = open(&kv_name);
+        handle_reserve(&kv, key.clone()).unwrap();
+        assert!(handle_put(&kv, KeyReservation { key: key.clone() }, value).is_ok());
+    }
+
+    {
+        let kv = encrypted_sled::open(
+            kv_name.clone(),
+            encryption_cipher(Password(
+                "an example very very secret key1".to_owned(), // Password("secret nonce".to_owned()), //TODO: keep nonce?
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let res = handle_get::<String>(&kv, key.clone()).err().unwrap();
+        assert!(matches!(res, BincodeErr(_)));
+    }
+
+    // TODO: keep nonce?
+    // {
+    //     let kv = encrypted_sled::open(
+    //         kv_name,
+    //         encryption_cipher(
+    //             Password("an example very very secret key.".to_owned()),
+    //             Password("secret nonc2".to_owned()), // wrong password
+    //         )
+    //         .unwrap(),
+    //     )
+    //     .unwrap();
+    //     let res = handle_get::<String>(&kv, key).err().unwrap();
+    //     assert!(matches!(res, BincodeErr(_)));
+    // }
 }
