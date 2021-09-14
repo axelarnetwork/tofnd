@@ -7,8 +7,17 @@ pub enum EncryptionErr {
     Read(String),
     #[error("Cipher error: {0}")]
     Cipher(String),
+    #[error("Wrong password. Password hash does not match with existing keyhash")]
+    WrongPassword,
+    #[error("File error: {0}")]
+    File(#[from] std::io::Error),
+    #[error("Reached max tries for sufficiently large password")]
+    MaxTries,
 }
 pub type EncryptionResult<Success> = Result<Success, EncryptionErr>;
+
+use std::io::Write;
+
 use EncryptionErr::*;
 
 /// use [sha3_hash] as hashing algorithm
@@ -39,7 +48,7 @@ impl PasswordMethod {
         match self {
             #[cfg(test)]
             Self::TestPassword => Ok(Password(DEFAULT_PASSWORD.to_owned())), // test password
-            Self::Prompt => prompt("Type password", PASSWORD_LENGTH),
+            Self::Prompt => get_password("Type your password:"),
         }
     }
 }
@@ -55,18 +64,68 @@ type ChaCha20EncryptionCipher = encrypted_sled::EncryptionCipher<chacha20::ChaCh
 /// alias for encrypted_sled database
 pub type EncryptedDb = encrypted_sled::Db<ChaCha20EncryptionCipher>;
 
-/// prompt user for password. The password is hashed using [HashAlgo].
-pub(super) fn prompt(msg: &str, length: usize) -> EncryptionResult<Password> {
+const DEFAULT_KEYHASH_FILE: &str = "keyhash";
+
+/// Minimum length of user's password
+const MINIMUM_LENGTH: usize = 8;
+/// Max tries to input a sufficiently large password
+const MAX_TRIES: usize = 3;
+
+/// prompt user for a password and hash it. Password needs to be at least
+/// [MINIMUM_LENGTH] characters. The user has [MAX_TRIES] to provide a valid
+/// password. The password is hashed using [HashAlgo].
+fn prompt(msg: &str) -> EncryptionResult<String> {
     println!("{}", msg);
+
+    let mut password = Password(rpassword::read_password().map_err(|e| Read(e.to_string()))?);
+    let mut tries = 1;
+    while password.0.len() < MINIMUM_LENGTH && tries < MAX_TRIES {
+        println!("Please use at least {} characters", MINIMUM_LENGTH);
+        password = Password(rpassword::read_password().map_err(|e| Read(e.to_string()))?);
+        tries += 1;
+    }
+
+    // if we didn't get a password of at least MINIMUM_LENGTH chars after MAX_TRIES, return a `MaxTries` error
+    if password.0.len() < MINIMUM_LENGTH && tries >= MAX_TRIES {
+        return Err(MaxTries);
+    }
+
     // prompt user for a password and hash it
-    let password = HashAlgo::hash_bytes(
-        rpassword::read_password()
-            .map_err(|e| Read(e.to_string()))?
-            .as_bytes(),
-    )
-    .to_string();
+    Ok(HashAlgo::hash_bytes(password.0.as_bytes()).to_string())
+}
+
+/// get a password from user
+pub(super) fn get_password(msg: &str) -> EncryptionResult<Password> {
+    let user_password_hash = prompt(msg)?;
+
+    use crate::DEFAULT_PATH_ROOT;
+    let keyhash_path = std::path::Path::new(DEFAULT_PATH_ROOT).join(DEFAULT_KEYHASH_FILE);
+
+    match keyhash_path.exists() {
+        true => {
+            // if heyhash file exists, get the stored password hash
+            let stored_password_hash = std::fs::read_to_string(keyhash_path)?;
+            if stored_password_hash != user_password_hash {
+                // if stored password hash and user's password hash differ return `WrongPassword` error
+                return Err(WrongPassword);
+            }
+        }
+        false => {
+            // if keyhash file does not exist, prompt user for password again,
+            let verify = prompt("Type your password again:")?;
+            if verify != user_password_hash {
+                // if passwords don't match, return `WrongPassword` error
+                return Err(WrongPassword);
+            }
+            // if both passwords match, create the keyhash file with user's password hash
+            std::fs::create_dir(DEFAULT_PATH_ROOT)?;
+            let mut file = std::fs::File::create(keyhash_path)?;
+            file.write_all(verify.as_bytes())?;
+        }
+    }
+
     // keep 32 first characters because encrypted_sled uses ChaCha20<R20, C32>
-    Ok(Password(password[..length].to_string()))
+    Ok(Password(user_password_hash[..PASSWORD_LENGTH].to_string()))
 }
 
 /// get encryption cipher
