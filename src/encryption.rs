@@ -1,5 +1,7 @@
 //! Encryption module. [chacha20::ChaCha20] is used to encrypt the kvstore
 
+use std::io::Write;
+
 /// Encryption errors
 #[derive(thiserror::Error, Debug)]
 pub enum EncryptionErr {
@@ -15,15 +17,12 @@ pub enum EncryptionErr {
     MaxTries,
 }
 pub type EncryptionResult<Success> = Result<Success, EncryptionErr>;
-
-use std::io::Write;
-
 use EncryptionErr::*;
 
 /// use [sha3_hash] as hashing algorithm
 type HashAlgo = sha3_hash::Hash;
 
-// zeroize Entropy and Password
+/// zeroize Entropy and Password
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
@@ -53,23 +52,22 @@ impl PasswordMethod {
     }
 }
 
+use crate::DEFAULT_PATH_ROOT;
+/// file name of password's hash
+const DEFAULT_KEYHASH_FILE: &str = "keyhash";
 /// Password should be 32 digits because encrypted_sled uses [chacha20::ChaCha20<R20, C32>]
 const PASSWORD_LENGTH: usize = 32;
 /// default nonce is 12 digits because encrypted_sled uses [chacha20::ChaCha20<R20, C32>]
 const DEFAULT_NONCE: &str = "123456789012"; // 12 digits
+/// minimum length of user's password
+const MINIMUM_LENGTH: usize = 8;
+/// max tries to input a sufficiently large password
+const MAX_TRIES: usize = 3;
 
 /// alias for encryption cipher to be used by [encrypted_sled]
 type ChaCha20EncryptionCipher = encrypted_sled::EncryptionCipher<chacha20::ChaCha20>;
-
 /// alias for encrypted_sled database
 pub type EncryptedDb = encrypted_sled::Db<ChaCha20EncryptionCipher>;
-
-const DEFAULT_KEYHASH_FILE: &str = "keyhash";
-
-/// Minimum length of user's password
-const MINIMUM_LENGTH: usize = 8;
-/// Max tries to input a sufficiently large password
-const MAX_TRIES: usize = 3;
 
 /// prompt user for a password and hash it. Password needs to be at least
 /// [MINIMUM_LENGTH] characters. The user has [MAX_TRIES] to provide a valid
@@ -102,7 +100,6 @@ fn prompt(msg: &str) -> EncryptionResult<String> {
 pub(super) fn get_password(msg: &str) -> EncryptionResult<Password> {
     let user_password_hash = prompt(msg)?;
 
-    use crate::DEFAULT_PATH_ROOT;
     let keyhash_path = std::path::Path::new(DEFAULT_PATH_ROOT).join(DEFAULT_KEYHASH_FILE);
 
     match keyhash_path.exists() {
