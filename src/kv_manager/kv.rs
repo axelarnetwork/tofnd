@@ -2,7 +2,6 @@
 //! Errors are mapped to [super::error::KvError]
 
 use super::{
-    encryption::{encryption_cipher, prompt, EncryptedDb},
     error::{KvError::*, KvResult},
     sled_bindings::{handle_exists, handle_get, handle_put, handle_remove, handle_reserve},
     types::{
@@ -10,6 +9,7 @@ use super::{
         KeyReservation, DEFAULT_KV_PATH,
     },
 };
+use crate::encryption::{encryption_cipher, EncryptedDb, Password};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{fmt::Debug, path::PathBuf};
 use tokio::sync::{mpsc, oneshot};
@@ -29,22 +29,22 @@ where
     V: Debug + Send + Sync + Serialize + DeserializeOwned,
 {
     /// Creates a new kv service. Returns [InitErr] on failure.
-    pub fn new(kv_name: &str) -> KvResult<Self> {
+    pub fn new(kv_name: &str, password: Password) -> KvResult<Self> {
         let kv_path = PathBuf::from(crate::DEFAULT_PATH_ROOT)
             .join(DEFAULT_KV_PATH)
             .join(kv_name);
         // use to_string_lossy() instead of to_str() to avoid handling Option<&str>
         let kv_path = kv_path.to_string_lossy().to_string();
-        Self::with_db_name(kv_path)
+        Self::with_db_name(kv_path, password)
     }
 
     /// Spawns a new kv_manager. Returns [InitErr] on failure.
-    pub fn with_db_name(db_name: String) -> KvResult<Self> {
+    pub fn with_db_name(db_name: String, password: Password) -> KvResult<Self> {
         let (sender, rx) = mpsc::unbounded_channel();
 
         // get kv store from db name before entering the kv_cmd_handler because
         // it's more convenient to return an error from outside of a tokio::span
-        let kv = get_kv_store(&db_name)?;
+        let kv = get_kv_store(&db_name, password)?;
 
         tokio::spawn(kv_cmd_handler(rx, kv));
         Ok(Self { sender })
@@ -127,16 +127,15 @@ where
 }
 
 /// Returns the db with name `db_name`, or creates a new if such DB does not exist
-/// Returns [sled::Error] on failure.
+/// Returns [encrypted_sled::Error] on failure.
 /// Default path DB path is the executable's directory; The caller can specify a
 /// full path followed by the name of the DB
 /// Usage:
 ///  let my_db = get_kv_store(&"my_current_dir_db")?;
 ///  let my_db = get_kv_store(&"/tmp/my_tmp_bd")?;
-pub fn get_kv_store(db_name: &str) -> KvResult<EncryptedDb> {
+pub fn get_kv_store(db_name: &str, password: Password) -> KvResult<EncryptedDb> {
     // get encryption cipher
-    let cipher = encryption_cipher(prompt("Type password: ")?)
-        .map_err(|err| EncryptionErr(err.to_string()))?;
+    let cipher = encryption_cipher(password).map_err(|err| EncryptionErr(err.to_string()))?;
 
     // create/open encrypted database
     let kv = encrypted_sled::open(db_name, cipher)?;

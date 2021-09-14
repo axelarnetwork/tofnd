@@ -176,6 +176,7 @@ impl Gg20Service {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::encryption::PasswordMethod::TestPassword;
     use crate::gg20::mnemonic::{bip39_bindings::tests::bip39_to_phrase, file_io::FileIo};
     use crate::gg20::{KeySharesKv, MnemonicKv};
     use std::io::Write;
@@ -200,8 +201,16 @@ mod tests {
         let mnemonic_kv_path = mnemonic_kv_path.to_str().unwrap();
 
         Gg20Service {
-            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned()).unwrap(),
-            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned()).unwrap(),
+            shares_kv: KeySharesKv::with_db_name(
+                shares_kv_path.to_owned(),
+                TestPassword.get().unwrap(),
+            )
+            .unwrap(),
+            mnemonic_kv: MnemonicKv::with_db_name(
+                mnemonic_kv_path.to_owned(),
+                TestPassword.get().unwrap(),
+            )
+            .unwrap(),
             io: FileIo::new(testdir),
             safe_keygen: false, // use unsafe keygen for tests for sake of time
             #[cfg(feature = "malicious")]

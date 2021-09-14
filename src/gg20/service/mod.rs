@@ -29,6 +29,7 @@ pub struct Gg20Service {
 pub async fn new_service(
     safe_keygen: bool,
     mnemonic_cmd: Cmd,
+    method: PasswordMethod,
     #[cfg(feature = "malicious")] behaviours: malicious::Behaviours,
 ) -> TofndResult<impl proto::gg20_server::Gg20> {
     // TODO: do we need to encrypt share kv store?
@@ -36,13 +37,17 @@ pub async fn new_service(
     // 2. we should keep tofn's encryption
     // 3. we should be able to optionally enrypt kv stores. Not possible with encrypted_sled
     //    1. should we have both kind of stores? sled + enrypted sled? Doesn't seem like a good idea
-    let shares_kv = KeySharesKv::new(DEFAULT_SHARE_KV_NAME).map_err(|err| {
+
+    // get password from selected method
+    let password = method.get()?;
+
+    let shares_kv = KeySharesKv::new(DEFAULT_SHARE_KV_NAME, password.clone()).map_err(|err| {
         anyhow!(
             "Shares kvstore is corrupted. Please remove it and recover your shares. Error: {}",
             err
         )
     })?;
-    let mnemonic_kv = MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME).map_err(|err| {
+    let mnemonic_kv = MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME, password).map_err(|err| {
         anyhow!(
             "Your mnemonic kv store is corrupted. Please remove it and import your mnemonic again. Error: {}", err
         )
@@ -80,6 +85,7 @@ pub mod tests {
         )
     }
 
+    use crate::encryption::PasswordMethod::TestPassword;
     pub async fn with_db_name(
         db_path: &str,
         mnemonic_cmd: crate::gg20::mnemonic::Cmd,
@@ -90,8 +96,11 @@ pub mod tests {
         path.push(db_path);
 
         let gg20 = Gg20Service {
-            shares_kv: KeySharesKv::with_db_name(shares_db_name.to_owned()).unwrap(),
-            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_db_name.to_owned()).unwrap(),
+            shares_kv: KeySharesKv::with_db_name(shares_db_name.to_owned(), TestPassword.get()?)?,
+            mnemonic_kv: MnemonicKv::with_db_name(
+                mnemonic_db_name.to_owned(),
+                TestPassword.get()?,
+            )?,
             io: FileIo::new(path),
             safe_keygen: false,
             #[cfg(feature = "malicious")]
