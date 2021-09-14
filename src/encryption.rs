@@ -16,6 +16,9 @@ use EncryptionErr::*;
 // zeroize Entropy and Password
 use zeroize::Zeroize;
 
+/// use sha3 to hash
+type HashAlgo = sha3_hash::Hash;
+
 use serde::{Deserialize, Serialize};
 
 /// Mnemonic type needs to be known globaly to create/access the mnemonic kv store
@@ -59,9 +62,15 @@ pub type EncryptedDb = encrypted_sled::Db<ChaCha20EncryptionCipher>;
 /// prompt user for password. The password is hashed using
 pub(super) fn prompt(msg: &str, length: usize) -> EncryptionResult<Password> {
     println!("{}", msg);
-    Ok(Password(
-        rpassword::read_password().map_err(|err| PasswordErr(err.to_string()))?,
-    ))
+    // prompt user for a password and hash it
+    let password = HashAlgo::hash_bytes(
+        rpassword::read_password()
+            .map_err(|e| Read(e.to_string()))?
+            .as_bytes(),
+    )
+    .to_string();
+    // keep 32 first characters because encrypted_sled uses ChaCha20<R20, C32>
+    Ok(Password(password[..length].to_string()))
 }
 
 /// get encryption cipher

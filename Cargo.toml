@@ -14,6 +14,7 @@ bincode = {version = "1.2.1", default-features = false}
 encrypted-sled = { version= "0.1.2", default-features = false}
 chacha20 = "0.8.1"
 rpassword = {version = "5.0.1", default-features = false}
+sha3-hash = "0.1.4"
 
 # logging
 log = {version = "0.4",default-features = false }
