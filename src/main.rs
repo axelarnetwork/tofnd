@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 
+pub mod encryption;
 mod gg20;
 mod kv_manager;
 
@@ -77,6 +78,7 @@ async fn main() -> TofndResult<()> {
     let my_service = gg20::service::new_service(
         safe_keygen,
         mnemonic_cmd,
+        encryption::PasswordMethod::Prompt,
         #[cfg(feature = "malicious")]
         behaviours,
     )

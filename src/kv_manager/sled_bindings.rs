@@ -2,9 +2,9 @@
 
 use serde::{de::DeserializeOwned, Serialize};
 
-use super::encryption::EncryptedDb;
 use super::error::{InnerKvError::*, InnerKvResult};
 use super::types::{KeyReservation, DEFAULT_RESERV};
+use crate::encryption::EncryptedDb;
 
 /// Reserves a key. New's key value is [DEFAULT_RESERV].
 /// Returns [SledErr] of [LogicalErr] on failure.

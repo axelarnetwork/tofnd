@@ -8,7 +8,7 @@ use std::{
 use tracing::info;
 
 use super::bip39_bindings::bip39_from_entropy;
-use crate::gg20::types::{Entropy, Password};
+use crate::encryption::{Entropy, Password};
 
 /// Standard names
 const EXPORT_FILE: &str = "export";

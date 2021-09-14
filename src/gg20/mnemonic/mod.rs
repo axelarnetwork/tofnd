@@ -20,10 +20,8 @@ use error::mnemonic::{
     InnerMnemonicError::*, InnerMnemonicResult, MnemonicError::*, MnemonicResult, SeedResult,
 };
 
-use super::{
-    service::Gg20Service,
-    types::{Entropy, Password},
-};
+use super::service::Gg20Service;
+use crate::encryption::{Entropy, Password};
 use tracing::{error, info};
 
 // default key to store mnemonic

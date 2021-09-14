@@ -3,6 +3,7 @@
 use super::mnemonic::{file_io::FileIo, Cmd};
 use super::proto;
 use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SHARE_KV_NAME};
+use crate::encryption::PasswordMethod::{self};
 use crate::DEFAULT_PATH_ROOT;
 use std::path::PathBuf;
 

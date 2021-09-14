@@ -8,8 +8,7 @@
 //!   [super::Password], [super::Entropy], [bip39::Mnemonic], [bip39::Seed]
 
 use super::error::bip39::{Bip39Error::*, Bip39Result};
-use super::Entropy;
-use crate::gg20::types::Password;
+use crate::encryption::{Entropy, Password};
 use bip39::{Language, Mnemonic, Seed};
 
 // TODO: we can enrich the API so that users can decide which language they want to use

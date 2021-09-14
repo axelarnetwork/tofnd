@@ -1,10 +1,8 @@
 //! Helper structs and implementations for [crate::gg20].
 
-// zeroize Entropy and Password
-use zeroize::Zeroize;
-
 use tracing::{info, span, Level, Span};
 
+use crate::encryption::Entropy;
 use crate::kv_manager::kv::Kv;
 
 pub(super) type MessageDigest = tofn::gg20::sign::MessageDigest;
@@ -15,15 +13,6 @@ pub(super) const DEFAULT_MNEMONIC_KV_NAME: &str = "mnemonic";
 
 pub(super) type KeySharesKv = Kv<PartyInfo>;
 pub(super) type MnemonicKv = Kv<Entropy>;
-
-/// Mnemonic type needs to be known globaly to create/access the mnemonic kv store
-#[derive(Zeroize, Debug, Clone, Serialize, Deserialize)]
-#[zeroize(drop)]
-pub struct Entropy(pub Vec<u8>);
-
-#[derive(Zeroize, Clone)]
-#[zeroize(drop)]
-pub struct Password(pub String);
 
 use tokio::sync::mpsc;
 /// define the input and output channels of generic execute_protocol worker

@@ -1,13 +1,11 @@
 //! [sled_bindings] tests
 
-use crate::gg20::types::Password;
-
 use super::{
-    encryption::{encryption_cipher, EncryptedDb},
     error::InnerKvError::{BincodeErr, LogicalErr},
     sled_bindings::{handle_exists, handle_get, handle_put, handle_remove, handle_reserve},
     types::{KeyReservation, DEFAULT_RESERV},
 };
+use crate::encryption::{encryption_cipher, EncryptedDb, Password, PasswordMethod::TestPassword};
 
 // testdir creates a test directory at $TMPDIR.
 // Mac: /var/folders/v4/x_j3jj7d6ql4gjdf7b7jvjhm0000gn/T/testdir-of-$(USER)
@@ -24,11 +22,7 @@ fn clean_up(kv_name: &str, kv: EncryptedDb) {
 fn open(kv_name: &std::path::Path) -> EncryptedDb {
     encrypted_sled::open(
         kv_name,
-        encryption_cipher(
-            Password("an example very very secret key.".to_owned()),
-            // Password("secret nonce".to_owned()), //TODO: keep nonce?
-        )
-        .unwrap(),
+        encryption_cipher(TestPassword.get().unwrap()).unwrap(),
     )
     .unwrap()
 }
