@@ -226,29 +226,14 @@ fn wrong_creadentials() {
 
     {
         let kv = encrypted_sled::open(
-            kv_name.clone(),
+            kv_name,
             encryption_cipher(Password(
                 "an example very very secret key1".to_owned(), // Password("secret nonce".to_owned()), //TODO: keep nonce?
             ))
             .unwrap(),
         )
         .unwrap();
-        let res = handle_get::<String>(&kv, key.clone()).err().unwrap();
+        let res = handle_get::<String>(&kv, key).err().unwrap();
         assert!(matches!(res, BincodeErr(_)));
     }
-
-    // TODO: keep nonce?
-    // {
-    //     let kv = encrypted_sled::open(
-    //         kv_name,
-    //         encryption_cipher(
-    //             Password("an example very very secret key.".to_owned()),
-    //             Password("secret nonc2".to_owned()), // wrong password
-    //         )
-    //         .unwrap(),
-    //     )
-    //     .unwrap();
-    //     let res = handle_get::<String>(&kv, key).err().unwrap();
-    //     assert!(matches!(res, BincodeErr(_)));
-    // }
 }
