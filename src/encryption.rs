@@ -78,15 +78,19 @@ fn prompt(msg: &str) -> EncryptionResult<String> {
     println!("{}", msg);
 
     let mut password = Password(rpassword::read_password().map_err(|e| Read(e.to_string()))?);
-    let mut tries = 1;
-    while password.0.len() < MINIMUM_LENGTH && tries < MAX_TRIES {
-        println!("Please use at least {} characters", MINIMUM_LENGTH);
+    for tries in 1..MAX_TRIES {
+        if password.0.len() >= MINIMUM_LENGTH {
+            break;
+        }
+        println!(
+            "   ({}/{}) Password should be at least {} characters",
+            tries, MAX_TRIES, MINIMUM_LENGTH
+        );
         password = Password(rpassword::read_password().map_err(|e| Read(e.to_string()))?);
-        tries += 1;
     }
 
     // if we didn't get a password of at least MINIMUM_LENGTH chars after MAX_TRIES, return a `MaxTries` error
-    if password.0.len() < MINIMUM_LENGTH && tries >= MAX_TRIES {
+    if password.0.len() < MINIMUM_LENGTH {
         return Err(MaxTries);
     }
 
@@ -112,7 +116,13 @@ pub(super) fn get_password(msg: &str) -> EncryptionResult<Password> {
         }
         false => {
             // if keyhash file does not exist, prompt user for password again,
-            let verify = prompt("Type your password again:")?;
+            let mut verify = prompt("Type your password again:")?;
+            for _ in 1..MAX_TRIES {
+                if verify == user_password_hash {
+                    break;
+                }
+                verify = prompt("Passwords don't match. Type your password again:")?;
+            }
             if verify != user_password_hash {
                 // if passwords don't match, return `WrongPassword` error
                 return Err(WrongPassword);
