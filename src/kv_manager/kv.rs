@@ -135,7 +135,7 @@ where
 ///  let my_db = get_kv_store(&"/tmp/my_tmp_bd")?;
 pub fn get_kv_store(db_name: &str, password: Password) -> KvResult<EncryptedDb> {
     // get encryption cipher
-    let cipher = encryption_cipher(password).map_err(|err| EncryptionErr(err.to_string()))?;
+    let cipher = encryption_cipher(password)?;
 
     // create/open encrypted database
     let kv = encrypted_sled::open(db_name, cipher)?;

@@ -29,10 +29,8 @@ pub enum KvError {
     RemoveErr(InnerKvError),
     #[error("Exits Error: {0}")]
     ExistsErr(InnerKvError),
-    #[error("Password Error: {0}")]
-    PasswordErr(String),
     #[error("Encryption Error: {0}")]
-    EncryptionErr(String),
+    EncryptionErr(#[from] crate::encryption::EncryptionErr),
 }
 pub type KvResult<Success> = Result<Success, KvError>;
 
