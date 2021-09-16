@@ -48,10 +48,15 @@ pub fn parse_args() -> TofndResult<Config> {
                 .default_value(DEFAULT_PORT),
         )
         .arg(
+            // TODO: change to something like `--unsafe-primes`
             Arg::with_name("unsafe")
+                .help(
+                    "Use unsafe primes. Deactivated by default. **Important note** This option is only used for testing.",
+                )
                 .long("unsafe")
                 .required(false)
-                .takes_value(false),
+                .takes_value(false)
+                .display_order(0),
         )
         .arg(
             Arg::with_name("mnemonic")
