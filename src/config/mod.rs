@@ -6,6 +6,9 @@ use anyhow::anyhow;
 
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
+const DEFAULT_MNEMONIC_CMD: &str = "create";
+const DEFAULT_PORT: &str = "50051";
+const AVAILABLE_MNEMONIC_CMDS: [&str; 5] = ["stored", "create", "import", "update", "export"];
 
 #[cfg(feature = "malicious")]
 mod malicious;
@@ -35,11 +38,7 @@ impl Default for Config {
 }
 
 pub fn parse_args() -> TofndResult<Config> {
-    // Note that we want lower-case letters as impot, as enum type start with capitals
-    let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
-    let default_mnemonic_cmd = "create";
-    let default_port = "50051";
-
+    // Note that we want lower-case letters as import, as enum type start with capitals
     let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
         .arg(
@@ -47,7 +46,7 @@ pub fn parse_args() -> TofndResult<Config> {
                 .long("port")
                 .short("p")
                 .required(false)
-                .default_value(default_port),
+                .default_value(DEFAULT_PORT),
         )
         .arg(
             Arg::with_name("unsafe")
@@ -60,8 +59,8 @@ pub fn parse_args() -> TofndResult<Config> {
                 .long("mnemonic")
                 .short("m")
                 .required(false)
-                .default_value(default_mnemonic_cmd)
-                .possible_values(&available_mnemonic_cmds),
+                .default_value(DEFAULT_MNEMONIC_CMD)
+                .possible_values(&AVAILABLE_MNEMONIC_CMDS),
         )
         .arg(
             Arg::with_name("directory")
