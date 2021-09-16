@@ -32,25 +32,27 @@ Terminate the server with `ctrl+C`.
 We use [clap](https://clap.rs/) to manage command line arguments.
 
 Users can specify:
-1. The port number of the gRPC server (default is 50051).
-2. The option to run in _unsafe_ mode. By default, this option is off, and Safe Primes are used for keygen. Use the `--unsafe` flag only for testing.
-3. `mnemonic` operations for their `tofnd` instance (default is `Create`).
+1. Tofnd's root folder. Use `--directory` or `-d` to specify a full or a relative path. If no argument is provided, then the environment variable `TOFND_HOME` is used. If no environment variable is set either, the default `./tofnd` directory is used. 
+2. The port number of the gRPC server (default is 50051).
+3. The option to run in _unsafe_ mode. By default, this option is off, and safe primes are used for keygen. Use the `--unsafe` flag only for testing.
+4. `mnemonic` operations for their `tofnd` instance (default is `Create`).
 For more information, see on mnemonic options, see [Mnemonic](#mnemonic).
 
 ```
-$ cargo run -- -h
+A threshold signature scheme daemon
 
 USAGE:
-    tofnd [OPTIONS]
+    tofnd [FLAGS] [OPTIONS]
 
 FLAGS:
     -h, --help       Prints help information
-        --unsafe
+        --unsafe     
     -V, --version    Prints version information
 
 OPTIONS:
-    -m, --mnemonic <mnemonic>     [default: create]  [possible values: stored, create, import, update, export]
-    -p, --port <port>             [default: 50051]
+    -d, --directory <directory>     [env: TOFND_HOME=]  [default: .tofnd]
+    -m, --mnemonic <mnemonic>       [default: create]  [possible values: stored, create, import, update, export]
+    -p, --port <port>               [default: 50051]
 ```
 
 # Docker

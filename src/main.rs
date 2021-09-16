@@ -43,24 +43,18 @@ fn warn_for_unsafe_execution() {
     warn!("WARNING: THIS tofnd BINARY IS NOT SAFE: SAFE PRIMES ARE NOT USED BECAUSE '--unsafe' FLAG IS ENABLED.  USE '--unsafe' FLAG ONLY FOR TESTING.");
 }
 
-const DEFAULT_PATH_ROOT: &str = ".tofnd";
-
 #[tokio::main]
 async fn main() -> TofndResult<()> {
     // set up log subscriber
     set_up_logs();
 
-    #[cfg(not(feature = "malicious"))]
-    let (port, safe_keygen, mnemonic_cmd) = parse_args()?;
-
     // print a warning log if we are running in malicious mode
     #[cfg(feature = "malicious")]
     warn_for_malicious_build();
 
-    #[cfg(feature = "malicious")]
-    let (port, safe_keygen, mnemonic_cmd, behaviours) = parse_args()?;
+    let cfg = parse_args()?;
 
-    if !safe_keygen {
+    if !cfg.safe_keygen {
         warn_for_unsafe_execution();
     }
 
@@ -68,19 +62,13 @@ async fn main() -> TofndResult<()> {
     let main_span = span!(Level::INFO, "main");
     let _enter = main_span.enter();
 
-    let incoming = TcpListener::bind(addr(port)).await?;
+    let incoming = TcpListener::bind(addr(cfg.port)).await?;
     info!(
         "tofnd listen addr {:?}, use ctrl+c to shutdown",
         incoming.local_addr()?
     );
 
-    let my_service = gg20::service::new_service(
-        safe_keygen,
-        mnemonic_cmd,
-        #[cfg(feature = "malicious")]
-        behaviours,
-    )
-    .await?;
+    let my_service = gg20::service::new_service(cfg).await?;
 
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 

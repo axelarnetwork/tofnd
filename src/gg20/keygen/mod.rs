@@ -84,7 +84,7 @@ impl Gg20Service {
 
         let party_id = TypedUsize::<KeygenPartyId>::from_usize(keygen_init.my_index);
 
-        let (party_keypair, party_zksetup) = match self.safe_keygen {
+        let (party_keypair, party_zksetup) = match self.cfg.safe_keygen {
             true => create_party_keypair_and_zksetup(party_id, &secret_recovery_key, session_nonce),
             false => create_party_keypair_and_zksetup_unsafe(
                 party_id,

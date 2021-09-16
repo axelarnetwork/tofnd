@@ -195,17 +195,17 @@ async fn shutdown_party(
     party_index: usize,
 ) -> (Vec<Option<TofndParty>>, PathBuf) {
     info!("shutdown party {}", party_index);
-    let party_db_path = parties[party_index].get_db_path();
+    let party_root = parties[party_index].get_root();
     // use Option to temporarily transfer ownership of individual parties to a spawn
     let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
     let shutdown_party = party_options[party_index].take().unwrap();
     shutdown_party.shutdown().await;
-    (party_options, party_db_path)
+    (party_options, party_root)
 }
 
 // deletes the share kv-store of a party's db path
 fn delete_party_shares(mut party_db_path: PathBuf) {
-    party_db_path.push("shares");
+    party_db_path.push("kvstore/shares");
     // Sled creates a directory for the database and its configuration
     info!("removing shares kv-store of party {:?}", party_db_path);
     std::fs::remove_dir_all(party_db_path).unwrap();
@@ -540,7 +540,7 @@ async fn shutdown_parties(parties: Vec<impl Party>) {
 fn delete_dbs(parties: &[impl Party]) {
     for p in parties {
         // Sled creates a directory for the database and its configuration
-        std::fs::remove_dir_all(p.get_db_path()).unwrap();
+        std::fs::remove_dir_all(p.get_root()).unwrap();
     }
 }
 

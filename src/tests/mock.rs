@@ -26,7 +26,7 @@ pub(super) trait Party: Sync + Send {
         my_uid: &str,
     ) -> SignResult;
     async fn shutdown(mut self);
-    fn get_db_path(&self) -> std::path::PathBuf;
+    fn get_root(&self) -> std::path::PathBuf;
 }
 
 pub(super) type SenderReceiver = (

@@ -9,4 +9,11 @@ pub struct Behaviours {
     pub sign: SignBehaviour,
 }
 
-impl Behaviours {}
+impl Behaviours {
+    pub(crate) fn default() -> Behaviours {
+        Self {
+            keygen: KeygenBehaviour::Honest,
+            sign: SignBehaviour::Honest,
+        }
+    }
+}

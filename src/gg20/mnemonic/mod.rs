@@ -29,6 +29,7 @@ use tracing::{error, info};
 // default key to store mnemonic
 const MNEMONIC_KEY: &str = "mnemonic";
 
+#[derive(Clone, Debug)]
 pub enum Cmd {
     Noop,
     Create,
@@ -54,8 +55,8 @@ impl Cmd {
 /// implement mnemonic-specific functions for Gg20Service
 impl Gg20Service {
     /// async function that handles all mnemonic commands
-    pub async fn handle_mnemonic(&self, cmd: Cmd) -> MnemonicResult<()> {
-        match cmd {
+    pub async fn handle_mnemonic(&self) -> MnemonicResult<()> {
+        match self.cfg.mnemonic_cmd {
             Cmd::Noop => Ok(()),
             Cmd::Create => self.handle_create().await.map_err(CreateErr),
             Cmd::Import => self.handle_import().await.map_err(ImportErr),
@@ -178,20 +179,13 @@ impl Gg20Service {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Config;
     use crate::gg20::mnemonic::{bip39_bindings::tests::bip39_to_phrase, file_io::FileIo};
     use crate::gg20::{KeySharesKv, MnemonicKv};
     use std::io::Write;
     use std::path::PathBuf;
     use testdir::testdir;
     use tracing_test::traced_test; // logs for tests
-
-    #[cfg(feature = "malicious")]
-    use crate::gg20::service::malicious::Behaviours;
-    #[cfg(feature = "malicious")]
-    use tofn::gg20::{
-        keygen::malicious::Behaviour as KeygenBehaviour,
-        sign::malicious::Behaviour as SignBehaviour,
-    };
 
     // create a service
     fn get_service(testdir: PathBuf) -> Gg20Service {
@@ -205,12 +199,7 @@ mod tests {
             shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned()).unwrap(),
             mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned()).unwrap(),
             io: FileIo::new(testdir),
-            safe_keygen: false, // use unsafe keygen for tests for sake of time
-            #[cfg(feature = "malicious")]
-            behaviours: Behaviours {
-                keygen: KeygenBehaviour::Honest,
-                sign: SignBehaviour::Honest,
-            },
+            cfg: Config::default(),
         }
     }
 
