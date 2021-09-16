@@ -6,6 +6,7 @@
 use super::{mock::SenderReceiver, Deliverer, InitParty, Party};
 use crate::{
     addr,
+    config::Config,
     gg20::{self, mnemonic::Cmd},
     proto,
 };
@@ -27,7 +28,7 @@ use gg20::service::malicious::Behaviours;
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
 pub(super) struct TofndParty {
-    db_name: String,
+    tofnd_path: String,
     client: proto::gg20_client::Gg20Client<tonic::transport::Channel>,
     server_handle: JoinHandle<()>,
     server_shutdown_sender: oneshot::Sender<()>,
@@ -38,31 +39,36 @@ pub(super) struct TofndParty {
 
 impl TofndParty {
     pub(super) async fn new(init_party: InitParty, mnemonic_cmd: Cmd, testdir: &Path) -> Self {
-        let db_name = format!("test-key-{:02}", init_party.party_index);
-        let db_path = testdir.join(db_name);
-        let db_path = db_path.to_str().unwrap();
+        let tofnd_path = format!("test-key-{:02}", init_party.party_index);
+        let tofnd_path = testdir.join(tofnd_path);
+        let tofnd_path = tofnd_path.to_str().unwrap();
 
         // start server
         let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
 
-        // start service with respect to the current build
-        let my_service = gg20::service::tests::with_db_name(
-            db_path,
-            mnemonic_cmd,
-            #[cfg(feature = "malicious")]
-            Behaviours {
-                keygen: init_party.malicious_data.keygen_behaviour.clone(),
-                sign: init_party.malicious_data.sign_behaviour.clone(),
-            },
-        )
-        .await
-        .expect("unable to create service");
-
-        let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
         let server_addr = incoming.local_addr().unwrap();
         let server_port = server_addr.port();
         info!("new party bound to port [{:?}]", server_port);
+
+        let cfg = Config {
+            mnemonic_cmd,
+            port: server_port,
+            safe_keygen: false,
+            tofnd_path: tofnd_path.to_string(),
+            #[cfg(feature = "malicious")]
+            behaviours: Behaviours {
+                keygen: init_party.malicious_data.keygen_behaviour.clone(),
+                sign: init_party.malicious_data.sign_behaviour.clone(),
+            },
+        };
+
+        // start service
+        let my_service = gg20::service::new_service(cfg)
+            .await
+            .expect("unable to create service");
+
+        let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();
         let server_handle = tokio::spawn(async move {
             tonic::transport::Server::builder()
@@ -90,7 +96,7 @@ impl TofndParty {
             .unwrap();
 
         TofndParty {
-            db_name: db_path.to_owned(),
+            tofnd_path: tofnd_path.to_owned(),
             client,
             server_handle,
             server_shutdown_sender,
@@ -438,7 +444,10 @@ impl Party for TofndParty {
         info!("party [{}] shutdown success", self.server_port);
     }
 
-    fn get_db_path(&self) -> std::path::PathBuf {
-        gg20::service::tests::get_db_path(&self.db_name)
+    fn get_root(&self) -> std::path::PathBuf {
+        let name: &str = &self.tofnd_path;
+        let mut path = std::path::PathBuf::new();
+        path.push(name);
+        path
     }
 }

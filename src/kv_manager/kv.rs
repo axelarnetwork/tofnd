@@ -117,13 +117,6 @@ where
             .map_err(|e| SendErr(e.to_string()))?;
         resp_rx.await?.map_err(RemoveErr)
     }
-
-    #[cfg(test)]
-    pub fn get_db_path(name: &str) -> PathBuf {
-        let mut path = PathBuf::new();
-        path.push(name);
-        path
-    }
 }
 
 /// Returns the db with name `db_name`, or creates a new if such DB does not exist
