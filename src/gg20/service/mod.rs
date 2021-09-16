@@ -1,9 +1,9 @@
 //! This mod includes the service implementation derived from
 
-use super::mnemonic::{file_io::FileIo, Cmd};
+use super::mnemonic::file_io::FileIo;
 use super::proto;
 use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SHARE_KV_NAME};
-use crate::DEFAULT_PATH_ROOT;
+use crate::config::Config;
 use std::path::PathBuf;
 
 // error handling
@@ -19,40 +19,33 @@ pub struct Gg20Service {
     pub(super) shares_kv: KeySharesKv,
     pub(super) mnemonic_kv: MnemonicKv,
     pub(super) io: FileIo,
-    pub(super) safe_keygen: bool,
-    #[cfg(feature = "malicious")]
-    pub(super) behaviours: malicious::Behaviours,
+    pub(super) cfg: Config,
 }
 
 /// create a new Gg20 gRPC server
-pub async fn new_service(
-    safe_keygen: bool,
-    mnemonic_cmd: Cmd,
-    #[cfg(feature = "malicious")] behaviours: malicious::Behaviours,
-) -> TofndResult<impl proto::gg20_server::Gg20> {
-    let shares_kv = KeySharesKv::new(DEFAULT_SHARE_KV_NAME).map_err(|err| {
-        anyhow!(
-            "Shares kvstore is corrupted. Please remove it and recover your shares. Error: {}",
-            err
-        )
-    })?;
-    let mnemonic_kv = MnemonicKv::new(DEFAULT_MNEMONIC_KV_NAME).map_err(|err| {
+pub async fn new_service(cfg: Config) -> TofndResult<impl proto::gg20_server::Gg20> {
+    let shares_kv =
+        KeySharesKv::new(cfg.tofnd_path.as_str(), DEFAULT_SHARE_KV_NAME).map_err(|err| {
+            anyhow!(
+                "Shares kvstore is corrupted. Please remove it and recover your shares. Error: {}",
+                err
+            )
+        })?;
+    let mnemonic_kv = MnemonicKv::new(cfg.tofnd_path.as_str(), DEFAULT_MNEMONIC_KV_NAME).map_err(|err| {
         anyhow!(
             "Your mnemonic kv store is corrupted. Please remove it and import your mnemonic again. Error: {}", err
         )
     })?;
-    let io = FileIo::new(PathBuf::from(DEFAULT_PATH_ROOT));
+    let io = FileIo::new(PathBuf::from(&cfg.tofnd_path));
 
     let gg20 = Gg20Service {
         shares_kv,
         mnemonic_kv,
         io,
-        safe_keygen,
-        #[cfg(feature = "malicious")]
-        behaviours,
+        cfg,
     };
 
-    gg20.handle_mnemonic(mnemonic_cmd).await?;
+    gg20.handle_mnemonic().await?;
     Ok(gg20)
 }
 

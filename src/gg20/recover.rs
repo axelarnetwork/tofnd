@@ -106,7 +106,7 @@ impl Gg20Service {
 
         // try to recover keypairs
         let session_nonce = init.new_key_uid.as_bytes();
-        let party_keypair = match self.safe_keygen {
+        let party_keypair = match self.cfg.safe_keygen {
             true => recover_party_keypair(party_id, secret_recovery_key, session_nonce),
             false => recover_party_keypair_unsafe(party_id, secret_recovery_key, session_nonce),
         }

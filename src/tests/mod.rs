@@ -205,7 +205,7 @@ async fn shutdown_party(
 
 // deletes the share kv-store of a party's db path
 fn delete_party_shares(mut party_db_path: PathBuf) {
-    party_db_path.push("shares");
+    party_db_path.push("kvstore/shares");
     // Sled creates a directory for the database and its configuration
     info!("removing shares kv-store of party {:?}", party_db_path);
     std::fs::remove_dir_all(party_db_path).unwrap();

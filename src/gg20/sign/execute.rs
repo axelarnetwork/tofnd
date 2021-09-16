@@ -35,7 +35,7 @@ impl Gg20Service {
             &ctx.sign_parties,
             ctx.msg_to_sign(),
             #[cfg(feature = "malicious")]
-            self.behaviours.sign.clone(),
+            self.cfg.behaviours.sign.clone(),
         )
         .map_err(|_| anyhow!("sign instantiation failed"))?;
 

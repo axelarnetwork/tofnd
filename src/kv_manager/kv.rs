@@ -28,22 +28,23 @@ where
     V: Debug + Send + Sync + Serialize + DeserializeOwned,
 {
     /// Creates a new kv service. Returns [InitErr] on failure.
-    pub fn new(kv_name: &str) -> KvResult<Self> {
-        let kv_path = PathBuf::from(crate::DEFAULT_PATH_ROOT)
-            .join(DEFAULT_KV_PATH)
-            .join(kv_name);
+    /// the path of the kvstore is `root_path` + "/kvstore/" + `kv_name`
+    pub fn new(root_path: &str, kv_name: &str) -> KvResult<Self> {
+        let kv_path = PathBuf::from(root_path).join(DEFAULT_KV_PATH).join(kv_name);
         // use to_string_lossy() instead of to_str() to avoid handling Option<&str>
         let kv_path = kv_path.to_string_lossy().to_string();
         Self::with_db_name(kv_path)
     }
 
-    /// Spawns a new kv_manager. Returns [InitErr] on failure.
-    pub fn with_db_name(db_name: String) -> KvResult<Self> {
+    /// Creates a kvstore at `full_db_name` and spawns a new kv_manager. Returns [InitErr] on failure.
+    /// `full_db_name` is the name of the path of the kvstrore + its name
+    /// Example: ~/tofnd/kvstore/database_1
+    pub fn with_db_name(full_db_name: String) -> KvResult<Self> {
         let (sender, rx) = mpsc::unbounded_channel();
 
         // get kv store from db name before entering the kv_cmd_handler because
         // it's more convenient to return an error from outside of a tokio::span
-        let kv = get_kv_store(&db_name)?;
+        let kv = get_kv_store(&full_db_name)?;
 
         tokio::spawn(kv_cmd_handler(rx, kv));
         Ok(Self { sender })

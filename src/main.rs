@@ -74,13 +74,7 @@ async fn main() -> TofndResult<()> {
         incoming.local_addr()?
     );
 
-    let my_service = gg20::service::new_service(
-        cfg.safe_keygen,
-        cfg.mnemonic_cmd,
-        #[cfg(feature = "malicious")]
-        cfg.behaviours,
-    )
-    .await?;
+    let my_service = gg20::service::new_service(cfg).await?;
 
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 

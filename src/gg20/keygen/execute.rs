@@ -37,7 +37,7 @@ impl Gg20Service {
             &ctx.party_keypair,
             &ctx.party_zksetup,
             #[cfg(feature = "malicious")]
-            self.behaviours.keygen.clone(),
+            self.cfg.behaviours.keygen.clone(),
         )
     }
 
