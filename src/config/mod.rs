@@ -1,10 +1,8 @@
 use clap::{App, Arg};
 
 // error handling
-use crate::TofndResult;
+use crate::{gg20::mnemonic::Cmd, TofndResult};
 use anyhow::anyhow;
-
-use crate::gg20::mnemonic::Cmd;
 
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
