@@ -1,27 +1,39 @@
 use clap::{App, Arg};
 
 // error handling
-use crate::TofndResult;
+use crate::{TofndResult, DEFAULT_PATH_ROOT};
 use anyhow::anyhow;
 
 use crate::gg20::mnemonic::Cmd;
 
+const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
+
 // TODO: examine if using a config file can replace commandline args
 
+pub struct Config {
+    pub port: u16,
+    pub safe_keygen: bool,
+    pub mnemonic_cmd: Cmd,
+    pub tofnd_path: String,
+    #[cfg(feature = "malicious")]
+    pub behaviours: Behaviours,
+}
+
 #[cfg(not(feature = "malicious"))]
-pub fn parse_args() -> TofndResult<(u16, bool, Cmd)> {
+pub fn parse_args() -> TofndResult<Config> {
     // Note that we want lower-case letters as impot, as enum type start with capitals
     let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
     let default_mnemonic_cmd = "create";
+    let default_port = "50051";
 
-    let matches = App::new("tofnd")
+    let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
         .arg(
             Arg::with_name("port")
                 .long("port")
                 .short("p")
                 .required(false)
-                .default_value("50051"),
+                .default_value(default_port),
         )
         .arg(
             Arg::with_name("unsafe")
@@ -37,7 +49,16 @@ pub fn parse_args() -> TofndResult<(u16, bool, Cmd)> {
                 .default_value(default_mnemonic_cmd)
                 .possible_values(&available_mnemonic_cmds),
         )
-        .get_matches();
+        .arg(
+            Arg::with_name("directory")
+                .long("directory")
+                .short("d")
+                .required(false)
+                .env(TOFND_HOME_ENV_VAR)
+                .default_value(DEFAULT_PATH_ROOT),
+        );
+
+    let matches = app.get_matches();
 
     let port = matches
         .value_of("port")
@@ -49,7 +70,18 @@ pub fn parse_args() -> TofndResult<(u16, bool, Cmd)> {
         .ok_or_else(|| anyhow!("cmd value"))?
         .to_string();
     let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
-    Ok((port, safe_keygen, mnemonic_cmd))
+
+    let tofnd_path = matches
+        .value_of("directory")
+        .ok_or_else(|| anyhow!("directory value"))?
+        .to_string();
+
+    Ok(Config {
+        port,
+        safe_keygen,
+        mnemonic_cmd,
+        tofnd_path,
+    })
 }
 
 #[cfg(feature = "malicious")]
@@ -66,7 +98,7 @@ use tofn::{
 };
 
 #[cfg(feature = "malicious")]
-pub fn parse_args() -> TofndResult<(u16, bool, Cmd, Behaviours)> {
+pub fn parse_args() -> TofndResult<Config> {
     let available_mnemonic_cmds = vec!["stored", "create", "import", "update", "export"];
     let default_mnemonic_cmd = "create";
 
@@ -122,6 +154,14 @@ pub fn parse_args() -> TofndResult<(u16, bool, Cmd, Behaviours)> {
                 .default_value(default_mnemonic_cmd)
                 .possible_values(&available_mnemonic_cmds),
         )
+        .arg(
+            Arg::with_name("directory")
+                .long("directory")
+                .short("d")
+                .required(false)
+                .env(TOFND_HOME_ENV_VAR)
+                .default_value(DEFAULT_PATH_ROOT),
+        )
         .subcommand(
             SubCommand::with_name("malicious")
                 .about("Select malicious behaviour")
@@ -146,6 +186,11 @@ pub fn parse_args() -> TofndResult<(u16, bool, Cmd, Behaviours)> {
         .to_string();
     let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
 
+    let tofnd_path = matches
+        .value_of("directory")
+        .ok_or_else(|| anyhow!("directory value"))?
+        .to_string();
+
     // Set a default behaviour
     let mut sign_behaviour = "Honest";
     let mut victim = 0;
@@ -163,7 +208,14 @@ pub fn parse_args() -> TofndResult<(u16, bool, Cmd, Behaviours)> {
     let keygen = KeygenBehaviour::R1BadCommit;
     let sign = match_string_to_behaviour(sign_behaviour, victim);
     let behaviours = Behaviours { keygen, sign };
-    Ok((port, safe_keygen, mnemonic_cmd, behaviours))
+
+    Ok(Config {
+        port,
+        safe_keygen,
+        mnemonic_cmd,
+        tofnd_path,
+        behaviours,
+    })
 }
 
 #[cfg(feature = "malicious")]
