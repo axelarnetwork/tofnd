@@ -43,8 +43,6 @@ fn warn_for_unsafe_execution() {
     warn!("WARNING: THIS tofnd BINARY IS NOT SAFE: SAFE PRIMES ARE NOT USED BECAUSE '--unsafe' FLAG IS ENABLED.  USE '--unsafe' FLAG ONLY FOR TESTING.");
 }
 
-const DEFAULT_PATH_ROOT: &str = ".tofnd";
-
 #[tokio::main]
 async fn main() -> TofndResult<()> {
     // set up log subscriber

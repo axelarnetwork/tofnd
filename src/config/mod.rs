@@ -1,11 +1,12 @@
 use clap::{App, Arg};
 
 // error handling
-use crate::{TofndResult, DEFAULT_PATH_ROOT};
+use crate::TofndResult;
 use anyhow::anyhow;
 
 use crate::gg20::mnemonic::Cmd;
 
+const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 
 // TODO: examine if using a config file can replace commandline args
