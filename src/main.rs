@@ -48,15 +48,12 @@ async fn main() -> TofndResult<()> {
     // set up log subscriber
     set_up_logs();
 
-    #[cfg(not(feature = "malicious"))]
-    let cfg = parse_args()?;
-
     // print a warning log if we are running in malicious mode
     #[cfg(feature = "malicious")]
     warn_for_malicious_build();
 
-    #[cfg(feature = "malicious")]
     let cfg = parse_args()?;
+    println!("config: {:?}", cfg);
 
     if !cfg.safe_keygen {
         warn_for_unsafe_execution();

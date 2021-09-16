@@ -29,7 +29,7 @@ use tracing::{error, info};
 // default key to store mnemonic
 const MNEMONIC_KEY: &str = "mnemonic";
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Cmd {
     Noop,
     Create,
