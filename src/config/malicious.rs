@@ -64,7 +64,6 @@ pub fn get_behaviour_matches(app: App) -> TofndResult<Behaviours> {
     Ok(Behaviours { keygen, sign })
 }
 
-#[cfg(feature = "malicious")]
 fn match_string_to_behaviour(behaviour: &str, victim: usize) -> SignBehaviour {
     use SignBehaviour::*;
     let victim = TypedUsize::from_usize(victim);
