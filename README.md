@@ -32,7 +32,7 @@ Terminate the server with `ctrl+C`.
 We use [clap](https://clap.rs/) to manage command line arguments.
 
 Users can specify:
-1. Tofnd's root folder. If the `TOFND_HOME` environment variable is set, default values or command line arguments are overwritten. Use `--directory` or `-d` to specify a full or a relative path. Default is `./tofnd`. 
+1. Tofnd's root folder. Use `--directory` or `-d` to specify a full or a relative path. If no argument is provided, then the environment variable `TOFND_HOME` is used. If no environment variable is set either, the default `./tofnd` directory is used. 
 2. The port number of the gRPC server (default is 50051).
 3. The option to run in _unsafe_ mode. By default, this option is off, and safe primes are used for keygen. Use the `--unsafe` flag only for testing.
 4. `mnemonic` operations for their `tofnd` instance (default is `Create`).
