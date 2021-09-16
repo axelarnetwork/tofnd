@@ -43,10 +43,6 @@ pub fn get_behaviour_matches(app: App) -> TofndResult<Behaviours> {
     // we should add strum (https://docs.rs/strum) to iterate over enums and
     // print their names, but it has to be imported in tofn.
 
-    // TODO: some of the behaviours do not demand a victim. In the future, more
-    // will be added that potentially need different set of arguments.
-    // Adjust this as needed to support that.
-
     let matches = app.get_matches();
 
     // Set a default behaviour

@@ -51,7 +51,7 @@ pub fn parse_args() -> TofndResult<Config> {
             // TODO: change to something like `--unsafe-primes`
             Arg::with_name("unsafe")
                 .help(
-                    "Use unsafe primes. Deactivated by default. **Important note** This option is only used for testing.",
+                    "Use unsafe primes. Deactivated by default. **Important note** This option should only be used for testing.",
                 )
                 .long("unsafe")
                 .required(false)
