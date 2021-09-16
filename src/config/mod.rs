@@ -10,6 +10,7 @@ const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 
 // TODO: examine if using a config file can replace commandline args
 
+#[derive(Clone)]
 pub struct Config {
     pub port: u16,
     pub safe_keygen: bool,
@@ -17,6 +18,19 @@ pub struct Config {
     pub tofnd_path: String,
     #[cfg(feature = "malicious")]
     pub behaviours: Behaviours,
+}
+// TODO: add chain calls: with_port(), with_safe_keygen() etc
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            port: 50051,
+            safe_keygen: true,
+            mnemonic_cmd: Cmd::Noop,
+            tofnd_path: DEFAULT_PATH_ROOT.to_string(),
+            #[cfg(feature = "malicious")]
+            behaviours: Behaviours::default(),
+        }
+    }
 }
 
 #[cfg(not(feature = "malicious"))]
