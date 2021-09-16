@@ -53,7 +53,6 @@ async fn main() -> TofndResult<()> {
     warn_for_malicious_build();
 
     let cfg = parse_args()?;
-    println!("config: {:?}", cfg);
 
     if !cfg.safe_keygen {
         warn_for_unsafe_execution();

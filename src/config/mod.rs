@@ -38,7 +38,6 @@ impl Default for Config {
 }
 
 pub fn parse_args() -> TofndResult<Config> {
-    // Note that we want lower-case letters as import, as enum type start with capitals
     let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
         .arg(
