@@ -4,6 +4,7 @@ use clap::{App, Arg};
 use crate::{gg20::mnemonic::Cmd, TofndResult};
 use anyhow::anyhow;
 
+// TODO: move these into constants.rs
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 const DEFAULT_MNEMONIC_CMD: &str = "create";
@@ -15,6 +16,7 @@ mod malicious;
 #[cfg(feature = "malicious")]
 use malicious::*;
 
+// TODO: move to types.rs
 #[derive(Clone, Debug)]
 pub struct Config {
     pub port: u16,
