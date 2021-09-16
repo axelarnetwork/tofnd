@@ -21,7 +21,6 @@ pub struct Config {
     #[cfg(feature = "malicious")]
     pub behaviours: Behaviours,
 }
-// TODO: add chain calls: with_port(), with_safe_keygen() etc
 impl Default for Config {
     fn default() -> Self {
         Config {
