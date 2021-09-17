@@ -32,11 +32,11 @@ pub fn open(db_name: &str, password: Password) -> EncryptedDbResult<EncryptedDb>
     match was_recovered {
         true => {
             let _ = encrypted_kv
-                .get(VERIFICATION_VALUE)
+                .get(VERIFICATION_KEY)
                 .map_err(|_| WrongPassword)?;
         }
         false => {
-            let _ = encrypted_kv.insert(VERIFICATION_VALUE, VERIFICATION_VALUE)?;
+            let _ = encrypted_kv.insert(VERIFICATION_KEY, VERIFICATION_VALUE)?;
         }
     }
 
