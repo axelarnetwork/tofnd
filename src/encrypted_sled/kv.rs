@@ -29,13 +29,6 @@ where
     EncryptedDb { kv, cipher }.with_handle_password_verification()
 }
 
-pub fn open_without_password<P>(db_name: P) -> EncryptedDbResult<EncryptedDb>
-where
-    P: AsRef<std::path::Path>,
-{
-    open(db_name, &Password(DEFAULT_PASSWORD.to_string()))
-}
-
 pub struct EncryptedDb {
     kv: sled::Db,
     cipher: XChaCha20Poly1305,

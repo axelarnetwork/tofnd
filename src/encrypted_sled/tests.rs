@@ -1,4 +1,4 @@
-use crate::encrypted_sled::{open, open_without_password};
+use crate::encrypted_sled::open;
 use crate::password::Password;
 use testdir::testdir;
 
@@ -64,14 +64,6 @@ fn test_password() {
         &db_path,
         &Password("an example very very secret key!".to_string()), // replace '.' with '!'
     );
-    assert!(matches!(
-        db,
-        Err(super::result::EncryptedDbError::WrongPassword)
-    ));
-    drop(db);
-
-    // try to open the kv store using default password
-    let db = open_without_password(&db_path);
     assert!(matches!(
         db,
         Err(super::result::EncryptedDbError::WrongPassword)

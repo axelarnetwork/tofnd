@@ -8,7 +8,6 @@ pub mod result;
 
 // match the API of sled
 pub use kv::open;
-pub use kv::open_without_password;
 pub use kv::EncryptedDb as Db;
 pub use result::EncryptedDbError as Error;
 pub use result::EncryptedDbResult as Result;
