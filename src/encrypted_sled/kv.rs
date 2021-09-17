@@ -30,7 +30,7 @@ where
     EncryptedDb { kv, cipher }.with_handle_password_verification()
 }
 
-pub fn open_no_password<P>(db_name: P) -> EncryptedDbResult<EncryptedDb>
+pub fn open_without_password<P>(db_name: P) -> EncryptedDbResult<EncryptedDb>
 where
     P: AsRef<std::path::Path>,
 {

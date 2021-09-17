@@ -131,7 +131,7 @@ where
 pub fn get_kv_store(db_name: &str) -> encrypted_sled::Result<encrypted_sled::Db> {
     // create/open DB
     // TODO: use password!
-    let kv = encrypted_sled::open_no_password(db_name)?;
+    let kv = encrypted_sled::open_without_password(db_name)?;
 
     // log whether the DB was newly created or not
     if kv.was_recovered() {
