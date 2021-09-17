@@ -5,9 +5,11 @@ use serde::{de::DeserializeOwned, Serialize};
 use super::error::{InnerKvError::*, InnerKvResult};
 use super::types::{KeyReservation, DEFAULT_RESERV};
 
+use crate::encrypted_kv;
+
 /// Reserves a key. New's key value is [DEFAULT_RESERV].
 /// Returns [SledErr] of [LogicalErr] on failure.
-pub(super) fn handle_reserve(kv: &sled::Db, key: String) -> InnerKvResult<KeyReservation> {
+pub(super) fn handle_reserve(kv: &encrypted_kv::Db, key: String) -> InnerKvResult<KeyReservation> {
     // search key in kv store.
     // If reserve key already exists inside our database, return an error
     if kv.contains_key(&key)? {
@@ -27,7 +29,7 @@ pub(super) fn handle_reserve(kv: &sled::Db, key: String) -> InnerKvResult<KeyRes
 /// Inserts a value to an existing key.
 /// Returns [SledErr] of [LogicalErr] on failure.
 pub(super) fn handle_put<V>(
-    kv: &sled::Db,
+    kv: &encrypted_kv::Db,
     reservation: KeyReservation,
     value: V,
 ) -> InnerKvResult<()>
@@ -56,7 +58,7 @@ where
 
 /// Get the value of an existing key.
 /// Returns [SledErr] of [LogicalErr] on failure.
-pub(super) fn handle_get<V>(kv: &sled::Db, key: String) -> InnerKvResult<V>
+pub(super) fn handle_get<V>(kv: &encrypted_kv::Db, key: String) -> InnerKvResult<V>
 where
     V: DeserializeOwned,
 {
@@ -74,7 +76,7 @@ where
 
 /// Checks if a key exists in the kvstore.
 /// Returns [SledErr] of [LogicalErr] on failure.
-pub(super) fn handle_exists(kv: &sled::Db, key: &str) -> InnerKvResult<bool> {
+pub(super) fn handle_exists(kv: &encrypted_kv::Db, key: &str) -> InnerKvResult<bool> {
     kv.contains_key(key).map_err(|err| {
         LogicalErr(format!(
             "Could not perform 'contains_key' for key <{}> due to error: {}",
@@ -85,7 +87,7 @@ pub(super) fn handle_exists(kv: &sled::Db, key: &str) -> InnerKvResult<bool> {
 
 /// Deletes the key and it's value from the kv store.
 /// Returns [SledErr] of [LogicalErr] on failure.
-pub(super) fn handle_remove<V>(kv: &sled::Db, key: String) -> InnerKvResult<V>
+pub(super) fn handle_remove<V>(kv: &encrypted_kv::Db, key: String) -> InnerKvResult<V>
 where
     V: DeserializeOwned,
 {

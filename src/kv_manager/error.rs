@@ -9,12 +9,13 @@
 /// 2. This can be used as an example on how analytical error handling can be
 /// incorporated in other modules
 /// For more info, see discussion in https://github.com/axelarnetwork/tofnd/issues/28
+use crate::encrypted_kv;
 
 #[allow(clippy::enum_variant_names)] // allow Err postfix
 #[derive(thiserror::Error, Debug)]
 pub enum KvError {
     #[error("Kv initialization Error: {0}")]
-    InitErr(#[from] sled::Error),
+    InitErr(#[from] encrypted_kv::Error),
     #[error("Recv Error: {0}")] // errors receiving from "actor pattern"'s channels
     RecvErr(#[from] tokio::sync::oneshot::error::RecvError),
     #[error("Send Error: {0}")] // errors sending to "actor pattern"'s channels
@@ -36,7 +37,7 @@ pub type KvResult<Success> = Result<Success, KvError>;
 #[derive(thiserror::Error, Debug)]
 pub enum InnerKvError {
     #[error("Sled Error: {0}")] // Delegate Sled's errors
-    SledErr(#[from] sled::Error),
+    SledErr(#[from] encrypted_kv::Error),
     #[error("Logical Error: {0}")] // Logical errors (eg double deletion)
     LogicalErr(String),
     #[error("Bincode Error: {0}")] // (De)serialization errors

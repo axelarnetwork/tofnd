@@ -11,9 +11,10 @@ use super::record::Record;
 
 // TODO: change location of Password?
 use crate::gg20::types::Password;
-
+// TODO: put these somewhere
 const VERIFICATION_KEY: &str = "tofnd";
 const VERIFICATION_VALUE: &str = "tofnd";
+const DEFAULT_PASSWORD: &str = "12345678901234567890123456789012";
 
 /// create a new [EncryptedDb]
 /// wraps sled::open(db_name) and passes password from a key derivation function
@@ -26,17 +27,14 @@ where
     let cipher = ChaCha20Poly1305::new(key);
 
     let kv = sled::open(db_name)?;
-    Ok(EncryptedDb { kv, cipher }.with_handle_password_verification()?)
+    EncryptedDb { kv, cipher }.with_handle_password_verification()
 }
 
 pub fn open_no_password<P>(db_name: P) -> EncryptedDbResult<EncryptedDb>
 where
     P: AsRef<std::path::Path>,
 {
-    open(
-        db_name,
-        Password("12345678901234567890123456789012".to_string()),
-    )
+    open(db_name, Password(DEFAULT_PASSWORD.to_string()))
 }
 
 // TODO: pass cipher as a templated parameter?

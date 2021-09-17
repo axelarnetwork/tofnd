@@ -6,6 +6,8 @@ use super::{
     types::{KeyReservation, DEFAULT_RESERV},
 };
 
+use crate::encrypted_kv;
+
 // testdir creates a test directory at $TMPDIR.
 // Mac: /var/folders/v4/x_j3jj7d6ql4gjdf7b7jvjhm0000gn/T/testdir-of-$(USER)
 // Linux: /tmp
@@ -13,7 +15,7 @@ use super::{
 // https://doc.rust-lang.org/std/env/fn.temp_dir.html#unix
 use testdir::testdir;
 
-fn clean_up(kv_name: &str, kv: sled::Db) {
+fn clean_up(kv_name: &str, kv: encrypted_kv::Db) {
     assert!(kv.flush().is_ok());
     std::fs::remove_dir_all(kv_name).unwrap();
 }
@@ -21,7 +23,7 @@ fn clean_up(kv_name: &str, kv: sled::Db) {
 #[test]
 fn reserve_success() {
     let kv_name = testdir!("reserve_success");
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = encrypted_kv::open_no_password(&kv_name).unwrap();
 
     let key: String = "key".to_string();
     assert_eq!(
@@ -41,7 +43,7 @@ fn reserve_success() {
 #[test]
 fn reserve_failure() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = encrypted_kv::open_no_password(&kv_name).unwrap();
 
     let key: String = "key".to_string();
     handle_reserve(&kv, key.clone()).unwrap();
@@ -54,7 +56,7 @@ fn reserve_failure() {
 #[test]
 fn put_success() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = encrypted_kv::open_no_password(&kv_name).unwrap();
 
     let key: String = "key".to_string();
     handle_reserve(&kv, key.clone()).unwrap();
@@ -68,7 +70,7 @@ fn put_success() {
 #[test]
 fn put_failure_no_reservation() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = encrypted_kv::open_no_password(&kv_name).unwrap();
 
     let key: String = "key".to_string();
 
@@ -87,7 +89,7 @@ fn put_failure_no_reservation() {
 #[test]
 fn put_failure_put_twice() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = encrypted_kv::open_no_password(&kv_name).unwrap();
 
     let key: String = "key".to_string();
     let value = "value";
@@ -115,7 +117,7 @@ fn put_failure_put_twice() {
 #[test]
 fn get_success() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = encrypted_kv::open_no_password(&kv_name).unwrap();
 
     let key: String = "key".to_string();
     let value = "value";
@@ -132,7 +134,7 @@ fn get_success() {
 #[test]
 fn get_failure() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = encrypted_kv::open_no_password(&kv_name).unwrap();
 
     let key: String = "key".to_string();
     let err = handle_get::<String>(&kv, key).err().unwrap();
@@ -144,7 +146,7 @@ fn get_failure() {
 #[test]
 fn test_exists() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = encrypted_kv::open_no_password(&kv_name).unwrap();
     let key: String = "key".to_string();
     let value: String = "value".to_string();
 
@@ -181,7 +183,7 @@ fn test_exists() {
 #[test]
 fn remove_success() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = encrypted_kv::open_no_password(&kv_name).unwrap();
 
     let key: String = "key".to_string();
     let value = "value";
@@ -195,7 +197,7 @@ fn remove_success() {
 #[test]
 fn remove_failure() {
     let kv_name = testdir!();
-    let kv = sled::open(&kv_name).unwrap();
+    let kv = encrypted_kv::open_no_password(&kv_name).unwrap();
 
     let key: String = "key".to_string();
     let err = handle_remove::<String>(&kv, key).err().unwrap();
