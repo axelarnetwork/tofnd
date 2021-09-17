@@ -3,18 +3,17 @@ use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 
 use sled::IVec;
 
-use super::error::{
-    EncryptedDbError::{Decryption, Encryption, WrongPassword},
-    EncryptedDbResult,
-};
 use super::record::Record;
+use super::{
+    constants::*,
+    error::{
+        EncryptedDbError::{Decryption, Encryption, WrongPassword},
+        EncryptedDbResult,
+    },
+};
 
 // TODO: change location of Password?
 use crate::gg20::types::Password;
-// TODO: put these somewhere
-const VERIFICATION_KEY: &str = "tofnd";
-const VERIFICATION_VALUE: &str = "tofnd";
-const DEFAULT_PASSWORD: &str = "12345678901234567890123456789012";
 
 /// create a new [EncryptedDb]
 /// wraps sled::open(db_name) and passes password from a key derivation function
