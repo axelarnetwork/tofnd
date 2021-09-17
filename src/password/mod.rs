@@ -1,8 +1,11 @@
 mod result;
 
 // use std::io::Write;
-use result::{PasswordError::Read, PasswordResult};
 const DEFAULT_PASSWORD: &[u8; 32] = b"12345678901234567890123456789012";
+use result::{
+    PasswordError::{InvalidOutputLen, Read},
+    PasswordResult,
+};
 
 use rpassword::read_password;
 use scrypt::Params;
@@ -40,7 +43,7 @@ impl PasswordMethod {
                     &Params::default(),
                     &mut output.0,
                 )
-                .unwrap();
+                .map_err(InvalidOutputLen)?;
                 output
             }
         };
