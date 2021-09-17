@@ -1,5 +1,5 @@
 use chacha20poly1305::aead::{AeadInPlace, NewAead};
-use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
+use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
 
 use sled::IVec;
 
@@ -11,6 +11,7 @@ use super::{
         EncryptedDbResult,
     },
 };
+use super::{BytesArray, XNonceArray};
 
 // TODO: change location of Password?
 use crate::gg20::types::Password;
@@ -23,7 +24,7 @@ where
 {
     // TODO: pass password from KDF
     let key = Key::from_slice(password.0[0..32].as_ref());
-    let cipher = ChaCha20Poly1305::new(key);
+    let cipher = XChaCha20Poly1305::new(key);
 
     let kv = sled::open(db_name)?;
     EncryptedDb { kv, cipher }.with_handle_password_verification()
@@ -40,19 +41,19 @@ where
 // TODO: pass random seed?
 pub struct EncryptedDb {
     kv: sled::Db,
-    cipher: ChaCha20Poly1305,
+    cipher: XChaCha20Poly1305,
 }
 
 impl EncryptedDb {
-    fn get_random_nonce() -> [u8; 12] {
+    fn get_random_nonce() -> XNonceArray {
         rand::random()
     }
 
     fn encrypt(&self, value: &[u8]) -> EncryptedDbResult<Record> {
         let random_nonce = Self::get_random_nonce();
-        let nonce = Nonce::from_slice(&random_nonce);
+        let nonce = XNonce::from_slice(&random_nonce);
 
-        let mut buffer: Vec<u8> = Vec::with_capacity(128);
+        let mut buffer: BytesArray = Vec::with_capacity(128);
         buffer.extend_from_slice(value.as_ref());
 
         // Q: need to fill accossiated data?
@@ -63,10 +64,10 @@ impl EncryptedDb {
         Ok(Record::new(buffer, random_nonce))
     }
 
-    fn decrypt_record_value(&self, record: &Record) -> EncryptedDbResult<Vec<u8>> {
-        let nonce = Nonce::from_slice(&record.nonce);
+    fn decrypt_record_value(&self, record: &Record) -> EncryptedDbResult<BytesArray> {
+        let nonce = XNonce::from_slice(&record.nonce);
 
-        let mut buffer: Vec<u8> = Vec::with_capacity(128);
+        let mut buffer: BytesArray = Vec::with_capacity(128);
         buffer.extend_from_slice(record.encrypted_value.as_ref());
 
         self.cipher

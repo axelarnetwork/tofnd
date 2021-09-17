@@ -1,4 +1,4 @@
-//! Custom error handling for [encrypted_kv]
+//! Custom error handling
 
 #[derive(thiserror::Error, Debug)]
 pub enum EncryptedDbError {
