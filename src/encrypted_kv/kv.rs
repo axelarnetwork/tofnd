@@ -25,22 +25,10 @@ where
     let key = Key::from_slice(password.0[0..32].as_ref());
     let cipher = ChaCha20Poly1305::new(key);
 
-    // open kv
     let kv = sled::open(db_name)?;
-    let was_recovered = kv.was_recovered();
-    let encrypted_kv = EncryptedDb { kv, cipher };
-    match was_recovered {
-        true => {
-            let _ = encrypted_kv
-                .get(VERIFICATION_KEY)
-                .map_err(|_| WrongPassword)?;
-        }
-        false => {
-            let _ = encrypted_kv.insert(VERIFICATION_KEY, VERIFICATION_VALUE)?;
-        }
-    }
+    Ok(EncryptedDb { kv, cipher }.with_handle_password_verification()?)
+}
 
-    Ok(encrypted_kv)
 pub fn open_no_password<P>(db_name: P) -> EncryptedDbResult<EncryptedDb>
 where
     P: AsRef<std::path::Path>,
@@ -138,5 +126,22 @@ impl EncryptedDb {
 
     pub fn was_recovered(&self) -> bool {
         self.kv.was_recovered()
+    }
+
+    pub fn with_handle_password_verification(self) -> EncryptedDbResult<Self> {
+        match self.kv.was_recovered() {
+            true => {
+                let _ = self.get(VERIFICATION_KEY).map_err(|_| WrongPassword)?;
+            }
+            false => {
+                let _ = self.insert(VERIFICATION_KEY, VERIFICATION_VALUE)?;
+            }
+        }
+        Ok(self)
+    }
+
+    #[cfg(test)]
+    pub fn flush(&self) -> EncryptedDbResult<usize> {
+        Ok(self.kv.flush()?)
     }
 }
