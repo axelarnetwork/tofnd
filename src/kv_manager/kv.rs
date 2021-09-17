@@ -1,7 +1,7 @@
 //! Public API for kvstore operations
 //! Errors are mapped to [super::error::KvError]
 
-use crate::encrypted_kv;
+use crate::encrypted_sled;
 
 use super::{
     error::{KvError::*, KvResult},
@@ -128,10 +128,10 @@ where
 /// Usage:
 ///  let my_db = get_kv_store(&"my_current_dir_db")?;
 ///  let my_db = get_kv_store(&"/tmp/my_tmp_bd")?;
-pub fn get_kv_store(db_name: &str) -> encrypted_kv::Result<encrypted_kv::Db> {
+pub fn get_kv_store(db_name: &str) -> encrypted_sled::Result<encrypted_sled::Db> {
     // create/open DB
     // TODO: use password!
-    let kv = encrypted_kv::open_no_password(db_name)?;
+    let kv = encrypted_sled::open_no_password(db_name)?;
 
     // log whether the DB was newly created or not
     if kv.was_recovered() {
@@ -148,7 +148,7 @@ pub fn get_kv_store(db_name: &str) -> encrypted_kv::Result<encrypted_kv::Db> {
 // private handler function to process commands as per the "actor" pattern (see above)
 async fn kv_cmd_handler<V: 'static>(
     mut rx: mpsc::UnboundedReceiver<Command<V>>,
-    kv: encrypted_kv::Db,
+    kv: encrypted_sled::Db,
 ) where
     V: Serialize + DeserializeOwned,
 {

@@ -1,4 +1,4 @@
-use super::kv::open;
+use crate::encrypted_sled::{open, open_no_password};
 use crate::gg20::types::Password;
 use testdir::testdir;
 
@@ -46,13 +46,32 @@ fn test_encrypted_sled() {
     // remove <key> again -> returns None because key does not exist
     let res = db.remove("key").unwrap();
     assert_eq!(res, None);
+}
 
+#[test]
+fn test_password() {
+    let db_path = testdir!("test_password");
+
+    let db = open(
+        &db_path,
+        Password("an example very very secret key.".to_string()),
+    );
+    assert!(db.is_ok());
     drop(db);
+
     // try to open the kv store using a different password
     let db = open(
         &db_path,
-        Password("an example very very secret key!".to_string()), // use '!' instead of '.'
+        Password("an example very very secret key!".to_string()), // replace '.' with '!'
     );
+    assert!(matches!(
+        db,
+        Err(super::error::EncryptedDbError::WrongPassword)
+    ));
+    drop(db);
+
+    // try to open the kv store using default password
+    let db = open_no_password(&db_path);
     assert!(matches!(
         db,
         Err(super::error::EncryptedDbError::WrongPassword)

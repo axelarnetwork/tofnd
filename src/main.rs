@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 
-mod encrypted_kv;
+mod encrypted_sled;
 mod gg20;
 mod kv_manager;
 
