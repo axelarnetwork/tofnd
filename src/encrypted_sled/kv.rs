@@ -7,7 +7,7 @@ use super::record::Record;
 use super::{
     constants::*,
     result::{
-        EncryptedDbError::{Decryption, Encryption, WrongPassword},
+        EncryptedDbError::{CorruptionError, Decryption, Encryption, WrongPassword},
         EncryptedDbResult,
     },
 };
@@ -25,7 +25,7 @@ where
     let key = Key::from_slice(password.0[0..32].as_ref());
     let cipher = XChaCha20Poly1305::new(key);
 
-    let kv = sled::open(db_name)?;
+    let kv = sled::open(db_name).map_err(CorruptionError)?;
     EncryptedDb { kv, cipher }.with_handle_password_verification()
 }
 

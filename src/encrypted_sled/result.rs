@@ -2,6 +2,8 @@
 
 #[derive(thiserror::Error, Debug)]
 pub enum EncryptedDbError {
+    #[error("Your mnemonic kv store is corrupted. Please remove it and import your mnemonic again. Error: {0}")]
+    CorruptionError(sled::Error),
     #[error("Sled error: {0}")]
     SledError(#[from] sled::Error),
     #[error("Deserialization error: {0}")]

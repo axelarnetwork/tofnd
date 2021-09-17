@@ -26,12 +26,7 @@ pub struct Gg20Service {
 pub async fn new_service(cfg: Config) -> TofndResult<impl proto::gg20_server::Gg20> {
     let password = cfg.password_method.get()?;
     let shares_kv = KeySharesKv::new(cfg.tofnd_path.as_str(), DEFAULT_SHARE_KV_NAME, &password)
-        .map_err(|err| {
-            anyhow!(
-                "Shares kvstore is corrupted. Please remove it and recover your shares. Error: {}",
-                err
-            )
-        })?;
+        .map_err(|err| anyhow!("KV store error: {}", err))?;
     let mnemonic_kv = MnemonicKv::new(cfg.tofnd_path.as_str(), DEFAULT_MNEMONIC_KV_NAME, &password).map_err(|err| {
         anyhow!(
             "Your mnemonic kv store is corrupted. Please remove it and import your mnemonic again. Error: {}", err
