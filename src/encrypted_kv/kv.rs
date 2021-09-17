@@ -41,6 +41,14 @@ where
     }
 
     Ok(encrypted_kv)
+pub fn open_no_password<P>(db_name: P) -> EncryptedDbResult<EncryptedDb>
+where
+    P: AsRef<std::path::Path>,
+{
+    open(
+        db_name,
+        Password("12345678901234567890123456789012".to_string()),
+    )
 }
 
 // TODO: pass cipher as a templated parameter?
