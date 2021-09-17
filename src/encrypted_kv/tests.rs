@@ -6,7 +6,7 @@ use testdir::testdir;
 fn test_encrypted_sled() {
     let db_path = testdir!("encrypted_db");
     let db = open(
-        db_path.to_str().unwrap(),
+        &db_path,
         Password("an example very very secret key.".to_string()),
     )
     .unwrap();
@@ -33,11 +33,11 @@ fn test_encrypted_sled() {
 
     // contains <key> -> returns Some(true) because key exists
     let res = db.contains_key("key").unwrap();
-    assert_eq!(res, true);
+    assert!(res);
 
     // contains <key1> -> returns None because key1 does not exist
     let res = db.contains_key("key1").unwrap();
-    assert_eq!(res, false);
+    assert!(!res);
 
     // remove <key> -> returns <value2> because key exists
     let res = db.remove("key").unwrap();
@@ -50,7 +50,7 @@ fn test_encrypted_sled() {
     drop(db);
     // try to open the kv store using a different password
     let db = open(
-        db_path.to_str().unwrap(),
+        &db_path,
         Password("an example very very secret key!".to_string()), // use '!' instead of '.'
     );
     assert!(matches!(

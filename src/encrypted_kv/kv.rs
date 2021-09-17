@@ -64,7 +64,7 @@ impl EncryptedDb {
 
         // Q: need to fill accossiated data?
         self.cipher
-            .encrypt_in_place(&nonce, b"", &mut buffer)
+            .encrypt_in_place(nonce, b"", &mut buffer)
             .map_err(|e| Encryption(e.to_string()))?;
 
         Ok(Record::new(buffer, random_nonce))

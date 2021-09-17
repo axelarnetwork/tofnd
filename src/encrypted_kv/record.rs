@@ -17,6 +17,6 @@ impl Record {
         bincode::serialize(&self)
     }
     pub(super) fn from_bytes(bytes: &IVec) -> bincode::Result<Record> {
-        bincode::deserialize(&bytes)
+        bincode::deserialize(bytes)
     }
 }
