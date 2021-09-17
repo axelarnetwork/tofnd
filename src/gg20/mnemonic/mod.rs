@@ -182,6 +182,7 @@ mod tests {
     use crate::config::Config;
     use crate::gg20::mnemonic::{bip39_bindings::tests::bip39_to_phrase, file_io::FileIo};
     use crate::gg20::{KeySharesKv, MnemonicKv};
+    use crate::password::PasswordMethod;
     use std::io::Write;
     use std::path::PathBuf;
     use testdir::testdir;
@@ -195,9 +196,10 @@ mod tests {
         let mnemonic_kv_path = testdir.join("mnemonic");
         let mnemonic_kv_path = mnemonic_kv_path.to_str().unwrap();
 
+        let password = PasswordMethod::DefaultPassword.get().unwrap();
         Gg20Service {
-            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned()).unwrap(),
-            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned()).unwrap(),
+            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned(), &password).unwrap(),
+            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned(), &password).unwrap(),
             io: FileIo::new(testdir),
             cfg: Config::default(),
         }

@@ -8,6 +8,7 @@ use crate::{
     addr,
     config::Config,
     gg20::{self, mnemonic::Cmd},
+    password::PasswordMethod,
     proto,
 };
 
@@ -56,6 +57,7 @@ impl TofndParty {
             port: server_port,
             safe_keygen: false,
             tofnd_path: tofnd_path.to_string(),
+            password_method: PasswordMethod::DefaultPassword,
             #[cfg(feature = "malicious")]
             behaviours: Behaviours {
                 keygen: init_party.malicious_data.keygen_behaviour.clone(),

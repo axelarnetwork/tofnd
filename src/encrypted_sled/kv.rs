@@ -13,12 +13,11 @@ use super::{
 };
 use super::{BytesArray, XNonceArray};
 
-// TODO: change location of Password?
-use crate::gg20::types::Password;
+use crate::password::Password;
 
 /// create a new [EncryptedDb]
 /// wraps sled::open(db_name) and passes password from a key derivation function
-pub fn open<P>(db_name: P, password: Password) -> EncryptedDbResult<EncryptedDb>
+pub fn open<P>(db_name: P, password: &Password) -> EncryptedDbResult<EncryptedDb>
 where
     P: AsRef<std::path::Path>,
 {
@@ -34,7 +33,7 @@ pub fn open_without_password<P>(db_name: P) -> EncryptedDbResult<EncryptedDb>
 where
     P: AsRef<std::path::Path>,
 {
-    open(db_name, Password(DEFAULT_PASSWORD.to_string()))
+    open(db_name, &Password(DEFAULT_PASSWORD.to_string()))
 }
 
 pub struct EncryptedDb {

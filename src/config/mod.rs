@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 
 // error handling
-use crate::{gg20::mnemonic::Cmd, TofndResult};
+use crate::{gg20::mnemonic::Cmd, password::PasswordMethod, TofndResult};
 use anyhow::anyhow;
 
 // TODO: move these into constants.rs
@@ -23,6 +23,7 @@ pub struct Config {
     pub safe_keygen: bool,
     pub mnemonic_cmd: Cmd,
     pub tofnd_path: String,
+    pub password_method: PasswordMethod,
     #[cfg(feature = "malicious")]
     pub behaviours: Behaviours,
 }
@@ -33,6 +34,7 @@ impl Default for Config {
             safe_keygen: true,
             mnemonic_cmd: Cmd::Noop,
             tofnd_path: DEFAULT_PATH_ROOT.to_string(),
+            password_method: PasswordMethod::DefaultPassword,
             #[cfg(feature = "malicious")]
             behaviours: Behaviours::default(),
         }
@@ -56,6 +58,16 @@ pub fn parse_args() -> TofndResult<Config> {
                     "Use unsafe primes. Deactivated by default. **Important note** This option should only be used for testing.",
                 )
                 .long("unsafe")
+                .required(false)
+                .takes_value(false)
+                .display_order(0),
+        )
+        .arg(
+            Arg::with_name("no-password")
+                .help(
+                    "Skip providing a password. Disabled by default. **Important note** If --no-password is set, the a default (and public) password is used to encrypt.",
+                )
+                .long("no-password")
                 .required(false)
                 .takes_value(false)
                 .display_order(0),
@@ -109,11 +121,17 @@ pub fn parse_args() -> TofndResult<Config> {
         .ok_or_else(|| anyhow!("directory value"))?
         .to_string();
 
+    let password_method = match matches.is_present("no-password") {
+        true => PasswordMethod::DefaultPassword,
+        false => PasswordMethod::Prompt,
+    };
+
     Ok(Config {
         port,
         safe_keygen,
         mnemonic_cmd,
         tofnd_path,
+        password_method,
         #[cfg(feature = "malicious")]
         behaviours,
     })
