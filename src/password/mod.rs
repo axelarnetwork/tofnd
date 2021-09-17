@@ -1,9 +1,8 @@
-mod constants;
 mod result;
 
 // use std::io::Write;
-use constants::DEFAULT_PASSWORD;
 use result::{PasswordError::Read, PasswordResult};
+const DEFAULT_PASSWORD: &[u8; 32] = b"12345678901234567890123456789012";
 
 use rpassword::read_password;
 use scrypt::Params;
