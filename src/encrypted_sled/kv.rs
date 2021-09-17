@@ -37,8 +37,6 @@ where
     open(db_name, Password(DEFAULT_PASSWORD.to_string()))
 }
 
-// TODO: pass cipher as a templated parameter?
-// TODO: pass random seed?
 pub struct EncryptedDb {
     kv: sled::Db,
     cipher: XChaCha20Poly1305,
@@ -46,7 +44,8 @@ pub struct EncryptedDb {
 
 impl EncryptedDb {
     fn get_random_nonce() -> XNonceArray {
-        rand::random()
+        use rand::Rng;
+        rand::thread_rng().gen::<XNonceArray>()
     }
 
     fn encrypt(&self, value: &[u8]) -> EncryptedDbResult<Record> {
