@@ -6,7 +6,7 @@ use super::{
     types::{KeyReservation, DEFAULT_RESERV},
 };
 use crate::encrypted_sled;
-use crate::password::Password;
+use crate::password::Entropy;
 
 // testdir creates a test directory at $TMPDIR.
 // Mac: /var/folders/v4/x_j3jj7d6ql4gjdf7b7jvjhm0000gn/T/testdir-of-$(USER)
@@ -20,12 +20,12 @@ fn clean_up(kv_name: &str, kv: encrypted_sled::Db) {
     std::fs::remove_dir_all(kv_name).unwrap();
 }
 
-pub(super) const DEFAULT_PASSWORD: &str = "12345678901234567890123456789012"; // 32 bytes
+pub(super) const DEFAULT_PASSWORD: &[u8; 32] = b"12345678901234567890123456789012";
 pub fn open_without_password<P>(db_name: P) -> encrypted_sled::Result<encrypted_sled::Db>
 where
     P: AsRef<std::path::Path>,
 {
-    encrypted_sled::open(db_name, &Password(DEFAULT_PASSWORD.to_string()))
+    encrypted_sled::open(db_name, &Entropy(DEFAULT_PASSWORD.to_vec()))
 }
 
 #[test]

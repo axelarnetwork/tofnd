@@ -6,6 +6,7 @@ use constants::DEFAULT_PASSWORD;
 use result::{PasswordError::Read, PasswordResult};
 
 use rpassword::read_password;
+use scrypt::Params;
 
 /// zeroize Entropy and Password
 use serde::{Deserialize, Serialize};
@@ -27,15 +28,21 @@ pub enum PasswordMethod {
     Prompt,
 }
 impl PasswordMethod {
-    pub fn get(&self) -> PasswordResult<Password> {
+    pub fn get(&self) -> PasswordResult<Entropy> {
         let res = match self {
-            Self::DefaultPassword => Password(DEFAULT_PASSWORD.to_owned()), // test password
+            Self::DefaultPassword => Entropy(DEFAULT_PASSWORD.to_vec()), // test password
             Self::Prompt => {
-                println!("Please type in your password:");
-                // TODO: KDF on password
-                let password =
-                    format!("{:0>32}", read_password().map_err(|e| Read(e.to_string()))?);
-                Password(password)
+                println!("Please type your password:");
+                let password = Password(read_password().map_err(|e| Read(e.to_string()))?);
+                let mut output = Entropy(vec![0; 32]);
+                scrypt::scrypt(
+                    password.0.as_bytes(),
+                    b"",
+                    &Params::default(),
+                    &mut output.0,
+                )
+                .unwrap();
+                output
             }
         };
         Ok(res)
