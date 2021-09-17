@@ -17,10 +17,10 @@ const VERIFICATION_VALUE: &str = "tofnd";
 
 /// create a new [EncryptedDb]
 /// wraps sled::open(db_name) and passes password from a key derivation function
-pub fn open(db_name: &str, password: Password) -> EncryptedDbResult<EncryptedDb> {
-    // use password to create a key for cipher
-
-    // Create cipher from password
+pub fn open<P>(db_name: P, password: Password) -> EncryptedDbResult<EncryptedDb>
+where
+    P: AsRef<std::path::Path>,
+{
     // TODO: pass password from KDF
     let key = Key::from_slice(password.0[0..32].as_ref());
     let cipher = ChaCha20Poly1305::new(key);
