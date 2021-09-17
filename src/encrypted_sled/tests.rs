@@ -66,7 +66,7 @@ fn test_password() {
     );
     assert!(matches!(
         db,
-        Err(super::error::EncryptedDbError::WrongPassword)
+        Err(super::result::EncryptedDbError::WrongPassword)
     ));
     drop(db);
 
@@ -74,6 +74,6 @@ fn test_password() {
     let db = open_without_password(&db_path);
     assert!(matches!(
         db,
-        Err(super::error::EncryptedDbError::WrongPassword)
+        Err(super::result::EncryptedDbError::WrongPassword)
     ));
 }

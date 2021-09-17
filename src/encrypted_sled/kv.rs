@@ -6,7 +6,7 @@ use sled::IVec;
 use super::record::Record;
 use super::{
     constants::*,
-    error::{
+    result::{
         EncryptedDbError::{Decryption, Encryption, WrongPassword},
         EncryptedDbResult,
     },

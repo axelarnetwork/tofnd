@@ -2,16 +2,16 @@
 //! We use [chacha20poly1305::XChaCha20] because the nonces are generated randomly.
 
 mod constants;
-pub mod error;
 pub mod kv;
 pub mod record;
+pub mod result;
 
 // match the API of sled
-pub use error::EncryptedDbError as Error;
-pub use error::EncryptedDbResult as Result;
 pub use kv::open;
 pub use kv::open_without_password;
 pub use kv::EncryptedDb as Db;
+pub use result::EncryptedDbError as Error;
+pub use result::EncryptedDbResult as Result;
 
 // type aliases
 type XNonceArray = [u8; 24];
