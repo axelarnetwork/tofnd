@@ -1289,6 +1289,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pbkdf2"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f05894bce6a1ba4be299d0c5f29563e08af2bc18bb7d48313113bed71e904739"
+dependencies = [
+ "crypto-mac 0.11.1",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1590,6 +1599,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rpassword"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffc936cf8a7ea60c58f030fd36a612a48f440610214dc54bc36431f9ea0c3efb"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "rust-gmp-kzen"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1619,10 +1638,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 
 [[package]]
+name = "salsa20"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecbd2eb639fd7cab5804a0837fe373cc2172d15437e804c054a9fb885cb923b0"
+dependencies = [
+ "cipher",
+]
+
+[[package]]
 name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
+
+[[package]]
+name = "scrypt"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f2cc535b6997b0c755bf9344e71ca0e1be070d07ff792f1fcd31e7b90e07d5f"
+dependencies = [
+ "hmac 0.11.0",
+ "pbkdf2 0.9.0",
+ "salsa20",
+ "sha2",
+]
 
 [[package]]
 name = "serde"
@@ -1876,7 +1916,7 @@ dependencies = [
  "anyhow",
  "hmac 0.8.1",
  "once_cell",
- "pbkdf2",
+ "pbkdf2 0.4.0",
  "rand 0.7.3",
  "rustc-hash",
  "sha2",
@@ -1932,6 +1972,8 @@ dependencies = [
  "log",
  "prost",
  "rand 0.8.4",
+ "rpassword",
+ "scrypt",
  "serde",
  "sled",
  "testdir",
