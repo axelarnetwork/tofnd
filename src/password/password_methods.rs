@@ -1,7 +1,7 @@
 const DEFAULT_PASSWORD: &[u8; 32] = b"12345678901234567890123456789012";
 use super::{
     result::{
-        PasswordError::{InvalidOutputLen, Read},
+        PasswordError::{InvalidOutputLen, InvalidParams},
         PasswordResult,
     },
     Entropy, Password,
