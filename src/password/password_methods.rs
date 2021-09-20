@@ -18,13 +18,13 @@ use scrypt::{scrypt, Params};
 /// Defines how the [Entropy] will be retrieved
 #[derive(Clone, Debug)]
 pub enum PasswordMethod {
-    DefaultPassword,
+    NoPassword,
     Prompt,
 }
 impl PasswordMethod {
     pub fn get(&self) -> PasswordResult<Entropy> {
         let res = match self {
-            Self::DefaultPassword => default_entropy(),
+            Self::NoPassword => unsafe_entropy(),
             Self::Prompt => entropy_from_prompt()?,
         };
         Ok(res)
@@ -49,6 +49,6 @@ fn entropy_from_password(password: Password) -> PasswordResult<Entropy> {
 }
 
 /// Get a default entropy. Attention: This is **NOT** safely generated.
-fn default_entropy() -> Entropy {
-    Entropy(DEFAULT_ENTROPY.to_owned())
+fn unsafe_entropy() -> Entropy {
+    Entropy(UNSAFE_ENTROPY.to_owned())
 }

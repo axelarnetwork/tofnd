@@ -196,7 +196,7 @@ mod tests {
         let mnemonic_kv_path = testdir.join("mnemonic");
         let mnemonic_kv_path = mnemonic_kv_path.to_str().unwrap();
 
-        let password = PasswordMethod::DefaultPassword.get().unwrap();
+        let password = PasswordMethod::NoPassword.get().unwrap();
         Gg20Service {
             shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned(), &password).unwrap(),
             mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned(), &password).unwrap(),

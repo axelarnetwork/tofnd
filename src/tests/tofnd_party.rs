@@ -57,7 +57,7 @@ impl TofndParty {
             port: server_port,
             safe_keygen: false,
             tofnd_path: tofnd_path.to_string(),
-            password_method: PasswordMethod::DefaultPassword,
+            password_method: PasswordMethod::NoPassword,
             #[cfg(feature = "malicious")]
             behaviours: Behaviours {
                 keygen: init_party.malicious_data.keygen_behaviour.clone(),

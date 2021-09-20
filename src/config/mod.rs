@@ -34,7 +34,7 @@ impl Default for Config {
             safe_keygen: true,
             mnemonic_cmd: Cmd::Noop,
             tofnd_path: DEFAULT_PATH_ROOT.to_string(),
-            password_method: PasswordMethod::DefaultPassword,
+            password_method: PasswordMethod::Prompt,
             #[cfg(feature = "malicious")]
             behaviours: Behaviours::default(),
         }
@@ -122,7 +122,7 @@ pub fn parse_args() -> TofndResult<Config> {
         .to_string();
 
     let password_method = match matches.is_present("no-password") {
-        true => PasswordMethod::DefaultPassword,
+        true => PasswordMethod::NoPassword,
         false => PasswordMethod::Prompt,
     };
 
