@@ -31,7 +31,7 @@ where
     let cipher = XChaCha20Poly1305::new(key);
 
     let kv = sled::open(db_name).map_err(CorruptionError)?;
-    EncryptedDb { kv, cipher }.with_handle_password_verification()
+    EncryptedDb::new(kv, cipher)
 }
 
 /// A [sled] kv store with [XChaCha20Poly1305] value encryption.
@@ -41,6 +41,10 @@ pub struct EncryptedDb {
 }
 
 impl EncryptedDb {
+    fn new(kv: sled::Db, cipher: XChaCha20Poly1305) -> EncryptedDbResult<Self> {
+        Self { kv, cipher }.with_handle_password_verification()
+    }
+
     /// get a new random nonce to use for value encryption using [rand::thread_rng]
     fn get_random_nonce() -> XChaCha20Nonce {
         use rand::Rng;
