@@ -68,3 +68,21 @@ fn test_password() {
         Err(super::result::EncryptedDbError::WrongPassword)
     ));
 }
+
+#[test]
+fn test_large_input() {
+    let db_path = testdir!("large_input");
+
+    let db = open(
+        &db_path,
+        &Entropy(b"an example very very secret key.".to_owned()),
+    )
+    .unwrap();
+
+    let large_value = vec![0; 100000];
+    let res = db.insert("key", large_value.clone()).unwrap();
+    assert!(res.is_none());
+
+    let res = db.get("key").unwrap();
+    assert_eq!(res, Some(sled::IVec::from(large_value)));
+}
