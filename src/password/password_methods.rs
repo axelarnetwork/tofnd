@@ -19,8 +19,8 @@ pub enum PasswordMethod {
 impl PasswordMethod {
     pub fn get(&self) -> PasswordResult<Entropy> {
         let res = match self {
-            Self::DefaultPassword => default_password(),
             Self::Prompt => password_from_prompt()?,
+            Self::DefaultPassword => default_entropy(),
         };
         Ok(res)
     }
@@ -37,6 +37,6 @@ fn password_from_prompt() -> PasswordResult<Entropy> {
     Ok(output)
 }
 
-fn default_password() -> Entropy {
-    Entropy(DEFAULT_PASSWORD.to_vec())
+fn default_entropy() -> Entropy {
+    Entropy(DEFAULT_ENTROPY.to_vec())
 }
