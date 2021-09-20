@@ -1,7 +1,7 @@
 //! Public API for kvstore operations
 //! Errors are mapped to [super::error::KvError]
 
-use crate::{encrypted_sled, password::Entropy};
+use crate::encrypted_sled::{self, Entropy};
 
 use super::{
     error::{KvError::*, KvResult},

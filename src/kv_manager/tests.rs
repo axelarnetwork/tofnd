@@ -5,8 +5,7 @@ use super::{
     sled_bindings::{handle_exists, handle_get, handle_put, handle_remove, handle_reserve},
     types::{KeyReservation, DEFAULT_RESERV},
 };
-use crate::encrypted_sled;
-use crate::password::Entropy;
+use crate::encrypted_sled::{self, Entropy};
 
 // testdir creates a test directory at $TMPDIR.
 // Mac: /var/folders/v4/x_j3jj7d6ql4gjdf7b7jvjhm0000gn/T/testdir-of-$(USER)
@@ -25,7 +24,7 @@ pub fn open_without_password<P>(db_name: P) -> encrypted_sled::Result<encrypted_
 where
     P: AsRef<std::path::Path>,
 {
-    encrypted_sled::open(db_name, &Entropy(DEFAULT_PASSWORD.to_vec()))
+    encrypted_sled::open(db_name, &Entropy(DEFAULT_PASSWORD.to_owned()))
 }
 
 #[test]

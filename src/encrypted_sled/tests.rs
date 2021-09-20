@@ -1,5 +1,4 @@
-use crate::encrypted_sled::open;
-use crate::password::Entropy;
+use crate::encrypted_sled::{open, types::XChaCha20Entropy as Entropy};
 use testdir::testdir;
 
 #[test]
@@ -7,7 +6,7 @@ fn test_encrypted_sled() {
     let db_path = testdir!("encrypted_db");
     let db = open(
         &db_path,
-        &Entropy(b"an example very very secret key.".to_vec()),
+        &Entropy(b"an example very very secret key.".to_owned()),
     )
     .unwrap();
 
@@ -54,7 +53,7 @@ fn test_password() {
 
     let db = open(
         &db_path,
-        &Entropy(b"an example very very secret key.".to_vec()),
+        &Entropy(b"an example very very secret key.".to_owned()),
     );
     assert!(db.is_ok());
     drop(db);
@@ -62,7 +61,7 @@ fn test_password() {
     // try to open the kv store using a different password
     let db = open(
         &db_path,
-        &Entropy(b"an example very very secret key!".to_vec()), // replace '.' with '!'
+        &Entropy(b"an example very very secret key!".to_owned()), // replace '.' with '!'
     );
     assert!(matches!(
         db,

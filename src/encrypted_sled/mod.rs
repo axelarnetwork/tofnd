@@ -1,10 +1,12 @@
 //! Wrap a layer of encryption around [sled]. We use [chacha20poly1305] to encrypt/decrypt values.
-//! We use [chacha20poly1305::XChaCha20] because the nonces are generated randomly.
+//! Specifically, use [chacha20poly1305::XChaCha20] because the nonces are generated randomly.
+//! To create an new [Db], an [Entropy] needs to be provided.
 
 mod constants;
-pub mod kv;
-pub mod record;
-pub mod result;
+mod kv;
+mod record;
+mod result;
+mod types;
 
 // match the API of sled
 pub use kv::open;
@@ -12,9 +14,7 @@ pub use kv::EncryptedDb as Db;
 pub use result::EncryptedDbError as Error;
 pub use result::EncryptedDbResult as Result;
 
-// type aliases
-type XNonceArray = [u8; 24];
-type BytesArray = Vec<u8>;
+pub use types::XChaCha20Entropy as Entropy;
 
 #[cfg(test)]
 mod tests;
