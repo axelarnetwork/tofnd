@@ -29,12 +29,11 @@ Terminate the server with `ctrl+C`.
 
 ## Password
 
-`tofnd` expects a password from standard input to encrypt user's data each time it starts. Be sure to store this password at a safe place. It is recommended to store `tofnd`'s password using a password manager or the keyring of your operating system.
+By default, `tofnd` prompts for a password from stdin immediately upon launch.  This password is used to encrypt on-disk storage.  It is the responsibility of the user to keep this password safe.
+
+Users may automate password entry as they see fit.  Some examples follow.  These examples are not necessarily secure as written---it's the responsibility of the user to secure password entry.
 
 ```
-# prompt user to type password
-$ ./tofnd
-
 # feed password from MacOS keyring
 $ security find-generic-password -a $(whoami) -s "tofnd" -w | ./tofnd
 
@@ -51,7 +50,7 @@ $ echo $PASSWORD | ./tofnd
 $ cat ./password.txt | ./tofnd
 ```
 
-*Notes:  When a keyring is used, then users might need to insert their keyring password and `tofnd` will not start automatically.*
+Sophisticated users may explicitly opt out of password entry via the `--no-password` terminal argument (see below).  In this case, on-disk storage is not secure---it is the responsibility of the user to take additional steps to secure on-disk storage.
 
 ## Command line arguments
 

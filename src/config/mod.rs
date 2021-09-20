@@ -55,7 +55,7 @@ pub fn parse_args() -> TofndResult<Config> {
             // TODO: change to something like `--unsafe-primes`
             Arg::with_name("unsafe")
                 .help(
-                    "Use unsafe primes. Deactivated by default. **Important note** This option should only be used for testing.",
+                    "Use unsafe primes for generation of Pailler encryption keys. (default: deactivated) **Security warning:** This option is intented for use only in tests.  Do not use this option to secure real value.",
                 )
                 .long("unsafe")
                 .required(false)
@@ -65,7 +65,7 @@ pub fn parse_args() -> TofndResult<Config> {
         .arg(
             Arg::with_name("no-password")
                 .help(
-                    "Skip providing a password. Disabled by default. **Important note** If --no-password is set, the a default (and public) password is used to encrypt.",
+                    "Skip providing a password. (default: disabled) **Security warning:** If this option is set then on-disk storage is encrypted with a default (and insecure) password.",
                 )
                 .long("no-password")
                 .required(false)

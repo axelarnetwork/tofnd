@@ -1,7 +1,7 @@
 //! Wrap [sled] with [chacha20poly1305] encryption. An [XChaCha20Entropy] is
 //! used as [XChaCha20Poly1305] cipher key to create an [EncryptedDb].
 //! A new random [XChaCha20Nonce] is created everytime a new value needs to be
-//! inserted, forming a [Record]:<encrypted value, nonce>. The nonce is leter
+//! inserted, forming a [Record]:<encrypted value, nonce>. The nonce is later
 //! used to decrypt and retrieve the originally inserted value.
 
 use chacha20poly1305::aead::{AeadInPlace, NewAead};
