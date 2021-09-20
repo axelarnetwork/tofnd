@@ -1,4 +1,5 @@
 use super::{
+    constants::*,
     result::{
         PasswordError::{InvalidOutputLen, InvalidParams},
         PasswordResult,
@@ -25,8 +26,6 @@ impl PasswordMethod {
     }
 }
 
-// I have nothing up my sleeve: sha3 hash of "tofnd"
-const DEFAULT_SALT: &[u8] = b"f0e740929cd80bdf1a672567874d997a36463b85aa53ae37ab0f7840c657f05de7c4e71a28f53e6a8d6e78a8ba654424627ff0218bb87ba33b66c9d4e6d15fbc";
 fn password_from_prompt() -> PasswordResult<Entropy> {
     println!("Please type your password:");
     let password = Password(read_password()?);
@@ -38,7 +37,6 @@ fn password_from_prompt() -> PasswordResult<Entropy> {
     Ok(output)
 }
 
-const DEFAULT_PASSWORD: &[u8; 32] = b"12345678901234567890123456789012";
 fn default_password() -> Entropy {
     Entropy(DEFAULT_PASSWORD.to_vec())
 }

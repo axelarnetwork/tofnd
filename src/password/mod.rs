@@ -1,3 +1,4 @@
+mod constants;
 mod password_methods;
 mod result;
 
