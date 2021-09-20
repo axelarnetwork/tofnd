@@ -14,7 +14,7 @@ pub use kv::EncryptedDb as Db;
 pub use result::EncryptedDbError as Error;
 pub use result::EncryptedDbResult as Result;
 
-pub use types::XChaCha20Entropy as Entropy;
+pub use types::EncryptedDbKey as Entropy;
 
 #[cfg(test)]
 mod tests;

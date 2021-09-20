@@ -1,4 +1,4 @@
-use crate::encrypted_sled::{open, types::XChaCha20Entropy as Entropy};
+use crate::encrypted_sled::{open, types::EncryptedDbKey as Entropy};
 use testdir::testdir;
 
 #[test]

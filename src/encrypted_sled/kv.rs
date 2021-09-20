@@ -10,7 +10,7 @@ use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
 use sled::IVec;
 
 use super::record::Record;
-use super::types::{XChaCha20Entropy, XChaCha20Nonce};
+use super::types::{EncryptedDbKey, XChaCha20Nonce};
 use super::{
     constants::*,
     result::{
@@ -23,7 +23,7 @@ use super::{
 /// Retrieves [XChaCha20Entropy] from a password-based-key-derivation-function and
 /// verifies that the password is valid.
 /// See [crate::password] for more info on pdkdf.
-pub fn open<P>(db_name: P, entropy: &XChaCha20Entropy) -> EncryptedDbResult<EncryptedDb>
+pub fn open<P>(db_name: P, entropy: &EncryptedDbKey) -> EncryptedDbResult<EncryptedDb>
 where
     P: AsRef<std::path::Path>,
 {
