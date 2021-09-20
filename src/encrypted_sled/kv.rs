@@ -46,9 +46,9 @@ impl EncryptedDb {
     }
 
     /// get a new random nonce to use for value encryption using [rand::thread_rng]
-    fn get_random_nonce() -> XChaCha20Nonce {
+    fn get_random_nonce() -> XNonce {
         use rand::Rng;
-        rand::thread_rng().gen::<XChaCha20Nonce>()
+        rand::thread_rng().gen::<XChaCha20Nonce>().into()
     }
 
     /// create a new [Record] containing an encrypted value and a newly derived random nonce
@@ -56,18 +56,17 @@ impl EncryptedDb {
     where
         V: Into<IVec>,
     {
-        let random_nonce = Self::get_random_nonce();
-        let nonce = XNonce::from_slice(&random_nonce);
+        let nonce = Self::get_random_nonce();
 
         let mut value = value.into().to_vec();
 
         // encrypt value
         self.cipher
-            .encrypt_in_place(nonce, b"", &mut value)
+            .encrypt_in_place(&nonce, b"", &mut value)
             .map_err(|e| Encryption(e.to_string()))?;
 
         // return record
-        Ok(Record::new(value, random_nonce))
+        Ok(Record::new(value, nonce))
     }
 
     /// derive a decrypted value from a [Record] containing an encrypted value and a random nonce

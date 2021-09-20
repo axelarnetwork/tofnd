@@ -1,6 +1,7 @@
 //! The value of [super::Db].
 
 use super::types::{BytesArray, XChaCha20Nonce};
+use chacha20poly1305::XNonce;
 use serde::{Deserialize, Serialize};
 use sled::IVec;
 
@@ -11,10 +12,10 @@ pub(super) struct Record {
     pub(super) nonce: XChaCha20Nonce,
 }
 impl Record {
-    pub(super) fn new(encrypted_value: Vec<u8>, nonce: XChaCha20Nonce) -> Self {
+    pub(super) fn new(encrypted_value: Vec<u8>, nonce: XNonce) -> Self {
         Record {
             encrypted_value,
-            nonce,
+            nonce: nonce.into(),
         }
     }
     /// Convert a [Record] to bytes using serde.
