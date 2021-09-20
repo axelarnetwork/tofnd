@@ -10,7 +10,7 @@ use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
 use sled::IVec;
 
 use super::record::Record;
-use super::types::{BytesArray, XChaCha20Entropy, XChaCha20Nonce};
+use super::types::{XChaCha20Entropy, XChaCha20Nonce};
 use super::{
     constants::*,
     result::{
@@ -71,7 +71,7 @@ impl EncryptedDb {
     }
 
     /// derive a decrypted value from a [Record] containing an encrypted value and a random nonce
-    fn decrypt_record_value(&self, record: Record) -> EncryptedDbResult<BytesArray> {
+    fn decrypt_record_value(&self, record: Record) -> EncryptedDbResult<IVec> {
         // get nonce
         let nonce = XNonce::from_slice(&record.nonce);
 
@@ -83,7 +83,7 @@ impl EncryptedDb {
             .map_err(|e| Decryption(e.to_string()))?;
 
         // return decrypted value
-        Ok(value)
+        Ok(value.into())
     }
 
     /// derive a decrypted value from [Record] bytes
