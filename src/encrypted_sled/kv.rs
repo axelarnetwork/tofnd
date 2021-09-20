@@ -48,39 +48,38 @@ impl EncryptedDb {
     }
 
     /// create a new [Record] containing an encrypted value and a newly derived random nonce
-    fn encrypt(&self, value: &[u8]) -> EncryptedDbResult<Record> {
+    fn encrypt<V>(&self, value: V) -> EncryptedDbResult<Record>
+    where
+        V: Into<IVec>,
+    {
         let random_nonce = Self::get_random_nonce();
         let nonce = XNonce::from_slice(&random_nonce);
 
-        // create a 128-byte buffer to fill with encrypted value
-        let mut buffer: BytesArray = Vec::with_capacity(BUFFER_SIZE);
-        buffer.extend_from_slice(value.as_ref());
+        let mut value = value.into().to_vec();
 
         // encrypt value
         self.cipher
-            .encrypt_in_place(nonce, b"", &mut buffer)
+            .encrypt_in_place(nonce, b"", &mut value)
             .map_err(|e| Encryption(e.to_string()))?;
 
         // return record
-        Ok(Record::new(buffer, random_nonce))
+        Ok(Record::new(value, random_nonce))
     }
 
     /// derive a decrypted value from a [Record] containing an encrypted value and a random nonce
-    fn decrypt_record_value(&self, record: &Record) -> EncryptedDbResult<BytesArray> {
+    fn decrypt_record_value(&self, record: Record) -> EncryptedDbResult<BytesArray> {
         // get nonce
         let nonce = XNonce::from_slice(&record.nonce);
 
-        // create a 128-byte buffer to fill with decrypted value
-        let mut buffer: BytesArray = Vec::with_capacity(BUFFER_SIZE);
-        buffer.extend_from_slice(record.encrypted_value.as_ref());
+        let mut value = record.encrypted_value;
 
         // decrypt value
         self.cipher
-            .decrypt_in_place(nonce, b"", &mut buffer)
+            .decrypt_in_place(nonce, b"", &mut value)
             .map_err(|e| Decryption(e.to_string()))?;
 
         // return decrypted value
-        Ok(buffer)
+        Ok(value)
     }
 
     /// derive a decrypted value from [Record] bytes
@@ -88,7 +87,7 @@ impl EncryptedDb {
         let res = match record_bytes {
             Some(record_bytes) => {
                 let record = Record::from_bytes(&record_bytes)?;
-                let decrypted_value_bytes = self.decrypt_record_value(&record)?.into();
+                let decrypted_value_bytes = self.decrypt_record_value(record)?.into();
                 Some(decrypted_value_bytes)
             }
             None => None,
@@ -97,12 +96,12 @@ impl EncryptedDb {
     }
 
     /// Insert a key to a new encrypted value, returning and decrypting the last value if it was set.
-    pub fn insert<K, V>(&self, key: K, encrypted_value: V) -> EncryptedDbResult<Option<IVec>>
+    pub fn insert<K, V>(&self, key: K, value: V) -> EncryptedDbResult<Option<IVec>>
     where
         K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
+        V: Into<IVec>,
     {
-        let record = self.encrypt(encrypted_value.as_ref())?;
+        let record = self.encrypt(value)?;
         let prev_record_bytes_opt = self.kv.insert(&key, record.as_bytes()?)?;
         self.decrypt(prev_record_bytes_opt)
     }
