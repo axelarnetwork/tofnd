@@ -19,18 +19,22 @@ pub enum PasswordMethod {
 impl PasswordMethod {
     pub fn get(&self) -> PasswordResult<Entropy> {
         let res = match self {
-            Self::Prompt => password_from_prompt()?,
             Self::DefaultPassword => default_entropy(),
+            Self::Prompt => entropy_from_prompt()?,
         };
         Ok(res)
     }
 }
 
-fn password_from_prompt() -> PasswordResult<Entropy> {
+fn entropy_from_prompt() -> PasswordResult<Entropy> {
     println!("Please type your password:");
     let password = Password(read_password()?);
+    entropy_from_pbkfd2(password)
+}
+
+fn entropy_from_pbkfd2(password: Password) -> PasswordResult<Entropy> {
     let mut output = Entropy(vec![0; 32]);
-    // log_n = 10 to instantly get the entropy; rest params are defaults
+    // set log_n = 10 for better UX. Rest of params are the defaults.
     let params = Params::new(10, 8, 1).map_err(InvalidParams)?;
     scrypt(password.0.as_bytes(), DEFAULT_SALT, &params, &mut output.0)
         .map_err(InvalidOutputLen)?;
