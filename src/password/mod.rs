@@ -6,6 +6,5 @@
 mod constants;
 mod password_methods;
 mod result;
-mod types;
 
 pub use password_methods::PasswordMethod;

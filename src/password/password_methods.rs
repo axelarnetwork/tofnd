@@ -6,8 +6,13 @@ use super::{
         PasswordError::{InvalidOutputLen, InvalidParams},
         PasswordResult,
     },
-    types::Password,
 };
+use zeroize::Zeroize;
+
+/// Safely store strings
+#[derive(Zeroize, Clone)]
+#[zeroize(drop)]
+pub struct Password(String);
 
 /// The entropy will be used for [crate::encrypted_sled::Db] which currently uses XChaCha20
 use crate::encrypted_sled::Entropy;
