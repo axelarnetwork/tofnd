@@ -1,6 +1,6 @@
 //! The value of [super::Db].
 
-use super::types::{BytesArray, XChaCha20Nonce};
+use super::types::XChaCha20Nonce;
 use chacha20poly1305::XNonce;
 use serde::{Deserialize, Serialize};
 use sled::IVec;
@@ -19,7 +19,7 @@ impl Record {
         }
     }
     /// Convert a [Record] to bytes using serde.
-    pub(super) fn as_bytes(&self) -> bincode::Result<BytesArray> {
+    pub(super) fn as_bytes(&self) -> bincode::Result<Vec<u8>> {
         bincode::serialize(&self)
     }
     /// Convert bytes to a [Record] using serde.

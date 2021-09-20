@@ -8,4 +8,3 @@ pub struct XChaCha20Entropy(pub [u8; 32]);
 
 /// Nonce is public, no need to zeroize
 pub(super) type XChaCha20Nonce = [u8; 24];
-pub(super) type BytesArray = Vec<u8>;
