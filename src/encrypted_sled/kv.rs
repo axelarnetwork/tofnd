@@ -90,7 +90,7 @@ impl EncryptedDb {
         let res = match record_bytes {
             Some(record_bytes) => {
                 let record = Record::from_bytes(&record_bytes)?;
-                let decrypted_value_bytes = self.decrypt_record_value(record)?.into();
+                let decrypted_value_bytes = self.decrypt_record_value(record)?;
                 Some(decrypted_value_bytes)
             }
             None => None,
