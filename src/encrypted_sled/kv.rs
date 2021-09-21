@@ -6,6 +6,7 @@
 
 use chacha20poly1305::aead::{AeadInPlace, NewAead};
 use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
+use rand::Rng;
 
 use sled::IVec;
 
@@ -47,7 +48,6 @@ impl EncryptedDb {
 
     /// get a new random nonce to use for value encryption using [rand::thread_rng]
     fn get_random_nonce() -> XNonce {
-        use rand::Rng;
         rand::thread_rng().gen::<XChaCha20Nonce>().into()
     }
 
