@@ -1,8 +1,9 @@
 //! Handles the generation of an [Entropy] from user's password using [scrypt] pbkdf.
+use std::convert::{TryFrom, TryInto};
 
 use super::{constants::UNSAFE_PASSWORD, result::EncryptedDbResult};
 
-use rpassword::read_password;
+use sled::IVec;
 use zeroize::Zeroize;
 
 /// Safely store strings
@@ -17,7 +18,29 @@ impl AsRef<[u8]> for Password {
     }
 }
 
-pub type PasswordSalt = [u8; 32];
+pub struct PasswordSalt([u8; 32]);
+
+impl AsRef<[u8]> for PasswordSalt {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl From<[u8; 32]> for PasswordSalt {
+    fn from(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl TryFrom<IVec> for PasswordSalt {
+    type Error = std::array::TryFromSliceError;
+
+    fn try_from(value: IVec) -> Result<Self, Self::Error> {
+        Ok(Self(value.as_ref().try_into()?))
+    }
+}
+
+use rpassword::read_password;
 
 /// Specifies how [password] will be retrieved
 #[derive(Clone, Debug)]
