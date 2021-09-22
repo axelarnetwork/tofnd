@@ -34,6 +34,7 @@ pub async fn new_service(
         password.clone(),
     )
     .map_err(|err| anyhow!("Shares KV store error: {}", err))?;
+
     let mnemonic_kv = MnemonicKv::new(cfg.tofnd_path.as_str(), DEFAULT_MNEMONIC_KV_NAME, password)
         .map_err(|err| anyhow!("Mnemonic KV store error: {}", err))?;
 
