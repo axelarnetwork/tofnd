@@ -9,6 +9,7 @@ use chacha20poly1305::{self, XChaCha20Poly1305};
 use rand::RngCore;
 
 use sled::IVec;
+use zeroize::Zeroize;
 
 use super::constants::*;
 use super::password::{Password, PasswordSalt};
@@ -44,8 +45,11 @@ impl EncryptedDb {
             password_salt
         };
 
-        let key = Self::chacha20poly1305_kdf(password, password_salt)?;
+        // zeroize key since we are no longer using it after creating cipher
+        let mut key = Self::chacha20poly1305_kdf(password, password_salt)?;
         let cipher = XChaCha20Poly1305::new(&key);
+        key.zeroize();
+
         let encrypted_db = EncryptedDb { kv, cipher };
 
         // verify that [password] is correct
