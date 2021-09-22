@@ -4,8 +4,6 @@
 //! inserted, forming a [EncryptedRecord]:<encrypted value, nonce>. The nonce is later
 //! used to decrypt and retrieve the originally inserted value.
 
-use std::convert::TryInto;
-
 use chacha20poly1305::aead::{AeadInPlace, NewAead};
 use chacha20poly1305::{self, XChaCha20Poly1305};
 use rand::RngCore;
@@ -34,17 +32,16 @@ impl EncryptedDb {
     {
         let kv = sled::open(db_name)?;
 
-        let password_salt: PasswordSalt = if kv.was_recovered() {
+        let password_salt = if kv.was_recovered() {
             // existing kv: get the existing password salt
-            kv.get(PASSWORD_SALT_KEY)?
-                .ok_or(MissingPasswordSalt)?
-                .try_into()?
+            let bytes = kv.get(PASSWORD_SALT_KEY)?.ok_or(MissingPasswordSalt)?;
+            bincode::deserialize(&bytes)?
         } else {
             // new kv: choose a new password salt and store it
             let mut password_salt = [0u8; 32];
             rand::thread_rng().fill_bytes(&mut password_salt);
-            kv.insert(PASSWORD_SALT_KEY, &password_salt)?;
-            password_salt.into()
+            kv.insert(PASSWORD_SALT_KEY, bincode::serialize(&password_salt)?)?;
+            password_salt
         };
 
         let key = Self::chacha20poly1305_kdf(password, password_salt)?;
