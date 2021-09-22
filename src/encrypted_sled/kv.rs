@@ -71,10 +71,13 @@ impl EncryptedDb {
     ) -> EncryptedDbResult<chacha20poly1305::Key> {
         let mut output = [0u8; 32];
 
-        // set log_n = 10 for better UX (~1 sec). Rest of params are the defaults.
-        let params = scrypt::Params::new(10, 8, 1)?;
-
-        scrypt::scrypt(password.as_ref(), salt.as_ref(), &params, &mut output)?;
+        // default params: log_n = 15, r = 8, p = 1
+        scrypt::scrypt(
+            password.as_ref(),
+            salt.as_ref(),
+            &scrypt::Params::default(),
+            &mut output,
+        )?;
 
         Ok(output.into())
     }
