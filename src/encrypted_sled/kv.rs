@@ -1,7 +1,7 @@
 //! Wrap [sled] with [chacha20poly1305] encryption. An [XChaCha20Entropy] is
 //! used as [XChaCha20Poly1305] cipher key to create an [EncryptedDb].
 //! A new random [XChaCha20Nonce] is created every time a new value needs to be
-//! inserted, forming a [Record]:<encrypted value, nonce>. The nonce is later
+//! inserted, forming a [EncryptedRecord]:<encrypted value, nonce>. The nonce is later
 //! used to decrypt and retrieve the originally inserted value.
 
 use std::convert::TryInto;
@@ -14,7 +14,7 @@ use sled::IVec;
 
 use super::constants::*;
 use super::password::{Password, PasswordSalt};
-use super::record::Record;
+use super::record::EncryptedRecord;
 use super::result::{EncryptedDbError::*, EncryptedDbResult};
 
 /// A [sled] kv store with [XChaCha20Poly1305] value encryption.
@@ -89,8 +89,8 @@ impl EncryptedDb {
         bytes.into()
     }
 
-    /// create a new [Record] containing an encrypted value and a newly derived random nonce
-    fn encrypt<V>(&self, value: V) -> EncryptedDbResult<Record>
+    /// create a new [EncryptedRecord] containing an encrypted value and a newly derived random nonce
+    fn encrypt<V>(&self, value: V) -> EncryptedDbResult<EncryptedRecord>
     where
         V: Into<IVec>,
     {
@@ -104,11 +104,11 @@ impl EncryptedDb {
             .map_err(|e| Encryption(e.to_string()))?;
 
         // return record
-        Ok(Record::new(value, nonce))
+        Ok(EncryptedRecord::new(value, nonce))
     }
 
-    /// derive a decrypted value from a [Record] containing an encrypted value and a random nonce
-    fn decrypt_record_value(&self, record: Record) -> EncryptedDbResult<IVec> {
+    /// derive a decrypted value from a [EncryptedRecord] containing an encrypted value and a random nonce
+    fn decrypt_record_value(&self, record: EncryptedRecord) -> EncryptedDbResult<IVec> {
         let (mut value, nonce) = record.into();
 
         // decrypt value
@@ -120,11 +120,11 @@ impl EncryptedDb {
         Ok(value.into())
     }
 
-    /// derive a decrypted value from [Record] bytes
+    /// derive a decrypted value from [EncryptedRecord] bytes
     fn decrypt(&self, record_bytes: Option<IVec>) -> EncryptedDbResult<Option<IVec>> {
         let res = match record_bytes {
             Some(record_bytes) => {
-                let record = Record::from_bytes(&record_bytes)?;
+                let record = EncryptedRecord::from_bytes(&record_bytes)?;
                 let decrypted_value_bytes = self.decrypt_record_value(record)?;
                 Some(decrypted_value_bytes)
             }

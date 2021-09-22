@@ -6,29 +6,29 @@ use sled::IVec;
 
 /// The value of [super::Db].
 #[derive(Serialize, Deserialize, Debug)]
-pub(super) struct Record {
+pub(super) struct EncryptedRecord {
     encrypted_value: Vec<u8>,
     nonce: [u8; 24],
 }
-impl Record {
+impl EncryptedRecord {
     pub(super) fn new(encrypted_value: Vec<u8>, nonce: XNonce) -> Self {
-        Record {
+        EncryptedRecord {
             encrypted_value,
             nonce: nonce.into(),
         }
     }
-    /// Convert a [Record] to bytes using serde.
+    /// Convert a [EncryptedRecord] to bytes using serde.
     pub(super) fn as_bytes(&self) -> bincode::Result<Vec<u8>> {
         bincode::serialize(&self)
     }
-    /// Convert bytes to a [Record] using serde.
-    pub(super) fn from_bytes(bytes: &IVec) -> bincode::Result<Record> {
+    /// Convert bytes to a [EncryptedRecord] using serde.
+    pub(super) fn from_bytes(bytes: &IVec) -> bincode::Result<EncryptedRecord> {
         bincode::deserialize(bytes)
     }
 }
 
-impl From<Record> for (Vec<u8>, XNonce) {
-    fn from(record: Record) -> Self {
+impl From<EncryptedRecord> for (Vec<u8>, XNonce) {
+    fn from(record: EncryptedRecord) -> Self {
         (record.encrypted_value, record.nonce.into())
     }
 }
