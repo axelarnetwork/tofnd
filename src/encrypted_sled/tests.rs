@@ -1,14 +1,10 @@
-use crate::encrypted_sled::{open, types::EncryptedDbKey as Entropy};
+use super::{kv::EncryptedDb, Password};
 use testdir::testdir;
 
 #[test]
 fn test_encrypted_sled() {
     let db_path = testdir!("encrypted_db");
-    let db = open(
-        &db_path,
-        &Entropy(b"an example very very secret key.".to_owned()),
-    )
-    .unwrap();
+    let db = EncryptedDb::open(&db_path, get_test_password()).unwrap();
 
     // insert <key: value> -> returns None
     let res = db.insert("key", "value").unwrap();
@@ -51,17 +47,14 @@ fn test_encrypted_sled() {
 fn test_password() {
     let db_path = testdir!("test_password");
 
-    let db = open(
-        &db_path,
-        &Entropy(b"an example very very secret key.".to_owned()),
-    );
+    let db = EncryptedDb::open(&db_path, Password::from("super-secret password."));
     assert!(db.is_ok());
     drop(db);
 
     // try to open the kv store using a different password
-    let db = open(
+    let db = EncryptedDb::open(
         &db_path,
-        &Entropy(b"an example very very secret key!".to_owned()), // replace '.' with '!'
+        Password::from("super-secret password!"), // replace '.' with '!'
     );
     assert!(matches!(
         db,
@@ -73,11 +66,7 @@ fn test_password() {
 fn test_large_input() {
     let db_path = testdir!("large_input");
 
-    let db = open(
-        &db_path,
-        &Entropy(b"an example very very secret key.".to_owned()),
-    )
-    .unwrap();
+    let db = EncryptedDb::open(&db_path, get_test_password()).unwrap();
 
     let large_value = vec![0; 100000];
     let res = db.insert("key", large_value.clone()).unwrap();
@@ -85,4 +74,10 @@ fn test_large_input() {
 
     let res = db.get("key").unwrap();
     assert_eq!(res, Some(sled::IVec::from(large_value)));
+}
+
+pub fn get_test_password() -> Password {
+    crate::encrypted_sled::PasswordMethod::NoPassword
+        .execute()
+        .unwrap()
 }

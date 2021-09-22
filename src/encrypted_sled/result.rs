@@ -2,8 +2,12 @@
 
 #[derive(thiserror::Error, Debug)]
 pub enum EncryptedDbError {
-    #[error("Your mnemonic kv store is corrupted. Please remove it and import your mnemonic again. Error: {0}")]
-    CorruptionError(sled::Error),
+    #[error("Password read error: {0}")]
+    PasswordRead(#[from] std::io::Error), // rpassword::read_password() Error
+    #[error("Password scrypt params error: {0}")]
+    PasswordScryptParams(#[from] scrypt::errors::InvalidParams),
+    #[error("Password scrypt error: {0}")]
+    PasswordScryptError(#[from] scrypt::errors::InvalidOutputLen),
     #[error("Sled error: {0}")]
     SledError(#[from] sled::Error),
     #[error("Deserialization error: {0}")]
@@ -14,5 +18,9 @@ pub enum EncryptedDbError {
     Decryption(String),
     #[error("Wrong password")]
     WrongPassword,
+    #[error("Missing password salt")]
+    MissingPasswordSalt,
+    #[error("Malformed password salt: {0}")]
+    MalformedPasswordSalt(#[from] std::array::TryFromSliceError),
 }
 pub type EncryptedDbResult<Success> = Result<Success, EncryptedDbError>;

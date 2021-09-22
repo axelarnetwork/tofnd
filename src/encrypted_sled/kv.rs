@@ -1,39 +1,22 @@
 //! Wrap [sled] with [chacha20poly1305] encryption. An [XChaCha20Entropy] is
 //! used as [XChaCha20Poly1305] cipher key to create an [EncryptedDb].
-//! A new random [XChaCha20Nonce] is created everytime a new value needs to be
+//! A new random [XChaCha20Nonce] is created every time a new value needs to be
 //! inserted, forming a [Record]:<encrypted value, nonce>. The nonce is later
 //! used to decrypt and retrieve the originally inserted value.
 
+use std::convert::TryInto;
+
 use chacha20poly1305::aead::{AeadInPlace, NewAead};
-use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
-use rand::Rng;
+use chacha20poly1305::{self, XChaCha20Poly1305, XNonce};
+use rand::{Rng, RngCore};
 
 use sled::IVec;
 
+use super::constants::*;
+use super::password::{Password, PasswordSalt};
 use super::record::Record;
-use super::types::{EncryptedDbKey, XChaCha20Nonce};
-use super::{
-    constants::*,
-    result::{
-        EncryptedDbError::{CorruptionError, Decryption, Encryption, WrongPassword},
-        EncryptedDbResult,
-    },
-};
-
-/// create a new [EncryptedDb] that wraps sled::open(db_name).
-/// Retrieves [XChaCha20Entropy] from a password-based-key-derivation-function and
-/// verifies that the password is valid.
-/// See [crate::password] for more info on pdkdf.
-pub fn open<P>(db_name: P, entropy: &EncryptedDbKey) -> EncryptedDbResult<EncryptedDb>
-where
-    P: AsRef<std::path::Path>,
-{
-    let key = Key::from_slice(entropy.0.as_ref());
-    let cipher = XChaCha20Poly1305::new(key);
-
-    let kv = sled::open(db_name).map_err(CorruptionError)?;
-    EncryptedDb::new(kv, cipher)
-}
+use super::result::{EncryptedDbError::*, EncryptedDbResult};
+use super::types::XChaCha20Nonce;
 
 /// A [sled] kv store with [XChaCha20Poly1305] value encryption.
 pub struct EncryptedDb {
@@ -42,8 +25,59 @@ pub struct EncryptedDb {
 }
 
 impl EncryptedDb {
-    fn new(kv: sled::Db, cipher: XChaCha20Poly1305) -> EncryptedDbResult<Self> {
-        Self { kv, cipher }.with_handle_password_verification()
+    /// create a new [EncryptedDb] that wraps sled::open(db_name).
+    /// Retrieves [XChaCha20Entropy] from a password-based-key-derivation-function and
+    /// verifies that the password is valid.
+    /// See [crate::password] for more info on pdkdf.
+    pub fn open<P>(db_name: P, password: Password) -> EncryptedDbResult<Self>
+    where
+        P: AsRef<std::path::Path>,
+    {
+        let kv = sled::open(db_name)?;
+
+        let password_salt: PasswordSalt = if kv.was_recovered() {
+            // existing kv: get the existing password salt
+            kv.get(PASSWORD_SALT_KEY)?
+                .ok_or(MissingPasswordSalt)?
+                .try_into()?
+        } else {
+            // new kv: choose a new password salt and store it
+            let mut password_salt = [0u8; 32];
+            rand::thread_rng().fill_bytes(&mut password_salt);
+            kv.insert(PASSWORD_SALT_KEY, &password_salt)?;
+            password_salt.into()
+        };
+
+        let key = Self::chacha20poly1305_kdf(password, password_salt)?;
+        let cipher = XChaCha20Poly1305::new(&key);
+        let encrypted_db = EncryptedDb { kv, cipher };
+
+        // verify that [password] is correct
+        if encrypted_db.kv.was_recovered() {
+            // existing kv: can we decrypt the verification value?
+            encrypted_db
+                .get(PASSWORD_VERIFICATION_KEY)
+                .map_err(|_| WrongPassword)?;
+        } else {
+            // new kv: encrypt the verification value
+            encrypted_db.insert(PASSWORD_VERIFICATION_KEY, PASSWORD_VERIFICATION_VALUE)?;
+        }
+
+        Ok(encrypted_db)
+    }
+
+    fn chacha20poly1305_kdf(
+        password: Password,
+        salt: PasswordSalt,
+    ) -> EncryptedDbResult<chacha20poly1305::Key> {
+        let mut output = [0u8; 32];
+
+        // set log_n = 10 for better UX (~1 sec). Rest of params are the defaults.
+        let params = scrypt::Params::new(10, 8, 1)?;
+
+        scrypt::scrypt(password.as_ref(), salt.as_ref(), &params, &mut output)?;
+
+        Ok(*chacha20poly1305::Key::from_slice(&output))
     }
 
     /// get a new random nonce to use for value encryption using [rand::thread_rng]
@@ -138,22 +172,6 @@ impl EncryptedDb {
     /// Returns true if the database was recovered from a previous process.
     pub fn was_recovered(&self) -> bool {
         self.kv.was_recovered()
-    }
-
-    /// Checks if the kv store is created using the correct password.
-    pub fn with_handle_password_verification(self) -> EncryptedDbResult<Self> {
-        // check if re recovered
-        match self.kv.was_recovered() {
-            true => {
-                // if we recovered, check if we can get the verification correctly
-                let _ = self.get(VERIFICATION_KEY).map_err(|_| WrongPassword)?;
-            }
-            false => {
-                // if opened for the first time, insert a default record to enable verification
-                let _ = self.insert(VERIFICATION_KEY, VERIFICATION_VALUE)?;
-            }
-        }
-        Ok(self)
     }
 
     #[cfg(test)]

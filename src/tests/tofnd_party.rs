@@ -7,8 +7,8 @@ use super::{mock::SenderReceiver, Deliverer, InitParty, Party};
 use crate::{
     addr,
     config::Config,
+    encrypted_sled::{get_test_password, PasswordMethod},
     gg20::{self, mnemonic::Cmd},
-    password::PasswordMethod,
     proto,
 };
 
@@ -66,7 +66,7 @@ impl TofndParty {
         };
 
         // start service
-        let my_service = gg20::service::new_service(cfg)
+        let my_service = gg20::service::new_service(cfg, get_test_password())
             .await
             .expect("unable to create service");
 
