@@ -7,8 +7,8 @@
 use std::convert::TryInto;
 
 use chacha20poly1305::aead::{AeadInPlace, NewAead};
-use chacha20poly1305::{self, XChaCha20Poly1305, XNonce};
-use rand::{Rng, RngCore};
+use chacha20poly1305::{self, XChaCha20Poly1305};
+use rand::RngCore;
 
 use sled::IVec;
 
@@ -16,7 +16,6 @@ use super::constants::*;
 use super::password::{Password, PasswordSalt};
 use super::record::Record;
 use super::result::{EncryptedDbError::*, EncryptedDbResult};
-use super::types::XChaCha20Nonce;
 
 /// A [sled] kv store with [XChaCha20Poly1305] value encryption.
 pub struct EncryptedDb {
@@ -77,12 +76,14 @@ impl EncryptedDb {
 
         scrypt::scrypt(password.as_ref(), salt.as_ref(), &params, &mut output)?;
 
-        Ok(*chacha20poly1305::Key::from_slice(&output))
+        Ok(output.into())
     }
 
     /// get a new random nonce to use for value encryption using [rand::thread_rng]
-    fn get_random_nonce() -> XNonce {
-        rand::thread_rng().gen::<XChaCha20Nonce>().into()
+    fn get_random_nonce() -> chacha20poly1305::XNonce {
+        let mut bytes = [0u8; 24];
+        rand::thread_rng().fill_bytes(&mut bytes);
+        bytes.into()
     }
 
     /// create a new [Record] containing an encrypted value and a newly derived random nonce
@@ -105,14 +106,11 @@ impl EncryptedDb {
 
     /// derive a decrypted value from a [Record] containing an encrypted value and a random nonce
     fn decrypt_record_value(&self, record: Record) -> EncryptedDbResult<IVec> {
-        // get nonce
-        let nonce = XNonce::from_slice(&record.nonce);
-
-        let mut value = record.encrypted_value;
+        let (mut value, nonce) = record.into();
 
         // decrypt value
         self.cipher
-            .decrypt_in_place(nonce, b"", &mut value)
+            .decrypt_in_place(&nonce, b"", &mut value)
             .map_err(|e| Decryption(e.to_string()))?;
 
         // return decrypted value

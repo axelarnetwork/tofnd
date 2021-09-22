@@ -1,6 +1,5 @@
 //! The value of [super::Db].
 
-use super::types::XChaCha20Nonce;
 use chacha20poly1305::XNonce;
 use serde::{Deserialize, Serialize};
 use sled::IVec;
@@ -8,8 +7,8 @@ use sled::IVec;
 /// The value of [super::Db].
 #[derive(Serialize, Deserialize, Debug)]
 pub(super) struct Record {
-    pub(super) encrypted_value: Vec<u8>,
-    pub(super) nonce: XChaCha20Nonce,
+    encrypted_value: Vec<u8>,
+    nonce: [u8; 24],
 }
 impl Record {
     pub(super) fn new(encrypted_value: Vec<u8>, nonce: XNonce) -> Self {
@@ -25,5 +24,11 @@ impl Record {
     /// Convert bytes to a [Record] using serde.
     pub(super) fn from_bytes(bytes: &IVec) -> bincode::Result<Record> {
         bincode::deserialize(bytes)
+    }
+}
+
+impl From<Record> for (Vec<u8>, XNonce) {
+    fn from(record: Record) -> Self {
+        (record.encrypted_value, record.nonce.into())
     }
 }
