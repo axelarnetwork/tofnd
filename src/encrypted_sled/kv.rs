@@ -31,7 +31,7 @@ impl EncryptedDb {
     where
         P: AsRef<std::path::Path>,
     {
-        let kv = sled::open(db_name)?;
+        let kv = sled::open(db_name).map_err(CorruptedKv)?;
 
         let password_salt = if kv.was_recovered() {
             // existing kv: get the existing password salt

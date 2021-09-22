@@ -2,6 +2,8 @@
 
 #[derive(thiserror::Error, Debug)]
 pub enum EncryptedDbError {
+    #[error("Your kv store may be corrupted. Sled error: {0}")]
+    CorruptedKv(sled::Error),
     #[error("Password read error: {0}")]
     PasswordRead(#[from] std::io::Error), // rpassword::read_password() Error
     #[error("Password scrypt params error: {0}")]
