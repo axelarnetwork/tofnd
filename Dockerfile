@@ -46,4 +46,5 @@ VOLUME [ "/.tofnd" ]
 
 ENV UNSAFE ""
 ENV MNEMONIC_CMD ""
+ENV NOPASSWORD ""
 ENTRYPOINT ["/entrypoint.sh"]
