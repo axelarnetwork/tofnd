@@ -84,7 +84,7 @@ impl EncryptedDb {
     }
 
     /// get a new random nonce to use for value encryption using [rand::thread_rng]
-    fn get_random_nonce() -> chacha20poly1305::XNonce {
+    fn generate_nonce() -> chacha20poly1305::XNonce {
         let mut bytes = [0u8; 24];
         rand::thread_rng().fill_bytes(&mut bytes);
         bytes.into()
@@ -95,7 +95,7 @@ impl EncryptedDb {
     where
         V: Into<IVec>,
     {
-        let nonce = Self::get_random_nonce();
+        let nonce = Self::generate_nonce();
 
         let mut value = value.into().to_vec();
 
