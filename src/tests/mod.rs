@@ -10,6 +10,7 @@
 use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 use testdir::testdir;
+use tonic::Code;
 
 mod mock;
 mod tofnd_party;
@@ -450,9 +451,9 @@ async fn keygen_init_fail(test_case: &TestCase, dir: &Path) {
     )
     .await;
 
-    // all results must Err(Status)
+    // all results must be Err(Status) with Code::Internal
     for result in results {
-        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().code(), Code::Internal);
     }
 
     clean_up(parties).await;
@@ -472,7 +473,7 @@ async fn sign_init_fail(test_case: &TestCase, dir: &Path) {
     assert!(success);
 
     // attempt to execute keygen again
-    let (_, results) = execute_sign(
+    let (parties, results) = execute_sign(
         parties,
         &party_uids,
         &test_case.signer_indices,
@@ -483,10 +484,12 @@ async fn sign_init_fail(test_case: &TestCase, dir: &Path) {
     )
     .await;
 
-    // all results must Err(Status)
+    // all results must be Err(Status) with Code::Internal
     for result in results {
-        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().code(), Code::Internal);
     }
+
+    clean_up(parties).await;
 }
 
 // struct to pass in TofndParty constructor.
