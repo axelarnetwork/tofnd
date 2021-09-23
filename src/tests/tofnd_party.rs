@@ -3,7 +3,7 @@
 //       For now, we use `#[allow(allow)]` instead of `#[cfg(feature = "malicious")]` because it
 //       produces less friction in the code. Should implement a beeter solution soon.
 
-use super::{mock::SenderReceiver, Deliverer, InitParty, Party};
+use super::{mock::SenderReceiver, Deliverer, GrpcKeygenResult, GrpcSignResult, InitParty, Party};
 use crate::{
     addr,
     config::Config,
@@ -213,7 +213,7 @@ impl Party for TofndParty {
         init: proto::KeygenInit,
         channels: SenderReceiver,
         delivery: Deliverer,
-    ) -> KeygenResult {
+    ) -> GrpcKeygenResult {
         let my_uid = init.party_uids[usize::try_from(init.my_party_index).unwrap()].clone();
         let (keygen_server_incoming, rx) = channels;
         let mut keygen_server_outgoing = self
@@ -246,11 +246,30 @@ impl Party for TofndParty {
             })
             .unwrap();
 
-        let mut result: Option<KeygenResult> = None;
-
         #[allow(unused_variables)]
         let mut msg_count = 1;
-        while let Some(msg) = keygen_server_outgoing.message().await.unwrap() {
+
+        let result = loop {
+            let msg = match keygen_server_outgoing.message().await {
+                Ok(msg) => match msg {
+                    Some(msg) => msg,
+                    None => {
+                        warn!(
+                            "party [{}] keygen execution was not completed due to abort",
+                            my_uid
+                        );
+                        return Ok(KeygenResult::default());
+                    }
+                },
+                Err(status) => {
+                    warn!(
+                        "party [{}] keygen execution was not completed due to connection error: {}",
+                        my_uid, status
+                    );
+                    return Err(status);
+                }
+            };
+
             let msg_type = msg.data.as_ref().expect("missing data");
 
             match msg_type {
@@ -276,23 +295,16 @@ impl Party for TofndParty {
                     delivery.deliver(&msg, &my_uid);
                 }
                 proto::message_out::Data::KeygenResult(res) => {
-                    result = Some(res.clone());
                     info!("party [{}] keygen finished!", my_uid);
-                    break;
+                    break Ok(res.clone());
                 }
                 _ => panic!("party [{}] keygen error: bad outgoing message type", my_uid),
             };
             msg_count += 1;
-        }
-
-        if result.is_none() {
-            warn!("party [{}] keygen execution was not completed", my_uid);
-            return KeygenResult::default();
-        }
+        };
 
         info!("party [{}] keygen execution complete", my_uid);
-
-        result.unwrap()
+        result
     }
 
     async fn execute_recover(

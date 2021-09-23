@@ -81,6 +81,13 @@ async fn run_restart_recover_test_cases(test_cases: &[TestCase]) {
     }
 }
 
+async fn run_keygen_fail_test_cases(test_cases: &[TestCase]) {
+    let dir = testdir!();
+    for test_case in test_cases {
+        keygen_init_fail(test_case, &dir).await;
+    }
+}
+
 // Horrible code duplication indeed. Don't think we should spend time here though
 // because this will be deleted when axelar-core accommodates crimes
 fn successful_keygen_results(results: Vec<KeygenResult>, expected_faults: &CriminalList) -> bool {
@@ -286,6 +293,8 @@ async fn basic_keygen(
     )
     .await;
 
+    // a successful keygen does not have grpc errors
+    let results = results.into_iter().map(|r| r.unwrap()).collect::<Vec<_>>();
     let success = successful_keygen_results(results.clone(), expected_keygen_faults);
     (parties, keygen_init, results, success)
 }
@@ -406,11 +415,41 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool, 
         expect_timeout,
     )
     .await;
+    let results = results.into_iter().map(|r| r.unwrap()).collect::<Vec<_>>();
     check_sign_results(results, expected_sign_faults);
 
     clean_up(parties).await;
 }
 
+async fn keygen_init_fail(test_case: &TestCase, dir: &Path) {
+    // set up a key uid
+    let new_key_uid = "test-key";
+
+    // use test case params to create parties
+    let (parties, party_uids) = init_parties_from_test_case(test_case, dir).await;
+
+    // execute keygen and return everything that will be needed later on
+    let (parties, _, _, _) =
+        basic_keygen(test_case, parties, party_uids.clone(), new_key_uid).await;
+
+    // attempt to execute keygen again
+    let (parties, results, _) = execute_keygen(
+        parties,
+        &party_uids,
+        &test_case.share_counts,
+        new_key_uid,
+        test_case.threshold,
+        false,
+    )
+    .await;
+
+    // all results must Err(Status)
+    for result in results {
+        assert!(result.is_err());
+    }
+
+    clean_up(parties).await;
+}
 // struct to pass in TofndParty constructor.
 // needs to include malicious when we are running in malicious mode
 struct InitParty {
@@ -544,6 +583,10 @@ fn delete_dbs(parties: &[impl Party]) {
     }
 }
 
+use tonic::Status;
+type GrpcKeygenResult = Result<KeygenResult, Status>;
+type GrpcSignResult = Result<SignResult, Status>;
+
 // need to take ownership of parties `parties` and return it on completion
 async fn execute_keygen(
     parties: Vec<TofndParty>,
@@ -552,7 +595,7 @@ async fn execute_keygen(
     new_key_uid: &str,
     threshold: usize,
     expect_timeout: bool,
-) -> (Vec<TofndParty>, Vec<KeygenResult>, proto::KeygenInit) {
+) -> (Vec<TofndParty>, Vec<GrpcKeygenResult>, proto::KeygenInit) {
     info!("Expecting timeout: [{}]", expect_timeout);
     let share_count = parties.len();
     let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(party_uids);

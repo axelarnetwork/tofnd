@@ -1,5 +1,8 @@
 use crate::tests::TestCase;
-use crate::tests::{run_restart_recover_test_cases, run_restart_test_cases, run_test_cases};
+use crate::tests::{
+    run_keygen_fail_test_cases, run_restart_recover_test_cases, run_restart_test_cases,
+    run_sign_fail_test_cases, run_test_cases,
+};
 
 #[cfg(feature = "malicious")]
 use super::malicious::MaliciousData;
@@ -26,6 +29,11 @@ async fn honest_test_cases_with_restart_recover() {
     run_restart_recover_test_cases(&generate_honest_cases()).await;
 }
 
+#[traced_test]
+#[tokio::test]
+async fn keygen_fail_cases() {
+    run_keygen_fail_test_cases(&generate_fail_cases()).await;
+}
 impl TestCase {
     pub(super) fn new(
         uid_count: usize,

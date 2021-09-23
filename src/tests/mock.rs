@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tracing::error;
 
+use super::{GrpcKeygenResult, GrpcSignResult};
+
 #[tonic::async_trait]
 pub(super) trait Party: Sync + Send {
     async fn execute_keygen(
@@ -11,7 +13,7 @@ pub(super) trait Party: Sync + Send {
         init: proto::KeygenInit,
         channels: SenderReceiver,
         delivery: Deliverer,
-    ) -> KeygenResult;
+    ) -> GrpcKeygenResult;
     async fn execute_recover(
         &mut self,
         keygen_init: proto::KeygenInit,
