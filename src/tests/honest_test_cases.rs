@@ -75,6 +75,6 @@ pub(super) fn generate_honest_cases() -> Vec<TestCase> {
 pub(super) fn generate_fail_cases() -> Vec<TestCase> {
     vec![
         TestCase::new(1, vec![], 0, vec![0]), // trivial case
-                                              // TestCase::new(5, vec![1, 2, 1, 3, 2], 6, vec![1, 4, 2, 3]), // multiple shares per uid
+        TestCase::new(5, vec![1, 2, 1, 3, 2], 6, vec![1, 4, 2, 3]), // multiple shares per uid
     ]
 }
