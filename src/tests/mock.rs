@@ -1,5 +1,4 @@
 use crate::proto;
-use proto::message_out::{KeygenResult, SignResult};
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tracing::error;
@@ -26,7 +25,7 @@ pub(super) trait Party: Sync + Send {
         channels: SenderReceiver,
         delivery: Deliverer,
         my_uid: &str,
-    ) -> SignResult;
+    ) -> GrpcSignResult;
     async fn shutdown(mut self);
     fn get_root(&self) -> std::path::PathBuf;
 }

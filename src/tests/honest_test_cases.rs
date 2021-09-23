@@ -34,6 +34,13 @@ async fn honest_test_cases_with_restart_recover() {
 async fn keygen_fail_cases() {
     run_keygen_fail_test_cases(&generate_fail_cases()).await;
 }
+
+#[traced_test]
+#[tokio::test]
+async fn sign_fail_cases() {
+    run_sign_fail_test_cases(&generate_fail_cases()).await;
+}
+
 impl TestCase {
     pub(super) fn new(
         uid_count: usize,
@@ -62,5 +69,12 @@ pub(super) fn generate_honest_cases() -> Vec<TestCase> {
         TestCase::new(5, vec![1, 2, 1, 3, 2], 6, vec![1, 4, 2, 3]), // multiple shares per uid
         TestCase::new(1, vec![1], 0, vec![0]),         // trivial case
         // TestCase::new(5, vec![1,2,3,4,20], 27, vec![0, 1, 4, 3, 2]), // Create a malicious party
+    ]
+}
+
+pub(super) fn generate_fail_cases() -> Vec<TestCase> {
+    vec![
+        TestCase::new(1, vec![], 0, vec![0]), // trivial case
+                                              // TestCase::new(5, vec![1, 2, 1, 3, 2], 6, vec![1, 4, 2, 3]), // multiple shares per uid
     ]
 }

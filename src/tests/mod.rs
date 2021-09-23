@@ -88,6 +88,13 @@ async fn run_keygen_fail_test_cases(test_cases: &[TestCase]) {
     }
 }
 
+async fn run_sign_fail_test_cases(test_cases: &[TestCase]) {
+    let dir = testdir!();
+    for test_case in test_cases {
+        sign_init_fail(test_case, &dir).await;
+    }
+}
+
 // Horrible code duplication indeed. Don't think we should spend time here though
 // because this will be deleted when axelar-core accommodates crimes
 fn successful_keygen_results(results: Vec<KeygenResult>, expected_faults: &CriminalList) -> bool {
@@ -450,6 +457,38 @@ async fn keygen_init_fail(test_case: &TestCase, dir: &Path) {
 
     clean_up(parties).await;
 }
+
+async fn sign_init_fail(test_case: &TestCase, dir: &Path) {
+    // set up a key uid
+    let new_key_uid = "test-key";
+    let new_sign_uid = "sign-test-key";
+
+    // use test case params to create parties
+    let (parties, party_uids) = init_parties_from_test_case(test_case, dir).await;
+
+    // execute keygen and return everything that will be needed later on
+    let (parties, _, _, success) =
+        basic_keygen(test_case, parties, party_uids.clone(), new_key_uid).await;
+    assert!(success);
+
+    // attempt to execute keygen again
+    let (_, results) = execute_sign(
+        parties,
+        &party_uids,
+        &test_case.signer_indices,
+        new_key_uid,
+        new_sign_uid,
+        &MSG_TO_SIGN[0..MSG_TO_SIGN.len() - 1],
+        false,
+    )
+    .await;
+
+    // all results must Err(Status)
+    for result in results {
+        assert!(result.is_err());
+    }
+}
+
 // struct to pass in TofndParty constructor.
 // needs to include malicious when we are running in malicious mode
 struct InitParty {
@@ -713,7 +752,7 @@ async fn execute_sign(
     new_sig_uid: &str,
     msg_to_sign: &[u8],
     expect_timeout: bool,
-) -> (Vec<TofndParty>, Vec<proto::message_out::SignResult>) {
+) -> (Vec<TofndParty>, Vec<GrpcSignResult>) {
     info!("Expecting timeout: [{}]", expect_timeout);
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
@@ -755,12 +794,12 @@ async fn execute_sign(
         abort_parties(unblocker, 10);
     }
 
-    let mut results = vec![SignResult::default(); sign_join_handles.len()];
+    let mut results = Vec::with_capacity(sign_join_handles.len());
     for (i, h) in sign_join_handles {
         info!("Running party {}", i);
         let handle = h.await.unwrap();
         party_options[sign_participant_indices[i]] = Some(handle.0);
-        results[i] = handle.1;
+        results.push(handle.1);
     }
     (
         party_options
