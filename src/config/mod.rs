@@ -7,9 +7,9 @@ use anyhow::anyhow;
 // TODO: move these into constants.rs
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
-const DEFAULT_MNEMONIC_CMD: &str = "create";
+const DEFAULT_MNEMONIC_CMD: &str = "existing";
 const DEFAULT_PORT: &str = "50051";
-const AVAILABLE_MNEMONIC_CMDS: [&str; 5] = ["stored", "create", "import", "update", "export"];
+const AVAILABLE_MNEMONIC_CMDS: [&str; 4] = ["existing", "create", "import", "export"];
 
 #[cfg(feature = "malicious")]
 mod malicious;

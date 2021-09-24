@@ -45,6 +45,8 @@ pub(super) mod mnemonic {
         IntoSecretRecoveryKey(#[from] std::array::TryFromSliceError),
         #[error("Password error: {0}")]
         PasswordErr(String),
+        #[error("Key: {0}")]
+        KeyErr(String),
     }
     pub type InnerMnemonicResult<Success> = Result<Success, InnerMnemonicError>;
 
@@ -52,6 +54,8 @@ pub(super) mod mnemonic {
     pub enum MnemonicError {
         #[error("Command not found: {0}")]
         WrongCommand(String),
+        #[error("Did not find an existing mnemonic: {0}")]
+        ExistingErr(InnerMnemonicError),
         #[error("Cannot create mnemonic: {0}")]
         CreateErr(InnerMnemonicError),
         #[error("Cannot import mnemonic: {0}")]
