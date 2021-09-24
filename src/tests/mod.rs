@@ -241,9 +241,9 @@ async fn init_party(
         malicious_data,
     );
 
-    // assume party already has a mnemonic, so we pass Cmd::Noop
+    // assume party already has a mnemonic, so we pass Cmd::Existing
     party_options[party_index] =
-        Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, testdir).await);
+        Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Existing, testdir).await);
 
     party_options
         .into_iter()
