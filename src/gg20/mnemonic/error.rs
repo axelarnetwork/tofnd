@@ -39,7 +39,7 @@ pub(super) mod mnemonic {
         FileIoErr(#[from] super::file_io::FileIoError),
         #[error("KvStore error: {0}")]
         KvErr(#[from] crate::kv_manager::error::KvError),
-        #[error("Bip39 error: {0}")]
+        #[error("Invalid mnemonic. See https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki. Bip39 error: {0}")]
         Bip39Error(#[from] super::bip39::Bip39Error),
         #[error("Failed to convert to SecretRecoveryKey")]
         IntoSecretRecoveryKey(#[from] std::array::TryFromSliceError),
