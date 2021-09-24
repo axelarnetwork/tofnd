@@ -17,7 +17,7 @@ pub(super) fn handle_reserve(
     // If reserve key already exists inside our database, return an error
     if kv.contains_key(&key)? {
         return Err(LogicalErr(format!(
-            "kv_manager key <{}> already reserved",
+            "kv_manager key <{}> already reserved.",
             key
         )));
     }
@@ -45,7 +45,7 @@ where
     // https://docs.rs/sled/0.34.6/sled/struct.Tree.html#examples-4
     if kv.get(&reservation.key)? != Some(sled::IVec::from(DEFAULT_RESERV)) {
         return Err(LogicalErr(format!(
-            "did not find reservation for key <{}> in kv store",
+            "did not find reservation for key <{}> in kv store.",
             reservation.key
         )));
     }
@@ -69,7 +69,7 @@ where
     let value = match kv.get(&key)? {
         Some(bytes) => bincode::deserialize(&bytes)?,
         None => {
-            return Err(LogicalErr(format!("key <{}> does not have a value", key)));
+            return Err(LogicalErr(format!("key <{}> does not have a value.", key)));
         }
     };
 
@@ -98,7 +98,7 @@ where
     let value = match kv.remove(&key)? {
         Some(bytes) => bincode::deserialize(&bytes)?,
         None => {
-            return Err(LogicalErr(format!("key <{}> does not have a value", key)));
+            return Err(LogicalErr(format!("key <{}> does not have a value.", key)));
         }
     };
 
