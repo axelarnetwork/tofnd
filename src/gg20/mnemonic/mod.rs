@@ -5,16 +5,13 @@
 //!     [Cmd::Create]: creates a new mnemonic; Creates a new mnemonic when none is already imported, otherwise does nothing.
 //!     [Cmd::Import]: adds a new mnemonic from "import" file; Succeeds when there is no other mnemonic already imported, fails otherwise.
 //!     [Cmd::Export]: writes the existing mnemonic to a file; Succeeds when there is an existing mnemonic, fails otherwise.
-//!     [Cmd::Update]: updates existing mnemonic from file "import"; Succeeds when there is an existing mnemonic, fails otherwise.
 //!     In [Cmd::Create], [Cmd::Export] commands, a new "export" file is created that contains the current phrase.
-//!     In [Cmd::Update] command, a new "export" file is created that contains the replaced pasphrase.
 
 pub mod bip39_bindings; // this also needed in tests
 use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed};
 use rpassword::read_password;
 
 pub(super) mod file_io;
-use file_io::IMPORT_FILE;
 
 mod error;
 use error::mnemonic::{
@@ -143,9 +140,8 @@ mod tests {
     use super::*;
     use crate::config::Config;
     use crate::encrypted_sled;
-    use crate::gg20::mnemonic::{bip39_bindings::tests::bip39_to_phrase, file_io::FileIo};
+    use crate::gg20::mnemonic::file_io::FileIo;
     use crate::gg20::{KeySharesKv, MnemonicKv};
-    use std::io::Write;
     use std::path::PathBuf;
     use testdir::testdir;
     use tracing_test::traced_test; // logs for tests
@@ -168,20 +164,6 @@ mod tests {
         }
     }
 
-    fn create_import_file(mut path: PathBuf) {
-        path.push(IMPORT_FILE);
-        let create = std::fs::File::create(path);
-        if create.is_err() {
-            // file already exists. Don't do anything.
-            return;
-        }
-        let mut file = create.unwrap();
-
-        let entropy = bip39_new_w24();
-        let phrase = bip39_to_phrase(entropy).unwrap();
-        file.write_all(phrase.0.as_bytes()).unwrap();
-    }
-
     #[traced_test]
     #[tokio::test]
     async fn test_create() {
@@ -190,21 +172,20 @@ mod tests {
         let gg20 = get_service(testdir);
         // first attempt should succeed
         assert!(gg20.handle_create().await.is_ok());
-        // second attempt should also succeed
-        assert!(gg20.handle_create().await.is_ok());
+        // second attempt should fail
+        assert!(gg20.handle_create().await.is_err());
     }
 
     #[traced_test]
     #[tokio::test]
-    async fn test_import() {
+    async fn test_insert() {
         let testdir = testdir!();
         // create a service
         let gg20 = get_service(testdir.clone());
-        create_import_file(testdir);
-        // first attempt should succeed
-        assert!(gg20.handle_import().await.is_ok());
-        // second attempt should fail
-        assert!(gg20.handle_import().await.is_err())
+        // insert should succeed
+        assert!(gg20.handle_insert(bip39_new_w24()).await.is_ok());
+        // insert should fail
+        assert!(gg20.handle_insert(bip39_new_w24()).await.is_err());
     }
 
     #[traced_test]
@@ -214,11 +195,10 @@ mod tests {
         // create a service
         let gg20 = get_service(testdir.clone());
         // export should fail
-        assert!(gg20.handle_export().await.is_err());
-        create_import_file(testdir);
-        // import should succeed
-        assert!(gg20.handle_import().await.is_ok());
+        assert!(gg20.handle_create().await.is_ok());
         // export should now succeed
         assert!(gg20.handle_export().await.is_ok());
+        // export should now fail
+        assert!(gg20.handle_export().await.is_err());
     }
 }
