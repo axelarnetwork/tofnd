@@ -119,7 +119,7 @@ impl Gg20Service {
 
         // write to file
         info!("Mnemonic found in kv store");
-        Ok(self.io.entropy_to_next_file(entropy)?)
+        Ok(self.io.entropy_to_file(entropy)?)
     }
 }
 

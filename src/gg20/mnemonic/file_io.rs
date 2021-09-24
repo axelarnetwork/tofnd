@@ -7,7 +7,7 @@ use std::{
 
 use tracing::info;
 
-use super::bip39_bindings::bip39_from_entropy;
+use super::{bip39_bindings::bip39_from_entropy, error::file_io::FileIoError::Exists};
 use crate::gg20::types::{Entropy, Password};
 
 /// Standard names
@@ -28,26 +28,22 @@ impl FileIo {
         FileIo { path }
     }
 
-    /// Get the next available "export" filename in self.path
-    /// If "export" exists, "export_2" is created. Then "export_3" etc.
-    fn next_filepath(&self) -> PathBuf {
+    /// Get the path of "export" filename
+    fn filepath(&self) -> PathBuf {
         let mut filepath = self.path.clone();
         filepath.push(EXPORT_FILE);
-        let mut id = 1;
-        while filepath.exists() {
-            filepath = self.path.clone();
-            filepath.push(EXPORT_FILE.to_owned() + "_" + &id.to_string());
-            id += 1;
-        }
         filepath
     }
 
     /// Creates a file that contains an entropy in it's human-readable form
-    pub(super) fn entropy_to_next_file(&self, entropy: Entropy) -> FileIoResult<()> {
+    pub(super) fn entropy_to_file(&self, entropy: Entropy) -> FileIoResult<()> {
         // delegate zeroization for entropy; no need to worry about mnemonic, it is cleaned automatically
         let mnemonic = bip39_from_entropy(entropy)?;
         let phrase = mnemonic.phrase();
-        let filepath = self.next_filepath();
+        let filepath = self.filepath();
+        if std::path::Path::new(&filepath).exists() {
+            return Err(Exists(filepath));
+        }
         let mut file = std::fs::File::create(filepath.clone())?;
         file.write_all(phrase.as_bytes())?;
         info!("Mnemonic written in file {:?}", filepath);
@@ -79,8 +75,8 @@ mod tests {
         let io = FileIo { path: testdir!() };
         let entropy = bip39_new_w24();
         let entropy_copy = entropy.clone();
-        let filepath = io.next_filepath();
-        io.entropy_to_next_file(entropy).unwrap();
+        let filepath = io.filepath();
+        io.entropy_to_file(entropy).unwrap();
         let filename = filepath.file_name().unwrap().to_str().unwrap();
         let file_content = io.phrase_from_file(filename).unwrap();
         let expected_content = bip39_to_phrase(entropy_copy).unwrap();
