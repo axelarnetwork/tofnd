@@ -46,8 +46,4 @@ pub(super) enum Command<V> {
         key: String, // TODO should be &str except lifetimes...
         resp: Responder<bool>,
     },
-    Remove {
-        key: String, // TODO should be &str except lifetimes...
-        resp: Responder<V>,
-    },
 }

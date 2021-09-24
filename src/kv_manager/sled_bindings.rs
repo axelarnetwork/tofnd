@@ -87,21 +87,3 @@ pub(super) fn handle_exists(kv: &encrypted_sled::Db, key: &str) -> InnerKvResult
         ))
     })
 }
-
-/// Deletes the key and it's value from the kv store.
-/// Returns [SledErr] of [LogicalErr] on failure.
-pub(super) fn handle_remove<V>(kv: &encrypted_sled::Db, key: String) -> InnerKvResult<V>
-where
-    V: DeserializeOwned,
-{
-    // try to remove value of 'key'
-    let value = match kv.remove(&key)? {
-        Some(bytes) => bincode::deserialize(&bytes)?,
-        None => {
-            return Err(LogicalErr(format!("key <{}> does not have a value.", key)));
-        }
-    };
-
-    // return value
-    Ok(value)
-}
