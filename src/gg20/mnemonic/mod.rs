@@ -40,7 +40,7 @@ pub enum Cmd {
 impl Cmd {
     pub fn from_string(cmd_str: &str) -> MnemonicResult<Self> {
         let cmd = match cmd_str {
-            "stored" => Self::Noop,
+            "existing" => Self::Noop,
             "create" => Self::Create,
             "import" => Self::Import,
             "export" => Self::Export,
