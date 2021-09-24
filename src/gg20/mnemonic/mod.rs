@@ -11,6 +11,7 @@
 
 pub mod bip39_bindings; // this also needed in tests
 use bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed};
+use rpassword::read_password;
 
 pub(super) mod file_io;
 use file_io::IMPORT_FILE;
@@ -109,7 +110,7 @@ impl Gg20Service {
     // Fails if a mnemonic already exists in the kv store
     async fn handle_import(&self) -> InnerMnemonicResult<()> {
         info!("Importing mnemonic");
-        let imported_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
+        let imported_phrase = Password(read_password().map_err(|e| PasswordErr(e.to_string()))?);
         let imported_entropy = bip39_from_phrase(imported_phrase)?;
         self.handle_insert(imported_entropy).await
     }
