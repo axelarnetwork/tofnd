@@ -8,8 +8,8 @@
 
 mod bip39_bindings;
 mod cmd_handler;
-mod error;
 mod file_io;
+mod results;
 
 pub use cmd_handler::Cmd;
 pub use file_io::FileIo;
