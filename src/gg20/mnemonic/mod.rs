@@ -34,7 +34,6 @@ pub enum Cmd {
     Noop,
     Create,
     Import,
-    Update,
     Export,
 }
 
@@ -44,7 +43,6 @@ impl Cmd {
             "stored" => Self::Noop,
             "create" => Self::Create,
             "import" => Self::Import,
-            "update" => Self::Update,
             "export" => Self::Export,
             _ => return Err(WrongCommand(cmd_str.to_string())),
         };
@@ -60,7 +58,6 @@ impl Gg20Service {
             Cmd::Noop => Ok(()),
             Cmd::Create => self.handle_create().await.map_err(CreateErr),
             Cmd::Import => self.handle_import().await.map_err(ImportErr),
-            Cmd::Update => self.handle_update().await.map_err(UpdateErr),
             Cmd::Export => self.handle_export().await.map_err(ExportErr),
         }
     }
@@ -116,34 +113,6 @@ impl Gg20Service {
         let imported_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
         let imported_entropy = bip39_from_phrase(imported_phrase)?;
         self.handle_insert(imported_entropy).await
-    }
-
-    /// Updates a mnemonic.
-    // 1. deletes the existing one
-    // 2. writes an "export" file with the deleted key
-    // 3. reads a new mnemonic from "import" file
-    // 4. delegates the insertions of the new mnemonics to the kv-store, and writes the phrase to an "export" file
-    // Fails if a mnemonic already exists in the kv store, of if no "import" file exists
-    async fn handle_update(&self) -> InnerMnemonicResult<()> {
-        info!("Updating mnemonic");
-
-        // try to delete the old mnemonic
-        let deleted_entropy = self.mnemonic_kv.remove(MNEMONIC_KEY).await.map_err(|err| {
-            error!("Delete error: {}", err);
-            KvErr(err)
-        })?;
-
-        // try to write mnemonic to a new file
-        self.io.entropy_to_next_file(deleted_entropy)?;
-
-        // try to insert new mnemonic
-        let new_phrase = self.io.phrase_from_file(IMPORT_FILE)?;
-
-        // try to get entropy from passphrase
-        let new_entropy = bip39_from_phrase(new_phrase)?;
-
-        // try to insert entropy to kv store
-        Ok(self.handle_insert(new_entropy).await?)
     }
 
     /// Exports the current mnemonic to an "export" file
@@ -243,23 +212,6 @@ mod tests {
         assert!(gg20.handle_import().await.is_ok());
         // second attempt should fail
         assert!(gg20.handle_import().await.is_err())
-    }
-
-    #[traced_test]
-    #[tokio::test]
-    async fn test_update() {
-        let testdir = testdir!();
-        // create a service
-        let gg20 = get_service(testdir.clone());
-        // first attempt to update should fail
-        assert!(gg20.handle_update().await.is_err());
-        create_import_file(testdir);
-        // import should succeed
-        assert!(gg20.handle_import().await.is_ok());
-        // second attempt to update should succeed
-        assert!(gg20.handle_update().await.is_ok());
-        // export should succeed
-        assert!(gg20.handle_export().await.is_ok());
     }
 
     #[traced_test]
