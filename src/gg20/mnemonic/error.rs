@@ -41,6 +41,8 @@ pub(super) mod mnemonic {
         Bip39Error(#[from] super::bip39::Bip39Error),
         #[error("Failed to convert to SecretRecoveryKey")]
         IntoSecretRecoveryKey(#[from] std::array::TryFromSliceError),
+        #[error("Password error: {0}")]
+        PasswordErr(String),
     }
     pub type InnerMnemonicResult<Success> = Result<Success, InnerMnemonicError>;
 
