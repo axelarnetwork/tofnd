@@ -42,7 +42,7 @@ impl Cmd {
 impl Gg20Service {
     pub async fn seed(&self) -> SeedResult<SecretRecoveryKey> {
         let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
-        // A user may decide to protect their mnemonic with a passphrase. If not, pass an empty password
+        // A user may decide to protect their mnemonic with a passphrase. We pass an empty password for now.
         // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
         Ok(bip39_seed(mnemonic, Password("".to_owned()))?
             .as_bytes()
@@ -96,7 +96,7 @@ impl Gg20Service {
         Ok(self.handle_insert(new_entropy).await?)
     }
 
-    // Inserts a new mnemonic to the kv-store.
+    /// Inserts a new mnemonic to the kv-store.
     /// If a mnemonic already exists in the kv store, an error is produced by sled
     /// trying to reserve an existing mnemonic key
     async fn handle_import(&self) -> InnerMnemonicResult<()> {

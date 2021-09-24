@@ -17,11 +17,11 @@ fn dummy_init_party() -> InitParty {
 }
 
 #[tokio::test]
-async fn mnemonic_noop() {
+async fn mnemonic_existing() {
     let dir = testdir!();
     // dummy init data
     let init_party = dummy_init_party();
-    // Noop should succeed
+    // Existing should succeed
     let _ = TofndParty::new(init_party, Cmd::Existing, &dir).await;
 }
 

@@ -1,4 +1,4 @@
-//! This module handles IO to files. More specifically, reading passphrases.
+//! This module handles file IO.
 
 use std::{io::Write, path::PathBuf};
 
