@@ -70,10 +70,9 @@ impl Gg20Service {
         match reservation {
             // if we can reserve, try put
             Ok(reservation) => match self.mnemonic_kv.put(reservation, entropy.to_owned()).await {
-                // if put is ok, write the phrase to a file
                 Ok(()) => {
-                    info!("Mnemonic successfully added in kv store");
-                    Ok(self.io.entropy_to_next_file(entropy)?)
+                    info!("Mnemonic successfully added in kv store. Run `./tofnd -m export` to retrieve it.");
+                    Ok(())
                 }
                 // else return failure
                 Err(err) => {
