@@ -22,6 +22,7 @@ use malicious::{MaliciousData, PartyMaliciousData};
 
 mod mnemonic;
 
+use crate::gg20::mnemonic::Cmd::{self, Create};
 use proto::message_out::CriminalList;
 use tracing::info;
 
@@ -217,6 +218,7 @@ async fn init_party(
     mut party_options: Vec<Option<TofndParty>>,
     party_index: usize,
     testdir: &Path,
+    mnemonic_cmd: Cmd,
     #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
 ) -> Vec<TofndParty> {
     // initialize restarted party with its previous behaviour if we are in malicious mode
@@ -227,8 +229,7 @@ async fn init_party(
     );
 
     // assume party already has a mnemonic, so we pass Cmd::Existing
-    party_options[party_index] =
-        Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Existing, testdir).await);
+    party_options[party_index] = Some(TofndParty::new(init_party, mnemonic_cmd, testdir).await);
 
     party_options
         .into_iter()
@@ -312,6 +313,7 @@ async fn restart_party(
         party_options,
         party_index,
         dir,
+        Cmd::Existing, // open existing mnemonic
         #[cfg(feature = "malicious")]
         malicious_data,
     )
@@ -520,8 +522,7 @@ async fn init_parties(
             #[cfg(feature = "malicious")]
             &init_parties.malicious_data,
         );
-        parties
-            .push(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Create, testdir).await);
+        parties.push(TofndParty::new(init_party, Create, testdir).await);
     }
 
     let party_uids: Vec<String> = (0..init_parties.party_count)
