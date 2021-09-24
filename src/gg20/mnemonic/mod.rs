@@ -1,7 +1,7 @@
 //! This module handles mnemonic-related commands. A kv-store is used to import, edit and export an [Entropy].
 //!
 //! Currently, the API supports the following [Cmd] commands:
-//!     [Cmd::Noop]: does nothing; Always succeeds; useful when the container restarts with the same mnemonic.
+//!     [Cmd::Existing]: uses the existing mnemonic; Fails if mnemonic does not exist.
 //!     [Cmd::Create]: creates a new mnemonic; Creates a new mnemonic when none is already imported, otherwise does nothing.
 //!     [Cmd::Import]: adds a new mnemonic from "import" file; Succeeds when there is no other mnemonic already imported, fails otherwise.
 //!     [Cmd::Export]: writes the existing mnemonic to a file; Succeeds when there is an existing mnemonic, fails otherwise.
@@ -32,7 +32,7 @@ const MNEMONIC_KEY: &str = "mnemonic";
 
 #[derive(Clone, Debug)]
 pub enum Cmd {
-    Noop,
+    Existing,
     Create,
     Import,
     Export,
@@ -41,7 +41,7 @@ pub enum Cmd {
 impl Cmd {
     pub fn from_string(cmd_str: &str) -> MnemonicResult<Self> {
         let cmd = match cmd_str {
-            "existing" => Self::Noop,
+            "existing" => Self::Existing,
             "create" => Self::Create,
             "import" => Self::Import,
             "export" => Self::Export,
@@ -56,7 +56,7 @@ impl Gg20Service {
     /// async function that handles all mnemonic commands
     pub async fn handle_mnemonic(&self) -> MnemonicResult<()> {
         match self.cfg.mnemonic_cmd {
-            Cmd::Noop => Ok(()),
+            Cmd::Existing => Ok(()),
             Cmd::Create => self.handle_create().await.map_err(CreateErr),
             Cmd::Import => self.handle_import().await.map_err(ImportErr),
             Cmd::Export => self.handle_export().await.map_err(ExportErr),

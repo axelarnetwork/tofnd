@@ -57,7 +57,7 @@ async fn mnemonic_noop() {
     // dummy init data
     let init_party = dummy_init_party();
     // Noop should succeed
-    let _ = TofndParty::new(init_party, Cmd::Noop, &dir).await;
+    let _ = TofndParty::new(init_party, Cmd::Existing, &dir).await;
 }
 
 #[tokio::test]

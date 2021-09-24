@@ -32,7 +32,7 @@ impl Default for Config {
         Config {
             port: 50051,
             safe_keygen: true,
-            mnemonic_cmd: Cmd::Noop,
+            mnemonic_cmd: Cmd::Existing,
             tofnd_path: DEFAULT_PATH_ROOT.to_string(),
             password_method: PasswordMethod::Prompt,
             #[cfg(feature = "malicious")]
