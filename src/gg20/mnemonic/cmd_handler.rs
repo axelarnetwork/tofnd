@@ -1,6 +1,6 @@
 use super::{
     bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed},
-    error::mnemonic::{
+    results::mnemonic::{
         InnerMnemonicError::*, InnerMnemonicResult, MnemonicError::*, MnemonicResult, SeedResult,
     },
 };
@@ -11,6 +11,7 @@ use crate::gg20::{
 use tofn::gg20::keygen::SecretRecoveryKey;
 
 use rpassword::read_password;
+use std::convert::TryInto;
 use tracing::{error, info};
 
 // default key to store mnemonic
@@ -40,7 +41,6 @@ impl Cmd {
 /// implement mnemonic-specific functions for Gg20Service
 impl Gg20Service {
     pub async fn seed(&self) -> SeedResult<SecretRecoveryKey> {
-        use std::convert::TryInto;
         let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
         // A user may decide to protect their mnemonic with a passphrase. If not, pass an empty password
         // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
@@ -59,7 +59,7 @@ impl Gg20Service {
         }
     }
 
-    /// inserts entropy to the kv-store and writes inserted value to an "export" file.
+    /// inserts entropy to the kv-store
     /// takes ownership of entropy to delegate zeroization.
     async fn handle_insert(&self, entropy: Entropy) -> InnerMnemonicResult<()> {
         // Don't use `map_err` to make it more readable.
@@ -86,17 +86,19 @@ impl Gg20Service {
         }
     }
 
-    /// Creates a new entropy and delegates insertion to the kv-store
-    /// If a mnemonic already exists in the kv store, sled will produce an error trying to reserve mnemonic key
+    /// Creates a new entropy and inesrts the entropy in the kv-store
+    /// If a mnemonic already exists in the kv store, an error is produced by sled
+    /// trying to reserve an existing mnemonic key
     async fn handle_create(&self) -> InnerMnemonicResult<()> {
         info!("Creating mnemonic");
-        // create an entropy and zeroize after use
+        // create a new entropy
         let new_entropy = bip39_new_w24();
         Ok(self.handle_insert(new_entropy).await?)
     }
 
-    // Inserts a new mnemonic to the kv-store, and writes the phrase to an "export" file
-    // Fails if a mnemonic already exists in the kv store
+    // Inserts a new mnemonic to the kv-store.
+    /// If a mnemonic already exists in the kv store, an error is produced by sled
+    /// trying to reserve an existing mnemonic key
     async fn handle_import(&self) -> InnerMnemonicResult<()> {
         info!("Importing mnemonic");
         let imported_phrase = Password(read_password().map_err(|e| PasswordErr(e.to_string()))?);
@@ -104,7 +106,7 @@ impl Gg20Service {
         self.handle_insert(imported_entropy).await
     }
 
-    /// Exports the current mnemonic to an "export" file
+    /// Exports the current mnemonic to a file
     async fn handle_export(&self) -> InnerMnemonicResult<()> {
         info!("Exporting mnemonic");
 
