@@ -10,7 +10,7 @@
 use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 use testdir::testdir;
-use tonic::Code;
+use tonic::Code::InvalidArgument;
 
 mod mock;
 mod tofnd_party;
@@ -451,9 +451,9 @@ async fn keygen_init_fail(test_case: &TestCase, dir: &Path) {
     )
     .await;
 
-    // all results must be Err(Status) with Code::Internal
+    // all results must be Err(Status) with Code::InvalidArgument
     for result in results {
-        assert_eq!(result.err().unwrap().code(), Code::Internal);
+        assert_eq!(result.err().unwrap().code(), InvalidArgument);
     }
 
     clean_up(parties).await;
@@ -484,9 +484,9 @@ async fn sign_init_fail(test_case: &TestCase, dir: &Path) {
     )
     .await;
 
-    // all results must be Err(Status) with Code::Internal
+    // all results must be Err(Status) with Code::InvalidArgument
     for result in results {
-        assert_eq!(result.err().unwrap().code(), Code::Internal);
+        assert_eq!(result.err().unwrap().code(), InvalidArgument);
     }
 
     clean_up(parties).await;
