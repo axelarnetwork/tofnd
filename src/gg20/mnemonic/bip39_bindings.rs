@@ -7,7 +7,7 @@
 //!   All functions that accept and/or return structs that implement zeroization:
 //!   [crate::gg20::Password], [crate::gg20::Entropy], [bip39::Mnemonic], [bip39::Seed]
 
-use super::error::bip39::{Bip39Error::*, Bip39Result};
+use super::results::bip39::{Bip39Error::*, Bip39Result};
 use crate::gg20::types::{Entropy, Password};
 use bip39::{Language, Mnemonic, Seed};
 

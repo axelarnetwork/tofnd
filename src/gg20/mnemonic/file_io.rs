@@ -4,13 +4,13 @@ use std::{io::Write, path::PathBuf};
 
 use tracing::info;
 
-use super::{bip39_bindings::bip39_from_entropy, error::file_io::FileIoError::Exists};
+use super::{bip39_bindings::bip39_from_entropy, results::file_io::FileIoError::Exists};
 use crate::gg20::types::Entropy;
 
 /// name of export file
 const EXPORT_FILE: &str = "export";
 
-use super::error::file_io::FileIoResult;
+use super::results::file_io::FileIoResult;
 
 /// FileIO wraps all IO functionality
 #[derive(Clone)]
