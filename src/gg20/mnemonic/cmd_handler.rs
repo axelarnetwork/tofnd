@@ -36,10 +36,21 @@ impl Cmd {
         };
         Ok(cmd)
     }
+    /// On [Cmd::Existing], continue tofnd.
+    /// On [Cmd::Create], [Cmd::Import] or [Cmd::Export], exit tofnd.
+    pub fn exit_after_cmd(&self) -> bool {
+        match &self {
+            Cmd::Existing => false,
+            Cmd::Create => true,
+            Cmd::Import => true,
+            Cmd::Export => true,
+        }
+    }
 }
 
 /// implement mnemonic-specific functions for Gg20Service
 impl Gg20Service {
+    /// get mnemonic seed from kv-store
     pub async fn seed(&self) -> SeedResult<SecretRecoveryKey> {
         let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
         // A user may decide to protect their mnemonic with a passphrase. We pass an empty password for now.
@@ -52,10 +63,18 @@ impl Gg20Service {
     /// async function that handles all mnemonic commands
     pub async fn handle_mnemonic(&self) -> MnemonicResult<()> {
         match self.cfg.mnemonic_cmd {
-            Cmd::Existing => Ok(()),
+            Cmd::Existing => self.handle_existing().await.map_err(ExistingErr),
             Cmd::Create => self.handle_create().await.map_err(CreateErr),
             Cmd::Import => self.handle_import().await.map_err(ImportErr),
             Cmd::Export => self.handle_export().await.map_err(ExportErr),
+        }
+    }
+
+    async fn handle_existing(&self) -> InnerMnemonicResult<()> {
+        // try to get mnemonic from kv-store
+        match self.mnemonic_kv.exists(MNEMONIC_KEY).await? {
+            true => Ok(()),
+            false => Err(KeyErr(MNEMONIC_KEY.to_string())),
         }
     }
 
