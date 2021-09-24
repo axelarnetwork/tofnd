@@ -26,6 +26,8 @@ pub(super) mod file_io {
         Bip39(#[from] super::bip39::Bip39Error),
         #[error("File IO error {0}")]
         FileIo(#[from] std::io::Error),
+        #[error("File {0} already exists")]
+        Exists(std::path::PathBuf),
     }
     pub type FileIoResult<Success> = Result<Success, FileIoError>;
 }
