@@ -59,7 +59,8 @@ We use [clap](https://clap.rs/) to manage command line arguments.
 Users can specify:
 1. Tofnd's root folder. Use `--directory` or `-d` to specify a full or a relative path. If no argument is provided, then the environment variable `TOFND_HOME` is used. If no environment variable is set either, the default `./tofnd` directory is used. 
 2. The port number of the gRPC server (default is 50051).
-3. `mnemonic` operations for their `tofnd` instance (default is `Create`).
+3. The option to run in _unsafe_ mode. By default, this option is off, and safe primes are used for keygen. Use the `--unsafe` flag only for testing.
+4. `mnemonic` operations for their `tofnd` instance (default is `Existing`).
 For more information, see on mnemonic options, see [Mnemonic](#mnemonic).
 4. The option to run in _unsafe_ mode. By default, this option is off, and safe primes are used for keygen. **Attention: Use the `--unsafe` flag only for testing**.
 5. By default, `tofnd` expects a password from the standard input. Users that don't want to use passwords can use the `--no-password` flag. **Attention: Use `--no-password` only for testing .**
@@ -79,7 +80,7 @@ FLAGS:
 
 OPTIONS:
     -d, --directory <directory>     [env: TOFND_HOME=]  [default: .tofnd]
-    -m, --mnemonic <mnemonic>       [default: create]  [possible values: stored, create, import, update, export]
+    -m, --mnemonic <mnemonic>       [default: existing]  [possible values: existing, create, import, export]
     -p, --port <port>               [default: 50051]]
 ```
 
@@ -113,17 +114,13 @@ Mnemonic is used to enable _recovery_ of shares in case of unexpected loss. See 
 
 The command line API supports the following commands:
 
-* `Noop` does nothing and always succeeds; useful when the container restarts with the same mnemonic.  
+* `Existing` Starts the gRPC daemon using an existing mnemonic; Fails if no mnemonic exist.
 
-* `Create` creates a new mnemonic if there none exists, otherwise does nothing. The new passphrase is written in a file named _./tofnd/export_.
+* `Create` Creates a new mnemonic, inserts it in the kv-store and exits; Fails if a mnemonic already exists.
 
-* `Import` adds a new mnemonic from file _./tofnd/import_ file; Succeeds when there is no other mnemonic already imported, fails otherwise.
+* `Import` Prompts user to give a new mnemonic from standard input, inserts it in the kv-store and exits; Fails if a mnemonic exists or if the provided string is not a valid bip39 mnemonic.
 
-* `Export` writes the existing mnemonic to file _./tofnd/export_; Succeeds when there is an existing mnemonic, fails otherwise.
-
-* `Update` updates existing mnemonic from file _./tofnd/import_; Succeeds when there is an existing mnemonic, fails otherwise. The old passphrase is written to file _./export_.
-
-If a _./tofnd/export_ file already exists, then a new one is created with a new id, e.g. _./tofnd/export_2_, _./tofnd/export_3_, etc.
+* `Export` Writes the existing mnemonic to _<tofnd_root>/.tofnd/export_ and exits; Succeeds when there is an existing mnemonic. Fails if no mnemonic is stored, or the export file already exists.
 
 ## Zeroization
 
