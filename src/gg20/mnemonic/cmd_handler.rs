@@ -70,11 +70,20 @@ impl Gg20Service {
         }
     }
 
+    /// use the existing mnemonic to spin up a tofnd deamon.
+    /// if an export file exists in the default path, returns an error.
+    /// if an no mnemonic record exists in the kv-store, returns an error.
     async fn handle_existing(&self) -> InnerMnemonicResult<()> {
+        // if there is an exported mnemonic, raise an error and don't start the daemon.
+        // we do this to prevent users from accidentally leave their mnemonic on disk in plain text
+        self.io.assert_not_exported()?;
+
         // try to get mnemonic from kv-store
         match self.mnemonic_kv.exists(MNEMONIC_KEY).await? {
             true => Ok(()),
-            false => Err(KeyErr(MNEMONIC_KEY.to_string())),
+            false => Err(KvErr(KvError::ExistsErr(InnerKvError::LogicalErr(
+                "A stored mnemonic already exists.".to_string(),
+            )))),
         }
     }
 
