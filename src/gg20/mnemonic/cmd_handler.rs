@@ -204,6 +204,8 @@ mod tests {
         // create a service
         let gg20 = get_service(testdir.clone());
         // export should fail
+        assert!(gg20.handle_export().await.is_err());
+        // create a new mnemonic
         assert!(gg20.handle_create().await.is_ok());
         // export should now succeed
         assert!(gg20.handle_export().await.is_ok());
