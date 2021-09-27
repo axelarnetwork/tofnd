@@ -32,7 +32,7 @@ impl FileIo {
 
     /// Check if an exported file exists in the expected path
     /// Succeeds if no exported file exists, returns an error otherwise.
-    pub fn assert_not_exported(&self) -> FileIoResult<()> {
+    pub fn check_if_not_exported(&self) -> FileIoResult<()> {
         if std::path::Path::new(&self.export_path()).exists() {
             return Err(Exists(self.export_path().clone()));
         }
@@ -45,7 +45,7 @@ impl FileIo {
         let mnemonic = bip39_from_entropy(entropy)?;
         let phrase = mnemonic.phrase();
         // if there is an existing exported file raise an error
-        self.assert_not_exported()?;
+        self.check_if_not_exported()?;
         let mut file = std::fs::File::create(&self.export_path())?;
         file.write_all(phrase.as_bytes())?;
         info!("Mnemonic written in file {:?}", &self.export_path());
