@@ -161,6 +161,7 @@ mod tests {
 
     use crate::{
         config::Config,
+        encrypted_sled::get_test_password,
         gg20::{
             mnemonic::{
                 file_io::FileIo,
@@ -183,8 +184,10 @@ mod tests {
         let mnemonic_kv_path = mnemonic_kv_path.to_str().unwrap();
 
         Gg20Service {
-            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned()).unwrap(),
-            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned()).unwrap(),
+            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned(), get_test_password())
+                .unwrap(),
+            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned(), get_test_password())
+                .unwrap(),
             io: FileIo::new(testdir),
             cfg: Config::default(),
         }
