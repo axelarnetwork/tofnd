@@ -117,14 +117,15 @@ impl Gg20Service {
         }
     }
 
-    /// Creates a new entropy and inesrts the entropy in the kv-store
-    /// If a mnemonic already exists in the kv store, an error is produced by sled
-    /// trying to reserve an existing mnemonic key
+    /// Creates a new entropy, inserts the entropy in the kv-store and exports it to a file
+    /// If a mnemonic already exists in the kv store or an exported file already exists in
+    /// the default path, an error is produced
     async fn handle_create(&self) -> InnerMnemonicResult<()> {
         info!("Creating mnemonic");
         // create a new entropy
         let new_entropy = bip39_new_w24();
-        Ok(self.handle_insert(new_entropy).await?)
+        self.handle_insert(new_entropy.clone()).await?;
+        Ok(self.io.entropy_to_file(new_entropy)?)
     }
 
     /// Inserts a new mnemonic to the kv-store.
@@ -236,11 +237,18 @@ mod tests {
                 InnerKvError::LogicalErr(_)
             )))
         ));
+        // mnemonic should not be exported
+        assert!(gg20.io.check_if_not_exported().is_ok());
         // create a new mnemonic
         assert!(gg20.handle_create().await.is_ok());
-        // export should now succeed
-        assert!(gg20.handle_export().await.is_ok());
-        // handle existing should now fail
+        // mnemonic should now be exported
+        assert!(gg20.io.check_if_not_exported().is_err());
+        // export should fail because create also exports
+        assert!(matches!(
+            gg20.handle_export().await,
+            Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
+        ));
+        // handle existing should fail because export file exists
         assert!(matches!(
             gg20.handle_existing().await,
             Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
@@ -255,13 +263,14 @@ mod tests {
         let gg20 = get_service(testdir.clone());
         // create a new mnemonic
         assert!(gg20.handle_create().await.is_ok());
-        // create should succeed
-        assert!(gg20.handle_existing().await.is_ok());
-        // export mnemonic
-        assert!(gg20.handle_export().await.is_ok());
-        // using existing should fail because export file exists
+        // create should fail because export file exists
         assert!(matches!(
             gg20.handle_existing().await,
+            Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
+        ));
+        // export should fail because export file exists
+        assert!(matches!(
+            gg20.handle_export().await,
             Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
         ));
     }

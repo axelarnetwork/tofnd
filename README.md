@@ -116,7 +116,7 @@ The command line API supports the following commands:
 
 * `Existing` Starts the gRPC daemon using an existing mnemonic; Fails if no mnemonic exist.
 
-* `Create` Creates a new mnemonic, inserts it in the kv-store and exits; Fails if a mnemonic already exists.
+* `Create` Creates a new mnemonic, inserts it in the kv-store, exports it to a file and exits; Fails if a mnemonic already exists.
 
 * `Import` Prompts user to give a new mnemonic from standard input, inserts it in the kv-store and exits; Fails if a mnemonic exists or if the provided string is not a valid bip39 mnemonic.
 
