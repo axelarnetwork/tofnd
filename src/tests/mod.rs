@@ -220,6 +220,12 @@ async fn shutdown_party(
 }
 
 // deletes the share kv-store of a party's db path
+fn delete_party_export(mut mnemonic_path: PathBuf) {
+    mnemonic_path.push("export");
+    std::fs::remove_file(mnemonic_path).unwrap();
+}
+
+// deletes the share kv-store of a party's db path
 fn delete_party_shares(mut party_db_path: PathBuf) {
     party_db_path.push("kvstore/shares");
     // Sled creates a directory for the database and its configuration
@@ -318,6 +324,9 @@ async fn restart_party(
 ) -> Vec<TofndParty> {
     // shutdown party with party_index
     let (party_options, shutdown_db_path) = shutdown_party(parties, party_index).await;
+
+    // if we are going to restart, delete exported mnemonic to allow using Cmd::Existing
+    delete_party_export(shutdown_db_path.clone());
 
     if recover {
         // if we are going to recover, delete party's shares
