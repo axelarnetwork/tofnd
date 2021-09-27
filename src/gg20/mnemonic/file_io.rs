@@ -25,10 +25,13 @@ impl FileIo {
         FileIo { export_path: path }
     }
 
+    /// Get the path of export file
     pub fn export_path(&self) -> &PathBuf {
         &self.export_path
     }
 
+    /// Check if an exported file exists in the expected path
+    /// Succeeds if no exported file exists, returns an error otherwise.
     pub fn assert_not_exported(&self) -> FileIoResult<()> {
         if std::path::Path::new(&self.export_path()).exists() {
             return Err(Exists(self.export_path().clone()));
