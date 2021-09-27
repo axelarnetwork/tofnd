@@ -1,4 +1,4 @@
-//! This module handles IO to files. More specifically, writing and reading passphrases.
+//! This module handles IO to files. More specifically, reading passphrases.
 
 use std::{io::Write, path::PathBuf};
 
@@ -14,21 +14,19 @@ use super::error::file_io::FileIoResult;
 
 /// FileIO wraps all IO functionality
 #[derive(Clone)]
-pub(crate) struct FileIo {
+pub struct FileIo {
     path: PathBuf,
 }
 
 impl FileIo {
     /// FileIO constructor
-    pub fn new(path: PathBuf) -> FileIo {
+    pub fn new(mut path: PathBuf) -> FileIo {
+        path.push(EXPORT_FILE);
         FileIo { path }
     }
 
-    /// Get the path of "export" filename
-    fn filepath(&self) -> PathBuf {
-        let mut filepath = self.path.clone();
-        filepath.push(EXPORT_FILE);
-        filepath
+    pub fn path(&self) -> &PathBuf {
+        &self.path
     }
 
     /// Creates a file that contains an entropy in it's human-readable form
@@ -36,13 +34,12 @@ impl FileIo {
         // delegate zeroization for entropy; no need to worry about mnemonic, it is cleaned automatically
         let mnemonic = bip39_from_entropy(entropy)?;
         let phrase = mnemonic.phrase();
-        let filepath = self.filepath();
-        if std::path::Path::new(&filepath).exists() {
-            return Err(Exists(filepath));
+        if std::path::Path::new(&self.path()).exists() {
+            return Err(Exists(self.path().clone()));
         }
-        let mut file = std::fs::File::create(filepath.clone())?;
+        let mut file = std::fs::File::create(&self.path())?;
         file.write_all(phrase.as_bytes())?;
-        info!("Mnemonic written in file {:?}", filepath);
+        info!("Mnemonic written in file {:?}", &self.path());
         Ok(())
     }
 }
@@ -60,8 +57,8 @@ mod tests {
     fn test_write() {
         let entropy = bip39_new_w24();
 
-        let io = FileIo { path: testdir!() };
-        let filepath = io.filepath();
+        let io = FileIo::new(testdir!());
+        let filepath = io.path();
         io.entropy_to_file(entropy.clone()).unwrap();
         let expected_content = bip39_to_phrase(entropy).unwrap();
 
