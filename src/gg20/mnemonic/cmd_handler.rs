@@ -85,7 +85,7 @@ impl Gg20Service {
         match self.mnemonic_kv.exists(MNEMONIC_KEY).await? {
             true => Ok(()),
             false => Err(KvErr(KvError::ExistsErr(InnerKvError::LogicalErr(
-                "A stored mnemonic already exists.".to_string(),
+                "Mnemonic not found".to_string(),
             )))),
         }
     }
