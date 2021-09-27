@@ -403,7 +403,7 @@ impl Party for TofndParty {
                     Some(msg) => msg,
                     None => {
                         warn!(
-                            "party [{}] keygen execution was not completed due to abort",
+                            "party [{}] sign execution was not completed due to abort",
                             my_uid
                         );
                         return Ok(SignResult::default());
