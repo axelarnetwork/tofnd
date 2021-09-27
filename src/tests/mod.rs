@@ -10,6 +10,7 @@
 use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 use testdir::testdir;
+use tonic::Code::InvalidArgument;
 
 mod mock;
 mod tofnd_party;
@@ -78,6 +79,20 @@ async fn run_restart_recover_test_cases(test_cases: &[TestCase]) {
     let dir = testdir!();
     for test_case in test_cases {
         basic_keygen_and_sign(test_case, &dir, restart, recover).await;
+    }
+}
+
+async fn run_keygen_fail_test_cases(test_cases: &[TestCase]) {
+    let dir = testdir!();
+    for test_case in test_cases {
+        keygen_init_fail(test_case, &dir).await;
+    }
+}
+
+async fn run_sign_fail_test_cases(test_cases: &[TestCase]) {
+    let dir = testdir!();
+    for test_case in test_cases {
+        sign_init_fail(test_case, &dir).await;
     }
 }
 
@@ -286,6 +301,8 @@ async fn basic_keygen(
     )
     .await;
 
+    // a successful keygen does not have grpc errors
+    let results = results.into_iter().map(|r| r.unwrap()).collect::<Vec<_>>();
     let success = successful_keygen_results(results.clone(), expected_keygen_faults);
     (parties, keygen_init, results, success)
 }
@@ -406,7 +423,71 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool, 
         expect_timeout,
     )
     .await;
+    let results = results.into_iter().map(|r| r.unwrap()).collect::<Vec<_>>();
     check_sign_results(results, expected_sign_faults);
+
+    clean_up(parties).await;
+}
+
+async fn keygen_init_fail(test_case: &TestCase, dir: &Path) {
+    // set up a key uid
+    let new_key_uid = "test-key";
+
+    // use test case params to create parties
+    let (parties, party_uids) = init_parties_from_test_case(test_case, dir).await;
+
+    // execute keygen and return everything that will be needed later on
+    let (parties, _, _, _) =
+        basic_keygen(test_case, parties, party_uids.clone(), new_key_uid).await;
+
+    // attempt to execute keygen again with the same `new_key_id`
+    let (parties, results, _) = execute_keygen(
+        parties,
+        &party_uids,
+        &test_case.share_counts,
+        new_key_uid,
+        test_case.threshold,
+        false,
+    )
+    .await;
+
+    // all results must be Err(Status) with Code::InvalidArgument
+    for result in results {
+        assert_eq!(result.err().unwrap().code(), InvalidArgument);
+    }
+
+    clean_up(parties).await;
+}
+
+async fn sign_init_fail(test_case: &TestCase, dir: &Path) {
+    // set up a key uid
+    let new_key_uid = "test-key";
+    let new_sign_uid = "sign-test-key";
+
+    // use test case params to create parties
+    let (parties, party_uids) = init_parties_from_test_case(test_case, dir).await;
+
+    // execute keygen and return everything that will be needed later on
+    let (parties, _, _, success) =
+        basic_keygen(test_case, parties, party_uids.clone(), new_key_uid).await;
+    assert!(success);
+
+    // attempt to execute sign with malformed `MSG_TO_SIGN`
+    let (parties, results) = execute_sign(
+        parties,
+        &party_uids,
+        &test_case.signer_indices,
+        new_key_uid,
+        new_sign_uid,
+        &MSG_TO_SIGN[0..MSG_TO_SIGN.len() - 1],
+        false,
+    )
+    .await;
+
+    // all results must be Err(Status) with Code::InvalidArgument
+    for result in results {
+        assert_eq!(result.err().unwrap().code(), InvalidArgument);
+    }
 
     clean_up(parties).await;
 }
@@ -544,6 +625,10 @@ fn delete_dbs(parties: &[impl Party]) {
     }
 }
 
+use tonic::Status;
+type GrpcKeygenResult = Result<KeygenResult, Status>;
+type GrpcSignResult = Result<SignResult, Status>;
+
 // need to take ownership of parties `parties` and return it on completion
 async fn execute_keygen(
     parties: Vec<TofndParty>,
@@ -552,7 +637,7 @@ async fn execute_keygen(
     new_key_uid: &str,
     threshold: usize,
     expect_timeout: bool,
-) -> (Vec<TofndParty>, Vec<KeygenResult>, proto::KeygenInit) {
+) -> (Vec<TofndParty>, Vec<GrpcKeygenResult>, proto::KeygenInit) {
     info!("Expecting timeout: [{}]", expect_timeout);
     let share_count = parties.len();
     let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(party_uids);
@@ -670,7 +755,7 @@ async fn execute_sign(
     new_sig_uid: &str,
     msg_to_sign: &[u8],
     expect_timeout: bool,
-) -> (Vec<TofndParty>, Vec<proto::message_out::SignResult>) {
+) -> (Vec<TofndParty>, Vec<GrpcSignResult>) {
     info!("Expecting timeout: [{}]", expect_timeout);
     let participant_uids: Vec<String> = sign_participant_indices
         .iter()
@@ -712,12 +797,12 @@ async fn execute_sign(
         abort_parties(unblocker, 10);
     }
 
-    let mut results = vec![SignResult::default(); sign_join_handles.len()];
+    let mut results = Vec::with_capacity(sign_join_handles.len());
     for (i, h) in sign_join_handles {
         info!("Running party {}", i);
         let handle = h.await.unwrap();
         party_options[sign_participant_indices[i]] = Some(handle.0);
-        results[i] = handle.1;
+        results.push(handle.1);
     }
     (
         party_options

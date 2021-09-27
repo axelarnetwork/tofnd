@@ -1,8 +1,9 @@
 use crate::proto;
-use proto::message_out::{KeygenResult, SignResult};
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tracing::error;
+
+use super::{GrpcKeygenResult, GrpcSignResult};
 
 #[tonic::async_trait]
 pub(super) trait Party: Sync + Send {
@@ -11,7 +12,7 @@ pub(super) trait Party: Sync + Send {
         init: proto::KeygenInit,
         channels: SenderReceiver,
         delivery: Deliverer,
-    ) -> KeygenResult;
+    ) -> GrpcKeygenResult;
     async fn execute_recover(
         &mut self,
         keygen_init: proto::KeygenInit,
@@ -24,7 +25,7 @@ pub(super) trait Party: Sync + Send {
         channels: SenderReceiver,
         delivery: Deliverer,
         my_uid: &str,
-    ) -> SignResult;
+    ) -> GrpcSignResult;
     async fn shutdown(mut self);
     fn get_root(&self) -> std::path::PathBuf;
 }

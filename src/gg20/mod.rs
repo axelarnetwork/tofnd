@@ -95,8 +95,12 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = gg20.handle_keygen(stream_in, msg_sender, s).await {
+            if let Err(e) = gg20.handle_keygen(stream_in, msg_sender.clone(), s).await {
                 error!("keygen failure: {:?}", e.to_string());
+                // we can't handle errors in tokio threads. Log error if we are unable to send the status code to client.
+                if let Err(e) = msg_sender.send(Err(Status::invalid_argument(e.to_string()))) {
+                    error!("could not send error to client: {}", e.to_string());
+                }
                 return;
             }
         });
@@ -119,8 +123,12 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = gg20.handle_sign(stream, msg_sender, s).await {
+            if let Err(e) = gg20.handle_sign(stream, msg_sender.clone(), s).await {
                 error!("sign failure: {:?}", e.to_string());
+                // we can't handle errors in tokio threads. Log error if we are unable to send the status code to client.
+                if let Err(e) = msg_sender.send(Err(Status::invalid_argument(e.to_string()))) {
+                    error!("could not send error to client: {}", e.to_string());
+                }
                 return;
             }
         });
