@@ -440,7 +440,7 @@ async fn keygen_init_fail(test_case: &TestCase, dir: &Path) {
     let (parties, _, _, _) =
         basic_keygen(test_case, parties, party_uids.clone(), new_key_uid).await;
 
-    // attempt to execute keygen again
+    // attempt to execute keygen again with the same `new_key_id`
     let (parties, results, _) = execute_keygen(
         parties,
         &party_uids,
