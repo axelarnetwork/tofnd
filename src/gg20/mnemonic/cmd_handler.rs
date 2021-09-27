@@ -4,9 +4,12 @@ use super::{
         InnerMnemonicError::*, InnerMnemonicResult, MnemonicError::*, MnemonicResult, SeedResult,
     },
 };
-use crate::gg20::{
-    service::Gg20Service,
-    types::{Entropy, Password},
+use crate::{
+    gg20::{
+        service::Gg20Service,
+        types::{Entropy, Password},
+    },
+    kv_manager::error::{InnerKvError, KvError},
 };
 use tofn::gg20::keygen::SecretRecoveryKey;
 
@@ -158,9 +161,13 @@ mod tests {
     use crate::{
         config::Config,
         gg20::{
-            mnemonic::file_io::FileIo,
+            mnemonic::{
+                file_io::FileIo,
+                results::{file_io::FileIoError, mnemonic::InnerMnemonicError},
+            },
             types::{KeySharesKv, MnemonicKv},
         },
+        kv_manager::error::{InnerKvError, KvError},
     };
 
     use super::*;
@@ -191,7 +198,12 @@ mod tests {
         // first attempt should succeed
         assert!(gg20.handle_create().await.is_ok());
         // second attempt should fail
-        assert!(gg20.handle_create().await.is_err());
+        assert!(matches!(
+            gg20.handle_create().await,
+            Err(InnerMnemonicError::KvErr(KvError::ReserveErr(
+                InnerKvError::LogicalErr(_)
+            )))
+        ));
     }
 
     #[traced_test]
@@ -203,7 +215,12 @@ mod tests {
         // insert should succeed
         assert!(gg20.handle_insert(bip39_new_w24()).await.is_ok());
         // insert should fail
-        assert!(gg20.handle_insert(bip39_new_w24()).await.is_err());
+        assert!(matches!(
+            gg20.handle_insert(bip39_new_w24()).await,
+            Err(InnerMnemonicError::KvErr(KvError::ReserveErr(
+                InnerKvError::LogicalErr(_)
+            )))
+        ));
     }
 
     #[traced_test]
@@ -213,12 +230,37 @@ mod tests {
         // create a service
         let gg20 = get_service(testdir.clone());
         // export should fail
-        assert!(gg20.handle_export().await.is_err());
+        assert!(matches!(
+            gg20.handle_existing().await,
+            Err(InnerMnemonicError::KvErr(KvError::ExistsErr(
+                InnerKvError::LogicalErr(_)
+            )))
+        ));
         // create a new mnemonic
         assert!(gg20.handle_create().await.is_ok());
         // export should now succeed
         assert!(gg20.handle_export().await.is_ok());
         // export should now fail
-        assert!(gg20.handle_export().await.is_err());
+        assert!(matches!(
+            gg20.handle_existing().await,
+            Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
+        ));
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn test_existing() {
+        let testdir = testdir!();
+        // create a service
+        let gg20 = get_service(testdir.clone());
+        // create a new mnemonic
+        assert!(gg20.handle_create().await.is_ok());
+        // export mnemonic
+        assert!(gg20.handle_export().await.is_ok());
+        // using existing should fail because export file exists
+        assert!(matches!(
+            gg20.handle_existing().await,
+            Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
+        ));
     }
 }

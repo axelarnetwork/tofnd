@@ -45,8 +45,6 @@ pub(super) mod mnemonic {
         IntoSecretRecoveryKey(#[from] std::array::TryFromSliceError),
         #[error("Password error: {0}")]
         PasswordErr(String),
-        #[error("Key: {0}")]
-        KeyErr(String),
     }
     pub type InnerMnemonicResult<Success> = Result<Success, InnerMnemonicError>;
 
