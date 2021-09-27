@@ -227,13 +227,12 @@ fn delete_party_shares(mut party_db_path: PathBuf) {
     std::fs::remove_dir_all(party_db_path).unwrap();
 }
 
-// initailizes i-th party
+// reinitializes i-th party
 // pass malicious data if we are running in malicious mode
-async fn init_party(
+async fn reinit_party(
     mut party_options: Vec<Option<TofndParty>>,
     party_index: usize,
     testdir: &Path,
-    mnemonic_cmd: Cmd,
     #[cfg(feature = "malicious")] malicious_data: &MaliciousData,
 ) -> Vec<TofndParty> {
     // initialize restarted party with its previous behaviour if we are in malicious mode
@@ -243,8 +242,8 @@ async fn init_party(
         malicious_data,
     );
 
-    // assume party already has a mnemonic, so we pass Cmd::Existing
-    party_options[party_index] = Some(TofndParty::new(init_party, mnemonic_cmd, testdir).await);
+    // here we assume that the party already has a mnemonic, so we pass Cmd::Existing
+    party_options[party_index] = Some(TofndParty::new(init_party, Cmd::Existing, testdir).await);
 
     party_options
         .into_iter()
@@ -325,12 +324,11 @@ async fn restart_party(
         delete_party_shares(shutdown_db_path);
     }
 
-    // reinit party with
-    let mut parties = init_party(
+    // reinit party
+    let mut parties = reinit_party(
         party_options,
         party_index,
         dir,
-        Cmd::Existing, // open existing mnemonic
         #[cfg(feature = "malicious")]
         malicious_data,
     )
