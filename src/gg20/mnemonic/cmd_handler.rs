@@ -229,7 +229,7 @@ mod tests {
         let testdir = testdir!();
         // create a service
         let gg20 = get_service(testdir.clone());
-        // export should fail
+        // handle existing should fail
         assert!(matches!(
             gg20.handle_existing().await,
             Err(InnerMnemonicError::KvErr(KvError::ExistsErr(
@@ -240,7 +240,7 @@ mod tests {
         assert!(gg20.handle_create().await.is_ok());
         // export should now succeed
         assert!(gg20.handle_export().await.is_ok());
-        // export should now fail
+        // handle existing should now fail
         assert!(matches!(
             gg20.handle_existing().await,
             Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
@@ -255,6 +255,8 @@ mod tests {
         let gg20 = get_service(testdir.clone());
         // create a new mnemonic
         assert!(gg20.handle_create().await.is_ok());
+        // create should succeed
+        assert!(gg20.handle_existing().await.is_ok());
         // export mnemonic
         assert!(gg20.handle_export().await.is_ok());
         // using existing should fail because export file exists
