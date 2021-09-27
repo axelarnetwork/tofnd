@@ -20,9 +20,9 @@ pub struct FileIo {
 
 impl FileIo {
     /// FileIO constructor
-    pub fn new(mut path: PathBuf) -> FileIo {
-        path.push(EXPORT_FILE);
-        FileIo { export_path: path }
+    pub fn new(mut export_path: PathBuf) -> FileIo {
+        export_path.push(EXPORT_FILE);
+        FileIo { export_path }
     }
 
     /// Get the path of export file
