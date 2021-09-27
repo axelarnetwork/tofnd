@@ -15,18 +15,25 @@ use super::results::file_io::FileIoResult;
 /// FileIO wraps all IO functionality
 #[derive(Clone)]
 pub struct FileIo {
-    path: PathBuf,
+    export_path: PathBuf,
 }
 
 impl FileIo {
     /// FileIO constructor
     pub fn new(mut path: PathBuf) -> FileIo {
         path.push(EXPORT_FILE);
-        FileIo { path }
+        FileIo { export_path: path }
     }
 
-    pub fn path(&self) -> &PathBuf {
-        &self.path
+    pub fn export_path(&self) -> &PathBuf {
+        &self.export_path
+    }
+
+    pub fn assert_not_exported(&self) -> FileIoResult<()> {
+        if std::path::Path::new(&self.export_path()).exists() {
+            return Err(Exists(self.export_path().clone()));
+        }
+        Ok(())
     }
 
     /// Creates a file that contains an entropy in it's human-readable form
@@ -34,12 +41,11 @@ impl FileIo {
         // delegate zeroization for entropy; no need to worry about mnemonic, it is cleaned automatically
         let mnemonic = bip39_from_entropy(entropy)?;
         let phrase = mnemonic.phrase();
-        if std::path::Path::new(&self.path()).exists() {
-            return Err(Exists(self.path().clone()));
-        }
-        let mut file = std::fs::File::create(&self.path())?;
+        // if there is an existing exported file raise an error
+        self.assert_not_exported()?;
+        let mut file = std::fs::File::create(&self.export_path())?;
         file.write_all(phrase.as_bytes())?;
-        info!("Mnemonic written in file {:?}", &self.path());
+        info!("Mnemonic written in file {:?}", &self.export_path());
         Ok(())
     }
 }
@@ -58,7 +64,7 @@ mod tests {
         let entropy = bip39_new_w24();
 
         let io = FileIo::new(testdir!());
-        let filepath = io.path();
+        let filepath = io.export_path();
         io.entropy_to_file(entropy.clone()).unwrap();
         let expected_content = bip39_to_phrase(entropy).unwrap();
 
