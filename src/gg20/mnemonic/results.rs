@@ -26,7 +26,9 @@ pub(super) mod file_io {
         Bip39(#[from] super::bip39::Bip39Error),
         #[error("File IO error {0}")]
         FileIo(#[from] std::io::Error),
-        #[error("File {0} already exists")]
+        #[error(
+            "File {0} already exists. Remove file to use `-m existing` or `-m export` commands."
+        )]
         Exists(std::path::PathBuf),
     }
     pub type FileIoResult<Success> = Result<Success, FileIoError>;
@@ -52,7 +54,7 @@ pub(super) mod mnemonic {
     pub enum MnemonicError {
         #[error("Command not found: {0}")]
         WrongCommand(String),
-        #[error("Did not find an existing mnemonic: {0}")]
+        #[error("Cannot not use existing mnemonic: {0}")]
         ExistingErr(InnerMnemonicError),
         #[error("Cannot create mnemonic: {0}")]
         CreateErr(InnerMnemonicError),
