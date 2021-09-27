@@ -411,7 +411,7 @@ impl Party for TofndParty {
                 },
                 Err(status) => {
                     warn!(
-                        "party [{}] keygen execution was not completed due to connection error: {}",
+                        "party [{}] sign execution was not completed due to connection error: {}",
                         my_uid, status
                     );
                     return Err(status);
