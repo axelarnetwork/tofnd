@@ -472,7 +472,7 @@ async fn sign_init_fail(test_case: &TestCase, dir: &Path) {
         basic_keygen(test_case, parties, party_uids.clone(), new_key_uid).await;
     assert!(success);
 
-    // attempt to execute keygen again
+    // attempt to execute sign with malformed `MSG_TO_SIGN`
     let (parties, results) = execute_sign(
         parties,
         &party_uids,
