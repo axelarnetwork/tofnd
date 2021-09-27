@@ -9,6 +9,7 @@ services:
     image: axelar/tofnd
     volumes:
       - tofnd:/.tofnd
-    # Attention! Use UNSAFE=true only for testing
     environment:
+      # Attention! Use UNSAFE=true only for testing
       - UNSAFE=true
+      - NOPASSWORD=true

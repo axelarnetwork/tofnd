@@ -1,6 +1,8 @@
 //! Public API for kvstore operations
 //! Errors are mapped to [super::error::KvError]
 
+use crate::encrypted_sled::{self, Password};
+
 use super::{
     error::{KvError::*, KvResult},
     sled_bindings::{handle_exists, handle_get, handle_put, handle_remove, handle_reserve},
@@ -29,22 +31,22 @@ where
 {
     /// Creates a new kv service. Returns [InitErr] on failure.
     /// the path of the kvstore is `root_path` + "/kvstore/" + `kv_name`
-    pub fn new(root_path: &str, kv_name: &str) -> KvResult<Self> {
+    pub fn new(root_path: &str, kv_name: &str, password: Password) -> KvResult<Self> {
         let kv_path = PathBuf::from(root_path).join(DEFAULT_KV_PATH).join(kv_name);
         // use to_string_lossy() instead of to_str() to avoid handling Option<&str>
         let kv_path = kv_path.to_string_lossy().to_string();
-        Self::with_db_name(kv_path)
+        Self::with_db_name(kv_path, password)
     }
 
     /// Creates a kvstore at `full_db_name` and spawns a new kv_manager. Returns [InitErr] on failure.
     /// `full_db_name` is the name of the path of the kvstrore + its name
     /// Example: ~/tofnd/kvstore/database_1
-    pub fn with_db_name(full_db_name: String) -> KvResult<Self> {
+    pub fn with_db_name(full_db_name: String, password: Password) -> KvResult<Self> {
         let (sender, rx) = mpsc::unbounded_channel();
 
         // get kv store from db name before entering the kv_cmd_handler because
         // it's more convenient to return an error from outside of a tokio::span
-        let kv = get_kv_store(&full_db_name)?;
+        let kv = get_kv_store(&full_db_name, password)?;
 
         tokio::spawn(kv_cmd_handler(rx, kv));
         Ok(Self { sender })
@@ -126,9 +128,12 @@ where
 /// Usage:
 ///  let my_db = get_kv_store(&"my_current_dir_db")?;
 ///  let my_db = get_kv_store(&"/tmp/my_tmp_bd")?;
-pub fn get_kv_store(db_name: &str) -> sled::Result<sled::Db> {
+pub fn get_kv_store(
+    db_name: &str,
+    password: Password,
+) -> encrypted_sled::Result<encrypted_sled::Db> {
     // create/open DB
-    let kv = sled::open(db_name)?;
+    let kv = encrypted_sled::Db::open(db_name, password)?;
 
     // log whether the DB was newly created or not
     if kv.was_recovered() {
@@ -143,8 +148,10 @@ pub fn get_kv_store(db_name: &str) -> sled::Result<sled::Db> {
 }
 
 // private handler function to process commands as per the "actor" pattern (see above)
-async fn kv_cmd_handler<V: 'static>(mut rx: mpsc::UnboundedReceiver<Command<V>>, kv: sled::Db)
-where
+async fn kv_cmd_handler<V: 'static>(
+    mut rx: mpsc::UnboundedReceiver<Command<V>>,
+    kv: encrypted_sled::Db,
+) where
     V: Serialize + DeserializeOwned,
 {
     // if resp.send() fails then log a warning and continue

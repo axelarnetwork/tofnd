@@ -4,6 +4,7 @@ use super::mnemonic::file_io::FileIo;
 use super::proto;
 use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SHARE_KV_NAME};
 use crate::config::Config;
+use crate::encrypted_sled::Password;
 use std::path::PathBuf;
 
 // error handling
@@ -23,19 +24,16 @@ pub struct Gg20Service {
 }
 
 /// create a new Gg20 gRPC server
-pub async fn new_service(cfg: Config) -> TofndResult<impl proto::gg20_server::Gg20> {
-    let shares_kv =
-        KeySharesKv::new(cfg.tofnd_path.as_str(), DEFAULT_SHARE_KV_NAME).map_err(|err| {
-            anyhow!(
-                "Shares kvstore is corrupted. Please remove it and recover your shares. Error: {}",
-                err
-            )
-        })?;
-    let mnemonic_kv = MnemonicKv::new(cfg.tofnd_path.as_str(), DEFAULT_MNEMONIC_KV_NAME).map_err(|err| {
-        anyhow!(
-            "Your mnemonic kv store is corrupted. Please remove it and import your mnemonic again. Error: {}", err
-        )
-    })?;
+pub async fn new_service(
+    cfg: Config,
+    password: Password,
+) -> TofndResult<impl proto::gg20_server::Gg20> {
+    let shares_kv = KeySharesKv::new(&cfg.tofnd_path, DEFAULT_SHARE_KV_NAME, password.clone())
+        .map_err(|err| anyhow!("Shares KV store error: {}", err))?;
+
+    let mnemonic_kv = MnemonicKv::new(&cfg.tofnd_path, DEFAULT_MNEMONIC_KV_NAME, password)
+        .map_err(|err| anyhow!("Mnemonic KV store error: {}", err))?;
+
     let io = FileIo::new(PathBuf::from(&cfg.tofnd_path));
 
     let gg20 = Gg20Service {

@@ -180,6 +180,7 @@ impl Gg20Service {
 mod tests {
     use super::*;
     use crate::config::Config;
+    use crate::encrypted_sled;
     use crate::gg20::mnemonic::{bip39_bindings::tests::bip39_to_phrase, file_io::FileIo};
     use crate::gg20::{KeySharesKv, MnemonicKv};
     use std::io::Write;
@@ -195,9 +196,11 @@ mod tests {
         let mnemonic_kv_path = testdir.join("mnemonic");
         let mnemonic_kv_path = mnemonic_kv_path.to_str().unwrap();
 
+        let password = encrypted_sled::get_test_password();
         Gg20Service {
-            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned()).unwrap(),
-            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned()).unwrap(),
+            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned(), password.clone())
+                .unwrap(),
+            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned(), password).unwrap(),
             io: FileIo::new(testdir),
             cfg: Config::default(),
         }

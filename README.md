@@ -27,6 +27,31 @@ $ cargo run
 
 Terminate the server with `ctrl+C`.
 
+## Password
+
+By default, `tofnd` prompts for a password from stdin immediately upon launch.  This password is used to encrypt on-disk storage.  It is the responsibility of the user to keep this password safe.
+
+Users may automate password entry as they see fit.  Some examples follow.  These examples are not necessarily secure as written---it's the responsibility of the user to secure password entry.
+
+```
+# feed password from MacOS keyring
+$ security find-generic-password -a $(whoami) -s "tofnd" -w | ./tofnd
+
+# feed password from 1password-cli
+$ op get item tofnd --fields password | ./tofnd
+
+# feed password from Pass
+$ pass show tofnd | ./tofnd
+
+# feed password from environment variable `PASSWORD`
+$ echo $PASSWORD | ./tofnd
+
+# feed password from a file `password.txt`
+$ cat ./password.txt | ./tofnd
+```
+
+Sophisticated users may explicitly opt out of password entry via the `--no-password` terminal argument (see below).  In this case, on-disk storage is not secure---it is the responsibility of the user to take additional steps to secure on-disk storage.
+
 ## Command line arguments
 
 We use [clap](https://clap.rs/) to manage command line arguments.
@@ -34,10 +59,10 @@ We use [clap](https://clap.rs/) to manage command line arguments.
 Users can specify:
 1. Tofnd's root folder. Use `--directory` or `-d` to specify a full or a relative path. If no argument is provided, then the environment variable `TOFND_HOME` is used. If no environment variable is set either, the default `./tofnd` directory is used. 
 2. The port number of the gRPC server (default is 50051).
-3. The option to run in _unsafe_ mode. By default, this option is off, and safe primes are used for keygen. Use the `--unsafe` flag only for testing.
-4. `mnemonic` operations for their `tofnd` instance (default is `Create`).
+3. `mnemonic` operations for their `tofnd` instance (default is `Create`).
 For more information, see on mnemonic options, see [Mnemonic](#mnemonic).
-
+4. The option to run in _unsafe_ mode. By default, this option is off, and safe primes are used for keygen. **Attention: Use the `--unsafe` flag only for testing**.
+5. By default, `tofnd` expects a password from the standard input. Users that don't want to use passwords can use the `--no-password` flag. **Attention: Use `--no-password` only for testing .**
 ```
 A threshold signature scheme daemon
 
@@ -45,14 +70,17 @@ USAGE:
     tofnd [FLAGS] [OPTIONS]
 
 FLAGS:
-    -h, --help       Prints help information
-        --unsafe     
-    -V, --version    Prints version information
+        --no-password    Skip providing a password. Disabled by default. **Important note** If --no-password is set, the
+                         a default (and public) password is used to encrypt.
+        --unsafe         Use unsafe primes. Deactivated by default. **Important note** This option should only be used
+                         for testing.
+    -h, --help           Prints help information
+    -V, --version        Prints version information
 
 OPTIONS:
     -d, --directory <directory>     [env: TOFND_HOME=]  [default: .tofnd]
     -m, --mnemonic <mnemonic>       [default: create]  [possible values: stored, create, import, update, export]
-    -p, --port <port>               [default: 50051]
+    -p, --port <port>               [default: 50051]]
 ```
 
 # Docker

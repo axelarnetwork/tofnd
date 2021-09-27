@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 
+mod encrypted_sled;
 mod gg20;
 mod kv_manager;
 
@@ -45,15 +46,16 @@ fn warn_for_unsafe_execution() {
 
 #[tokio::main]
 async fn main() -> TofndResult<()> {
-    // set up log subscriber
-    set_up_logs();
-
-    // print a warning log if we are running in malicious mode
-    #[cfg(feature = "malicious")]
-    warn_for_malicious_build();
-
     let cfg = parse_args()?;
 
+    // immediately read an encryption password from stdin
+    let password = cfg.password_method.execute()?;
+
+    set_up_logs();
+
+    // print config warnings
+    #[cfg(feature = "malicious")]
+    warn_for_malicious_build();
     if !cfg.safe_keygen {
         warn_for_unsafe_execution();
     }
@@ -68,7 +70,7 @@ async fn main() -> TofndResult<()> {
         incoming.local_addr()?
     );
 
-    let my_service = gg20::service::new_service(cfg).await?;
+    let my_service = gg20::service::new_service(cfg, password).await?;
 
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 
