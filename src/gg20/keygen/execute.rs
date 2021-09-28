@@ -34,8 +34,7 @@ impl Gg20Service {
             ctx.threshold,
             ctx.tofnd_index,
             ctx.tofnd_subindex,
-            &ctx.party_keypair,
-            &ctx.party_zksetup,
+            &ctx.party_keygen_data,
             #[cfg(feature = "malicious")]
             self.cfg.behaviours.keygen.clone(),
         )

@@ -2,9 +2,7 @@
 
 use tofn::{
     collections::TypedUsize,
-    gg20::keygen::{
-        KeygenPartyId, KeygenPartyShareCounts, PartyKeyPair, PartyZkSetup, SecretKeyShare,
-    },
+    gg20::keygen::{KeygenPartyId, KeygenPartyShareCounts, PartyKeygenData, SecretKeyShare},
     sdk::api::ProtocolOutput,
 };
 
@@ -63,8 +61,7 @@ pub struct Context {
     pub(super) threshold: usize,         // protocol's threshold
     pub(super) tofnd_index: TypedUsize<KeygenPartyId>, // tofnd index of party
     pub(super) tofnd_subindex: usize,    // index of party's share
-    pub(super) party_keypair: PartyKeyPair,
-    pub(super) party_zksetup: PartyZkSetup,
+    pub(super) party_keygen_data: PartyKeygenData,
 }
 
 impl Context {
@@ -73,8 +70,7 @@ impl Context {
         keygen_init: &KeygenInitSanitized,
         tofnd_index: usize,
         tofnd_subindex: usize,
-        party_keypair: PartyKeyPair,
-        party_zksetup: PartyZkSetup,
+        party_keygen_data: PartyKeygenData,
     ) -> Self {
         let tofnd_index = TypedUsize::from_usize(tofnd_index);
         Context {
@@ -84,8 +80,7 @@ impl Context {
             threshold: keygen_init.threshold,
             tofnd_index,
             tofnd_subindex,
-            party_keypair,
-            party_zksetup,
+            party_keygen_data,
         }
     }
 

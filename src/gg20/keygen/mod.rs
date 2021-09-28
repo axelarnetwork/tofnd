@@ -84,7 +84,7 @@ impl Gg20Service {
 
         let party_id = TypedUsize::<KeygenPartyId>::from_usize(keygen_init.my_index);
 
-        let (party_keypair, party_zksetup) = match self.cfg.safe_keygen {
+        let party_keygen_data = match self.cfg.safe_keygen {
             true => create_party_keypair_and_zksetup(party_id, &secret_recovery_key, session_nonce),
             false => create_party_keypair_and_zksetup_unsafe(
                 party_id,
@@ -114,8 +114,7 @@ impl Gg20Service {
                 &keygen_init,
                 keygen_init.my_index,
                 my_tofnd_subindex,
-                party_keypair.clone(),
-                party_zksetup.clone(),
+                party_keygen_data.clone(),
             );
             // clone gg20 service because tokio thread takes ownership
             let gg20 = self.clone();
