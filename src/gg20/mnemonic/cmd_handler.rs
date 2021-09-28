@@ -266,7 +266,7 @@ mod tests {
         let gg20 = get_service(testdir.clone());
         // create a new mnemonic
         assert!(gg20.handle_create().await.is_ok());
-        // create should fail because export file exists
+        // handle_existing should fail because export file exists
         assert!(matches!(
             gg20.handle_existing().await,
             Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
