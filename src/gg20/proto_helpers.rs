@@ -79,8 +79,7 @@ impl proto::MessageOut {
 
 fn fault_to_crime(f: &Fault) -> ProtoCrimeType {
     match f {
-        Fault::MissingMessage => ProtoCrimeType::NonMalicious,
-        Fault::CorruptedMessage => ProtoCrimeType::Unspecified,
+        Fault::MissingMessage | Fault::CorruptedMessage => ProtoCrimeType::NonMalicious,
         Fault::ProtocolFault => ProtoCrimeType::Malicious,
     }
 }

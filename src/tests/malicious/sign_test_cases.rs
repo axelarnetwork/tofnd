@@ -157,7 +157,7 @@ impl TestCase {
         self.expected_sign_faults = CriminalList {
             criminals: vec![Criminal {
                 party_uid: ((b'A' + index as u8) as char).to_string(),
-                crime_type: CrimeType::Unspecified as i32,
+                crime_type: CrimeType::NonMalicious as i32,
             }],
         };
         self
