@@ -1,10 +1,15 @@
+# usage:
+# $ docker-compose up
+# or
+# $ docker-compose -f docker-compose.test.yml run -e MNEMONIC_CMD=<mnemonic_cmd> tofnd
+
 volumes:
   tofnd:
 
 services:
   tofnd:
     build: .
-    container_name: tofnd
+    container_name: tofnd-test
     hostname: tofnd
     image: axelar/tofnd
     volumes:
@@ -13,3 +18,5 @@ services:
       # Attention! Use UNSAFE=true only for testing
       - UNSAFE=true
       - NOPASSWORD=true
+      - MNEMONIC_CMD=create
+      - TOFND_HOME=.tofnd
