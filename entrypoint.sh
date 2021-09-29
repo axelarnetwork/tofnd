@@ -45,7 +45,7 @@ if [ -n "${MNEMONIC_CMD}" ]; then \
             # check if import file exists
             [ -f /.tofnd/import ] || (echo "No import file found at /.tofnd/import" && exit 1)
 
-            # check if import file exists
+            # check if password exists
             if [ -n "${NOPASSWORD}" ]; then \
                 echo "No password"
                 (cat /.tofnd/import | tofnd ${ARGS} -m import) || exit 1
