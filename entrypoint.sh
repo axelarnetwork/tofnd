@@ -8,20 +8,17 @@ PASSWORD=""
 # gather user's args
 ARGS=""
 
-# add '--no-password' flag to args
-if [ -n "${NOPASSWORD}" ]; then \
-    ARGS="${ARGS} --no-password"; \
-fi
 # set tofnd root. TOFND_HOME can be set to a different path by the user.
 TOFND_HOME=${TOFND_HOME:-"./.tofnd"}
 IMPORT_PATH=$TOFND_HOME/import
 EXPORT_PATH=$TOFND_HOME/export
 
-# add '--unsafe' flag to args
-if [ -n "${UNSAFE}" ]; then \
-    ARGS="${ARGS} --unsafe"; \
-fi
 echo "Using tofnd root:" $TOFND_HOME
+
+# add '--no-password' and '--unsafe' flags to args if enabled
+ARGS=${NOPASSWORD:+"${ARGS} --no-password"}
+# add '--unsafe' flag to args if enabled
+ARGS=${UNSAFE:+"${ARGS} --unsafe"}
 
 # check mnemonic arg
 if [ -n "${MNEMONIC_CMD}" ]; then \
