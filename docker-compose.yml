@@ -1,3 +1,8 @@
+# usage:
+# $ docker-compose up
+# or
+# $ docker-compose run -e MNEMONIC_CMD=<mnemonic_cmd> tofnd
+
 volumes:
   tofnd:
 
