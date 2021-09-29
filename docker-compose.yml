@@ -15,5 +15,5 @@ services:
     volumes:
       - tofnd:/.tofnd
     environment:
-      # available cmds: auto, create (default), stored, update, import, export
+      # available cmds: auto, create, existing (default), import, export
       - MNEMONIC_CMD=auto
