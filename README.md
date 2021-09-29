@@ -22,7 +22,14 @@ git clone git@github.com:axelarnetwork/tofnd.git --recursive
 # Running the server
 
 ```
-$ cargo run
+# init tofnd
+$ ./tofnd -m create
+
+# IMPORTANT: store the content of ./.tofnd/export file at a safe, offline place, and then delete the file
+$ rm ./.tofnd/export
+
+# start tofnd daemon
+$ ./tofnd
 ```
 
 Terminate the server with `ctrl+C`.
