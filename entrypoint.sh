@@ -12,11 +12,16 @@ ARGS=""
 if [ -n "${NOPASSWORD}" ]; then \
     ARGS="${ARGS} --no-password"; \
 fi
+# set tofnd root. TOFND_HOME can be set to a different path by the user.
+TOFND_HOME=${TOFND_HOME:-"./.tofnd"}
+IMPORT_PATH=$TOFND_HOME/import
+EXPORT_PATH=$TOFND_HOME/export
 
 # add '--unsafe' flag to args
 if [ -n "${UNSAFE}" ]; then \
     ARGS="${ARGS} --unsafe"; \
 fi
+echo "Using tofnd root:" $TOFND_HOME
 
 # check mnemonic arg
 if [ -n "${MNEMONIC_CMD}" ]; then \
@@ -30,31 +35,31 @@ if [ -n "${MNEMONIC_CMD}" ]; then \
         # create: create a new mnemonic, export it to a file, and save it under name "import" and continues
         create)
             echo "Creating new mnemonic"
-            echo ${PASSWORD} | tofnd ${ARGS} -m create && mv /.tofnd/export /.tofnd/import || exit 1
+            echo ${PASSWORD} | tofnd ${ARGS} -m create && mv $EXPORT_PATH $IMPORT_PATH || exit 1
             ;;
 
-        # import: import a mnemonic from "./.tofnd/import" and continues
+        # import: import a mnemonic from import path and continues
         import)
             echo "Importing mnemonic"
 
             # check if import file exists
-            [ -f /.tofnd/import ] || (echo "No import file found at /.tofnd/import" && exit 1)
+            [ -f $IMPORT_PATH ] || (echo "No import file found at $IMPORT_PATH" && exit 1)
 
             # check if password exists
             if [ -n "${NOPASSWORD}" ]; then \
                 echo "No password"
-                (cat /.tofnd/import | tofnd ${ARGS} -m import) || exit 1
+                (cat $IMPORT_PATH | tofnd ${ARGS} -m import) || exit 1
             else
                 echo "With password"
                 # TODO: provide actual password here
-                ((echo $PASSWORD && cat /.tofnd/import) | tofnd ${ARGS} -m import) || exit 1
+                ((echo $PASSWORD && cat $IMPORT_PATH) | tofnd ${ARGS} -m import) || exit 1
             fi
             ;;
 
-        # export: exports the mnemonic to "./.tofnd/import" file and exits
+        # export: exports the mnemonic to import file and exits
         export)
             echo "Exporting mnemonic"
-            echo ${PASSWORD} | tofnd ${ARGS} -m export && mv /.tofnd/export /.tofnd/import
+            echo ${PASSWORD} | tofnd ${ARGS} -m export && mv $EXPORT_PATH $IMPORT_PATH
             exit
             ;;
 
