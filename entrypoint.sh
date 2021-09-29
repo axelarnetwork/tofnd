@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# usage:
-# $ docker-compose up
-# or
-# $ docker-compose run -e MNEMONIC_CMD=<mnemonic_cmd> tofnd
-
 set -e
 
 # TODO: get actual password from user. See https://github.com/axelarnetwork/axelarate/issues/269.
