@@ -2,6 +2,48 @@
 
 set -e
 
+OK=0
+ERR=1
+
+# create: create a new mnemonic, export it to a file under the name "import" and continue
+create_mnemonic() {
+    echo "Creating mnemonic ..."
+    ${PASSWORD} | tofnd ${ARGS} -m create && mv $EXPORT_PATH $IMPORT_PATH && echo "... ok" && return $OK
+    return $ERR
+}
+
+# import: import a mnemonic from $IMPORT_PATH and continue
+import_mnemonic() {
+    echo "Importing mnemonic ..."
+
+    # check if import file exists
+    if [ ! -f "$IMPORT_PATH" ]; then \
+        echo "No import file found at $IMPORT_PATH" 
+        return $ERR
+    fi
+
+    # check if password exists
+    if [ -n "${NOPASSWORD}" ]; then \
+        echo "No password"
+        (cat $IMPORT_PATH | tofnd ${ARGS} -m import) || return $ERR
+    else
+        echo "With password"
+        # TODO: provide actual password here
+        ((echo $PASSWORD && cat $IMPORT_PATH) | tofnd ${ARGS} -m import) || return $ERR
+    fi
+
+    echo "... ok"
+    return $OK
+}
+
+# export: export the mnemonic to $EXPORT_PATH, move it to $IMPORT_PATH and exit
+export_mnemonic() {
+    echo "Exporting mnemonic ..."
+    echo ${PASSWORD} | tofnd ${ARGS} -m export && mv $EXPORT_PATH $IMPORT_PATH || return $ERR
+    echo "... ok"
+    return $OK
+}
+
 # TODO: get actual password from user. See https://github.com/axelarnetwork/axelarate/issues/269.
 PASSWORD=""
 
@@ -24,50 +66,42 @@ ARGS=${UNSAFE:+"${ARGS} --unsafe"}
 if [ -n "${MNEMONIC_CMD}" ]; then \
 
     case ${MNEMONIC_CMD} in 
-        # existing: continues using the existing mnemonic. 
+        # auto: try to set up tofnd and then spin up tofnd with the existing mnemonic. 
+        # Order of set up: 1) import mnemonic, 2) create mnemonic. 
+        auto)
+            echo "Trying import" && import_mnemonic \
+            || (echo "... skipping. Trying to create" && create_mnemonic) \
+            || echo "... skipping"
+            ;;
+         
         existing)
-            echo "Using existing mnemonic"
             ;;
 
-        # create: create a new mnemonic, export it to a file, and save it under name "import" and continues
         create)
-            echo "Creating new mnemonic"
-            echo ${PASSWORD} | tofnd ${ARGS} -m create && mv $EXPORT_PATH $IMPORT_PATH || exit 1
+            create_mnemonic || exit $ERR
+            exit $OK
             ;;
 
-        # import: import a mnemonic from import path and continues
         import)
-            echo "Importing mnemonic"
-
-            # check if import file exists
-            [ -f $IMPORT_PATH ] || (echo "No import file found at $IMPORT_PATH" && exit 1)
-
-            # check if password exists
-            if [ -n "${NOPASSWORD}" ]; then \
-                echo "No password"
-                (cat $IMPORT_PATH | tofnd ${ARGS} -m import) || exit 1
-            else
-                echo "With password"
-                # TODO: provide actual password here
-                ((echo $PASSWORD && cat $IMPORT_PATH) | tofnd ${ARGS} -m import) || exit 1
-            fi
+            import_mnemonic || exit $ERR
+            exit $OK
             ;;
 
-        # export: exports the mnemonic to import file and exits
         export)
-            echo "Exporting mnemonic"
-            echo ${PASSWORD} | tofnd ${ARGS} -m export && mv $EXPORT_PATH $IMPORT_PATH
-            exit
+            export_mnemonic || exit $ERR
+            exit $OK
             ;;
 
         *)
             echo "Unknown command: ${MNEMONIC_CMD}"
-            exit 1
+            exit $ERR
             ;;
     esac
 
+    echo "Using existing mnemonic ..."
     ARGS="${ARGS} -m existing"
 fi
 
 # execute tofnd daemon
 exec echo ${PASSWORD} | tofnd ${ARGS} "$@"; \
+
