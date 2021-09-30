@@ -22,7 +22,14 @@ git clone git@github.com:axelarnetwork/tofnd.git --recursive
 # Running the server
 
 ```
-$ cargo run
+# init tofnd
+$ ./tofnd -m create
+
+# IMPORTANT: store the content of ./.tofnd/export file at a safe, offline place, and then delete the file
+$ rm ./.tofnd/export
+
+# start tofnd daemon
+$ ./tofnd
 ```
 
 Terminate the server with `ctrl+C`.
@@ -86,23 +93,50 @@ OPTIONS:
 
 # Docker
 
-To run `tofnd` inside a container, run:
+## Setup
+To setup a `tofnd` container, use the `create` mnemonic command:
+
+```
+docker-compose run -e MNEMONIC_CMD=create tofnd
+```
+
+This will initialize `tofnd`, and then exit.
+
+## Execution
+
+To run a `tofnd` daemon inside a container, run:
 
 ```
 docker-compose up
 ```
 
-For testing purposes, `docker-compose.unsafe.yml` is available which is equivelent to `cargo run -- --unsafe`. To create an unsafe `tofnd` container, run
-
-```
-docker-compose -f docker-compose.unsafe.yml up
-```
+## Storage
 
 We use [data containers](https://docs.docker.com/engine/reference/commandline/volume_create/) to persist data across restarts. To clean up storage, remove all `tofnd` containers, and run
 
 ```
 docker volume rm tofnd_tofnd
 ```
+
+## Testing
+
+For testing purposes, `docker-compose.test.yml` is available, which is equivelent to `./tofnd --no-password --unsafe`. To spin up a test `tofnd` container, run
+
+```
+docker-compose -f docker-compose.test.yml up
+```
+
+## The `auto` command
+
+In containerized environments the `auto` mnemonic command can be used.  This command is implemented in `entrypoint.sh` and does the following:
+1. Try to use existing mnemonic.  If successful then launch `tofnd` server.
+2. Try to import a mnemonic from file.  If successful then launch `tofnd` server.
+3. Create a new mnemonic.  The newly created mnemonic is automatically written to the file `TOFND_HOME/export`---rename this file to `TOFND_HOME/import` so as to unblock future executions of tofnd.  Then launch `tofnd` server.
+
+The rationale behind `auto` is that users can frictionlessly launch and restart their tofnd nodes without the need to execute multiple commands.
+`auto` is currently the default command only in `docker-compose.test.yml`, but users can edit the `docker-compose.yml` to use it at their own discretion.
+
+**Attention:** `auto` leaves the mnemonic on plain text on disk. You should remove the `TOFND_HOME/import` file and store the mnemonic at a safe, offline place.
 
 # Mnemonic
 
