@@ -128,15 +128,10 @@ docker-compose -f docker-compose.test.yml up
 
 ## The `auto` command
 
-In containerized environments, the `auto` mnemonic command can be used. `auto` works as follows:
-1. If no `import` file exists in `TOFND_HOME`, then `tofnd` attempts to create a new mnemonic. 
-    1. If an mnemonic is already stored in the kv store, then the creation is aborted, and the existing mnemonic is used.
-    2. If no mnemonic is stored in the kv store, then a fresh mnemonic is created, and the mnemonic is exported. The exported file is then renamed to `TOFND_HOME/import`.
-2. If an `import` file exists in `TOFND_HOME`, then `tofnd` attempts to use it. 
-    1. If a mnemonic is already stored in the kv store, then the import is aborted, and the existing mnemonic is used.
-    2. If no mnemonic is stored in the kv store, then the `import` file is used to store the mnemonic in the kv store.
-
-In short, `auto` implies the following order: 1) try to use existing mnemonic, 2) try to import a mnemonic from file, 3) try create a new mnemonic.
+In containerized environments the `auto` mnemonic command can be used.  This command is implemented in `entrypoint.sh` and does the following:
+1. Try to use existing mnemonic.  If successful then launch `tofnd` server.
+2. Try to import a mnemonic from file.  If successful then launch `tofnd` server.
+3. Create a new mnemonic.  The newly created mnemonic is automatically written to the file `TOFND_HOME/export`---rename this file to `TOFND_HOME/import` so as to unblock future executions of tofnd.  Then launch `tofnd` server.
 
 The rationale behind `auto` is that users can frictionlessly launch and restart their tofnd nodes without the need to execute multiple commands.
 `auto` is currently the default command only in `docker-compose.test.yml`, but users can edit the `docker-compose.yml` to use it at their own discretion.
