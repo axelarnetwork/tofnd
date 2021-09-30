@@ -138,7 +138,7 @@ In containerized environments, the `auto` mnemonic command can be used. `auto` w
 
 In short, `auto` implies the following order: 1) try to use existing mnemonic, 2) try to import a mnemonic from file, 3) try create a new mnemonic.
 
-The rationale behind `auto` is that users can fritionalessly run and restart their tofnd nodes without having to run multiple commands.
+The rationale behind `auto` is that users can frictionlessly launch and restart their tofnd nodes without the need to execute multiple commands.
 `auto` is currently the default command only in `docker-compose.test.yml`, but users can edit the `docker-compose.yml` to use it at their own discretion.
 
 **Attention:** `auto` leaves the mnemonic on plain text on disk. You should remove the `TOFND_HOME/import` file and store the mnemonic at a safe, offline place.
