@@ -26,8 +26,6 @@ pub enum KvError {
     PutErr(InnerKvError),
     #[error("Get Error: {0}")]
     GetErr(InnerKvError),
-    #[error("Remove Error: {0}")]
-    RemoveErr(InnerKvError),
     #[error("Exits Error: {0}")]
     ExistsErr(InnerKvError),
 }

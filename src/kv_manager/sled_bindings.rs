@@ -18,7 +18,7 @@ pub(super) fn handle_reserve(
     // If reserve key already exists inside our database, return an error
     if kv.contains_key(&key)? {
         return Err(LogicalErr(format!(
-            "kv_manager key <{}> already reserved",
+            "kv_manager key <{}> already reserved.",
             key
         )));
     }
@@ -46,7 +46,7 @@ where
     // https://docs.rs/sled/0.34.6/sled/struct.Tree.html#examples-4
     if kv.get(&reservation.key)? != Some(sled::IVec::from(DEFAULT_RESERV)) {
         return Err(LogicalErr(format!(
-            "did not find reservation for key <{}> in kv store",
+            "did not find reservation for key <{}> in kv store.",
             reservation.key
         )));
     }
@@ -70,7 +70,7 @@ where
     let value = match kv.get(&key)? {
         Some(bytes) => deserialize(&bytes).ok_or(DeserializationErr)?,
         None => {
-            return Err(LogicalErr(format!("key <{}> does not have a value", key)));
+            return Err(LogicalErr(format!("key <{}> does not have a value.", key)));
         }
     };
 
@@ -87,22 +87,4 @@ pub(super) fn handle_exists(kv: &encrypted_sled::Db, key: &str) -> InnerKvResult
             key, err
         ))
     })
-}
-
-/// Deletes the key and it's value from the kv store.
-/// Returns [SledErr] of [LogicalErr] on failure.
-pub(super) fn handle_remove<V>(kv: &encrypted_sled::Db, key: String) -> InnerKvResult<V>
-where
-    V: DeserializeOwned,
-{
-    // try to remove value of 'key'
-    let value = match kv.remove(&key)? {
-        Some(bytes) => deserialize(&bytes).ok_or(DeserializationErr)?,
-        None => {
-            return Err(LogicalErr(format!("key <{}> does not have a value", key)));
-        }
-    };
-
-    // return value
-    Ok(value)
 }

@@ -70,7 +70,13 @@ async fn main() -> TofndResult<()> {
         incoming.local_addr()?
     );
 
+    let cmd = cfg.mnemonic_cmd.clone();
     let my_service = gg20::service::new_service(cfg, password).await?;
+
+    if cmd.exit_after_cmd() {
+        info!("Tofnd exited after using command <{:?}>. Run `./tofnd -m existing` to execute gRPC daemon.", cmd);
+        return Ok(());
+    }
 
     let proto_service = proto::gg20_server::Gg20Server::new(my_service);
 

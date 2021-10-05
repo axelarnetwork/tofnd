@@ -5,7 +5,7 @@ use crate::encrypted_sled::{self, Password};
 
 use super::{
     error::{KvError::*, KvResult},
-    sled_bindings::{handle_exists, handle_get, handle_put, handle_remove, handle_reserve},
+    sled_bindings::{handle_exists, handle_get, handle_put, handle_reserve},
     types::{
         Command::{self, *},
         KeyReservation, DEFAULT_KV_PATH,
@@ -106,19 +106,6 @@ where
             .map_err(|e| SendErr(e.to_string()))?;
         resp_rx.await?.map_err(ExistsErr)
     }
-
-    /// Removes a key and its corresponding value from the kvstore
-    /// Returns [RemoveErr] or [SendErr] on failure.
-    pub async fn remove(&self, key: &str) -> KvResult<V> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        self.sender
-            .send(Remove {
-                key: key.to_string(),
-                resp: resp_tx,
-            })
-            .map_err(|e| SendErr(e.to_string()))?;
-        resp_rx.await?.map_err(RemoveErr)
-    }
 }
 
 /// Returns the db with name `db_name`, or creates a new if such DB does not exist
@@ -184,11 +171,6 @@ async fn kv_cmd_handler<V: 'static>(
             }
             Exists { key, resp } => {
                 if resp.send(handle_exists(&kv, &key)).is_err() {
-                    warn!("receiver dropped");
-                }
-            }
-            Remove { key, resp } => {
-                if resp.send(handle_remove(&kv, key)).is_err() {
                     warn!("receiver dropped");
                 }
             }

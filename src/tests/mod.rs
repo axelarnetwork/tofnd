@@ -23,6 +23,7 @@ use malicious::{MaliciousData, PartyMaliciousData};
 
 mod mnemonic;
 
+use crate::gg20::mnemonic::Cmd::{self, Create};
 use proto::message_out::CriminalList;
 use tracing::info;
 
@@ -219,6 +220,12 @@ async fn shutdown_party(
 }
 
 // deletes the share kv-store of a party's db path
+fn delete_party_export(mut mnemonic_path: PathBuf) {
+    mnemonic_path.push("export");
+    std::fs::remove_file(mnemonic_path).unwrap();
+}
+
+// deletes the share kv-store of a party's db path
 fn delete_party_shares(mut party_db_path: PathBuf) {
     party_db_path.push("kvstore/shares");
     // Sled creates a directory for the database and its configuration
@@ -226,9 +233,9 @@ fn delete_party_shares(mut party_db_path: PathBuf) {
     std::fs::remove_dir_all(party_db_path).unwrap();
 }
 
-// initailizes i-th party
+// reinitializes i-th party
 // pass malicious data if we are running in malicious mode
-async fn init_party(
+async fn reinit_party(
     mut party_options: Vec<Option<TofndParty>>,
     party_index: usize,
     testdir: &Path,
@@ -241,9 +248,8 @@ async fn init_party(
         malicious_data,
     );
 
-    // assume party already has a mnemonic, so we pass Cmd::Noop
-    party_options[party_index] =
-        Some(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Noop, testdir).await);
+    // here we assume that the party already has a mnemonic, so we pass Cmd::Existing
+    party_options[party_index] = Some(TofndParty::new(init_party, Cmd::Existing, testdir).await);
 
     party_options
         .into_iter()
@@ -319,13 +325,16 @@ async fn restart_party(
     // shutdown party with party_index
     let (party_options, shutdown_db_path) = shutdown_party(parties, party_index).await;
 
+    // if we are going to restart, delete exported mnemonic to allow using Cmd::Existing
+    delete_party_export(shutdown_db_path.clone());
+
     if recover {
         // if we are going to recover, delete party's shares
         delete_party_shares(shutdown_db_path);
     }
 
-    // reinit party with
-    let mut parties = init_party(
+    // reinit party
+    let mut parties = reinit_party(
         party_options,
         party_index,
         dir,
@@ -601,8 +610,7 @@ async fn init_parties(
             #[cfg(feature = "malicious")]
             &init_parties.malicious_data,
         );
-        parties
-            .push(TofndParty::new(init_party, crate::gg20::mnemonic::Cmd::Create, testdir).await);
+        parties.push(TofndParty::new(init_party, Create, testdir).await);
     }
 
     let party_uids: Vec<String> = (0..init_parties.party_count)

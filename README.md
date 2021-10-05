@@ -22,7 +22,14 @@ git clone git@github.com:axelarnetwork/tofnd.git --recursive
 # Running the server
 
 ```
-$ cargo run
+# init tofnd
+$ ./tofnd -m create
+
+# IMPORTANT: store the content of ./.tofnd/export file at a safe, offline place, and then delete the file
+$ rm ./.tofnd/export
+
+# start tofnd daemon
+$ ./tofnd
 ```
 
 Terminate the server with `ctrl+C`.
@@ -59,7 +66,8 @@ We use [clap](https://clap.rs/) to manage command line arguments.
 Users can specify:
 1. Tofnd's root folder. Use `--directory` or `-d` to specify a full or a relative path. If no argument is provided, then the environment variable `TOFND_HOME` is used. If no environment variable is set either, the default `./tofnd` directory is used. 
 2. The port number of the gRPC server (default is 50051).
-3. `mnemonic` operations for their `tofnd` instance (default is `Create`).
+3. The option to run in _unsafe_ mode. By default, this option is off, and safe primes are used for keygen. Use the `--unsafe` flag only for testing.
+4. `mnemonic` operations for their `tofnd` instance (default is `Existing`).
 For more information, see on mnemonic options, see [Mnemonic](#mnemonic).
 4. The option to run in _unsafe_ mode. By default, this option is off, and safe primes are used for keygen. **Attention: Use the `--unsafe` flag only for testing**.
 5. By default, `tofnd` expects a password from the standard input. Users that don't want to use passwords can use the `--no-password` flag. **Attention: Use `--no-password` only for testing .**
@@ -79,29 +87,56 @@ FLAGS:
 
 OPTIONS:
     -d, --directory <directory>     [env: TOFND_HOME=]  [default: .tofnd]
-    -m, --mnemonic <mnemonic>       [default: create]  [possible values: stored, create, import, update, export]
+    -m, --mnemonic <mnemonic>       [default: existing]  [possible values: existing, create, import, export]
     -p, --port <port>               [default: 50051]]
 ```
 
 # Docker
 
-To run `tofnd` inside a container, run:
+## Setup
+To setup a `tofnd` container, use the `create` mnemonic command:
+
+```
+docker-compose run -e MNEMONIC_CMD=create tofnd
+```
+
+This will initialize `tofnd`, and then exit.
+
+## Execution
+
+To run a `tofnd` daemon inside a container, run:
 
 ```
 docker-compose up
 ```
 
-For testing purposes, `docker-compose.unsafe.yml` is available which is equivelent to `cargo run -- --unsafe`. To create an unsafe `tofnd` container, run
-
-```
-docker-compose -f docker-compose.unsafe.yml up
-```
+## Storage
 
 We use [data containers](https://docs.docker.com/engine/reference/commandline/volume_create/) to persist data across restarts. To clean up storage, remove all `tofnd` containers, and run
 
 ```
 docker volume rm tofnd_tofnd
 ```
+
+## Testing
+
+For testing purposes, `docker-compose.test.yml` is available, which is equivelent to `./tofnd --no-password --unsafe`. To spin up a test `tofnd` container, run
+
+```
+docker-compose -f docker-compose.test.yml up
+```
+
+## The `auto` command
+
+In containerized environments the `auto` mnemonic command can be used.  This command is implemented in `entrypoint.sh` and does the following:
+1. Try to use existing mnemonic.  If successful then launch `tofnd` server.
+2. Try to import a mnemonic from file.  If successful then launch `tofnd` server.
+3. Create a new mnemonic.  The newly created mnemonic is automatically written to the file `TOFND_HOME/export`---rename this file to `TOFND_HOME/import` so as to unblock future executions of tofnd.  Then launch `tofnd` server.
+
+The rationale behind `auto` is that users can frictionlessly launch and restart their tofnd nodes without the need to execute multiple commands.
+`auto` is currently the default command only in `docker-compose.test.yml`, but users can edit the `docker-compose.yml` to use it at their own discretion.
+
+**Attention:** `auto` leaves the mnemonic on plain text on disk. You should remove the `TOFND_HOME/import` file and store the mnemonic at a safe, offline place.
 
 # Mnemonic
 
@@ -113,17 +148,13 @@ Mnemonic is used to enable _recovery_ of shares in case of unexpected loss. See 
 
 The command line API supports the following commands:
 
-* `Noop` does nothing and always succeeds; useful when the container restarts with the same mnemonic.  
+* `Existing` Starts the gRPC daemon using an existing mnemonic; Fails if no mnemonic exist.
 
-* `Create` creates a new mnemonic if there none exists, otherwise does nothing. The new passphrase is written in a file named _./tofnd/export_.
+* `Create` Creates a new mnemonic, inserts it in the kv-store, exports it to a file and exits; Fails if a mnemonic already exists.
 
-* `Import` adds a new mnemonic from file _./tofnd/import_ file; Succeeds when there is no other mnemonic already imported, fails otherwise.
+* `Import` Prompts user to give a new mnemonic from standard input, inserts it in the kv-store and exits; Fails if a mnemonic exists or if the provided string is not a valid bip39 mnemonic.
 
-* `Export` writes the existing mnemonic to file _./tofnd/export_; Succeeds when there is an existing mnemonic, fails otherwise.
-
-* `Update` updates existing mnemonic from file _./tofnd/import_; Succeeds when there is an existing mnemonic, fails otherwise. The old passphrase is written to file _./export_.
-
-If a _./tofnd/export_ file already exists, then a new one is created with a new id, e.g. _./tofnd/export_2_, _./tofnd/export_3_, etc.
+* `Export` Writes the existing mnemonic to _<tofnd_root>/.tofnd/export_ and exits; Succeeds when there is an existing mnemonic. Fails if no mnemonic is stored, or the export file already exists.
 
 ## Zeroization
 

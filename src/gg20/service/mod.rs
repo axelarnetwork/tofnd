@@ -1,6 +1,6 @@
 //! This mod includes the service implementation derived from
 
-use super::mnemonic::file_io::FileIo;
+use super::mnemonic::FileIo;
 use super::proto;
 use super::types::{KeySharesKv, MnemonicKv, DEFAULT_MNEMONIC_KV_NAME, DEFAULT_SHARE_KV_NAME};
 use crate::config::Config;

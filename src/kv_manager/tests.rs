@@ -2,7 +2,7 @@
 
 use super::{
     error::InnerKvError::LogicalErr,
-    sled_bindings::{handle_exists, handle_get, handle_put, handle_remove, handle_reserve},
+    sled_bindings::{handle_exists, handle_get, handle_put, handle_reserve},
     types::{KeyReservation, DEFAULT_RESERV},
 };
 use crate::encrypted_sled;
@@ -177,38 +177,4 @@ fn test_exists() {
     let exists = handle_exists(&kv, &key);
     assert!(exists.is_ok());
     assert!(exists.unwrap()); // check that the result is true
-
-    // remove key
-    let _ = handle_remove::<String>(&kv, key.clone()).unwrap();
-
-    // exists should fail
-    let exists = handle_exists(&kv, &key);
-    assert!(exists.is_ok());
-    assert!(!exists.unwrap()); // check that the result is false
-}
-
-#[test]
-fn remove_success() {
-    let kv_name = testdir!();
-    let kv = open_with_test_password(&kv_name).unwrap();
-
-    let key: String = "key".to_string();
-    let value = "value";
-    handle_reserve(&kv, key.clone()).unwrap();
-    handle_put(&kv, KeyReservation { key: key.clone() }, value).unwrap();
-    let res = handle_remove::<String>(&kv, key).unwrap();
-    assert_eq!(res, value);
-    clean_up(kv_name.to_str().unwrap(), kv);
-}
-
-#[test]
-fn remove_failure() {
-    let kv_name = testdir!();
-    let kv = open_with_test_password(&kv_name).unwrap();
-
-    let key: String = "key".to_string();
-    let err = handle_remove::<String>(&kv, key).err().unwrap();
-    assert!(matches!(err, LogicalErr(_)));
-
-    clean_up(kv_name.to_str().unwrap(), kv);
 }

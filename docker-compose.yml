@@ -1,3 +1,8 @@
+# usage:
+# $ docker-compose up
+# or
+# $ docker-compose run -e MNEMONIC_CMD=<mnemonic_cmd> tofnd
+
 volumes:
   tofnd:
 
@@ -10,7 +15,5 @@ services:
     volumes:
       - tofnd:/.tofnd
     environment:
-      # ATTENTION: use --unsafe only for testing
-      - UNSAFE=true
-      # available cmds: create (default), stored, update, import, export
-      - MNEMONIC_CMD=create 
+      # available cmds: auto, create, existing (default), import, export
+      - MNEMONIC_CMD=auto
