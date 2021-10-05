@@ -12,25 +12,25 @@ use super::{Disrupt, MaliciousData, Timeout};
 use tracing_test::traced_test; // log for tests
 
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn keygen_malicious_general_cases() {
     run_test_cases(&generate_basic_cases()).await;
 }
 
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn keygen_malicious_multiple_per_round() {
     run_test_cases(&generate_multiple_malicious_per_round()).await;
 }
 
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn malicious_timeout_cases() {
     run_test_cases(&timeout_cases()).await;
 }
 
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn malicious_disrupt_cases() {
     run_test_cases(&disrupt_cases()).await;
 }
