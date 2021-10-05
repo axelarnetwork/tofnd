@@ -15,6 +15,7 @@ use crate::{
 use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
 use std::path::Path;
+use tokio::time::{sleep, Duration};
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tokio_stream::wrappers::{TcpListenerStream, UnboundedReceiverStream};
 use tonic::Request;
@@ -66,9 +67,25 @@ impl TofndParty {
         };
 
         // start service
-        let my_service = gg20::service::new_service(cfg, get_test_password())
-            .await
-            .expect("unable to create service");
+        // sled does not support to rapidly open/close databases.
+        // Unfortunately, for our restarts/recover tests we need to open
+        // a database right after it is closed. We get around with that by
+        // attempting to open the kv with some artificial delay.
+        // https://github.com/spacejam/sled/issues/1234#issuecomment-754769425
+        let mut tries = 0;
+        let my_service = loop {
+            match gg20::service::new_service(cfg.clone(), get_test_password()).await {
+                Ok(my_service) => break my_service,
+                Err(err) => {
+                    tries += 1;
+                    warn!("({}/3) unable to create service: {}", tries, err);
+                }
+            };
+            sleep(Duration::from_secs(1)).await;
+            if tries == 3 {
+                panic!("could not create service");
+            }
+        };
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();
