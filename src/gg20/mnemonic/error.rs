@@ -58,8 +58,6 @@ pub(super) mod mnemonic {
         ImportErr(InnerMnemonicError),
         #[error("Cannot export mnemonic: {0}")]
         ExportErr(InnerMnemonicError),
-        #[error("Cannot update mnemonic: {0}")]
-        UpdateErr(InnerMnemonicError),
     }
     pub type MnemonicResult<Success> = Result<Success, MnemonicError>;
     pub type SeedResult<Success> = Result<Success, InnerMnemonicError>;

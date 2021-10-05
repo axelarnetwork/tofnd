@@ -10,9 +10,8 @@ use tracing::info;
 use super::{bip39_bindings::bip39_from_entropy, error::file_io::FileIoError::Exists};
 use crate::gg20::types::{Entropy, Password};
 
-/// Standard names
+/// name of export file
 const EXPORT_FILE: &str = "export";
-pub(super) const IMPORT_FILE: &str = "import";
 
 use super::error::file_io::FileIoResult;
 
