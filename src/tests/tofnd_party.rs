@@ -215,6 +215,7 @@ impl Party for TofndParty {
         init: proto::KeygenInit,
         channels: SenderReceiver,
         delivery: Deliverer,
+        notify: std::sync::Arc<tokio::sync::Notify>,
     ) -> GrpcKeygenResult {
         let my_uid = init.party_uids[usize::try_from(init.my_party_index).unwrap()].clone();
         let (keygen_server_incoming, rx) = channels;
@@ -247,6 +248,12 @@ impl Party for TofndParty {
                 data: Some(proto::message_in::Data::KeygenInit(init)),
             })
             .unwrap();
+
+        info!("Party [{}] waiting for notification", my_uid);
+        notify.notified().await;
+        info!("Party [{}] received notification", my_uid);
+        notify.notify_one();
+        info!("Party [{}] notified", my_uid);
 
         #[allow(unused_variables)]
         let mut msg_count = 1;
@@ -374,6 +381,7 @@ impl Party for TofndParty {
         channels: SenderReceiver,
         delivery: Deliverer,
         my_uid: &str,
+        notify: std::sync::Arc<tokio::sync::Notify>,
     ) -> GrpcSignResult {
         let (sign_server_incoming, rx) = channels;
         let mut sign_server_outgoing = self
@@ -395,6 +403,13 @@ impl Party for TofndParty {
                 data: Some(proto::message_in::Data::SignInit(init)),
             })
             .unwrap();
+
+        info!("Party [{}] waiting for notification", my_uid);
+        notify.notified().await;
+        info!("Party [{}] received notification", my_uid);
+        notify.notify_one();
+        info!("Party [{}] notified", my_uid);
+        // tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
         #[allow(unused_variables)] // allow unsused traffin in non malicious
         let mut msg_count = 1;
