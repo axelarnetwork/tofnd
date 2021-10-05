@@ -4,7 +4,7 @@
 //!  2. all secret share data - data used to allow parties to participate to future Signs; stored in KvStore
 //!  3. all secret share recovery info - information used to allow client to issue secret share recovery in case of data loss; sent to client
 
-use tofn::gg20::keygen::SecretKeyShare;
+use tofn::{gg20::keygen::SecretKeyShare, sdk::api::serialize};
 
 use super::{
     proto::{self},
@@ -171,8 +171,10 @@ impl Gg20Service {
             })
             .collect::<TofndResult<Vec<_>>>()?;
 
-        // We use an additional layer of serialization to simpify the protobuf definition
-        let private_bytes = bincode::serialize(&private_infos)?;
+        // We use an additional layer of serialization to simplify the protobuf definition
+        let private_bytes = serialize(&private_infos)
+            .map_err(|_| anyhow!("Failed to serialize private recovery infos"))?;
+
         Ok(private_bytes)
     }
 

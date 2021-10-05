@@ -4,12 +4,20 @@ use chacha20poly1305::XNonce;
 use serde::{Deserialize, Serialize};
 use sled::IVec;
 
+use tofn::sdk::api::{deserialize, serialize};
+
+use super::result::{
+    EncryptedDbError::{Deserialization, Serialization},
+    EncryptedDbResult,
+};
+
 /// The value of [super::Db].
 #[derive(Serialize, Deserialize, Debug)]
 pub(super) struct EncryptedRecord {
     encrypted_value: Vec<u8>,
     nonce: [u8; 24],
 }
+
 impl EncryptedRecord {
     pub(super) fn new(encrypted_value: Vec<u8>, nonce: XNonce) -> Self {
         EncryptedRecord {
@@ -17,13 +25,18 @@ impl EncryptedRecord {
             nonce: nonce.into(),
         }
     }
+
     /// Convert a [EncryptedRecord] to bytes using serde.
-    pub(super) fn as_bytes(&self) -> bincode::Result<Vec<u8>> {
-        bincode::serialize(&self)
+    pub(super) fn to_bytes(&self) -> EncryptedDbResult<Vec<u8>> {
+        serialize(&self)
+            .map_err(|_| Serialization("Failed to serialize encrypted record".to_string()))
     }
+
     /// Convert bytes to a [EncryptedRecord] using serde.
-    pub(super) fn from_bytes(bytes: &IVec) -> bincode::Result<EncryptedRecord> {
-        bincode::deserialize(bytes)
+    pub(super) fn from_bytes(bytes: &IVec) -> EncryptedDbResult<EncryptedRecord> {
+        deserialize(bytes).ok_or_else(|| {
+            Deserialization("Failed to deserialize encrypted record from bytes".to_string())
+        })
     }
 }
 

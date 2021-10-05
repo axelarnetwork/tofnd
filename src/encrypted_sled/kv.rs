@@ -144,7 +144,7 @@ impl EncryptedDb {
         V: Into<IVec>,
     {
         let record = self.encrypt(value)?;
-        let prev_record_bytes_opt = self.kv.insert(&key, record.as_bytes()?)?;
+        let prev_record_bytes_opt = self.kv.insert(&key, record.to_bytes()?)?;
         self.decrypt(prev_record_bytes_opt)
     }
 

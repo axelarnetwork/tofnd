@@ -9,7 +9,7 @@ use tofn::{
         recover_party_keypair, recover_party_keypair_unsafe, KeygenPartyId, SecretKeyShare,
         SecretRecoveryKey,
     },
-    sdk::api::{BytesVec, PartyShareCounts},
+    sdk::api::{deserialize, BytesVec, PartyShareCounts},
 };
 
 // logging
@@ -90,7 +90,9 @@ impl Gg20Service {
         // check private recovery infos
         // use an additional layer of deserialization to simpify the protobuf definition
         // deserialize recovery info here to catch errors before spending cycles on keypair recovery
-        let private_info_vec: Vec<BytesVec> = bincode::deserialize(&output.private_recover_info)?;
+        let private_info_vec: Vec<BytesVec> = deserialize(&output.private_recover_info)
+            .ok_or_else(|| anyhow!("Failed to deserialize private recovery infos"))?;
+
         if private_info_vec.len() != my_share_count {
             return Err(anyhow!(
                 "Party {} has {} shares assigned, but retrieved {} shares from client",

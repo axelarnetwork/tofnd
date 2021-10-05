@@ -13,6 +13,7 @@ use crate::encrypted_sled;
 // Windows: /data/local/tmp
 // https://doc.rust-lang.org/std/env/fn.temp_dir.html#unix
 use testdir::testdir;
+use tofn::sdk::api::deserialize;
 
 fn clean_up(kv_name: &str, kv: encrypted_sled::Db) {
     assert!(kv.flush().is_ok());
@@ -98,11 +99,11 @@ fn put_failure_put_twice() {
     let kv = open_with_test_password(&kv_name).unwrap();
 
     let key: String = "key".to_string();
-    let value = "value";
-    let value2 = "value2";
+    let value = "value".to_string();
+    let value2 = "value2".to_string();
 
     handle_reserve(&kv, key.clone()).unwrap();
-    handle_put(&kv, KeyReservation { key: key.clone() }, value).unwrap();
+    handle_put(&kv, KeyReservation { key: key.clone() }, value.clone()).unwrap();
 
     let err = handle_put(&kv, KeyReservation { key: key.clone() }, value2)
         .err()
@@ -113,7 +114,7 @@ fn put_failure_put_twice() {
     // get bytes
     let bytes = kv.get(&key).unwrap().unwrap();
     // convert to value type
-    let v: &str = bincode::deserialize(&bytes).unwrap();
+    let v: String = deserialize(&bytes).unwrap();
     // check current value with first assigned value
     assert!(v == value);
 

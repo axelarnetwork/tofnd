@@ -1963,7 +1963,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=main#327f5c6fce93d0c61d413886c4bb1860cd82a881"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=main#9dcfe41026eb61b9ff647c69aceb23161c809adb"
 dependencies = [
  "bincode",
  "ecdsa",
@@ -1985,7 +1985,6 @@ version = "0.6.1"
 dependencies = [
  "anyhow",
  "atty",
- "bincode",
  "chacha20poly1305",
  "clap",
  "futures-util",

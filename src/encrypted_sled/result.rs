@@ -12,8 +12,10 @@ pub enum EncryptedDbError {
     PasswordScryptError(#[from] scrypt::errors::InvalidOutputLen),
     #[error("Sled error: {0}")]
     SledError(#[from] sled::Error),
+    #[error("Serialization error: {0}")]
+    Serialization(String),
     #[error("Deserialization error: {0}")]
-    Deserialization(#[from] bincode::Error),
+    Deserialization(String),
     #[error("ChaCha20 encryption error: {0}")]
     Encryption(String),
     #[error("ChaCha20 decryption error: {0}")]
