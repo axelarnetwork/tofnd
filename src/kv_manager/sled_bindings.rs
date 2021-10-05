@@ -52,8 +52,7 @@ where
     }
 
     // convert value into bytes
-    let bytes = serialize(&value)
-        .map_err(|_| SerializationErr("Failed to serialize value to put in kvstore".to_string()))?;
+    let bytes = serialize(&value).map_err(|_| SerializationErr)?;
 
     // insert new value
     kv.insert(&reservation.key, bytes)?;
@@ -69,9 +68,7 @@ where
 {
     // try to get value of 'key'
     let value = match kv.get(&key)? {
-        Some(bytes) => deserialize(&bytes).ok_or_else(|| {
-            DeserializationErr("Failed to deserialize bytes retrieved from kvstore".to_string())
-        })?,
+        Some(bytes) => deserialize(&bytes).ok_or(DeserializationErr)?,
         None => {
             return Err(LogicalErr(format!("key <{}> does not have a value", key)));
         }
@@ -100,9 +97,7 @@ where
 {
     // try to remove value of 'key'
     let value = match kv.remove(&key)? {
-        Some(bytes) => deserialize(&bytes).ok_or_else(|| {
-            DeserializationErr("Failed to deserialize bytes being removed from kvstore".to_string())
-        })?,
+        Some(bytes) => deserialize(&bytes).ok_or(DeserializationErr)?,
         None => {
             return Err(LogicalErr(format!("key <{}> does not have a value", key)));
         }

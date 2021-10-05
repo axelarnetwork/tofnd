@@ -28,15 +28,12 @@ impl EncryptedRecord {
 
     /// Convert a [EncryptedRecord] to bytes using serde.
     pub(super) fn to_bytes(&self) -> EncryptedDbResult<Vec<u8>> {
-        serialize(&self)
-            .map_err(|_| Serialization("Failed to serialize encrypted record".to_string()))
+        serialize(&self).map_err(|_| Serialization)
     }
 
     /// Convert bytes to a [EncryptedRecord] using serde.
     pub(super) fn from_bytes(bytes: &IVec) -> EncryptedDbResult<EncryptedRecord> {
-        deserialize(bytes).ok_or_else(|| {
-            Deserialization("Failed to deserialize encrypted record from bytes".to_string())
-        })
+        deserialize(bytes).ok_or(Deserialization)
     }
 }
 
