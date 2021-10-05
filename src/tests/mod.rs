@@ -659,8 +659,8 @@ async fn execute_keygen(
             new_key_uid: new_key_uid.to_string(),
             party_uids: party_uids.to_owned(),
             party_share_counts: party_share_counts.to_owned(),
-            my_party_index: i32::try_from(i).unwrap(),
-            threshold: i32::try_from(threshold).unwrap(),
+            my_party_index: u32::try_from(i).unwrap(),
+            threshold: u32::try_from(threshold).unwrap(),
         };
         let delivery = keygen_delivery.clone();
         let handle = tokio::spawn(async move {
@@ -688,7 +688,7 @@ async fn execute_keygen(
         party_uids: party_uids.to_owned(),
         party_share_counts: party_share_counts.to_owned(),
         my_party_index: 0, // return keygen for first party. Might need to change index before using
-        threshold: i32::try_from(threshold).unwrap(),
+        threshold: u32::try_from(threshold).unwrap(),
     };
     (parties, results, init)
 }
@@ -736,7 +736,7 @@ async fn execute_recover(
     // create keygen init for recovered party
     let key_uid = keygen_init.new_key_uid.clone();
 
-    keygen_init.my_party_index = recover_party_index as i32;
+    keygen_init.my_party_index = recover_party_index as u32;
     parties[recover_party_index]
         .execute_recover(keygen_init, keygen_outputs[recover_party_index].clone())
         .await;
