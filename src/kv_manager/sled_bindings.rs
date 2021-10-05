@@ -1,6 +1,7 @@
 //! Bindings for [sled::Db] operations. Errors are mapped to [super::error::InnerKvError].
 
 use serde::{de::DeserializeOwned, Serialize};
+use tofn::sdk::api::{deserialize, serialize};
 
 use super::error::{InnerKvError::*, InnerKvResult};
 use super::types::{KeyReservation, DEFAULT_RESERV};
@@ -51,7 +52,7 @@ where
     }
 
     // convert value into bytes
-    let bytes = bincode::serialize(&value)?;
+    let bytes = serialize(&value).map_err(|_| SerializationErr)?;
 
     // insert new value
     kv.insert(&reservation.key, bytes)?;
@@ -67,7 +68,7 @@ where
 {
     // try to get value of 'key'
     let value = match kv.get(&key)? {
-        Some(bytes) => bincode::deserialize(&bytes)?,
+        Some(bytes) => deserialize(&bytes).ok_or(DeserializationErr)?,
         None => {
             return Err(LogicalErr(format!("key <{}> does not have a value", key)));
         }
@@ -96,7 +97,7 @@ where
 {
     // try to remove value of 'key'
     let value = match kv.remove(&key)? {
-        Some(bytes) => bincode::deserialize(&bytes)?,
+        Some(bytes) => deserialize(&bytes).ok_or(DeserializationErr)?,
         None => {
             return Err(LogicalErr(format!("key <{}> does not have a value", key)));
         }

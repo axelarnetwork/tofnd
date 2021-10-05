@@ -17,8 +17,8 @@ use crate::TofndResult;
 use anyhow::anyhow;
 
 /// execute gg20 protocol
-pub(super) async fn execute_protocol<F, K, P>(
-    mut party: Protocol<F, K, P>,
+pub(super) async fn execute_protocol<F, K, P, const MAX_MSG_IN_LEN: usize>(
+    mut party: Protocol<F, K, P, MAX_MSG_IN_LEN>,
     mut chans: ProtocolCommunication<
         Option<proto::TrafficIn>,
         Result<proto::MessageOut, tonic::Status>,
@@ -65,9 +65,9 @@ where
     }
 }
 
-fn handle_outgoing<F, K, P>(
+fn handle_outgoing<F, K, P, const MAX_MSG_IN_LEN: usize>(
     sender: &UnboundedSender<Result<proto::MessageOut, tonic::Status>>,
-    round: &Round<F, K, P>,
+    round: &Round<F, K, P, MAX_MSG_IN_LEN>,
     party_uids: &[String],
     round_count: usize,
     span: Span,
@@ -111,9 +111,9 @@ fn handle_outgoing<F, K, P>(
     Ok(())
 }
 
-async fn handle_incoming<F, K, P>(
+async fn handle_incoming<F, K, P, const MAX_MSG_IN_LEN: usize>(
     receiver: &mut UnboundedReceiver<Option<proto::TrafficIn>>,
-    round: &mut Round<F, K, P>,
+    round: &mut Round<F, K, P, MAX_MSG_IN_LEN>,
     party_uids: &[String],
     total_round_p2p_msgs: usize,
     total_num_of_shares: usize,
