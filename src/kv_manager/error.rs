@@ -40,10 +40,9 @@ pub enum InnerKvError {
     SledErr(#[from] encrypted_sled::Error),
     #[error("Logical Error: {0}")] // Logical errors (eg double deletion)
     LogicalErr(String),
-    #[error("Serialization Error: failed to serialize value")] // Serialization errors
+    #[error("Serialization Error: failed to serialize value")]
     SerializationErr,
     #[error("Deserialization Error: failed to deserialize kvstore bytes")]
-    // Deserialization errors
     DeserializationErr,
 }
 pub(super) type InnerKvResult<Success> = Result<Success, InnerKvError>;
