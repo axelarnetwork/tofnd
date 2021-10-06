@@ -266,11 +266,9 @@ impl Party for TofndParty {
             })
             .unwrap();
 
-        info!("Party [{}] waiting for notification", my_uid);
+        // block until all parties send their KeygenInit
         notify.notified().await;
-        info!("Party [{}] received notification", my_uid);
         notify.notify_one();
-        info!("Party [{}] notified", my_uid);
 
         #[allow(unused_variables)]
         let mut msg_count = 1;
@@ -421,12 +419,9 @@ impl Party for TofndParty {
             })
             .unwrap();
 
-        info!("Party [{}] waiting for notification", my_uid);
+        // block until all parties send their SignInit
         notify.notified().await;
-        info!("Party [{}] received notification", my_uid);
         notify.notify_one();
-        info!("Party [{}] notified", my_uid);
-        // tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
         #[allow(unused_variables)] // allow unsused traffin in non malicious
         let mut msg_count = 1;

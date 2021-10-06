@@ -673,7 +673,13 @@ async fn execute_keygen(
         keygen_join_handles.push(handle);
     }
 
+    // Sleep here to prevent data races between parties:
+    // some clients might start sending TrafficIn messages to other parties'
+    // servers before these parties manage to receive their own
+    // KeygenInit/SignInit from their servers. This leads to an
+    // `WrongMessage` error.
     sleep(Duration::from_secs(1)).await;
+    // wake up one party
     notify.notify_one();
 
     // if we are expecting a timeout, abort parties after a reasonable amount of time
@@ -806,6 +812,12 @@ async fn execute_sign(
         });
         sign_join_handles.push((i, handle));
     }
+
+    // Sleep here to prevent data races between parties:
+    // some clients might start sending TrafficIn messages to other parties'
+    // servers before these parties manage to receive their own
+    // KeygenInit/SignInit from their servers. This leads to an
+    // `WrongMessage` error.
     sleep(Duration::from_secs(1)).await;
     notify.notify_one();
 
