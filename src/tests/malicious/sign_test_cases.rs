@@ -8,7 +8,7 @@ use tofn::{
     gg20::sign::malicious::Behaviour::{self, *},
 };
 
-use super::super::{run_restart_test_cases, run_test_cases, TestCase};
+use super::super::{run_test_cases, TestCase};
 use super::{Disrupt, MaliciousData, Timeout};
 
 use tracing_test::traced_test; // log for tests
@@ -19,11 +19,11 @@ async fn malicious_general_cases() {
     run_test_cases(&generate_basic_cases()).await;
 }
 
-#[traced_test]
-#[tokio::test(flavor = "multi_thread")]
-async fn malicious_general_cases_with_restart() {
-    run_restart_test_cases(&generate_basic_cases()).await;
-}
+// #[traced_test]
+// #[tokio::test(flavor = "multi_thread")]
+// async fn malicious_general_cases_with_restart() {
+//     run_restart_test_cases(&generate_basic_cases()).await;
+// }
 
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
