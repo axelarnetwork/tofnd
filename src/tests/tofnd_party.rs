@@ -10,6 +10,7 @@ use crate::{
     encrypted_sled::{get_test_password, PasswordMethod},
     gg20::{self, mnemonic::Cmd},
     proto,
+    tests::SLEEP_TIME,
 };
 
 use proto::message_out::{KeygenResult, SignResult};
@@ -26,6 +27,8 @@ use tracing::{info, warn};
 use super::malicious::PartyMaliciousData;
 #[cfg(feature = "malicious")]
 use gg20::service::malicious::Behaviours;
+
+const MAX_TRIES: u32 = 3;
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -81,8 +84,8 @@ impl TofndParty {
                     warn!("({}/3) unable to create service: {}", tries, err);
                 }
             };
-            sleep(Duration::from_secs(1)).await;
-            if tries == 3 {
+            sleep(Duration::from_secs(SLEEP_TIME)).await;
+            if tries == MAX_TRIES {
                 panic!("could not create service");
             }
         };

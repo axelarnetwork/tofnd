@@ -45,6 +45,7 @@ lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42; 32];
     // TODO add test for messages smaller and larger than 32 bytes
 }
+const SLEEP_TIME: u64 = 1;
 
 struct TestCase {
     uid_count: usize,
@@ -678,7 +679,7 @@ async fn execute_keygen(
     // servers before these parties manage to receive their own
     // KeygenInit/SignInit from their clients. This leads to an
     // `WrongMessage` error.
-    sleep(Duration::from_secs(1)).await;
+    sleep(Duration::from_secs(SLEEP_TIME)).await;
     // wake up one party
     notify.notify_one();
 
@@ -818,7 +819,7 @@ async fn execute_sign(
     // servers before these parties manage to receive their own
     // KeygenInit/SignInit from their clients. This leads to an
     // `WrongMessage` error.
-    sleep(Duration::from_secs(1)).await;
+    sleep(Duration::from_secs(SLEEP_TIME)).await;
     notify.notify_one();
 
     // if we are expecting a timeout, abort parties after a reasonable amount of time
