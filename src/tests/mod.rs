@@ -10,6 +10,7 @@
 use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 use testdir::testdir;
+use tokio::time::{sleep, Duration};
 use tonic::Code::InvalidArgument;
 
 mod mock;
@@ -44,6 +45,7 @@ lazy_static::lazy_static! {
     static ref MSG_TO_SIGN: Vec<u8> = vec![42; 32];
     // TODO add test for messages smaller and larger than 32 bytes
 }
+const SLEEP_TIME: u64 = 1;
 
 struct TestCase {
     uid_count: usize,
@@ -650,6 +652,7 @@ async fn execute_keygen(
     let share_count = parties.len();
     let (keygen_delivery, keygen_channel_pairs) = Deliverer::with_party_ids(party_uids);
     let mut keygen_join_handles = Vec::with_capacity(share_count);
+    let notify = std::sync::Arc::new(tokio::sync::Notify::new());
     for (i, (mut party, channel_pair)) in parties
         .into_iter()
         .zip(keygen_channel_pairs.into_iter())
@@ -663,12 +666,22 @@ async fn execute_keygen(
             threshold: u32::try_from(threshold).unwrap(),
         };
         let delivery = keygen_delivery.clone();
+        let n = notify.clone();
         let handle = tokio::spawn(async move {
-            let result = party.execute_keygen(init, channel_pair, delivery).await;
+            let result = party.execute_keygen(init, channel_pair, delivery, n).await;
             (party, result)
         });
         keygen_join_handles.push(handle);
     }
+
+    // Sleep here to prevent data races between parties:
+    // some clients might start sending TrafficIn messages to other parties'
+    // servers before these parties manage to receive their own
+    // KeygenInit/SignInit from their clients. This leads to an
+    // `WrongMessage` error.
+    sleep(Duration::from_secs(SLEEP_TIME)).await;
+    // wake up one party
+    notify.notify_one();
 
     // if we are expecting a timeout, abort parties after a reasonable amount of time
     if expect_timeout {
@@ -775,6 +788,7 @@ async fn execute_sign(
     let mut party_options: Vec<Option<_>> = parties.into_iter().map(Some).collect();
 
     let mut sign_join_handles = Vec::with_capacity(sign_participant_indices.len());
+    let notify = std::sync::Arc::new(tokio::sync::Notify::new());
     for (i, channel_pair) in sign_channel_pairs.into_iter().enumerate() {
         let participant_index = sign_participant_indices[i];
 
@@ -789,15 +803,24 @@ async fn execute_sign(
         let participant_uid = participant_uids[i].clone();
         let mut party = party_options[participant_index].take().unwrap();
 
+        let n = notify.clone();
         // execute the protocol in a spawn
         let handle = tokio::spawn(async move {
             let result = party
-                .execute_sign(init, channel_pair, delivery, &participant_uid)
+                .execute_sign(init, channel_pair, delivery, &participant_uid, n)
                 .await;
             (party, result)
         });
         sign_join_handles.push((i, handle));
     }
+
+    // Sleep here to prevent data races between parties:
+    // some clients might start sending TrafficIn messages to other parties'
+    // servers before these parties manage to receive their own
+    // KeygenInit/SignInit from their clients. This leads to an
+    // `WrongMessage` error.
+    sleep(Duration::from_secs(SLEEP_TIME)).await;
+    notify.notify_one();
 
     // if we are expecting a timeout, abort parties after a reasonable amount of time
     if expect_timeout {

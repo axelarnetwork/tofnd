@@ -10,11 +10,13 @@ use crate::{
     encrypted_sled::{get_test_password, PasswordMethod},
     gg20::{self, mnemonic::Cmd},
     proto,
+    tests::SLEEP_TIME,
 };
 
 use proto::message_out::{KeygenResult, SignResult};
 use std::convert::TryFrom;
 use std::path::Path;
+use tokio::time::{sleep, Duration};
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tokio_stream::wrappers::{TcpListenerStream, UnboundedReceiverStream};
 use tonic::Request;
@@ -25,6 +27,8 @@ use tracing::{info, warn};
 use super::malicious::PartyMaliciousData;
 #[cfg(feature = "malicious")]
 use gg20::service::malicious::Behaviours;
+
+const MAX_TRIES: u32 = 3;
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -66,9 +70,25 @@ impl TofndParty {
         };
 
         // start service
-        let my_service = gg20::service::new_service(cfg, get_test_password())
-            .await
-            .expect("unable to create service");
+        // sled does not support to rapidly open/close databases.
+        // Unfortunately, for our restarts/recover tests we need to open
+        // a database right after it is closed. We get around with that by
+        // attempting to open the kv with some artificial delay.
+        // https://github.com/spacejam/sled/issues/1234#issuecomment-754769425
+        let mut tries = 0;
+        let my_service = loop {
+            match gg20::service::new_service(cfg.clone(), get_test_password()).await {
+                Ok(my_service) => break my_service,
+                Err(err) => {
+                    tries += 1;
+                    warn!("({}/3) unable to create service: {}", tries, err);
+                }
+            };
+            sleep(Duration::from_secs(SLEEP_TIME)).await;
+            if tries == MAX_TRIES {
+                panic!("could not create service");
+            }
+        };
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();
@@ -215,6 +235,7 @@ impl Party for TofndParty {
         init: proto::KeygenInit,
         channels: SenderReceiver,
         delivery: Deliverer,
+        notify: std::sync::Arc<tokio::sync::Notify>,
     ) -> GrpcKeygenResult {
         let my_uid = init.party_uids[usize::try_from(init.my_party_index).unwrap()].clone();
         let (keygen_server_incoming, rx) = channels;
@@ -247,6 +268,10 @@ impl Party for TofndParty {
                 data: Some(proto::message_in::Data::KeygenInit(init)),
             })
             .unwrap();
+
+        // block until all parties send their KeygenInit
+        notify.notified().await;
+        notify.notify_one();
 
         #[allow(unused_variables)]
         let mut msg_count = 1;
@@ -374,6 +399,7 @@ impl Party for TofndParty {
         channels: SenderReceiver,
         delivery: Deliverer,
         my_uid: &str,
+        notify: std::sync::Arc<tokio::sync::Notify>,
     ) -> GrpcSignResult {
         let (sign_server_incoming, rx) = channels;
         let mut sign_server_outgoing = self
@@ -395,6 +421,10 @@ impl Party for TofndParty {
                 data: Some(proto::message_in::Data::SignInit(init)),
             })
             .unwrap();
+
+        // block until all parties send their SignInit
+        notify.notified().await;
+        notify.notify_one();
 
         #[allow(unused_variables)] // allow unsused traffin in non malicious
         let mut msg_count = 1;

@@ -36,7 +36,7 @@ tokio-stream = {version = "0.1.7", features = ["net"], default-features = false}
 futures-util = {version = "0.3", default-features = false}
 
 # mnemonic
-tiny-bip39 = { version = "0.8.0", default-features = false}
+tiny-bip39 = { version = "0.8.2", default-features = false}
 zeroize = { version = "1.4", features = ["zeroize_derive"], default-features = false}
 
 #error handling

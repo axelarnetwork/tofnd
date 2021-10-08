@@ -44,7 +44,9 @@ fn warn_for_unsafe_execution() {
     warn!("WARNING: THIS tofnd BINARY IS NOT SAFE: SAFE PRIMES ARE NOT USED BECAUSE '--unsafe' FLAG IS ENABLED.  USE '--unsafe' FLAG ONLY FOR TESTING.");
 }
 
-#[tokio::main]
+/// worker_threads defaults to the number of cpus on the system
+/// https://docs.rs/tokio/1.2.0/tokio/attr.main.html#multi-threaded-runtime
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> TofndResult<()> {
     let cfg = parse_args()?;
 

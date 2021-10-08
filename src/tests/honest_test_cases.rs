@@ -12,31 +12,31 @@ use crate::proto::message_out::CriminalList;
 use tracing_test::traced_test; // logs for tests
 
 #[traced_test]
-#[tokio::test]
-async fn honest_test_cases() {
+#[tokio::test(flavor = "multi_thread")]
+async fn general_honest_test_cases() {
     run_test_cases(&generate_honest_cases()).await;
 }
 
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn honest_test_cases_with_restart() {
     run_restart_test_cases(&generate_honest_cases()).await;
 }
 
 #[traced_test]
-#[tokio::test]
-async fn honest_test_cases_with_restart_recover() {
+#[tokio::test(flavor = "multi_thread")]
+async fn honest_test_cases_with_recover() {
     run_restart_recover_test_cases(&generate_honest_cases()).await;
 }
 
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn keygen_fail_cases() {
     run_keygen_fail_test_cases(&generate_fail_cases()).await;
 }
 
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn sign_fail_cases() {
     run_sign_fail_test_cases(&generate_fail_cases()).await;
 }

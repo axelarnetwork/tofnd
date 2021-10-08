@@ -12,6 +12,7 @@ pub(super) trait Party: Sync + Send {
         init: proto::KeygenInit,
         channels: SenderReceiver,
         delivery: Deliverer,
+        notify: std::sync::Arc<tokio::sync::Notify>,
     ) -> GrpcKeygenResult;
     async fn execute_recover(
         &mut self,
@@ -25,6 +26,7 @@ pub(super) trait Party: Sync + Send {
         channels: SenderReceiver,
         delivery: Deliverer,
         my_uid: &str,
+        notify: std::sync::Arc<tokio::sync::Notify>,
     ) -> GrpcSignResult;
     async fn shutdown(mut self);
     fn get_root(&self) -> std::path::PathBuf;
