@@ -3,7 +3,7 @@
 //       For now, we use `#[allow(allow)]` instead of `#[cfg(feature = "malicious")]` because it
 //       produces less friction in the code. Should implement a beeter solution soon.
 
-use super::{mock::SenderReceiver, Deliverer, GrpcKeygenResult, GrpcSignResult, InitParty, Party};
+use super::{MAX_TRIES, mock::SenderReceiver, Deliverer, GrpcKeygenResult, GrpcSignResult, InitParty, Party};
 use crate::{
     addr,
     config::Config,
@@ -27,8 +27,6 @@ use tracing::{info, warn};
 use super::malicious::PartyMaliciousData;
 #[cfg(feature = "malicious")]
 use gg20::service::malicious::Behaviours;
-
-const MAX_TRIES: u32 = 3;
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033

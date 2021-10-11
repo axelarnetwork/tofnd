@@ -26,7 +26,7 @@ mod mnemonic;
 
 use crate::gg20::mnemonic::Cmd::{self, Create};
 use proto::message_out::CriminalList;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::proto::{
     self,
@@ -46,6 +46,7 @@ lazy_static::lazy_static! {
     // TODO add test for messages smaller and larger than 32 bytes
 }
 const SLEEP_TIME: u64 = 1;
+const MAX_TRIES: u32 = 3;
 
 struct TestCase {
     uid_count: usize,
@@ -228,20 +229,31 @@ fn delete_party_export(mut mnemonic_path: PathBuf) {
 }
 
 // deletes the share kv-store of a party's db path
-fn delete_party_shares(mut party_db_path: PathBuf, key: &str) {
+async fn delete_party_shares(mut party_db_path: PathBuf, key: &str) {
     party_db_path.push("kvstore/kv");
     info!("Deleting shares for {:?}", party_db_path);
-    match sled::open(party_db_path) {
-        Ok(db) => match db.remove(key) {
-            Ok(_) => {}
+
+    let mut tries = 0;
+    let db = loop {
+        match sled::open(&party_db_path) {
+            Ok(db) => break db,
             Err(err) => {
-                panic!("Could not remove key {} from kvstore: {}", key, err)
+                sleep(Duration::from_secs(SLEEP_TIME)).await;
+                warn!("({}/{}) Cannot open db: {}", tries, err, MAX_TRIES);
             }
-        },
-        Err(err) => {
-            panic!("Failed to open kv: {}", err);
         }
-    }
+        tries += 1;
+        if tries == MAX_TRIES {
+            panic!("Cannot open db");
+        }
+    };
+
+    match db.remove(key) {
+        Ok(_) => {}
+        Err(err) => {
+            panic!("Could not remove key {} from kvstore: {}", key, err)
+        }
+    };
 }
 
 // reinitializes i-th party
@@ -341,7 +353,7 @@ async fn restart_party(
 
     if recover {
         // if we are going to recover, delete party's shares
-        delete_party_shares(shutdown_db_path, &key_uid);
+        delete_party_shares(shutdown_db_path, &key_uid).await;
     }
 
     // reinit party
