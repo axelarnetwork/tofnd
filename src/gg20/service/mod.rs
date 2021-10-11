@@ -32,11 +32,7 @@ pub async fn new_service(
 
     let io = FileIo::new(PathBuf::from(&cfg.tofnd_path));
 
-    let gg20 = Gg20Service {
-        kv,
-        io,
-        cfg,
-    };
+    let gg20 = Gg20Service { kv, io, cfg };
 
     gg20.handle_mnemonic().await?;
     Ok(gg20)
