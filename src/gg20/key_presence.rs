@@ -19,7 +19,7 @@ impl Gg20Service {
         let _ = self.seed().await?;
 
         // try to get party info related to session id
-        match self.shares_kv.get(&request.key_uid).await {
+        match self.kv.get(&request.key_uid).await {
             Ok(_) => {
                 info!(
                     "Found session-id {} in kv store during key presence check",
