@@ -55,7 +55,7 @@ impl Cmd {
 impl Gg20Service {
     /// get mnemonic seed from kv-store
     pub async fn seed(&self) -> SeedResult<SecretRecoveryKey> {
-        let mnemonic = self.mnemonic_kv.get(MNEMONIC_KEY).await?;
+        let mnemonic = self.kv.get(MNEMONIC_KEY).await?.try_into()?;
         // A user may decide to protect their mnemonic with a passphrase. We pass an empty password for now.
         // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
         Ok(bip39_seed(mnemonic, Password("".to_owned()))?
@@ -82,7 +82,7 @@ impl Gg20Service {
         self.io.check_if_not_exported()?;
 
         // try to get mnemonic from kv-store
-        match self.mnemonic_kv.exists(MNEMONIC_KEY).await? {
+        match self.kv.exists(MNEMONIC_KEY).await? {
             true => Ok(()),
             false => Err(KvErr(KvError::ExistsErr(InnerKvError::LogicalErr(
                 "Mnemonic not found".to_string(),
@@ -94,10 +94,10 @@ impl Gg20Service {
     /// takes ownership of entropy to delegate zeroization.
     async fn handle_insert(&self, entropy: Entropy) -> InnerMnemonicResult<()> {
         // Don't use `map_err` to make it more readable.
-        let reservation = self.mnemonic_kv.reserve_key(MNEMONIC_KEY.to_owned()).await;
+        let reservation = self.kv.reserve_key(MNEMONIC_KEY.to_owned()).await;
         match reservation {
             // if we can reserve, try put
-            Ok(reservation) => match self.mnemonic_kv.put(reservation, entropy.to_owned()).await {
+            Ok(reservation) => match self.kv.put(reservation, entropy.to_owned().into()).await {
                 // if put is ok, write the phrase to a file
                 Ok(()) => {
                     info!("Mnemonic successfully added in kv store. Use the `-m export` command to retrieve it.");
@@ -143,10 +143,15 @@ impl Gg20Service {
         info!("Exporting mnemonic");
 
         // try to get mnemonic from kv-store
-        let entropy = self.mnemonic_kv.get(MNEMONIC_KEY).await.map_err(|err| {
-            error!("Did not find mnemonic in kv store {:?}", err);
-            err
-        })?;
+        let entropy = self
+            .kv
+            .get(MNEMONIC_KEY)
+            .await
+            .map_err(|err| {
+                error!("Did not find mnemonic in kv store {:?}", err);
+                err
+            })?
+            .try_into()?;
 
         // write to file
         info!("Mnemonic found in kv store");
@@ -167,7 +172,7 @@ mod tests {
                 file_io::FileIo,
                 results::{file_io::FileIoError, mnemonic::InnerMnemonicError},
             },
-            types::{KeySharesKv, MnemonicKv},
+            types::ServiceKv,
         },
         kv_manager::error::{InnerKvError, KvError},
     };
@@ -178,16 +183,10 @@ mod tests {
     // create a service
     fn get_service(testdir: PathBuf) -> Gg20Service {
         // create test dirs for kvstores
-        let shares_kv_path = testdir.join("shares");
-        let shares_kv_path = shares_kv_path.to_str().unwrap();
-        let mnemonic_kv_path = testdir.join("mnemonic");
-        let mnemonic_kv_path = mnemonic_kv_path.to_str().unwrap();
+        let kv_path = testdir.to_str().unwrap();
 
         Gg20Service {
-            shares_kv: KeySharesKv::with_db_name(shares_kv_path.to_owned(), get_test_password())
-                .unwrap(),
-            mnemonic_kv: MnemonicKv::with_db_name(mnemonic_kv_path.to_owned(), get_test_password())
-                .unwrap(),
+            kv: ServiceKv::with_db_name(kv_path.to_owned(), get_test_password()).unwrap(),
             io: FileIo::new(testdir),
             cfg: Config::default(),
         }

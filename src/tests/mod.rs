@@ -228,11 +228,20 @@ fn delete_party_export(mut mnemonic_path: PathBuf) {
 }
 
 // deletes the share kv-store of a party's db path
-fn delete_party_shares(mut party_db_path: PathBuf) {
-    party_db_path.push("kvstore/shares");
-    // Sled creates a directory for the database and its configuration
-    info!("removing shares kv-store of party {:?}", party_db_path);
-    std::fs::remove_dir_all(party_db_path).unwrap();
+fn delete_party_shares(mut party_db_path: PathBuf, key: &str) {
+    party_db_path.push("kvstore/kv");
+    info!("Deleting shares for {:?}", party_db_path);
+    match sled::open(party_db_path) {
+        Ok(db) => match db.remove(key) {
+            Ok(_) => {}
+            Err(err) => {
+                panic!("Could not remove key {} from kvstore: {}", key, err)
+            }
+        },
+        Err(err) => {
+            panic!("Failed to open kv: {}", err);
+        }
+    }
 }
 
 // reinitializes i-th party
@@ -332,7 +341,7 @@ async fn restart_party(
 
     if recover {
         // if we are going to recover, delete party's shares
-        delete_party_shares(shutdown_db_path);
+        delete_party_shares(shutdown_db_path, &key_uid);
     }
 
     // reinit party

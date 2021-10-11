@@ -73,7 +73,7 @@ impl Gg20Service {
 
         // reserve key
         let key_uid_reservation = self
-            .shares_kv
+            .kv
             .reserve_key(keygen_init.new_key_uid.clone())
             .await
             .map_err(|err| anyhow!("failed to reseve key: {}", err))?;
