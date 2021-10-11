@@ -18,22 +18,19 @@ impl Gg20Service {
         // check if mnemonic is available
         let _ = self.seed().await?;
 
-        // try to get party info related to session id
-        match self.kv.get(&request.key_uid).await {
-            Ok(_) => {
-                info!(
-                    "Found session-id {} in kv store during key presence check",
-                    request.key_uid
-                );
-                Ok(proto::key_presence_response::Response::Present)
-            }
-            Err(_) => {
-                info!(
-                    "Did not find session-id {} in kv store during key presence check",
-                    request.key_uid
-                );
-                Ok(proto::key_presence_response::Response::Absent)
-            }
+        // check if requested key exists
+        if self.kv.exists(&request.key_uid).await? {
+            info!(
+                "Found session-id {} in kv store during key presence check",
+                request.key_uid
+            );
+            Ok(proto::key_presence_response::Response::Present)
+        } else {
+            info!(
+                "Did not find session-id {} in kv store during key presence check",
+                request.key_uid
+            );
+            Ok(proto::key_presence_response::Response::Absent)
         }
     }
 }
