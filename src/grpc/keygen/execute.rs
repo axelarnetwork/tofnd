@@ -8,8 +8,9 @@ use super::{
     Gg20Service, ProtocolCommunication,
 };
 
-use crate::{gg20::protocol, TofndResult};
+use crate::{grpc::protocol, TofndResult};
 use tofn::gg20::keygen::{new_keygen, KeygenProtocol};
+// use tofn::multisig::keygen::{new_keygen as new_keygen_ms, KeygenProtocol as KeygenProtocol_MS};
 
 // logging
 use tracing::{info, Span};
@@ -33,6 +34,18 @@ impl Gg20Service {
         )
         .map_err(|_| anyhow!("gg20 keygen protocol instantiation failed"))
     }
+
+    // fn new_keygen_ms(&self, ctx: &Context) -> TofndResult<KeygenProtocol_MS> {
+    //     new_keygen_ms(
+    //         party_share_counts,
+    //         ctx.threshold,
+    //         ctx.tofnd_index,
+    //         ctx.tofnd_subindex,
+    //         &ctx.party_keygen_data,
+    //         ctx.key_id,
+    //     )
+    //     .map_err(|_| anyhow!("multisig keygen protocol instantiation failed"))
+    // }
 
     /// create and execute keygen protocol and returning the result.
     /// if the protocol cannot be instantiated, return a [anyhow!]

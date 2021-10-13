@@ -5,7 +5,7 @@ use std::{io::Write, path::PathBuf};
 use tracing::info;
 
 use super::{bip39_bindings::bip39_from_entropy, results::file_io::FileIoError::Exists};
-use crate::gg20::types::Entropy;
+use crate::grpc::types::Entropy;
 
 /// name of export file
 const EXPORT_FILE: &str = "export";
@@ -56,7 +56,7 @@ impl FileIo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gg20::mnemonic::bip39_bindings::{bip39_new_w24, tests::bip39_to_phrase};
+    use crate::grpc::mnemonic::bip39_bindings::{bip39_new_w24, tests::bip39_to_phrase};
     use std::io::Read;
     use testdir::testdir;
     use tracing_test::traced_test;

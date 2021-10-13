@@ -1,4 +1,4 @@
-//! Helper structs and implementations for [crate::gg20].
+//! Helper structs and implementations for [crate::grpc].
 
 use std::convert::TryFrom;
 
@@ -60,7 +60,7 @@ impl TryFrom<KvValue> for Entropy {
     }
 }
 
-/// Kv store for gg20 service
+/// Kv store for grpc service
 pub(super) type ServiceKv = Kv<KvValue>;
 
 /// Mnemonic type needs to be known globaly to create/access the mnemonic kv store

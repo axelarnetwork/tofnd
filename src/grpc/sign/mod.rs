@@ -9,7 +9,7 @@
 //!
 //! Shares:
 //!   Each party might have multiple shares. A single thread is created for each share.
-//!   We keep this information agnostic to the client, and we use the [crate::gg20::routing] layer to distribute the messages to each share.
+//!   We keep this information agnostic to the client, and we use the [crate::grpc::broadcast] layer to distribute the messages to each share.
 //!   The result of the protocol is common across all shares, and unique for each party. We make use of [self::result] layer to aggregate and process the result.
 //!
 //! All relevant helper structs and types are defined in [self::types]

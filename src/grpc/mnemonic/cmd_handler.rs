@@ -5,7 +5,7 @@ use super::{
     },
 };
 use crate::{
-    gg20::{
+    grpc::{
         service::Gg20Service,
         types::{Entropy, Password},
     },
@@ -167,7 +167,7 @@ mod tests {
     use crate::{
         config::Config,
         encrypted_sled::get_test_password,
-        gg20::{
+        grpc::{
             mnemonic::{
                 file_io::FileIo,
                 results::{file_io::FileIoError, mnemonic::InnerMnemonicError},

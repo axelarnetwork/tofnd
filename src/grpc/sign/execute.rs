@@ -7,7 +7,7 @@ use super::{
     types::{Context, TofndSignOutput},
     Gg20Service, ProtocolCommunication,
 };
-use crate::gg20::protocol;
+use crate::grpc::protocol;
 use tofn::gg20::sign::new_sign;
 
 // logging
