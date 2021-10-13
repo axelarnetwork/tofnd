@@ -1,20 +1,67 @@
 //! Helper structs and implementations for [crate::gg20].
 
+use std::convert::TryFrom;
+
 // zeroize Entropy and Password
 use zeroize::Zeroize;
 
 use tracing::{info, span, Level, Span};
 
-use crate::kv_manager::kv::Kv;
+use crate::kv_manager::{error::KvError, kv::Kv};
 
 pub(super) type MessageDigest = tofn::gg20::sign::MessageDigest;
 
 // default KV store names
-pub(super) const DEFAULT_SHARE_KV_NAME: &str = "shares";
-pub(super) const DEFAULT_MNEMONIC_KV_NAME: &str = "mnemonic";
+pub(super) const DEFAULT_KV_NAME: &str = "kv";
 
-pub(super) type KeySharesKv = Kv<PartyInfo>;
-pub(super) type MnemonicKv = Kv<Entropy>;
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub(super) enum KvValue {
+    PartyInfo(PartyInfo),
+    Entropy(Entropy),
+}
+
+/// Create KvValue from PartyInfo
+impl From<PartyInfo> for KvValue {
+    fn from(v: PartyInfo) -> KvValue {
+        KvValue::PartyInfo(v)
+    }
+}
+
+/// Create KvValue from Entropy
+impl From<Entropy> for KvValue {
+    fn from(v: Entropy) -> KvValue {
+        KvValue::Entropy(v)
+    }
+}
+
+/// Create PartyInfo from KvValue
+impl TryFrom<KvValue> for PartyInfo {
+    type Error = KvError;
+    fn try_from(v: KvValue) -> Result<Self, Self::Error> {
+        match v {
+            KvValue::PartyInfo(party_info) => Ok(party_info),
+            KvValue::Entropy(_) => Err(Self::Error::ValueTypeErr(
+                "Expecting PartyInfo, got Entropy".to_string(),
+            )),
+        }
+    }
+}
+
+/// Create Entropy from KvValue
+impl TryFrom<KvValue> for Entropy {
+    type Error = KvError;
+    fn try_from(v: KvValue) -> Result<Self, Self::Error> {
+        match v {
+            KvValue::PartyInfo(_) => Err(Self::Error::ValueTypeErr(
+                "Expecting Entropy, got PartyInfo".to_string(),
+            )),
+            KvValue::Entropy(entropy) => Ok(entropy),
+        }
+    }
+}
+
+/// Kv store for gg20 service
+pub(super) type ServiceKv = Kv<KvValue>;
 
 /// Mnemonic type needs to be known globaly to create/access the mnemonic kv store
 #[derive(Zeroize, Debug, Clone, Serialize, Deserialize)]

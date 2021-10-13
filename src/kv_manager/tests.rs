@@ -177,4 +177,13 @@ fn test_exists() {
     let exists = handle_exists(&kv, &key);
     assert!(exists.is_ok());
     assert!(exists.unwrap()); // check that the result is true
+
+    // remove key
+    let remove = kv.remove(key.clone());
+    assert!(remove.is_ok());
+
+    // exists should succeed
+    let exists = handle_exists(&kv, &key);
+    assert!(exists.is_ok());
+    assert!(!exists.unwrap()); // check that the result is false
 }

@@ -35,7 +35,7 @@ impl Gg20Service {
 
         // check if key-uid already exists in kv-store. If yes, return success and don't update the kv-store
         if self
-            .shares_kv
+            .kv
             .exists(&keygen_init.new_key_uid)
             .await
             .map_err(|err| anyhow!(err))?
@@ -146,7 +146,7 @@ impl Gg20Service {
     ) -> TofndResult<()> {
         // try to make a reservation
         let reservation = self
-            .shares_kv
+            .kv
             .reserve_key(keygen_init_sanitized.new_key_uid)
             .await
             .map_err(|err| anyhow!("failed to complete reservation: {}", err))?;
@@ -159,8 +159,8 @@ impl Gg20Service {
         );
         // try writing the data to the kv-store
         Ok(self
-            .shares_kv
-            .put(reservation, kv_data)
+            .kv
+            .put(reservation, kv_data.into())
             .await
             .map_err(|err| anyhow!("failed to update kv store: {}", err))?)
     }
