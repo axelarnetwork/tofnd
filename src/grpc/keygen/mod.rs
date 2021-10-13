@@ -14,9 +14,7 @@
 //!
 //! All relevant helper structs and types are defined in [self::types]
 
-use super::{
-    broadcast::broadcast_messages, proto, service::Gg20Service, types::ProtocolCommunication,
-};
+use super::{broadcast::broadcast_messages, proto, service::Service, types::ProtocolCommunication};
 
 use tonic::Status;
 
@@ -43,7 +41,7 @@ mod execute;
 mod init;
 mod result;
 
-impl Gg20Service {
+impl Service {
     /// handle keygen gRPC
     pub async fn handle_keygen(
         &self,
@@ -116,8 +114,8 @@ impl Gg20Service {
                 my_tofnd_subindex,
                 party_keygen_data.clone(),
             );
-            // clone gg20 service because tokio thread takes ownership
-            let gg20 = self.clone();
+            // clone service service because tokio thread takes ownership
+            let service = self.clone();
 
             // set up log state
             let log_info = ctx.log_info();
@@ -127,7 +125,7 @@ impl Gg20Service {
             // spawn keygen thread and continue immediately
             tokio::spawn(async move {
                 // wait for keygen's result inside thread
-                let secret_key_share = gg20.execute_keygen(chans, &ctx, execute_span).await;
+                let secret_key_share = service.execute_keygen(chans, &ctx, execute_span).await;
                 // send result to aggregator
                 let _ = aggregator_sender.send(secret_key_share);
             });

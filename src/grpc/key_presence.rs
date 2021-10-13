@@ -2,7 +2,7 @@
 //! Request includes [proto::message_in::Data::KeyPresenceRequest] struct and encrypted recovery info.
 //! The recovery info is decrypted by party's mnemonic seed and saved in the KvStore.
 
-use super::{proto, service::Gg20Service};
+use super::{proto, service::Service};
 
 // logging
 use tracing::info;
@@ -10,7 +10,7 @@ use tracing::info;
 // error handling
 use crate::TofndResult;
 
-impl Gg20Service {
+impl Service {
     pub(super) async fn handle_key_presence(
         &self,
         request: proto::KeyPresenceRequest,

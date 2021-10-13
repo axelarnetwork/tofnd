@@ -15,11 +15,11 @@ use anyhow::anyhow;
 use super::{
     proto,
     types::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
-    Gg20Service,
+    Service,
 };
 use crate::kv_manager::types::KeyReservation;
 
-impl Gg20Service {
+impl Service {
     /// Receives a message from the stream and tries to handle keygen init operations.
     /// On success, it reserves a key in the KVStrore and returns a sanitized struct ready to be used by the protocol.
     /// On failure, returns a [KeygenInitError] and no changes are been made in the KvStore.
@@ -258,7 +258,7 @@ mod tests {
             my_index: 0,                    // index should track "party_1" in the sorted party_uids
             threshold: 1,                   // threshold should be the same
         };
-        let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
+        let res = Service::keygen_sanitize_args(raw_keygen_init).unwrap();
         assert_eq!(&res.new_key_uid, &sanitized_keygen_init.new_key_uid);
         assert_eq!(&res.party_uids, &sanitized_keygen_init.party_uids);
         assert_eq!(
@@ -276,7 +276,7 @@ mod tests {
             my_party_index: 0,
             threshold: 1,
         };
-        let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
+        let res = Service::keygen_sanitize_args(raw_keygen_init).unwrap();
         assert_eq!(&res.party_share_counts, &vec![1, 1]);
 
         let raw_keygen_init = proto::KeygenInit {
@@ -286,7 +286,7 @@ mod tests {
             my_party_index: 0,
             threshold: 1,
         };
-        let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
+        let res = Service::keygen_sanitize_args(raw_keygen_init).unwrap();
         assert_eq!(&res.party_share_counts, &vec![MAX_PARTY_SHARE_COUNT]);
 
         let raw_keygen_init = proto::KeygenInit {
@@ -296,7 +296,7 @@ mod tests {
             my_party_index: 0,
             threshold: 1,
         };
-        let res = Gg20Service::keygen_sanitize_args(raw_keygen_init).unwrap();
+        let res = Service::keygen_sanitize_args(raw_keygen_init).unwrap();
         assert_eq!(&res.party_share_counts, &vec![MAX_TOTAL_SHARE_COUNT - 1, 1]);
     }
 
@@ -309,7 +309,7 @@ mod tests {
             my_party_index: 0,
             threshold: 1,
         };
-        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
+        assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
         let raw_keygen_init = proto::KeygenInit {
             new_key_uid: "test_uid".to_owned(),
@@ -318,7 +318,7 @@ mod tests {
             my_party_index: 0,
             threshold: 2, // incorrect threshold
         };
-        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
+        assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
         let raw_keygen_init = proto::KeygenInit {
             new_key_uid: "test_uid".to_owned(),
@@ -327,7 +327,7 @@ mod tests {
             my_party_index: 2, // index out of bounds
             threshold: 1,
         };
-        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
+        assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
         let raw_keygen_init = proto::KeygenInit {
             new_key_uid: "test_uid".to_owned(),
@@ -336,7 +336,7 @@ mod tests {
             my_party_index: 0,
             threshold: 1,
         };
-        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
+        assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
         let raw_keygen_init = proto::KeygenInit {
             new_key_uid: "test_uid".to_owned(),
@@ -345,6 +345,6 @@ mod tests {
             my_party_index: 0,
             threshold: 1,
         };
-        assert!(Gg20Service::keygen_sanitize_args(raw_keygen_init).is_err());
+        assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
     }
 }

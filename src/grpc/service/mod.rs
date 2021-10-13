@@ -16,7 +16,7 @@ pub mod malicious;
 
 /// Gg20Service
 #[derive(Clone)]
-pub struct Gg20Service {
+pub struct Service {
     pub(super) kv: ServiceKv,
     pub(super) io: FileIo,
     pub(super) cfg: Config,
@@ -32,8 +32,8 @@ pub async fn new_service(
 
     let io = FileIo::new(PathBuf::from(&cfg.tofnd_path));
 
-    let gg20 = Gg20Service { kv, io, cfg };
+    let service = Service { kv, io, cfg };
 
-    gg20.handle_mnemonic().await?;
-    Ok(gg20)
+    service.handle_mnemonic().await?;
+    Ok(service)
 }

@@ -14,7 +14,7 @@
 //!
 //! All relevant helper structs and types are defined in [self::types]
 
-use super::{broadcast::broadcast_messages, proto, service::Gg20Service, ProtocolCommunication};
+use super::{broadcast::broadcast_messages, proto, service::Service, ProtocolCommunication};
 
 // tonic cruft
 use tokio::sync::{mpsc, oneshot};
@@ -33,7 +33,7 @@ mod execute;
 mod init;
 mod result;
 
-impl Gg20Service {
+impl Service {
     // we wrap the functionality of sign gRPC here because we can't handle errors
     // conveniently when spawning theads.
     pub async fn handle_sign(
@@ -80,8 +80,8 @@ impl Gg20Service {
             let chans = ProtocolCommunication::new(sign_receiver, stream_out_sender.clone());
             // wrap all context data needed for each thread
             let ctx = Context::new(sign_init.clone(), party_info.clone(), my_tofnd_subindex)?;
-            // clone gg20 service because tokio thread takes ownership
-            let gg20 = self.clone();
+            // clone service because tokio thread takes ownership
+            let service = self.clone();
 
             // set up log state
             let log_info = ctx.log_info();
@@ -91,7 +91,9 @@ impl Gg20Service {
             // spawn sign threads
             tokio::spawn(async move {
                 // get result of sign
-                let signature = gg20.execute_sign(chans, &ctx, execute_span.clone()).await;
+                let signature = service
+                    .execute_sign(chans, &ctx, execute_span.clone())
+                    .await;
                 // send result to aggregator
                 let _ = aggregator_sender.send(signature);
             });

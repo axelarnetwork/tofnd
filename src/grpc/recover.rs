@@ -2,7 +2,7 @@
 //! Request includes [proto::message_in::Data::KeygenInit] struct and encrypted recovery info.
 //! The recovery info is decrypted by party's mnemonic seed and saved in the KvStore.
 
-use super::{keygen::types::KeygenInitSanitized, proto, service::Gg20Service, types::PartyInfo};
+use super::{keygen::types::KeygenInitSanitized, proto, service::Service, types::PartyInfo};
 use tofn::{
     collections::TypedUsize,
     gg20::keygen::{
@@ -19,7 +19,7 @@ use tracing::{info, warn};
 use crate::TofndResult;
 use anyhow::anyhow;
 
-impl Gg20Service {
+impl Service {
     pub(super) async fn handle_recover(&self, request: proto::RecoverRequest) -> TofndResult<()> {
         // get keygen init sanitized from request
         let keygen_init = {

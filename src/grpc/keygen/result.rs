@@ -9,7 +9,7 @@ use tofn::{gg20::keygen::SecretKeyShare, sdk::api::serialize};
 use super::{
     proto::{self},
     types::{BytesVec, KeygenInitSanitized, TofnKeygenOutput, TofndKeygenOutput},
-    Gg20Service,
+    Service,
 };
 use crate::{grpc::types::PartyInfo, kv_manager::types::KeyReservation};
 
@@ -24,7 +24,7 @@ use tonic::Status;
 use crate::TofndResult;
 use anyhow::anyhow;
 
-impl Gg20Service {
+impl Service {
     /// aggregate results from all keygen threads, create a record and insert it in the KvStore
     pub(super) async fn aggregate_results(
         &self,

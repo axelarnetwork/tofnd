@@ -1,7 +1,7 @@
 //! This module handles the aggregation and process of sign results.
 //! When all sign threads finish, we aggregate their results and retrieve the signature of the message. The signature must be the same across all results.
 
-use super::{proto, types::TofnSignOutput, Gg20Service};
+use super::{proto, types::TofnSignOutput, Service};
 
 // tonic cruft
 use tokio::sync::mpsc;
@@ -12,7 +12,7 @@ use tonic::Status;
 use crate::TofndResult;
 use anyhow::anyhow;
 
-impl Gg20Service {
+impl Service {
     /// handle results from all shares
     /// if all shares return a valid output, send the result to client
     /// if a share does not return a valid output, return an [anyhow!]

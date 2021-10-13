@@ -5,7 +5,7 @@
 use super::{
     proto,
     types::{Context, TofndKeygenOutput},
-    Gg20Service, ProtocolCommunication,
+    ProtocolCommunication, Service,
 };
 
 use crate::{grpc::protocol, TofndResult};
@@ -18,7 +18,7 @@ use tracing::{info, Span};
 // error handling
 use anyhow::anyhow;
 
-impl Gg20Service {
+impl Service {
     /// create a new keygen.
     /// The field of Gg20Service `safe_keygen` dictates whether the new keygen will use big primes of not
     /// TODO: support `cfg(feature="unsafe")` in the future instead of matching `gg20.safe_keygen`

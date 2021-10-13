@@ -5,7 +5,7 @@
 // try_into() for MessageDigest
 use std::convert::TryInto;
 
-use super::{proto, types::SignInitSanitized, Gg20Service};
+use super::{proto, types::SignInitSanitized, Service};
 use crate::grpc::types::PartyInfo;
 
 // tonic cruft
@@ -20,7 +20,7 @@ use tracing::Span;
 use crate::TofndResult;
 use anyhow::anyhow;
 
-impl Gg20Service {
+impl Service {
     /// Receives a message from the stream and tries to handle sign init operations.
     /// On success, it extracts the PartyInfo from the KVStrore and returns a sanitized struct ready to be used by the protocol.
     /// On failure, returns an [anyhow!] error and no changes are been made in the KvStore.
@@ -130,7 +130,7 @@ mod tests {
             message_to_sign: vec![42; 32].as_slice().try_into().unwrap(), // msg of 32 bytes should be successfully converted to MessageDigest
         };
 
-        let res = Gg20Service::sign_sanitize_args(raw_sign_init, &all_party_uids).unwrap();
+        let res = Service::sign_sanitize_args(raw_sign_init, &all_party_uids).unwrap();
         assert_eq!(&res.new_sig_uid, &sanitized_sign_init.new_sig_uid);
         assert_eq!(&res.participant_uids, &sanitized_sign_init.participant_uids);
         assert_eq!(
@@ -153,7 +153,7 @@ mod tests {
             party_uids: vec!["party_4".to_owned(), "party_1".to_owned()], // party 4 does not exist
             message_to_sign: vec![42; 32],
         };
-        assert!(Gg20Service::sign_sanitize_args(raw_sign_init, &all_party_uids).is_err());
+        assert!(Service::sign_sanitize_args(raw_sign_init, &all_party_uids).is_err());
 
         let raw_sign_init = proto::SignInit {
             new_sig_uid: "test_uid".to_owned(),
@@ -161,6 +161,6 @@ mod tests {
             party_uids: vec!["party_2".to_owned(), "party_1".to_owned()],
             message_to_sign: vec![42; 33], // message is not 32 bytes
         };
-        assert!(Gg20Service::sign_sanitize_args(raw_sign_init, &all_party_uids).is_err());
+        assert!(Service::sign_sanitize_args(raw_sign_init, &all_party_uids).is_err());
     }
 }

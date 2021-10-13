@@ -27,7 +27,7 @@ pub mod types;
 use types::*;
 
 #[tonic::async_trait]
-impl proto::gg20_server::Gg20 for service::Gg20Service {
+impl proto::gg20_server::Gg20 for service::Service {
     type KeygenStream = UnboundedReceiverStream<Result<proto::MessageOut, tonic::Status>>;
     type SignStream = Self::KeygenStream;
 
@@ -91,11 +91,14 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         let span = span!(Level::INFO, "Keygen");
         let _enter = span.enter();
         let s = span.clone();
-        let gg20 = self.clone();
+        let service = self.clone();
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = gg20.handle_keygen(stream_in, msg_sender.clone(), s).await {
+            if let Err(e) = service
+                .handle_keygen(stream_in, msg_sender.clone(), s)
+                .await
+            {
                 error!("keygen failure: {:?}", e.to_string());
                 // we can't handle errors in tokio threads. Log error if we are unable to send the status code to client.
                 if let Err(e) = msg_sender.send(Err(Status::invalid_argument(e.to_string()))) {
@@ -119,11 +122,11 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
         let span = span!(Level::INFO, "Sign");
         let _enter = span.enter();
         let s = span.clone();
-        let gg20 = self.clone();
+        let service = self.clone();
 
         tokio::spawn(async move {
             // can't return an error from a spawned thread
-            if let Err(e) = gg20.handle_sign(stream, msg_sender.clone(), s).await {
+            if let Err(e) = service.handle_sign(stream, msg_sender.clone(), s).await {
                 error!("sign failure: {:?}", e.to_string());
                 // we can't handle errors in tokio threads. Log error if we are unable to send the status code to client.
                 if let Err(e) = msg_sender.send(Err(Status::invalid_argument(e.to_string()))) {

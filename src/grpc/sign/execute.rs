@@ -5,7 +5,7 @@
 use super::{
     proto,
     types::{Context, TofndSignOutput},
-    Gg20Service, ProtocolCommunication,
+    ProtocolCommunication, Service,
 };
 use crate::grpc::protocol;
 use tofn::gg20::sign::new_sign;
@@ -16,7 +16,7 @@ use tracing::{info, Span};
 // error handling
 use anyhow::anyhow;
 
-impl Gg20Service {
+impl Service {
     /// create and execute sign protocol and returning the result.
     /// if the protocol cannot be instantiated, return an [anyhow!] error
     pub(super) async fn execute_sign(
