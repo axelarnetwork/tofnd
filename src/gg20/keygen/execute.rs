@@ -4,15 +4,12 @@
 
 use super::{
     proto,
-    types::{Context, PartyShareCounts, TofndKeygenOutput},
+    types::{Context, TofndKeygenOutput},
     Gg20Service, ProtocolCommunication,
 };
 
-use crate::gg20::protocol;
-use tofn::{
-    gg20::keygen::{new_keygen, KeygenProtocol},
-    sdk::api::TofnResult,
-};
+use crate::{gg20::protocol, TofndResult};
+use tofn::gg20::keygen::{new_keygen, KeygenProtocol};
 
 // logging
 use tracing::{info, Span};
@@ -24,13 +21,9 @@ impl Gg20Service {
     /// create a new keygen.
     /// The field of Gg20Service `safe_keygen` dictates whether the new keygen will use big primes of not
     /// TODO: support `cfg(feature="unsafe")` in the future instead of matching `gg20.safe_keygen`
-    async fn new_keygen(
-        &self,
-        party_share_counts: PartyShareCounts,
-        ctx: &Context,
-    ) -> TofnResult<KeygenProtocol> {
+    async fn new_keygen(&self, ctx: &Context) -> TofndResult<KeygenProtocol> {
         new_keygen(
-            party_share_counts,
+            ctx.share_counts()?,
             ctx.threshold,
             ctx.tofnd_index,
             ctx.tofnd_subindex,
@@ -38,6 +31,7 @@ impl Gg20Service {
             #[cfg(feature = "malicious")]
             self.cfg.behaviours.keygen.clone(),
         )
+        .map_err(|_| anyhow!("gg20 keygen protocol instantiation failed"))
     }
 
     /// create and execute keygen protocol and returning the result.
@@ -52,11 +46,7 @@ impl Gg20Service {
         execute_span: Span,
     ) -> TofndKeygenOutput {
         // try to create keygen with context
-        let party_share_counts = ctx.share_counts()?;
-        let keygen = self
-            .new_keygen(party_share_counts, ctx)
-            .await
-            .map_err(|_| anyhow!("keygen protocol instantiation failed"))?;
+        let keygen = self.new_keygen(ctx).await?;
 
         // execute protocol and wait for completion
         let protocol_result = protocol::execute_protocol(
