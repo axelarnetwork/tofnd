@@ -5,7 +5,7 @@ use crate::TofndResult;
 use anyhow::anyhow;
 
 // tofn types
-use super::super::MessageDigest;
+use crate::grpc::types::common::MessageDigest;
 use tofn::collections::{Subset, TypedUsize};
 use tofn::gg20::keygen::{GroupPublicInfo, KeygenPartyId, ShareSecretInfo};
 use tofn::gg20::sign::{SignParties, SignPartyId};

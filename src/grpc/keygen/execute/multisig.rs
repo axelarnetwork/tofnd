@@ -7,7 +7,7 @@ use crate::{
         keygen::types::multisig::{Context, TofndKeygenOutput},
         proto, protocol,
         service::Service,
-        ProtocolCommunication,
+        types::common::ProtocolCommunication,
     },
     TofndResult,
 };

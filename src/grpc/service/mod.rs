@@ -2,7 +2,7 @@
 
 use super::mnemonic::FileIo;
 use super::proto;
-use super::types::{ServiceKv, DEFAULT_KV_NAME};
+use super::types::common::{ServiceKv, DEFAULT_KV_NAME};
 use crate::config::Config;
 use crate::encrypted_sled::Password;
 use std::path::PathBuf;

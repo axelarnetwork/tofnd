@@ -7,7 +7,7 @@ use super::{
 use crate::{
     grpc::{
         service::Service,
-        types::{Entropy, Password},
+        types::common::{Entropy, Password},
     },
     kv_manager::error::{InnerKvError, KvError},
 };
@@ -172,7 +172,7 @@ mod tests {
                 file_io::FileIo,
                 results::{file_io::FileIoError, mnemonic::InnerMnemonicError},
             },
-            types::ServiceKv,
+            types::common::ServiceKv,
         },
         kv_manager::error::{InnerKvError, KvError},
     };

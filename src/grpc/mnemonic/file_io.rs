@@ -5,7 +5,7 @@ use std::{io::Write, path::PathBuf};
 use tracing::info;
 
 use super::{bip39_bindings::bip39_from_entropy, results::file_io::FileIoError::Exists};
-use crate::grpc::types::Entropy;
+use crate::grpc::types::common::Entropy;
 
 /// name of export file
 const EXPORT_FILE: &str = "export";

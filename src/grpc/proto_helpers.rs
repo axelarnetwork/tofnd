@@ -66,6 +66,7 @@ impl proto::MessageOut {
         }
     }
 
+    // TODO: remove duplicated code with new_gg20_keygen_result
     pub(super) fn new_multisig_keygen_result(
         participant_uids: &[String],
         result: MultisigKeygenResultData,

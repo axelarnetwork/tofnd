@@ -3,7 +3,7 @@ use crate::grpc::{
     keygen::types::common::{KeygenContext, KeygenType},
     proto,
     service::Service,
-    types::ProtocolCommunication,
+    types::common::ProtocolCommunication,
 };
 
 use tonic::Status;

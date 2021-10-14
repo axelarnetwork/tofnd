@@ -6,7 +6,7 @@ use tofn::{
 };
 
 // tonic cruft
-use super::{proto, ProtocolCommunication};
+use super::{super::grpc::common::ProtocolCommunication, proto};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 // logging

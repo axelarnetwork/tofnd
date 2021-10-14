@@ -2,7 +2,7 @@ use crate::grpc::{
     keygen::types::common::{KeygenContext, KeygenOutput, TofndKeygenOutput},
     proto,
     service::Service,
-    ProtocolCommunication,
+    types::common::ProtocolCommunication,
 };
 
 // logging

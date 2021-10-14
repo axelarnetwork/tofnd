@@ -7,7 +7,7 @@ use crate::{
         keygen::types::gg20::{Context, TofndKeygenOutput},
         proto, protocol,
         service::Service,
-        ProtocolCommunication,
+        types::common::ProtocolCommunication,
     },
     TofndResult,
 };

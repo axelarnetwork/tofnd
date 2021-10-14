@@ -14,7 +14,9 @@
 //!
 //! All relevant helper structs and types are defined in [self::types]
 
-use super::{broadcast::broadcast_messages, proto, service::Service, ProtocolCommunication};
+use super::{
+    broadcast::broadcast_messages, proto, service::Service, types::common::ProtocolCommunication,
+};
 
 // tonic cruft
 use tokio::sync::{mpsc, oneshot};

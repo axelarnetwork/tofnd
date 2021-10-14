@@ -8,7 +8,7 @@
 //!   [crate::grpc::Password], [crate::grpc::Entropy], [bip39::Mnemonic], [bip39::Seed]
 
 use super::results::bip39::{Bip39Error::*, Bip39Result};
-use crate::grpc::types::{Entropy, Password};
+use crate::grpc::types::common::{Entropy, Password};
 use bip39::{Language, Mnemonic, Seed};
 
 // TODO: we can enrich the API so that users can decide which language they want to use
