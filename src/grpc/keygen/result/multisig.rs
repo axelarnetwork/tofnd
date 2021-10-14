@@ -9,7 +9,7 @@ use tofn::{multisig::keygen::SecretKeyShare, sdk::api::serialize};
 use crate::{
     grpc::{
         keygen::types::{
-            common::{BytesVec, KeygenInitSanitized},
+            common::{BytesVec, KeygenInitSanitized, KeygenOutput},
             multisig::TofnKeygenOutput,
         },
         service::Service,
@@ -18,8 +18,6 @@ use crate::{
     kv_manager::types::KeyReservation,
     proto,
 };
-
-use super::super::execute::KeygenOutput;
 
 // tonic cruft
 use tokio::sync::mpsc;

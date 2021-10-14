@@ -1,15 +1,20 @@
 //! Helper structs and implementations for [crate::gg20::keygen].
 
-use crate::{grpc::keygen::execute::KeygenOutput, TofndResult};
+use crate::TofndResult;
 
 pub const MAX_PARTY_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_PARTY_SHARE_COUNT;
 pub const MAX_TOTAL_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_TOTAL_SHARE_COUNT;
 
 use tracing::{info, span, Level, Span};
 
-pub(in super::super) type TofndKeygenOutput = TofndResult<KeygenOutput>;
 /// type for bytes
 pub use tofn::sdk::api::BytesVec;
+
+pub enum KeygenOutput {
+    Gg20(gg20::TofndKeygenOutput),
+    Multisig(multisig::TofndKeygenOutput),
+}
+pub type TofndKeygenOutput = TofndResult<KeygenOutput>;
 
 /// KeygenInitSanitized holds all arguments needed by Keygen in the desired form; populated by proto::KeygenInit
 /// pub because it is also needed by recovery module

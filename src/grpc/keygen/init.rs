@@ -12,14 +12,16 @@ use tracing::Span;
 use crate::TofndResult;
 use anyhow::anyhow;
 
-use crate::grpc::{
-    keygen::types::common::{
-        KeygenInitSanitized, KeygenType, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT,
+use crate::{
+    grpc::{
+        keygen::types::common::{
+            KeygenInitSanitized, KeygenType, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT,
+        },
+        service::Service,
     },
-    service::Service,
+    kv_manager::types::KeyReservation,
+    proto,
 };
-use crate::kv_manager::types::KeyReservation;
-use crate::proto;
 
 impl Service {
     /// Receives a message from the stream and tries to handle keygen init operations.

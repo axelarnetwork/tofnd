@@ -8,12 +8,9 @@ use tofn::{gg20::keygen::SecretKeyShare, sdk::api::serialize};
 
 use crate::{
     grpc::{
-        keygen::{
-            execute::KeygenOutput,
-            types::{
-                common::{BytesVec, KeygenInitSanitized},
-                gg20,
-            },
+        keygen::types::{
+            common::{BytesVec, KeygenInitSanitized, KeygenOutput},
+            gg20,
         },
         service::Service,
         types::gg20::PartyInfo,

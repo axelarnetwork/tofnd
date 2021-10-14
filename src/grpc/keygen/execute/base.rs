@@ -1,15 +1,12 @@
-use crate::grpc::keygen::types::{common::KeygenContext, gg20, multisig};
-use crate::grpc::{proto, service::Service, ProtocolCommunication};
-use crate::TofndResult;
+use crate::grpc::{
+    keygen::types::common::{KeygenContext, KeygenOutput, TofndKeygenOutput},
+    proto,
+    service::Service,
+    ProtocolCommunication,
+};
 
 // logging
 use tracing::{info, Span};
-
-pub(in super::super) enum KeygenOutput {
-    Gg20(gg20::TofndKeygenOutput),
-    Multisig(multisig::TofndKeygenOutput),
-}
-pub(in super::super) type TofndKeygenOutput = TofndResult<KeygenOutput>;
 
 impl Service {
     pub(in super::super) async fn execute_keygen(
