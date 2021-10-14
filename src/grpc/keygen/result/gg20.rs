@@ -10,7 +10,10 @@ use crate::{
     grpc::{
         keygen::{
             execute::KeygenOutput,
-            types::common::{BytesVec, Gg20TofnKeygenOutput, KeygenInitSanitized},
+            types::{
+                common::{BytesVec, KeygenInitSanitized},
+                gg20,
+            },
         },
         service::Service,
         types::gg20::PartyInfo,
@@ -27,7 +30,7 @@ use tonic::Status;
 use crate::TofndResult;
 use anyhow::anyhow;
 
-fn to_gg20_keygen_outputs(outs: Vec<KeygenOutput>) -> TofndResult<Vec<Gg20TofnKeygenOutput>> {
+fn to_gg20_keygen_outputs(outs: Vec<KeygenOutput>) -> TofndResult<Vec<gg20::TofnKeygenOutput>> {
     let mut gg20_outs = Vec::with_capacity(outs.len());
     for out in outs {
         match out {
@@ -90,7 +93,7 @@ impl Service {
     /// This vec is later used to derive private recovery info
     fn process_gg20_keygen_outputs(
         keygen_init: &KeygenInitSanitized,
-        keygen_outputs: Vec<Gg20TofnKeygenOutput>,
+        keygen_outputs: Vec<gg20::TofnKeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     ) -> TofndResult<(BytesVec, BytesVec, Vec<SecretKeyShare>)> {
         // Collect all key shares unless there's a protocol fault

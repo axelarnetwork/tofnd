@@ -1,13 +1,5 @@
 //! Helper structs and implementations for [crate::gg20::keygen].
 
-use tofn::{
-    gg20::keygen::{KeygenPartyId as Gg20KeygenPartyId, SecretKeyShare as Gg20SecretKeyShare},
-    multisig::keygen::{
-        KeygenPartyId as MultisigKeygenPartyId, SecretKeyShare as MultisigSecretKeyShare,
-    },
-    sdk::api::ProtocolOutput,
-};
-
 use crate::{grpc::keygen::execute::KeygenOutput, TofndResult};
 
 pub const MAX_PARTY_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_PARTY_SHARE_COUNT;
@@ -16,14 +8,6 @@ pub const MAX_TOTAL_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_TOTAL_SHARE_COU
 use tracing::{info, span, Level, Span};
 
 pub(in super::super) type TofndKeygenOutput = TofndResult<KeygenOutput>;
-/// tofn's ProtocolOutput for Keygen
-pub type Gg20TofnKeygenOutput = ProtocolOutput<Gg20SecretKeyShare, Gg20KeygenPartyId>;
-/// tofnd's ProtocolOutput for Keygen
-pub type Gg20TofndKeygenOutput = TofndResult<Gg20TofnKeygenOutput>;
-/// tofn's ProtocolOutput for Keygen
-pub type MultisigTofnKeygenOutput = ProtocolOutput<MultisigSecretKeyShare, MultisigKeygenPartyId>;
-/// tofnd's ProtocolOutput for Keygen
-pub type MultisigTofndKeygenOutput = TofndResult<MultisigTofnKeygenOutput>;
 /// type for bytes
 pub use tofn::sdk::api::BytesVec;
 
@@ -95,8 +79,8 @@ impl Context {
     }
 }
 
-use crate::grpc::keygen::types::gg20::Gg20Context;
-use crate::grpc::keygen::types::multisig::MultisigContext;
+use crate::grpc::keygen::types::gg20;
+use crate::grpc::keygen::types::multisig;
 use crate::grpc::service::Service;
 
 pub(in super::super) enum KeygenType {
@@ -105,8 +89,8 @@ pub(in super::super) enum KeygenType {
 }
 
 pub(in super::super) enum KeygenContext {
-    Gg20(Gg20Context),
-    Multisig(MultisigContext),
+    Gg20(gg20::Context),
+    Multisig(multisig::Context),
 }
 use KeygenContext::*;
 
@@ -118,10 +102,10 @@ impl KeygenContext {
     ) -> TofndResult<KeygenContext> {
         let ctx = match keygen_type {
             KeygenType::Gg20 => {
-                Gg20(Gg20Context::new_without_subindex(service, keygen_init).await?)
+                Gg20(gg20::Context::new_without_subindex(service, keygen_init).await?)
             }
             KeygenType::Multisig => {
-                Multisig(MultisigContext::new_without_subindex(service, keygen_init).await?)
+                Multisig(multisig::Context::new_without_subindex(service, keygen_init).await?)
             }
         };
         Ok(ctx)

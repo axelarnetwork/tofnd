@@ -1,6 +1,6 @@
 use crate::{
     grpc::{
-        keygen::types::common::{Context, KeygenInitSanitized},
+        keygen::types::common::{self, KeygenInitSanitized},
         service::Service,
     },
     TofndResult,
@@ -9,19 +9,23 @@ use tofn::{
     collections::TypedUsize,
     gg20::keygen::{
         create_party_keypair_and_zksetup, create_party_keypair_and_zksetup_unsafe, KeygenPartyId,
-        KeygenPartyShareCounts, PartyKeygenData,
+        KeygenPartyShareCounts, PartyKeygenData, SecretKeyShare,
     },
+    sdk::api::ProtocolOutput,
 };
 
 use anyhow::anyhow;
 
+pub type TofnKeygenOutput = ProtocolOutput<SecretKeyShare, KeygenPartyId>;
+pub type TofndKeygenOutput = TofndResult<TofnKeygenOutput>;
+
 #[derive(Clone)]
-pub struct Gg20Context {
-    pub(in super::super) base: Context,
+pub struct Context {
+    pub(in super::super) base: common::Context,
     pub(in super::super) party_keygen_data: PartyKeygenData,
 }
 
-impl Gg20Context {
+impl Context {
     async fn new(
         service: &Service,
         keygen_init: &KeygenInitSanitized,
@@ -42,7 +46,7 @@ impl Gg20Context {
         .map_err(|_| anyhow!("Party keypair generation failed"))?;
 
         Ok(Self {
-            base: Context::new(keygen_init, tofnd_subindex),
+            base: common::Context::new(keygen_init, tofnd_subindex),
             party_keygen_data,
         })
     }

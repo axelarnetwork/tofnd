@@ -2,8 +2,7 @@
 //! On success it returns [super::TofnKeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
 //! On failure it returns [anyhow!] error if [Keygen] struct cannot be instantiated.
 
-use crate::grpc::keygen::types::common::Gg20TofndKeygenOutput;
-use crate::grpc::keygen::types::gg20::Gg20Context;
+use crate::grpc::keygen::types::gg20::{Context, TofndKeygenOutput};
 use crate::grpc::{proto, service::Service, ProtocolCommunication};
 use crate::{grpc::protocol, TofndResult};
 use tofn::gg20::keygen::{new_keygen, KeygenProtocol};
@@ -16,7 +15,7 @@ use anyhow::anyhow;
 
 impl Service {
     /// create a new gg20 keygen protocol.
-    fn new_gg20_keygen(&self, ctx: &Gg20Context) -> TofndResult<KeygenProtocol> {
+    fn new_gg20_keygen(&self, ctx: &Context) -> TofndResult<KeygenProtocol> {
         new_keygen(
             ctx.share_counts()?,
             ctx.base.threshold,
@@ -37,9 +36,9 @@ impl Service {
             Option<proto::TrafficIn>,
             Result<proto::MessageOut, tonic::Status>,
         >,
-        ctx: &Gg20Context,
+        ctx: &Context,
         execute_span: Span,
-    ) -> Gg20TofndKeygenOutput {
+    ) -> TofndKeygenOutput {
         // try to create keygen with context
         let keygen = self.new_gg20_keygen(ctx)?;
 

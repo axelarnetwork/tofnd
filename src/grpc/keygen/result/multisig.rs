@@ -8,7 +8,10 @@ use tofn::{multisig::keygen::SecretKeyShare, sdk::api::serialize};
 
 use crate::{
     grpc::{
-        keygen::types::common::{BytesVec, KeygenInitSanitized, MultisigTofnKeygenOutput},
+        keygen::types::{
+            common::{BytesVec, KeygenInitSanitized},
+            multisig::TofnKeygenOutput,
+        },
         service::Service,
         types::multisig::PartyInfo,
     },
@@ -26,9 +29,7 @@ use tonic::Status;
 use crate::TofndResult;
 use anyhow::anyhow;
 
-fn to_multisig_keygen_outputs(
-    outs: Vec<KeygenOutput>,
-) -> TofndResult<Vec<MultisigTofnKeygenOutput>> {
+fn to_multisig_keygen_outputs(outs: Vec<KeygenOutput>) -> TofndResult<Vec<TofnKeygenOutput>> {
     let mut multisig_outs = Vec::with_capacity(outs.len());
     for out in outs {
         match out {
@@ -91,7 +92,7 @@ impl Service {
     /// This vec is later used to derive private recovery info
     pub fn process_multisig_keygen_outputs(
         keygen_init: &KeygenInitSanitized,
-        keygen_outputs: Vec<MultisigTofnKeygenOutput>,
+        keygen_outputs: Vec<TofnKeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
     ) -> TofndResult<(BytesVec, BytesVec, Vec<SecretKeyShare>)> {
         // Collect all key shares unless there's a protocol fault

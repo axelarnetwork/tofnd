@@ -1,10 +1,4 @@
-//! This module creates and executes the keygen protocol
-//! On success it returns [super::TofnKeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
-//! On failure it returns [anyhow!] error if [Keygen] struct cannot be instantiated.
-
-use crate::grpc::keygen::types::common::{
-    Gg20TofndKeygenOutput, KeygenContext, MultisigTofndKeygenOutput,
-};
+use crate::grpc::keygen::types::{common::KeygenContext, gg20, multisig};
 use crate::grpc::{proto, service::Service, ProtocolCommunication};
 use crate::TofndResult;
 
@@ -12,8 +6,8 @@ use crate::TofndResult;
 use tracing::{info, Span};
 
 pub(in super::super) enum KeygenOutput {
-    Gg20(Gg20TofndKeygenOutput),
-    Multisig(MultisigTofndKeygenOutput),
+    Gg20(gg20::TofndKeygenOutput),
+    Multisig(multisig::TofndKeygenOutput),
 }
 pub(in super::super) type TofndKeygenOutput = TofndResult<KeygenOutput>;
 
