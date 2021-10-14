@@ -3,7 +3,7 @@ use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 
 mod encrypted_sled;
-mod grpc;
+pub mod grpc;
 mod kv_manager;
 
 // gather logs; need to set RUST_LOG=info

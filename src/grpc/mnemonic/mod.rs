@@ -13,3 +13,4 @@ mod results;
 
 pub use cmd_handler::Cmd;
 pub use file_io::FileIo;
+pub use results::mnemonic::SeedResult;

@@ -1,6 +1,7 @@
 //! [proto::gg20_server::Gg20] gRPC server API
 //! Available gRPCs are:
 //!     [recover] - Recovers private data of a party provided a mnemonic.
+//!     [key_presence] - Checks if a key exists in the kvstore.
 //!     [keygen] - Starts keygen.
 //!     [sign] - Starts sing.
 
@@ -17,7 +18,7 @@ use tracing::{error, info, span, Level};
 // gRPC
 mod broadcast;
 mod key_presence;
-mod keygen;
+pub mod keygen;
 pub mod mnemonic;
 mod protocol;
 mod recover;

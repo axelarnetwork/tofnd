@@ -37,3 +37,8 @@ pub async fn new_service(
     service.handle_mnemonic().await?;
     Ok(service)
 }
+
+pub enum ServiceType {
+    Gg20,
+    Multisig,
+}

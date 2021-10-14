@@ -12,18 +12,18 @@ use tracing::Span;
 use crate::TofndResult;
 use anyhow::anyhow;
 
-use super::{
-    proto,
-    types::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
-    Service,
+use crate::grpc::{
+    keygen::types::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
+    service::Service,
 };
 use crate::kv_manager::types::KeyReservation;
+use crate::proto;
 
 impl Service {
     /// Receives a message from the stream and tries to handle keygen init operations.
     /// On success, it reserves a key in the KVStrore and returns a sanitized struct ready to be used by the protocol.
     /// On failure, returns a [KeygenInitError] and no changes are been made in the KvStore.
-    pub(super) async fn handle_keygen_init(
+    pub async fn handle_keygen_init(
         &self,
         stream: &mut tonic::Streaming<proto::MessageIn>,
         keygen_span: Span,

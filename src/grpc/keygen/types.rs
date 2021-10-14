@@ -1,23 +1,29 @@
 //! Helper structs and implementations for [crate::gg20::keygen].
 
 use tofn::{
-    collections::TypedUsize,
-    gg20::keygen::{KeygenPartyId, KeygenPartyShareCounts, PartyKeygenData, SecretKeyShare},
+    gg20::keygen::{KeygenPartyId as Gg20KeygenPartyId, SecretKeyShare as Gg20SecretKeyShare},
+    multisig::keygen::{
+        KeygenPartyId as MultisigKeygenPartyId, SecretKeyShare as MultisigSecretKeyShare,
+    },
     sdk::api::ProtocolOutput,
 };
 
-pub(super) type PartyShareCounts = KeygenPartyShareCounts;
 pub const MAX_PARTY_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_PARTY_SHARE_COUNT;
 pub const MAX_TOTAL_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_TOTAL_SHARE_COUNT;
 
+use super::execute::KeygenOutput;
 use crate::TofndResult;
-use anyhow::anyhow;
 use tracing::{info, span, Level, Span};
 
+pub type TofndKeygenOutput = TofndResult<KeygenOutput>;
 /// tofn's ProtocolOutput for Keygen
-pub type TofnKeygenOutput = ProtocolOutput<SecretKeyShare, KeygenPartyId>;
+pub type Gg20TofnKeygenOutput = ProtocolOutput<Gg20SecretKeyShare, Gg20KeygenPartyId>;
 /// tofnd's ProtocolOutput for Keygen
-pub type TofndKeygenOutput = TofndResult<TofnKeygenOutput>;
+pub type Gg20TofndKeygenOutput = TofndResult<Gg20TofnKeygenOutput>;
+/// tofn's ProtocolOutput for Keygen
+pub type MultisigTofnKeygenOutput = ProtocolOutput<MultisigSecretKeyShare, MultisigKeygenPartyId>;
+/// tofnd's ProtocolOutput for Keygen
+pub type MultisigTofndKeygenOutput = TofndResult<MultisigTofnKeygenOutput>;
 /// type for bytes
 pub use tofn::sdk::api::BytesVec;
 
@@ -54,41 +60,26 @@ impl KeygenInitSanitized {
 }
 
 /// Context holds the all arguments that need to be passed from keygen gRPC call into protocol execution
-pub struct Context {
+#[derive(Clone)]
+pub(super) struct Context {
     pub(super) key_id: String,           // session id; used for logs
     pub(super) uids: Vec<String>,        // all party uids; alligned with `share_counts`
     pub(super) share_counts: Vec<usize>, // all party share counts; alligned with `uids`
     pub(super) threshold: usize,         // protocol's threshold
-    pub(super) tofnd_index: TypedUsize<KeygenPartyId>, // tofnd index of party
-    pub(super) tofnd_subindex: usize,    // index of party's share
-    pub(super) party_keygen_data: PartyKeygenData,
+    pub(super) tofnd_index: usize,       // tofnd index of party
+    pub(super) tofnd_subindex: usize,    // share index of party
 }
 
 impl Context {
     /// create a new Context
-    pub fn new(
-        keygen_init: &KeygenInitSanitized,
-        tofnd_index: usize,
-        tofnd_subindex: usize,
-        party_keygen_data: PartyKeygenData,
-    ) -> Self {
-        let tofnd_index = TypedUsize::from_usize(tofnd_index);
+    pub fn new(keygen_init: &KeygenInitSanitized, tofnd_subindex: usize) -> Self {
         Context {
             key_id: keygen_init.new_key_uid.clone(),
             uids: keygen_init.party_uids.clone(),
             share_counts: keygen_init.party_share_counts.clone(),
             threshold: keygen_init.threshold,
-            tofnd_index,
+            tofnd_index: keygen_init.my_index,
             tofnd_subindex,
-            party_keygen_data,
-        }
-    }
-
-    /// get share_counts in the form of tofn::PartyShareCounts
-    pub fn share_counts(&self) -> TofndResult<PartyShareCounts> {
-        match PartyShareCounts::from_vec(self.share_counts.clone()) {
-            Ok(party_share_counts) => Ok(party_share_counts),
-            Err(_) => Err(anyhow!("failed to create party_share_counts")),
         }
     }
 
@@ -97,9 +88,70 @@ impl Context {
         format!(
             "[{}] [uid:{}, share:{}/{}]",
             self.key_id,
-            self.uids[self.tofnd_index.as_usize()],
+            self.uids[self.tofnd_index],
             self.tofnd_subindex + 1,
-            self.share_counts[self.tofnd_index.as_usize()]
+            self.share_counts[self.tofnd_index]
         )
+    }
+}
+
+use crate::grpc::keygen::gg20::types::Gg20Context;
+use crate::grpc::keygen::multisig::types::MultisigContext;
+use crate::grpc::service::Service;
+
+pub(super) enum KeygenType {
+    Gg20,
+    Multisig,
+}
+
+pub(super) enum KeygenContext {
+    Gg20(Gg20Context),
+    Multisig(MultisigContext),
+}
+use KeygenContext::*;
+
+impl KeygenContext {
+    pub async fn new_without_subindex(
+        keygen_type: KeygenType,
+        service: &Service,
+        keygen_init: &KeygenInitSanitized,
+    ) -> TofndResult<KeygenContext> {
+        let ctx = match keygen_type {
+            KeygenType::Gg20 => {
+                Gg20(Gg20Context::new_without_subindex(service, keygen_init).await?)
+            }
+            KeygenType::Multisig => {
+                Multisig(MultisigContext::new_without_subindex(service, keygen_init).await?)
+            }
+        };
+        Ok(ctx)
+    }
+
+    pub(super) fn clone_with_subindex(&self, tofnd_subindex: usize) -> Self {
+        match &self {
+            Gg20(gg20_ctx) => Gg20(gg20_ctx.clone_with_subindex(tofnd_subindex)),
+            Multisig(multisig_ctx) => Multisig(multisig_ctx.clone_with_subindex(tofnd_subindex)),
+        }
+    }
+
+    pub(super) fn base_uids(&self) -> &[String] {
+        match &self {
+            Gg20(gg20_ctx) => gg20_ctx.base_uids(),
+            Multisig(multisig_ctx) => multisig_ctx.base_uids(),
+        }
+    }
+
+    pub(super) fn base_share_counts(&self) -> &[usize] {
+        match &self {
+            Gg20(gg20_ctx) => gg20_ctx.base_share_counts(),
+            Multisig(multisig_ctx) => multisig_ctx.base_share_counts(),
+        }
+    }
+
+    pub(super) fn log_info(&self) -> String {
+        match &self {
+            Gg20(gg20_ctx) => gg20_ctx.log_info(),
+            Multisig(multisig_ctx) => multisig_ctx.log_info(),
+        }
     }
 }
