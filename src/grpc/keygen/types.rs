@@ -134,20 +134,6 @@ impl KeygenContext {
         }
     }
 
-    pub(super) fn base_uids(&self) -> &[String] {
-        match &self {
-            Gg20(gg20_ctx) => gg20_ctx.base_uids(),
-            Multisig(multisig_ctx) => multisig_ctx.base_uids(),
-        }
-    }
-
-    pub(super) fn base_share_counts(&self) -> &[usize] {
-        match &self {
-            Gg20(gg20_ctx) => gg20_ctx.base_share_counts(),
-            Multisig(multisig_ctx) => multisig_ctx.base_share_counts(),
-        }
-    }
-
     pub(super) fn log_info(&self) -> String {
         match &self {
             Gg20(gg20_ctx) => gg20_ctx.log_info(),

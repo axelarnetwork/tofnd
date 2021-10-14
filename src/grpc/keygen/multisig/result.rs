@@ -41,7 +41,7 @@ fn to_multisig_keygen_outputs(
 
 impl Service {
     /// aggregate results from all keygen threads, create a record and insert it in the KvStore
-    pub async fn aggregate_multisig_results(
+    pub(in super::super) async fn aggregate_multisig_results(
         &self,
         keygen_outputs: Vec<KeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
@@ -107,10 +107,11 @@ impl Service {
                         keygen_init.my_index
                     ));
                 }
-                // TODO: get `.pub_key_bytes()`, do basic validity checks and return recovery info
-                let pub_key_bytes = serialize(&secret_key_shares)
+                // TODO: get `.pub_key_bytes()`, do basic validity checks and return (public keys, recovery info, secret_key_shares)
+                let output_bytes = serialize(&secret_key_shares[0].group().all_verifying_keys())
                     .map_err(|_| anyhow!("Cannot serialize multisig output"))?;
-                Ok((pub_key_bytes, vec![], vec![]))
+
+                Ok((output_bytes, vec![], secret_key_shares))
             }
             Err(crimes) => {
                 // send crimes and exit with an error

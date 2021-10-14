@@ -53,7 +53,15 @@ impl Service {
                 )
                 .await
             }
-            KeygenOutput::Multisig(_) => todo!(),
+            KeygenOutput::Multisig(_) => {
+                self.aggregate_multisig_results(
+                    keygen_outputs,
+                    stream_out_sender,
+                    key_uid_reservation,
+                    keygen_init,
+                )
+                .await
+            }
         }
     }
 
