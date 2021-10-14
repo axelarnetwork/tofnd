@@ -1,47 +1,32 @@
 use crate::grpc::{
-    keygen::types::{Context, KeygenInitSanitized},
+    keygen::types::common::{Context, KeygenInitSanitized},
     service::Service,
 };
 use crate::TofndResult;
 use tofn::{
-    collections::TypedUsize,
-    gg20::keygen::{
-        create_party_keypair_and_zksetup, create_party_keypair_and_zksetup_unsafe, KeygenPartyId,
-        KeygenPartyShareCounts, PartyKeygenData,
-    },
+    collections::TypedUsize, gg20::keygen::SecretRecoveryKey, multisig::keygen::KeygenPartyId,
 };
+use tofn::{multisig::keygen::KeygenPartyShareCounts, sdk::api::BytesVec};
 
 use anyhow::anyhow;
 
 #[derive(Clone)]
-pub struct Gg20Context {
-    pub(super) base: Context,
-    pub(super) party_keygen_data: PartyKeygenData,
+pub struct MultisigContext {
+    pub(in super::super) base: Context,
+    pub(in super::super) secret_recovery_key: SecretRecoveryKey,
+    pub(in super::super) session_nonce: BytesVec,
 }
 
-impl Gg20Context {
+impl MultisigContext {
     async fn new(
         service: &Service,
         keygen_init: &KeygenInitSanitized,
         tofnd_subindex: usize,
     ) -> TofndResult<Self> {
-        let secret_recovery_key = service.seed().await?;
-
-        let party_id = TypedUsize::<KeygenPartyId>::from_usize(keygen_init.my_index);
-        let session_nonce = keygen_init.new_key_uid.as_bytes();
-        let party_keygen_data = match service.cfg.safe_keygen {
-            true => create_party_keypair_and_zksetup(party_id, &secret_recovery_key, session_nonce),
-            false => create_party_keypair_and_zksetup_unsafe(
-                party_id,
-                &secret_recovery_key,
-                session_nonce,
-            ),
-        }
-        .map_err(|_| anyhow!("Party keypair generation failed"))?;
-
         Ok(Self {
             base: Context::new(keygen_init, tofnd_subindex),
-            party_keygen_data,
+            secret_recovery_key: service.seed().await?,
+            session_nonce: keygen_init.new_key_uid.as_bytes().to_vec(),
         })
     }
 

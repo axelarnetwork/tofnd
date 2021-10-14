@@ -8,15 +8,16 @@ use tofn::{gg20::keygen::SecretKeyShare, sdk::api::serialize};
 
 use crate::{
     grpc::{
-        keygen::types::{BytesVec, Gg20TofnKeygenOutput, KeygenInitSanitized},
+        keygen::{
+            execute::KeygenOutput,
+            types::common::{BytesVec, Gg20TofnKeygenOutput, KeygenInitSanitized},
+        },
         service::Service,
         types::gg20::PartyInfo,
     },
     kv_manager::types::KeyReservation,
     proto,
 };
-
-use super::super::execute::KeygenOutput;
 
 // tonic cruft
 use tokio::sync::mpsc;

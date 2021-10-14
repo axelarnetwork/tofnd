@@ -8,7 +8,7 @@ use tofn::{multisig::keygen::SecretKeyShare, sdk::api::serialize};
 
 use crate::{
     grpc::{
-        keygen::types::{BytesVec, KeygenInitSanitized, MultisigTofnKeygenOutput},
+        keygen::types::common::{BytesVec, KeygenInitSanitized, MultisigTofnKeygenOutput},
         service::Service,
         types::multisig::PartyInfo,
     },

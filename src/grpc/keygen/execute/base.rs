@@ -2,21 +2,23 @@
 //! On success it returns [super::TofnKeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
 //! On failure it returns [anyhow!] error if [Keygen] struct cannot be instantiated.
 
-use super::types::{Gg20TofndKeygenOutput, KeygenContext, MultisigTofndKeygenOutput};
+use crate::grpc::keygen::types::common::{
+    Gg20TofndKeygenOutput, KeygenContext, MultisigTofndKeygenOutput,
+};
 use crate::grpc::{proto, service::Service, ProtocolCommunication};
 use crate::TofndResult;
 
 // logging
 use tracing::{info, Span};
 
-pub enum KeygenOutput {
+pub(in super::super) enum KeygenOutput {
     Gg20(Gg20TofndKeygenOutput),
     Multisig(MultisigTofndKeygenOutput),
 }
-pub type TofndKeygenOutput = TofndResult<KeygenOutput>;
+pub(in super::super) type TofndKeygenOutput = TofndResult<KeygenOutput>;
 
 impl Service {
-    pub(super) async fn execute_keygen(
+    pub(in super::super) async fn execute_keygen(
         &self,
         chans: ProtocolCommunication<
             Option<proto::TrafficIn>,

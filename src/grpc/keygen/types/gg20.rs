@@ -1,32 +1,49 @@
-use crate::grpc::{
-    keygen::types::{Context, KeygenInitSanitized},
-    service::Service,
+use crate::{
+    grpc::{
+        keygen::types::common::{Context, KeygenInitSanitized},
+        service::Service,
+    },
+    TofndResult,
 };
-use crate::TofndResult;
 use tofn::{
-    collections::TypedUsize, gg20::keygen::SecretRecoveryKey, multisig::keygen::KeygenPartyId,
+    collections::TypedUsize,
+    gg20::keygen::{
+        create_party_keypair_and_zksetup, create_party_keypair_and_zksetup_unsafe, KeygenPartyId,
+        KeygenPartyShareCounts, PartyKeygenData,
+    },
 };
-use tofn::{multisig::keygen::KeygenPartyShareCounts, sdk::api::BytesVec};
 
 use anyhow::anyhow;
 
 #[derive(Clone)]
-pub struct MultisigContext {
-    pub(super) base: Context,
-    pub(super) secret_recovery_key: SecretRecoveryKey,
-    pub(super) session_nonce: BytesVec,
+pub struct Gg20Context {
+    pub(in super::super) base: Context,
+    pub(in super::super) party_keygen_data: PartyKeygenData,
 }
 
-impl MultisigContext {
+impl Gg20Context {
     async fn new(
         service: &Service,
         keygen_init: &KeygenInitSanitized,
         tofnd_subindex: usize,
     ) -> TofndResult<Self> {
+        let secret_recovery_key = service.seed().await?;
+
+        let party_id = TypedUsize::<KeygenPartyId>::from_usize(keygen_init.my_index);
+        let session_nonce = keygen_init.new_key_uid.as_bytes();
+        let party_keygen_data = match service.cfg.safe_keygen {
+            true => create_party_keypair_and_zksetup(party_id, &secret_recovery_key, session_nonce),
+            false => create_party_keypair_and_zksetup_unsafe(
+                party_id,
+                &secret_recovery_key,
+                session_nonce,
+            ),
+        }
+        .map_err(|_| anyhow!("Party keypair generation failed"))?;
+
         Ok(Self {
             base: Context::new(keygen_init, tofnd_subindex),
-            secret_recovery_key: service.seed().await?,
-            session_nonce: keygen_init.new_key_uid.as_bytes().to_vec(),
+            party_keygen_data,
         })
     }
 

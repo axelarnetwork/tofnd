@@ -8,14 +8,14 @@ use tofn::{
     sdk::api::ProtocolOutput,
 };
 
+use crate::{grpc::keygen::execute::KeygenOutput, TofndResult};
+
 pub const MAX_PARTY_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_PARTY_SHARE_COUNT;
 pub const MAX_TOTAL_SHARE_COUNT: usize = tofn::gg20::keygen::MAX_TOTAL_SHARE_COUNT;
 
-use super::execute::KeygenOutput;
-use crate::TofndResult;
 use tracing::{info, span, Level, Span};
 
-pub type TofndKeygenOutput = TofndResult<KeygenOutput>;
+pub(in super::super) type TofndKeygenOutput = TofndResult<KeygenOutput>;
 /// tofn's ProtocolOutput for Keygen
 pub type Gg20TofnKeygenOutput = ProtocolOutput<Gg20SecretKeyShare, Gg20KeygenPartyId>;
 /// tofnd's ProtocolOutput for Keygen
@@ -38,12 +38,12 @@ pub struct KeygenInitSanitized {
 }
 impl KeygenInitSanitized {
     // get the share count of `my_index`th party
-    pub(super) fn my_shares_count(&self) -> usize {
+    pub fn my_shares_count(&self) -> usize {
         self.party_share_counts[self.my_index] as usize
     }
 
     // log KeygenInitSanitized state
-    pub(super) fn log_info(&self, keygen_span: Span) {
+    pub fn log_info(&self, keygen_span: Span) {
         // create log span and display current status
         let init_span = span!(parent: &keygen_span, Level::INFO, "init");
         let _enter = init_span.enter();
@@ -61,13 +61,13 @@ impl KeygenInitSanitized {
 
 /// Context holds the all arguments that need to be passed from keygen gRPC call into protocol execution
 #[derive(Clone)]
-pub(super) struct Context {
-    pub(super) key_id: String,           // session id; used for logs
-    pub(super) uids: Vec<String>,        // all party uids; alligned with `share_counts`
-    pub(super) share_counts: Vec<usize>, // all party share counts; alligned with `uids`
-    pub(super) threshold: usize,         // protocol's threshold
-    pub(super) tofnd_index: usize,       // tofnd index of party
-    pub(super) tofnd_subindex: usize,    // share index of party
+pub(in super::super) struct Context {
+    pub(in super::super) key_id: String, // session id; used for logs
+    pub(in super::super) uids: Vec<String>, // all party uids; alligned with `share_counts`
+    pub(in super::super) share_counts: Vec<usize>, // all party share counts; alligned with `uids`
+    pub(in super::super) threshold: usize, // protocol's threshold
+    pub(in super::super) tofnd_index: usize, // tofnd index of party
+    pub(in super::super) tofnd_subindex: usize, // share index of party
 }
 
 impl Context {
@@ -95,16 +95,16 @@ impl Context {
     }
 }
 
-use crate::grpc::keygen::gg20::types::Gg20Context;
-use crate::grpc::keygen::multisig::types::MultisigContext;
+use crate::grpc::keygen::types::gg20::Gg20Context;
+use crate::grpc::keygen::types::multisig::MultisigContext;
 use crate::grpc::service::Service;
 
-pub(super) enum KeygenType {
+pub(in super::super) enum KeygenType {
     Gg20,
     Multisig,
 }
 
-pub(super) enum KeygenContext {
+pub(in super::super) enum KeygenContext {
     Gg20(Gg20Context),
     Multisig(MultisigContext),
 }
@@ -127,14 +127,14 @@ impl KeygenContext {
         Ok(ctx)
     }
 
-    pub(super) fn clone_with_subindex(&self, tofnd_subindex: usize) -> Self {
+    pub fn clone_with_subindex(&self, tofnd_subindex: usize) -> Self {
         match &self {
             Gg20(gg20_ctx) => Gg20(gg20_ctx.clone_with_subindex(tofnd_subindex)),
             Multisig(multisig_ctx) => Multisig(multisig_ctx.clone_with_subindex(tofnd_subindex)),
         }
     }
 
-    pub(super) fn log_info(&self) -> String {
+    pub fn log_info(&self) -> String {
         match &self {
             Gg20(gg20_ctx) => gg20_ctx.log_info(),
             Multisig(multisig_ctx) => multisig_ctx.log_info(),

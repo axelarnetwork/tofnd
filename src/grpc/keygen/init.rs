@@ -13,7 +13,7 @@ use crate::TofndResult;
 use anyhow::anyhow;
 
 use crate::grpc::{
-    keygen::types::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
+    keygen::types::common::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
     service::Service,
 };
 use crate::kv_manager::types::KeyReservation;

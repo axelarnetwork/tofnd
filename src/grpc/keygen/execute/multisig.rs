@@ -2,8 +2,8 @@
 //! On success it returns [super::TofnKeygenOutput]. A successful [Keygen] can produce either an Ok(SecretKeyShare) of an Err(Vec<Vec<Crime>>).
 //! On failure it returns [anyhow!] error if [Keygen] struct cannot be instantiated.
 
-use crate::grpc::keygen::multisig::types::MultisigContext;
-use crate::grpc::keygen::types::MultisigTofndKeygenOutput;
+use crate::grpc::keygen::types::common::MultisigTofndKeygenOutput;
+use crate::grpc::keygen::types::multisig::MultisigContext;
 use crate::grpc::{proto, service::Service, ProtocolCommunication};
 use crate::{grpc::protocol, TofndResult};
 use tofn::multisig::keygen::{new_keygen, KeygenProtocol};

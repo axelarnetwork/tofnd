@@ -3,20 +3,20 @@
 //! Protocol:
 //!   1. [super::init] First, the initialization message [proto::KeygenInit] is received from the client.
 //!      This message describes the execution of the protocol (i.e. number of participants, share counts, etc).
-//!   2. [self::execute] Then, the party starts to generate messages by invoking calls of the [tofn] library until the protocol is completed.
+//!   2. [super::execute] Then, the party starts to generate messages by invoking calls of the [tofn] library until the protocol is completed.
 //!      These messages are send to the client using the gRPC stream, and are broadcasted to all participating parties by the client.
-//!   3. [self::result] Finally, the party receives the result of the protocol, which is also send to the client through the gRPC stream. Afterwards, the stream is closed.
+//!   3. [super::result] Finally, the party receives the result of the protocol, which is also send to the client through the gRPC stream. Afterwards, the stream is closed.
 //!
 //! Shares:
 //!   Each party might have multiple shares. A single thread is created for each share.
 //!   We keep this information agnostic to the client, and we use the [crate::grpc::broadcast] layer to distribute the messages to each share.
-//!   The result of the protocol is common across all shares, and unique for each party. We make use of [self::result] layer to aggregate and process the result.
+//!   The result of the protocol is common across all shares, and unique for each party. We make use of [super::result] layer to aggregate and process the result.
 //!
 //! All relevant helper structs and types are defined in [self::types]
 
 use crate::grpc::{
     broadcast::broadcast_messages,
-    keygen::types::{KeygenContext, KeygenType},
+    keygen::types::common::{KeygenContext, KeygenType},
     proto,
     service::Service,
     types::ProtocolCommunication,
@@ -34,13 +34,9 @@ use tracing::{span, Level, Span};
 use crate::TofndResult;
 use anyhow::anyhow;
 
-pub mod execute;
-mod result;
-pub(super) mod types;
-
 impl Service {
     /// handle keygen gRPC
-    pub async fn handle_keygen(
+    pub(in super::super) async fn handle_keygen(
         &self,
         mut stream_in: tonic::Streaming<proto::MessageIn>,
         mut stream_out_sender: mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
