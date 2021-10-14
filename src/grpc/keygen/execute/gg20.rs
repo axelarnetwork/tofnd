@@ -52,8 +52,8 @@ impl Service {
         let protocol_result = protocol::execute_protocol(
             keygen,
             chans,
-            &ctx.base_uids(),
-            &ctx.base_share_counts(),
+            ctx.base_uids(),
+            ctx.base_share_counts(),
             execute_span.clone(),
         )
         .await;

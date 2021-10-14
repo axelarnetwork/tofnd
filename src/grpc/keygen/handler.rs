@@ -53,10 +53,10 @@ impl Service {
 
         let ctx = match keygen_type {
             KeygenType::Gg20 => {
-                KeygenContext::new_without_subindex(KeygenType::Gg20, &self, &keygen_init).await?
+                KeygenContext::new_without_subindex(KeygenType::Gg20, self, &keygen_init).await?
             }
             KeygenType::Multisig => {
-                KeygenContext::new_without_subindex(KeygenType::Multisig, &self, &keygen_init)
+                KeygenContext::new_without_subindex(KeygenType::Multisig, self, &keygen_init)
                     .await?
             }
         };

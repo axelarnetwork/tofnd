@@ -74,7 +74,7 @@ impl Service {
     ) -> TofndResult<(KeygenInitSanitized, KeyReservation, KeygenType)> {
         // get keygen type
         let keygen_type = proto::keygen_init::KeygenType::from_i32(keygen_init.keygen_type)
-            .ok_or(anyhow!("Keygen type is invalid: {}"))?;
+            .ok_or_else(|| anyhow!("Keygen type is invalid"))?;
 
         let keygen_type = match keygen_type {
             proto::keygen_init::KeygenType::Undefined => {
