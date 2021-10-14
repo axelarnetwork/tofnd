@@ -33,7 +33,7 @@ impl Service {
 
         // 1.
         // get KeygenInit message from stream, sanitize arguments and reserve key
-        let (keygen_init, key_uid_reservation) = self
+        let (keygen_init, key_uid_reservation, keygen_type) = self
             .handle_keygen_init(&mut stream_in, keygen_span.clone())
             .await?;
 
@@ -51,8 +51,15 @@ impl Service {
         let mut keygen_senders = Vec::with_capacity(my_share_count);
         let mut aggregator_receivers = Vec::with_capacity(my_share_count);
 
-        let ctx =
-            KeygenContext::new_without_subindex(KeygenType::Gg20, &self, &keygen_init).await?;
+        let ctx = match keygen_type {
+            KeygenType::Gg20 => {
+                KeygenContext::new_without_subindex(KeygenType::Gg20, &self, &keygen_init).await?
+            }
+            KeygenType::Multisig => {
+                KeygenContext::new_without_subindex(KeygenType::Multisig, &self, &keygen_init)
+                    .await?
+            }
+        };
 
         for my_tofnd_subindex in 0..my_share_count {
             // channels for communication between router (sender) and protocol threads (receivers)

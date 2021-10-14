@@ -238,7 +238,9 @@ pub(super) mod multisig {
             }
         }
 
+        // TODO: enable when multisig sign is implemented
         /// log PartyInfo state
+        #[allow(clippy::dead_code)]
         pub(in super::super) fn log_info(&self, session_id: &str, sign_span: Span) {
             let init_span = span!(parent: &sign_span, Level::INFO, "init");
             let _enter = init_span.enter();

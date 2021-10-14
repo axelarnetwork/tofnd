@@ -83,7 +83,7 @@ use crate::grpc::keygen::types::gg20;
 use crate::grpc::keygen::types::multisig;
 use crate::grpc::service::Service;
 
-pub(in super::super) enum KeygenType {
+pub enum KeygenType {
     Gg20,
     Multisig,
 }

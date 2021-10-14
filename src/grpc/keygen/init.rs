@@ -13,7 +13,9 @@ use crate::TofndResult;
 use anyhow::anyhow;
 
 use crate::grpc::{
-    keygen::types::common::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
+    keygen::types::common::{
+        KeygenInitSanitized, KeygenType, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT,
+    },
     service::Service,
 };
 use crate::kv_manager::types::KeyReservation;
@@ -27,7 +29,7 @@ impl Service {
         &self,
         stream: &mut tonic::Streaming<proto::MessageIn>,
         keygen_span: Span,
-    ) -> TofndResult<(KeygenInitSanitized, KeyReservation)> {
+    ) -> TofndResult<(KeygenInitSanitized, KeyReservation, KeygenType)> {
         // try to receive message
         let msg = stream
             .next()
@@ -52,13 +54,14 @@ impl Service {
         };
 
         // try to process incoming message
-        let (keygen_init, key_reservation) = self.process_keygen_init(keygen_init).await?;
+        let (keygen_init, key_reservation, keygen_type) =
+            self.process_keygen_init(keygen_init).await?;
 
         // log keygen init state
         keygen_init.log_info(keygen_span);
 
         // return sanitized key and its KvStore reservation
-        Ok((keygen_init, key_reservation))
+        Ok((keygen_init, key_reservation, keygen_type))
     }
 
     // makes all needed assertions on incoming data, and create structures that are
@@ -66,7 +69,19 @@ impl Service {
     async fn process_keygen_init(
         &self,
         keygen_init: proto::KeygenInit,
-    ) -> TofndResult<(KeygenInitSanitized, KeyReservation)> {
+    ) -> TofndResult<(KeygenInitSanitized, KeyReservation, KeygenType)> {
+        // get keygen type
+        let keygen_type = proto::keygen_init::KeygenType::from_i32(keygen_init.keygen_type)
+            .ok_or(anyhow!("Keygen type is invalid: {}"))?;
+
+        let keygen_type = match keygen_type {
+            proto::keygen_init::KeygenType::Undefined => {
+                return Err(anyhow!("KeygenType is `Undefined`"))
+            }
+            proto::keygen_init::KeygenType::Gg20 => KeygenType::Gg20,
+            proto::keygen_init::KeygenType::Multisig => KeygenType::Multisig,
+        };
+
         // try to sanitize arguments
         let keygen_init = Self::keygen_sanitize_args(keygen_init)
             .map_err(|err| anyhow!("failed to sanitize KeygenInit: {}", err))?;
@@ -79,7 +94,7 @@ impl Service {
             .map_err(|err| anyhow!("failed to reseve key: {}", err))?;
 
         // return sanitized keygen init and key reservation
-        Ok((keygen_init, key_uid_reservation))
+        Ok((keygen_init, key_uid_reservation, keygen_type))
     }
 
     /// This function is pub(crate) because it is also needed in handle_recover
@@ -250,6 +265,7 @@ mod tests {
             party_share_counts: vec![2, 1],                               // unsorted shares
             my_party_index: 1,                                            // index of "party_1"
             threshold: 1,
+            keygen_type: proto::keygen_init::KeygenType::Gg20 as i32,
         };
         let sanitized_keygen_init = KeygenInitSanitized {
             new_key_uid: "test_uid".to_owned(), // should be same as in raw keygen init
@@ -275,6 +291,7 @@ mod tests {
             party_share_counts: vec![], // empty share counts; should default to [1, 1]
             my_party_index: 0,
             threshold: 1,
+            keygen_type: proto::keygen_init::KeygenType::Gg20 as i32,
         };
         let res = Service::keygen_sanitize_args(raw_keygen_init).unwrap();
         assert_eq!(&res.party_share_counts, &vec![1, 1]);
@@ -285,6 +302,7 @@ mod tests {
             party_share_counts: vec![MAX_PARTY_SHARE_COUNT as u32], // should be ok
             my_party_index: 0,
             threshold: 1,
+            keygen_type: proto::keygen_init::KeygenType::Gg20 as i32,
         };
         let res = Service::keygen_sanitize_args(raw_keygen_init).unwrap();
         assert_eq!(&res.party_share_counts, &vec![MAX_PARTY_SHARE_COUNT]);
@@ -295,6 +313,7 @@ mod tests {
             party_share_counts: vec![MAX_TOTAL_SHARE_COUNT as u32 - 1, 1], // should be ok
             my_party_index: 0,
             threshold: 1,
+            keygen_type: proto::keygen_init::KeygenType::Gg20 as i32,
         };
         let res = Service::keygen_sanitize_args(raw_keygen_init).unwrap();
         assert_eq!(&res.party_share_counts, &vec![MAX_TOTAL_SHARE_COUNT - 1, 1]);
@@ -308,6 +327,7 @@ mod tests {
             party_share_counts: vec![1, 1, 1], // counts are not the same number as parties
             my_party_index: 0,
             threshold: 1,
+            keygen_type: proto::keygen_init::KeygenType::Gg20 as i32,
         };
         assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
@@ -317,6 +337,7 @@ mod tests {
             party_share_counts: vec![1, 1],
             my_party_index: 0,
             threshold: 2, // incorrect threshold
+            keygen_type: proto::keygen_init::KeygenType::Gg20 as i32,
         };
         assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
@@ -326,6 +347,7 @@ mod tests {
             party_share_counts: vec![1, 1],
             my_party_index: 2, // index out of bounds
             threshold: 1,
+            keygen_type: proto::keygen_init::KeygenType::Gg20 as i32,
         };
         assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
@@ -335,6 +357,7 @@ mod tests {
             party_share_counts: vec![(MAX_PARTY_SHARE_COUNT + 1) as u32], // party has more than max number of shares
             my_party_index: 0,
             threshold: 1,
+            keygen_type: proto::keygen_init::KeygenType::Gg20 as i32,
         };
         assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
 
@@ -344,6 +367,27 @@ mod tests {
             party_share_counts: vec![MAX_TOTAL_SHARE_COUNT as u32, 1], // total share count is more than max total shares
             my_party_index: 0,
             threshold: 1,
+            keygen_type: proto::keygen_init::KeygenType::Gg20 as i32,
+        };
+        assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
+
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
+            party_share_counts: vec![MAX_TOTAL_SHARE_COUNT as u32, 1],
+            my_party_index: 0,
+            threshold: 1,
+            keygen_type: proto::keygen_init::KeygenType::Undefined as i32, // undefined keygen type
+        };
+        assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
+
+        let raw_keygen_init = proto::KeygenInit {
+            new_key_uid: "test_uid".to_owned(),
+            party_uids: vec!["party_1".to_owned(), "party_2".to_owned()],
+            party_share_counts: vec![MAX_TOTAL_SHARE_COUNT as u32, 1],
+            my_party_index: 0,
+            threshold: 1,
+            keygen_type: 3, // invalid keygen type
         };
         assert!(Service::keygen_sanitize_args(raw_keygen_init).is_err());
     }
