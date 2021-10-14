@@ -6,7 +6,7 @@
 use std::convert::TryInto;
 
 use super::{proto, types::SignInitSanitized, Service};
-use crate::grpc::types::PartyInfo;
+use crate::grpc::types::gg20::PartyInfo;
 
 // tonic cruft
 use futures_util::StreamExt;

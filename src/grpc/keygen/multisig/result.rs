@@ -8,9 +8,9 @@ use tofn::{multisig::keygen::SecretKeyShare, sdk::api::serialize};
 
 use crate::{
     grpc::{
-        keygen::types::{BytesVec, MultisigTofnKeygenOutput, KeygenInitSanitized},
+        keygen::types::{BytesVec, KeygenInitSanitized, MultisigTofnKeygenOutput},
         service::Service,
-        types::PartyInfo,
+        types::multisig::PartyInfo,
     },
     kv_manager::types::KeyReservation,
     proto,
@@ -55,8 +55,8 @@ impl Service {
             Self::process_multisig_keygen_outputs(&keygen_init, keygen_outputs, stream_out_sender)?;
 
         // try to retrieve private recovery info from all shares
-        let private_recover_info =
-            Self::get_multisig_private_recovery_data(&secret_key_shares).map_err(|err| anyhow!(err))?;
+        let private_recover_info = Self::get_multisig_private_recovery_data(&secret_key_shares)
+            .map_err(|err| anyhow!(err))?;
 
         // combine responses from all keygen threads to a single struct
         let kv_data = PartyInfo::get_party_info(
@@ -74,7 +74,7 @@ impl Service {
 
         // try to send result
         Ok(
-            stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
+            stream_out_sender.send(Ok(proto::MessageOut::new_multisig_keygen_result(
                 &keygen_init.party_uids,
                 Ok(proto::KeygenOutput {
                     pub_key,
@@ -107,48 +107,14 @@ impl Service {
                         keygen_init.my_index
                     ));
                 }
-
-                // check that all shares returned the same public key and group recover info
-                let share_id = secret_key_shares[0].share().index();
-                let pub_key = secret_key_shares[0].group().pubkey_bytes();
-                let group_info = secret_key_shares[0]
-                    .group()
-                    .all_shares_bytes()
-                    .map_err(|_| anyhow!("unable to call all_shares_bytes()"))?;
-
-                // sanity check: pubkey and group recovery info should be the same across all shares
-                // Here we check that the first share produced the same info as the i-th.
-                for secret_key_share in &secret_key_shares[1..] {
-                    // try to get pubkey of i-th share. Each share should produce the same pubkey
-                    if pub_key != secret_key_share.group().pubkey_bytes() {
-                        return Err(anyhow!(
-                            "Party {}'s share {} and {} returned different public key",
-                            keygen_init.my_index,
-                            share_id,
-                            secret_key_share.share().index()
-                        ));
-                    }
-
-                    // try to get group recovery info of i-th share. Each share should produce the same group info
-                    let curr_group_info = secret_key_share
-                        .group()
-                        .all_shares_bytes()
-                        .map_err(|_| anyhow!("unable to call all_shares_bytes()"))?;
-                    if group_info != curr_group_info {
-                        return Err(anyhow!(
-                            "Party {}'s share {} and {} returned different group recovery info",
-                            keygen_init.my_index,
-                            share_id,
-                            secret_key_share.share().index()
-                        ));
-                    }
-                }
-
-                Ok((pub_key, group_info, secret_key_shares))
+                // TODO: get `.pub_key_bytes()`, do basic validity checks and return recovery info
+                let pub_key_bytes = serialize(&secret_key_shares)
+                    .map_err(|_| anyhow!("Cannot serialize multisig output"))?;
+                Ok((pub_key_bytes, vec![], vec![]))
             }
             Err(crimes) => {
                 // send crimes and exit with an error
-                stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
+                stream_out_sender.send(Ok(proto::MessageOut::new_multisig_keygen_result(
                     &keygen_init.party_uids,
                     Err(crimes.clone()),
                 )))?;
@@ -163,24 +129,9 @@ impl Service {
     }
 
     /// Create private recovery info out of a vec with all parties' SecretKeyShares
-    fn get_multisig_private_recovery_data(
-        secret_key_shares: &[SecretKeyShare],
-    ) -> TofndResult<BytesVec> {
-        // try to retrieve private recovery info from all party's shares
-        let private_infos = secret_key_shares
-            .iter()
-            .enumerate()
-            .map(|(index, secret_key_share)| {
-                secret_key_share
-                    .recovery_info()
-                    .map_err(|_| anyhow!("Unable to get recovery info for share {}", index))
-            })
-            .collect::<TofndResult<Vec<_>>>()?;
-
-        // We use an additional layer of serialization to simplify the protobuf definition
-        let private_bytes = serialize(&private_infos)
-            .map_err(|_| anyhow!("Failed to serialize private recovery infos"))?;
-
+    fn get_multisig_private_recovery_data(_: &[SecretKeyShare]) -> TofndResult<BytesVec> {
+        // TODO: implement recovery for multisig
+        let private_bytes = vec![];
         Ok(private_bytes)
     }
 }

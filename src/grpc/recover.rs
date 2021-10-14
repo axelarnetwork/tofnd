@@ -2,7 +2,7 @@
 //! Request includes [proto::message_in::Data::KeygenInit] struct and encrypted recovery info.
 //! The recovery info is decrypted by party's mnemonic seed and saved in the KvStore.
 
-use super::{keygen::types::KeygenInitSanitized, proto, service::Service, types::PartyInfo};
+use super::{keygen::types::KeygenInitSanitized, proto, service::Service, types::gg20::PartyInfo};
 use tofn::{
     collections::TypedUsize,
     gg20::keygen::{

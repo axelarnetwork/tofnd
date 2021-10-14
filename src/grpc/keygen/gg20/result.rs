@@ -10,7 +10,7 @@ use crate::{
     grpc::{
         keygen::types::{BytesVec, Gg20TofnKeygenOutput, KeygenInitSanitized},
         service::Service,
-        types::PartyInfo,
+        types::gg20::PartyInfo,
     },
     kv_manager::types::KeyReservation,
     proto,
@@ -39,7 +39,7 @@ fn to_gg20_keygen_outputs(outs: Vec<KeygenOutput>) -> TofndResult<Vec<Gg20TofnKe
 
 impl Service {
     /// aggregate results from all keygen threads, create a record and insert it in the KvStore
-    pub async fn aggregate_gg20_results(
+    pub(in super::super) async fn aggregate_gg20_results(
         &self,
         keygen_outputs: Vec<KeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
@@ -72,7 +72,7 @@ impl Service {
 
         // try to send result
         Ok(
-            stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
+            stream_out_sender.send(Ok(proto::MessageOut::new_gg20_keygen_result(
                 &keygen_init.party_uids,
                 Ok(proto::KeygenOutput {
                     pub_key,
@@ -87,7 +87,7 @@ impl Service {
     /// we perform a sanity check that all shares produces the same pubkey and group recovery
     /// and then return a single copy of the common info and a vec with `SecretKeyShares` of each party
     /// This vec is later used to derive private recovery info
-    pub fn process_gg20_keygen_outputs(
+    fn process_gg20_keygen_outputs(
         keygen_init: &KeygenInitSanitized,
         keygen_outputs: Vec<Gg20TofnKeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
@@ -146,7 +146,7 @@ impl Service {
             }
             Err(crimes) => {
                 // send crimes and exit with an error
-                stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result(
+                stream_out_sender.send(Ok(proto::MessageOut::new_gg20_keygen_result(
                     &keygen_init.party_uids,
                     Err(crimes.clone()),
                 )))?;

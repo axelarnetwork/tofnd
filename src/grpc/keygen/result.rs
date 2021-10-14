@@ -6,7 +6,7 @@
 
 use super::{
     execute::KeygenOutput,
-    types::{KeygenInitSanitized, MultisigTofnKeygenOutput, TofndKeygenOutput},
+    types::{KeygenInitSanitized, TofndKeygenOutput},
 };
 use crate::{grpc::service::Service, kv_manager::types::KeyReservation, proto};
 

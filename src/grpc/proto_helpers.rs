@@ -2,14 +2,18 @@
 
 use tofn::{
     collections::FillVecMap,
-    gg20::{keygen::KeygenPartyId, sign::SignPartyId},
+    gg20::{self, sign::SignPartyId},
+    multisig,
     sdk::api::Fault,
 };
 
 use crate::proto;
-type KeygenFaults = FillVecMap<KeygenPartyId, Fault>;
+type Gg20KeygenFaults = FillVecMap<gg20::keygen::KeygenPartyId, Fault>;
+type MultisigKeygenFaults = FillVecMap<multisig::keygen::KeygenPartyId, Fault>;
+type Gg20KeygenResultData = Result<proto::KeygenOutput, Gg20KeygenFaults>;
+type MultisigKeygenResultData = Result<proto::KeygenOutput, MultisigKeygenFaults>;
+
 type SignFaults = FillVecMap<SignPartyId, Fault>;
-type KeygenResultData = Result<proto::KeygenOutput, KeygenFaults>;
 type SignResultData = Result<Vec<u8>, SignFaults>;
 use proto::message_out::criminal_list::criminal::CrimeType as ProtoCrimeType;
 use proto::message_out::criminal_list::Criminal as ProtoCriminal;
@@ -42,7 +46,30 @@ impl proto::MessageOut {
         }
     }
 
-    pub(super) fn new_keygen_result(participant_uids: &[String], result: KeygenResultData) -> Self {
+    pub(super) fn new_gg20_keygen_result(
+        participant_uids: &[String],
+        result: Gg20KeygenResultData,
+    ) -> Self {
+        let result = match result {
+            Ok(keygen_output) => ProtoKeygenData(keygen_output),
+            Err(faults) => ProtoKeygenCriminals(ProtoCriminalList::from_tofn_faults(
+                faults,
+                participant_uids,
+            )),
+        };
+        proto::MessageOut {
+            data: Some(proto::message_out::Data::KeygenResult(
+                proto::message_out::KeygenResult {
+                    keygen_result_data: Some(result),
+                },
+            )),
+        }
+    }
+
+    pub(super) fn new_multisig_keygen_result(
+        participant_uids: &[String],
+        result: MultisigKeygenResultData,
+    ) -> Self {
         let result = match result {
             Ok(keygen_output) => ProtoKeygenData(keygen_output),
             Err(faults) => ProtoKeygenCriminals(ProtoCriminalList::from_tofn_faults(
