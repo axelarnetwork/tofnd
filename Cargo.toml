@@ -7,9 +7,8 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 tonic = "0.5"
-# tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "main"}
-# TODO: merge tofn and use main
-tofn = { path = "../tofn" }
+tofn = { git = "ssh://git@github.com/axelarnetwork/tofn.git", branch = "main"}
+# tofn = { path = "../tofn" }
 sled = {version = "0.34", default-features = false}
 
 # logging
