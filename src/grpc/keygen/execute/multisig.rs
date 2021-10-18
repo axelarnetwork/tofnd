@@ -30,7 +30,7 @@ impl Service {
             &ctx.secret_recovery_key,
             &ctx.session_nonce,
         )
-        .map_err(|_| anyhow!("gg20 keygen protocol instantiation failed"))
+        .map_err(|_| anyhow!("multisig keygen protocol instantiation failed"))
     }
 
     /// create and execute keygen protocol and returning the result.
@@ -58,9 +58,9 @@ impl Service {
         .await;
 
         let res = protocol_result
-            .map_err(|err| anyhow!("Keygen was not completed due to error: {}", err))?;
+            .map_err(|err| anyhow!("Multisig keygen was not completed due to error: {}", err))?;
 
-        info!("Keygen completed");
+        info!("Multisig keygen completed");
         Ok(res)
     }
 }
