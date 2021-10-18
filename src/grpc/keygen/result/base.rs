@@ -6,7 +6,7 @@
 
 use crate::{
     grpc::{
-        keygen::types::common::{KeygenInitSanitized, KeygenOutput, TofndKeygenOutput},
+        keygen::types::common::{KeygenInitSanitized, KeygenOutput, KeygenType, TofndKeygenOutput},
         service::Service,
     },
     kv_manager::types::KeyReservation,
@@ -32,6 +32,7 @@ impl Service {
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         key_uid_reservation: KeyReservation,
         keygen_init: KeygenInitSanitized,
+        keygen_type: KeygenType,
     ) -> TofndResult<()> {
         // wait all keygen threads and aggregate results
         // can't use `map_err` because of `.await` func :(
@@ -46,9 +47,9 @@ impl Service {
             }
         };
 
-        match keygen_outputs[0] {
-            KeygenOutput::Gg20(_) => {
         // TODO: refactor this into abstract code instead of matching keygen type
+        match keygen_type {
+            KeygenType::Gg20 => {
                 self.aggregate_gg20_results(
                     keygen_outputs,
                     stream_out_sender,
@@ -57,7 +58,7 @@ impl Service {
                 )
                 .await
             }
-            KeygenOutput::Multisig(_) => {
+            KeygenType::Multisig => {
                 self.aggregate_multisig_results(
                     keygen_outputs,
                     stream_out_sender,

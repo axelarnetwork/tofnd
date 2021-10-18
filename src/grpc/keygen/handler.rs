@@ -106,6 +106,7 @@ impl Service {
             &mut stream_out_sender,
             key_uid_reservation,
             keygen_init,
+            keygen_type,
         )
         .await?;
 
