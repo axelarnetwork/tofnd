@@ -27,6 +27,7 @@ use tonic::Status;
 use crate::TofndResult;
 use anyhow::anyhow;
 
+// TODO: refactor into abstract code
 fn to_gg20_keygen_outputs(outs: Vec<KeygenOutput>) -> TofndResult<Vec<gg20::TofnKeygenOutput>> {
     let mut gg20_outs = Vec::with_capacity(outs.len());
     for out in outs {

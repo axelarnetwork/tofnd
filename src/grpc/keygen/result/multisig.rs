@@ -27,6 +27,7 @@ use tonic::Status;
 use crate::TofndResult;
 use anyhow::anyhow;
 
+// TODO: refactor into abstract code
 fn to_multisig_keygen_outputs(outs: Vec<KeygenOutput>) -> TofndResult<Vec<TofnKeygenOutput>> {
     let mut multisig_outs = Vec::with_capacity(outs.len());
     for out in outs {

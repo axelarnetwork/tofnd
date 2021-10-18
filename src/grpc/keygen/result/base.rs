@@ -48,6 +48,7 @@ impl Service {
 
         match keygen_outputs[0] {
             KeygenOutput::Gg20(_) => {
+        // TODO: refactor this into abstract code instead of matching keygen type
                 self.aggregate_gg20_results(
                     keygen_outputs,
                     stream_out_sender,

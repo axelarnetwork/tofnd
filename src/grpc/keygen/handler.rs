@@ -51,6 +51,8 @@ impl Service {
         let mut keygen_senders = Vec::with_capacity(my_share_count);
         let mut aggregator_receivers = Vec::with_capacity(my_share_count);
 
+        // TODO: refactor this into abstract code
+        // get the context for current gg20/multisig keygen
         let ctx = match keygen_type {
             KeygenType::Gg20 => {
                 KeygenContext::new_without_subindex(KeygenType::Gg20, self, &keygen_init).await?
@@ -98,6 +100,7 @@ impl Service {
 
         // 4.
         // wait for all keygen threads to end, aggregate their responses, and store data in KV store
+        // TODO: refactor this into abstract code instead of passing `keygen_type`
         self.aggregate_results(
             aggregator_receivers,
             &mut stream_out_sender,
