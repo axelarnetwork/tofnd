@@ -50,7 +50,7 @@ impl Service {
         // TODO: refactor this into abstract code instead of matching keygen type
         match keygen_type {
             KeygenType::Gg20 => {
-                self.aggregate_gg20_results(
+                self.handle_gg20_results(
                     keygen_outputs,
                     stream_out_sender,
                     key_uid_reservation,
@@ -59,7 +59,7 @@ impl Service {
                 .await
             }
             KeygenType::Multisig => {
-                self.aggregate_multisig_results(
+                self.handle_multisig_results(
                     keygen_outputs,
                     stream_out_sender,
                     key_uid_reservation,

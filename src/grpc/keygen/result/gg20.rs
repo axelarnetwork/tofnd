@@ -44,7 +44,7 @@ fn to_gg20_keygen_outputs(outs: Vec<KeygenOutput>) -> TofndResult<Vec<gg20::Tofn
 
 impl Service {
     /// aggregate results from all keygen threads, create a record and insert it in the KvStore
-    pub(super) async fn aggregate_gg20_results(
+    pub(super) async fn handle_gg20_results(
         &self,
         keygen_outputs: Vec<KeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
