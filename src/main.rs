@@ -3,7 +3,7 @@ use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 
 mod encrypted_sled;
-mod gg20;
+pub mod grpc;
 mod kv_manager;
 
 // gather logs; need to set RUST_LOG=info
@@ -73,7 +73,7 @@ async fn main() -> TofndResult<()> {
     );
 
     let cmd = cfg.mnemonic_cmd.clone();
-    let my_service = gg20::service::new_service(cfg, password).await?;
+    let my_service = grpc::service::new_service(cfg, password).await?;
 
     if cmd.exit_after_cmd() {
         info!("Tofnd exited after using command <{:?}>. Run `./tofnd -m existing` to execute gRPC daemon.", cmd);
