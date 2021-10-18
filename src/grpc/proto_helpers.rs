@@ -1,17 +1,10 @@
 //! Wrappers for sending and receiving [proto] messages
 
-use tofn::{
-    collections::FillVecMap,
-    gg20::{self, sign::SignPartyId},
-    multisig,
-    sdk::api::Fault,
-};
+use tofn::{collections::FillVecMap, gg20::sign::SignPartyId, sdk::api::Fault};
 
 use crate::proto;
-type Gg20KeygenFaults = FillVecMap<gg20::keygen::KeygenPartyId, Fault>;
-type MultisigKeygenFaults = FillVecMap<multisig::keygen::KeygenPartyId, Fault>;
-type Gg20KeygenResultData = Result<proto::KeygenOutput, Gg20KeygenFaults>;
-type MultisigKeygenResultData = Result<proto::KeygenOutput, MultisigKeygenFaults>;
+type KeygenFaults<K, F> = FillVecMap<K, F>;
+type KeygenResultData<K, F> = Result<proto::KeygenOutput, KeygenFaults<K, F>>;
 
 type SignFaults = FillVecMap<SignPartyId, Fault>;
 type SignResultData = Result<Vec<u8>, SignFaults>;
@@ -46,30 +39,9 @@ impl proto::MessageOut {
         }
     }
 
-    pub(super) fn new_gg20_keygen_result(
+    pub(super) fn new_keygen_result<P>(
         participant_uids: &[String],
-        result: Gg20KeygenResultData,
-    ) -> Self {
-        let result = match result {
-            Ok(keygen_output) => ProtoKeygenData(keygen_output),
-            Err(faults) => ProtoKeygenCriminals(ProtoCriminalList::from_tofn_faults(
-                faults,
-                participant_uids,
-            )),
-        };
-        proto::MessageOut {
-            data: Some(proto::message_out::Data::KeygenResult(
-                proto::message_out::KeygenResult {
-                    keygen_result_data: Some(result),
-                },
-            )),
-        }
-    }
-
-    // TODO: remove duplicated code with new_gg20_keygen_result
-    pub(super) fn new_multisig_keygen_result(
-        participant_uids: &[String],
-        result: MultisigKeygenResultData,
+        result: KeygenResultData<P, Fault>,
     ) -> Self {
         let result = match result {
             Ok(keygen_output) => ProtoKeygenData(keygen_output),

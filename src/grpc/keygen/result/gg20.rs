@@ -4,7 +4,10 @@
 //!  2. all secret share data - data used to allow parties to participate to future Signs; stored in KvStore
 //!  3. all secret share recovery info - information used to allow client to issue secret share recovery in case of data loss; sent to client
 
-use tofn::{gg20::keygen::SecretKeyShare, sdk::api::serialize};
+use tofn::{
+    gg20::keygen::{KeygenPartyId, SecretKeyShare},
+    sdk::api::serialize,
+};
 
 use crate::{
     grpc::{
@@ -74,7 +77,7 @@ impl Service {
 
         // try to send result
         Ok(
-            stream_out_sender.send(Ok(proto::MessageOut::new_gg20_keygen_result(
+            stream_out_sender.send(Ok(proto::MessageOut::new_keygen_result::<KeygenPartyId>(
                 &keygen_init.party_uids,
                 Ok(proto::KeygenOutput {
                     pub_key,
@@ -148,10 +151,12 @@ impl Service {
             }
             Err(crimes) => {
                 // send crimes and exit with an error
-                stream_out_sender.send(Ok(proto::MessageOut::new_gg20_keygen_result(
-                    &keygen_init.party_uids,
-                    Err(crimes.clone()),
-                )))?;
+                stream_out_sender.send(Ok(
+                    proto::MessageOut::new_keygen_result::<KeygenPartyId>(
+                        &keygen_init.party_uids,
+                        Err(crimes.clone()),
+                    ),
+                ))?;
 
                 Err(anyhow!(
                     "Party {} found crimes: {:?}",
