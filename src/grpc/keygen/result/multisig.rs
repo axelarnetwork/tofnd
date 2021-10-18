@@ -107,9 +107,15 @@ impl Service {
                         keygen_init.my_index
                     ));
                 }
-                // TODO: get `.pub_key_bytes()`, do basic validity checks and return (public keys, recovery info, secret_key_shares)
-                let output_bytes = serialize(&secret_key_shares[0].group().all_verifying_keys())
-                    .map_err(|_| anyhow!("Cannot serialize multisig output"))?;
+                // TODO: do basic validity checks and return (public keys, recovery info, secret_key_shares)
+                // TODO: change the protobuf to send a Vec<KeygenShare>?
+                let output_bytes = serialize(
+                    &secret_key_shares[0]
+                        .group()
+                        .all_encoded_pubkeys()
+                        .map_err(|_| anyhow!("Cannot get all_encoded_pubkeys"))?,
+                )
+                .map_err(|_| anyhow!("Cannot serialize multisig output"))?;
 
                 Ok((output_bytes, vec![], secret_key_shares))
             }

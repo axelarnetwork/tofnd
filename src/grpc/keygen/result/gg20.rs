@@ -110,7 +110,7 @@ impl Service {
 
                 // check that all shares returned the same public key and group recover info
                 let share_id = secret_key_shares[0].share().index();
-                let pub_key = secret_key_shares[0].group().pubkey_bytes();
+                let pub_key = secret_key_shares[0].group().encoded_pubkey();
                 let group_info = secret_key_shares[0]
                     .group()
                     .all_shares_bytes()
@@ -120,7 +120,7 @@ impl Service {
                 // Here we check that the first share produced the same info as the i-th.
                 for secret_key_share in &secret_key_shares[1..] {
                     // try to get pubkey of i-th share. Each share should produce the same pubkey
-                    if pub_key != secret_key_share.group().pubkey_bytes() {
+                    if pub_key != secret_key_share.group().encoded_pubkey() {
                         return Err(anyhow!(
                             "Party {}'s share {} and {} returned different public key",
                             keygen_init.my_index,
