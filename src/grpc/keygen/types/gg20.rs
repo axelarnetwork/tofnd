@@ -51,7 +51,7 @@ impl Context {
         })
     }
 
-    pub async fn new_without_subindex(
+    pub(super) async fn new_without_subindex(
         service: &Service,
         keygen_init: &KeygenInitSanitized,
     ) -> TofndResult<Self> {

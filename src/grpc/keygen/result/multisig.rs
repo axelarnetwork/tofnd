@@ -41,7 +41,7 @@ fn to_multisig_keygen_outputs(outs: Vec<KeygenOutput>) -> TofndResult<Vec<TofnKe
 
 impl Service {
     /// aggregate results from all keygen threads, create a record and insert it in the KvStore
-    pub(in super::super) async fn aggregate_multisig_results(
+    pub(super) async fn aggregate_multisig_results(
         &self,
         keygen_outputs: Vec<KeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
@@ -89,7 +89,7 @@ impl Service {
     /// we perform a sanity check that all shares produces the same pubkey and group recovery
     /// and then return a single copy of the common info and a vec with `SecretKeyShares` of each party
     /// This vec is later used to derive private recovery info
-    pub fn process_multisig_keygen_outputs(
+    fn process_multisig_keygen_outputs(
         keygen_init: &KeygenInitSanitized,
         keygen_outputs: Vec<TofnKeygenOutput>,
         stream_out_sender: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,

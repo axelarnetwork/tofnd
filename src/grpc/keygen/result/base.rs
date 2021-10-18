@@ -70,7 +70,7 @@ impl Service {
     }
 
     /// wait all keygen threads and get keygen outputs
-    pub(super) async fn aggregate_keygen_outputs(
+    async fn aggregate_keygen_outputs(
         aggregator_receivers: Vec<Receiver<TofndKeygenOutput>>,
     ) -> TofndResult<Vec<KeygenOutput>> {
         let mut keygen_outputs = Vec::with_capacity(aggregator_receivers.len());

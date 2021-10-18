@@ -36,7 +36,7 @@ impl Service {
 
     /// create and execute keygen protocol and returning the result.
     /// if the protocol cannot be instantiated, return an [anyhow!] error
-    pub(in super::super) async fn execute_gg20_keygen(
+    pub(super) async fn execute_gg20_keygen(
         &self,
         chans: ProtocolCommunication<
             Option<proto::TrafficIn>,
