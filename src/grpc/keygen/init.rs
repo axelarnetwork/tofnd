@@ -1,5 +1,5 @@
 //! This module handles the initialization of the Keygen protocol.
-//! A [KeygenInitSanitized] struct is created out of the raw incoming [proto::KeygenInit] message and a key is reserved inside the KvStore
+//! A [super::KeygenInitSanitized] struct is created out of the raw incoming [proto::KeygenInit] message and a key is reserved inside the KvStore
 //! If [proto::KeygenInit] fails to be parsed, an [InitResult] is returned
 
 // tonic cruft
