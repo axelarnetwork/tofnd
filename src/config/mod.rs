@@ -8,8 +8,8 @@ use anyhow::anyhow;
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 const DEFAULT_MNEMONIC_CMD: &str = "existing";
-const DEFAULT_GG20_PORT: &str = "50051";
-const DEFAULT_MULTISIG_PORT: &str = "50052";
+const DEFAULT_GG20_PORT: u16 = 50051;
+const DEFAULT_MULTISIG_PORT: u16 = 50052;
 const AVAILABLE_MNEMONIC_CMDS: [&str; 4] = ["existing", "create", "import", "export"];
 
 #[cfg(feature = "malicious")]
@@ -32,8 +32,8 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            gg20_port: 50051,
-            multisig_port: 50052,
+            gg20_port: DEFAULT_GG20_PORT,
+            multisig_port: DEFAULT_MULTISIG_PORT,
             safe_keygen: true,
             mnemonic_cmd: Cmd::Existing,
             tofnd_path: DEFAULT_PATH_ROOT.to_string(),
@@ -45,6 +45,10 @@ impl Default for Config {
 }
 
 pub fn parse_args() -> TofndResult<Config> {
+    // need to use let to avoid dropping temporary value
+    let gg20_port = &DEFAULT_GG20_PORT.to_string();
+    let multisig_port = &DEFAULT_GG20_PORT.to_string();
+
     let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
         .arg(
@@ -52,14 +56,14 @@ pub fn parse_args() -> TofndResult<Config> {
                 .long("gg20-port")
                 .short("g")
                 .required(false)
-                .default_value(DEFAULT_GG20_PORT),
+                .default_value(gg20_port),
         )
         .arg(
             Arg::with_name("multisig-port")
                 .long("multisig-port")
                 .short("s")
                 .required(false)
-                .default_value(DEFAULT_MULTISIG_PORT),
+                .default_value(multisig_port),
         )
         .arg(
             // TODO: change to something like `--unsafe-primes`
