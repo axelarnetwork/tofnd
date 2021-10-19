@@ -7,7 +7,7 @@ use tofn::{ecdsa::sign, sdk::api::deserialize};
 
 impl MultisigService {
     pub(super) async fn handle_sign(&self, request: SignRequest) -> TofndResult<Vec<u8>> {
-        let session_nonce = request.key_id;
+        let session_nonce = request.key_uid;
 
         let kv_value = self.kv_manager.kv().get(&session_nonce).await?;
         let signing_key_bytes: Vec<u8> = kv_value.try_into()?;

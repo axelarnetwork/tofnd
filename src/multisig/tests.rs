@@ -45,9 +45,7 @@ async fn test_multisig() {
         key_uid: "some key".to_string(),
         party_uid: "party".to_string(),
     };
-
     let response = client.keygen(request).await.unwrap().into_inner();
-
     match response.keygen_response {
         Some(proto::keygen_response::KeygenResponse::PubKey(_)) => {
             info!("Got pub key!")
@@ -56,7 +54,24 @@ async fn test_multisig() {
             warn!("Got error from keygen: {}", err)
         }
         None => {
-            panic!("Invalid keygen response. Could not convert i32 to enum")
+            panic!("Invalid keygen response. Could not convert to enum")
+        }
+    }
+
+    let request = proto::SignRequest {
+        key_uid: "some key".to_string(),
+        msg_to_sign: vec![32; 32],
+    };
+    let response = client.sign(request).await.unwrap().into_inner();
+    match response.sign_response {
+        Some(proto::sign_response::SignResponse::Signature(_)) => {
+            info!("Got signature!")
+        }
+        Some(proto::sign_response::SignResponse::Error(err)) => {
+            warn!("Got error from sign: {}", err)
+        }
+        None => {
+            panic!("Invalid sign response. Could not convert to enum")
         }
     }
 
