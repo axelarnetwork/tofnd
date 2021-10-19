@@ -2111,6 +2111,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 [[package]]
 name = "tofn"
 version = "0.1.0"
+source = "git+ssh://git@github.com/axelarnetwork/tofn.git?branch=simple-sign#398b1462bd6a6acf9616aa3e7ec346fc998d04f6"
 dependencies = [
  "bincode",
  "ecdsa",
