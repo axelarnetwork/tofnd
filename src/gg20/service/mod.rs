@@ -2,7 +2,7 @@
 
 use super::mnemonic::FileIo;
 use super::proto;
-use super::types::{ServiceKv, DEFAULT_KV_NAME};
+use super::types::{KvManager, DEFAULT_KV_NAME};
 use crate::config::Config;
 use crate::encrypted_sled::Password;
 use std::path::PathBuf;
@@ -17,7 +17,7 @@ pub mod malicious;
 /// Gg20Service
 #[derive(Clone)]
 pub struct Gg20Service {
-    pub(super) kv: ServiceKv,
+    pub(super) kv: KvManager,
     pub(super) io: FileIo,
     pub(super) cfg: Config,
 }
@@ -27,7 +27,7 @@ pub async fn new_service(
     cfg: Config,
     password: Password,
 ) -> TofndResult<impl proto::gg20_server::Gg20> {
-    let kv = ServiceKv::new(&cfg.tofnd_path, DEFAULT_KV_NAME, password)
+    let kv = KvManager::new(&cfg.tofnd_path, DEFAULT_KV_NAME, password)
         .map_err(|err| anyhow!("Shares KV store error: {}", err))?;
 
     let io = FileIo::new(PathBuf::from(&cfg.tofnd_path));

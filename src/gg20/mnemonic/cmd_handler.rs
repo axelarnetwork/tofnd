@@ -172,7 +172,7 @@ mod tests {
                 file_io::FileIo,
                 results::{file_io::FileIoError, mnemonic::InnerMnemonicError},
             },
-            types::ServiceKv,
+            types::KvManager,
         },
         kv_manager::error::{InnerKvError, KvError},
     };
@@ -186,7 +186,7 @@ mod tests {
         let kv_path = testdir.to_str().unwrap();
 
         Gg20Service {
-            kv: ServiceKv::with_db_name(kv_path.to_owned(), get_test_password()).unwrap(),
+            kv: KvManager::with_db_name(kv_path.to_owned(), get_test_password()).unwrap(),
             io: FileIo::new(testdir),
             cfg: Config::default(),
         }

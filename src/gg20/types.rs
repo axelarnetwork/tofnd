@@ -61,7 +61,7 @@ impl TryFrom<KvValue> for Entropy {
 }
 
 /// Kv store for gg20 service
-pub(super) type ServiceKv = Kv<KvValue>;
+pub(super) type KvManager = Kv<KvValue>;
 
 /// Mnemonic type needs to be known globaly to create/access the mnemonic kv store
 #[derive(Zeroize, Debug, Clone, Serialize, Deserialize)]
