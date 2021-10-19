@@ -5,11 +5,11 @@ use super::{
     },
 };
 use crate::{
-    gg20::{
-        service::Gg20Service,
-        types::{Entropy, Password},
+    gg20::types::{Entropy, Password}, // TODO: move from gg200::types
+    kv_manager::{
+        error::{InnerKvError, KvError},
+        KvManager,
     },
-    kv_manager::error::{InnerKvError, KvError},
 };
 use tofn::gg20::keygen::SecretRecoveryKey;
 
@@ -52,10 +52,10 @@ impl Cmd {
 }
 
 /// implement mnemonic-specific functions for Gg20Service
-impl Gg20Service {
+impl KvManager {
     /// get mnemonic seed from kv-store
     pub async fn seed(&self) -> SeedResult<SecretRecoveryKey> {
-        let mnemonic = self.kv_manager.get(MNEMONIC_KEY).await?.try_into()?;
+        let mnemonic = self.kv().get(MNEMONIC_KEY).await?.try_into()?;
         // A user may decide to protect their mnemonic with a passphrase. We pass an empty password for now.
         // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
         Ok(bip39_seed(mnemonic, Password("".to_owned()))?
@@ -64,13 +64,14 @@ impl Gg20Service {
     }
 
     /// async function that handles all mnemonic commands
-    pub async fn handle_mnemonic(&self) -> MnemonicResult<()> {
-        match self.cfg.mnemonic_cmd {
+    pub async fn handle_mnemonic(self, cmd: &Cmd) -> MnemonicResult<Self> {
+        let _ = match cmd {
             Cmd::Existing => self.handle_existing().await.map_err(ExistingErr),
             Cmd::Create => self.handle_create().await.map_err(CreateErr),
             Cmd::Import => self.handle_import().await.map_err(ImportErr),
             Cmd::Export => self.handle_export().await.map_err(ExportErr),
-        }
+        };
+        Ok(self)
     }
 
     /// use the existing mnemonic to spin up a tofnd deamon.
@@ -79,10 +80,10 @@ impl Gg20Service {
     async fn handle_existing(&self) -> InnerMnemonicResult<()> {
         // if there is an exported mnemonic, raise an error and don't start the daemon.
         // we do this to prevent users from accidentally leave their mnemonic on disk in plain text
-        self.io.check_if_not_exported()?;
+        self.io().check_if_not_exported()?;
 
         // try to get mnemonic from kv-store
-        match self.kv_manager.exists(MNEMONIC_KEY).await? {
+        match self.kv().exists(MNEMONIC_KEY).await? {
             true => Ok(()),
             false => Err(KvErr(KvError::ExistsErr(InnerKvError::LogicalErr(
                 "Mnemonic not found".to_string(),
@@ -94,14 +95,10 @@ impl Gg20Service {
     /// takes ownership of entropy to delegate zeroization.
     async fn handle_insert(&self, entropy: Entropy) -> InnerMnemonicResult<()> {
         // Don't use `map_err` to make it more readable.
-        let reservation = self.kv_manager.reserve_key(MNEMONIC_KEY.to_owned()).await;
+        let reservation = self.kv().reserve_key(MNEMONIC_KEY.to_owned()).await;
         match reservation {
             // if we can reserve, try put
-            Ok(reservation) => match self
-                .kv_manager
-                .put(reservation, entropy.to_owned().into())
-                .await
-            {
+            Ok(reservation) => match self.kv().put(reservation, entropy.to_owned().into()).await {
                 // if put is ok, write the phrase to a file
                 Ok(()) => {
                     info!("Mnemonic successfully added in kv store. Use the `-m export` command to retrieve it.");
@@ -129,7 +126,7 @@ impl Gg20Service {
         // create a new entropy
         let new_entropy = bip39_new_w24();
         self.handle_insert(new_entropy.clone()).await?;
-        Ok(self.io.entropy_to_file(new_entropy)?)
+        Ok(self.io().entropy_to_file(new_entropy)?)
     }
 
     /// Inserts a new mnemonic to the kv-store.
@@ -148,7 +145,7 @@ impl Gg20Service {
 
         // try to get mnemonic from kv-store
         let entropy = self
-            .kv_manager
+            .kv()
             .get(MNEMONIC_KEY)
             .await
             .map_err(|err| {
@@ -159,7 +156,7 @@ impl Gg20Service {
 
         // write to file
         info!("Mnemonic found in kv store");
-        Ok(self.io.entropy_to_file(entropy)?)
+        Ok(self.io().entropy_to_file(entropy)?)
     }
 }
 
@@ -169,12 +166,8 @@ mod tests {
     use testdir::testdir;
 
     use crate::{
-        config::Config,
         encrypted_sled::get_test_password,
-        gg20::mnemonic::{
-            file_io::FileIo,
-            results::{file_io::FileIoError, mnemonic::InnerMnemonicError},
-        },
+        gg20::mnemonic::results::{file_io::FileIoError, mnemonic::InnerMnemonicError},
         kv_manager::{
             error::{InnerKvError, KvError},
             KvManager,
@@ -185,15 +178,10 @@ mod tests {
     use tracing_test::traced_test;
 
     // create a service
-    fn get_service(testdir: PathBuf) -> Gg20Service {
-        // create test dirs for kvstores
+    fn get_kv_manager(testdir: PathBuf) -> KvManager {
+        // create test dirs
         let kv_path = testdir.to_str().unwrap();
-
-        Gg20Service {
-            kv_manager: KvManager::with_db_name(kv_path.to_owned(), get_test_password()).unwrap(),
-            io: FileIo::new(testdir),
-            cfg: Config::default(),
-        }
+        KvManager::new(kv_path, get_test_password()).unwrap()
     }
 
     #[traced_test]
@@ -201,12 +189,12 @@ mod tests {
     async fn test_create() {
         let testdir = testdir!();
         // create a service
-        let gg20 = get_service(testdir);
+        let kv = get_kv_manager(testdir);
         // first attempt should succeed
-        assert!(gg20.handle_create().await.is_ok());
+        assert!(kv.handle_create().await.is_ok());
         // second attempt should fail
         assert!(matches!(
-            gg20.handle_create().await,
+            kv.handle_create().await,
             Err(InnerMnemonicError::KvErr(KvError::ReserveErr(
                 InnerKvError::LogicalErr(_)
             )))
@@ -218,12 +206,12 @@ mod tests {
     async fn test_insert() {
         let testdir = testdir!();
         // create a service
-        let gg20 = get_service(testdir.clone());
+        let kv = get_kv_manager(testdir.clone());
         // insert should succeed
-        assert!(gg20.handle_insert(bip39_new_w24()).await.is_ok());
+        assert!(kv.handle_insert(bip39_new_w24()).await.is_ok());
         // insert should fail
         assert!(matches!(
-            gg20.handle_insert(bip39_new_w24()).await,
+            kv.handle_insert(bip39_new_w24()).await,
             Err(InnerMnemonicError::KvErr(KvError::ReserveErr(
                 InnerKvError::LogicalErr(_)
             )))
@@ -235,28 +223,28 @@ mod tests {
     async fn test_export() {
         let testdir = testdir!();
         // create a service
-        let gg20 = get_service(testdir.clone());
+        let kv = get_kv_manager(testdir.clone());
         // handle existing should fail
         assert!(matches!(
-            gg20.handle_existing().await,
+            kv.handle_existing().await,
             Err(InnerMnemonicError::KvErr(KvError::ExistsErr(
                 InnerKvError::LogicalErr(_)
             )))
         ));
         // mnemonic should not be exported
-        assert!(gg20.io.check_if_not_exported().is_ok());
+        assert!(kv.io().check_if_not_exported().is_ok());
         // create a new mnemonic
-        assert!(gg20.handle_create().await.is_ok());
+        assert!(kv.handle_create().await.is_ok());
         // mnemonic should now be exported
-        assert!(gg20.io.check_if_not_exported().is_err());
+        assert!(kv.io().check_if_not_exported().is_err());
         // export should fail because create also exports
         assert!(matches!(
-            gg20.handle_export().await,
+            kv.handle_export().await,
             Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
         ));
         // handle existing should fail because export file exists
         assert!(matches!(
-            gg20.handle_existing().await,
+            kv.handle_existing().await,
             Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
         ));
     }
@@ -266,17 +254,17 @@ mod tests {
     async fn test_existing() {
         let testdir = testdir!();
         // create a service
-        let gg20 = get_service(testdir.clone());
+        let kv = get_kv_manager(testdir.clone());
         // create a new mnemonic
-        assert!(gg20.handle_create().await.is_ok());
+        assert!(kv.handle_create().await.is_ok());
         // handle_existing should fail because export file exists
         assert!(matches!(
-            gg20.handle_existing().await,
+            kv.handle_existing().await,
             Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
         ));
         // export should fail because export file exists
         assert!(matches!(
-            gg20.handle_export().await,
+            kv.handle_export().await,
             Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
         ));
     }

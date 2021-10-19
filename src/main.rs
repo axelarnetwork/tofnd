@@ -76,8 +76,11 @@ async fn main() -> TofndResult<()> {
 
     let cmd = cfg.mnemonic_cmd.clone();
 
-    let kv_manager = KvManager::new(&cfg.tofnd_path, password)?;
-    let gg20_service = gg20::service::new_service(cfg, kv_manager).await?;
+    let kv_manager = KvManager::new(&cfg.tofnd_path, password)?
+        .handle_mnemonic(&cfg.mnemonic_cmd)
+        .await?;
+
+    let gg20_service = gg20::service::new_service(cfg, kv_manager)?;
 
     if cmd.exit_after_cmd() {
         info!("Tofnd exited after using command <{:?}>. Run `./tofnd -m existing` to execute gRPC daemon.", cmd);

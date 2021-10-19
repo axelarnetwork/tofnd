@@ -1,12 +1,41 @@
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
+use std::{convert::TryFrom, path::PathBuf};
 
-use crate::gg20::types::{Entropy, PartyInfo};
+use crate::{
+    encrypted_sled::Password,
+    gg20::{
+        mnemonic::FileIo,
+        types::{Entropy, PartyInfo},
+    },
+};
 
-use super::{error::KvError, kv::Kv};
+use super::{
+    error::{KvError, KvResult},
+    kv::Kv,
+};
 
 /// Kv manager for grpc services
-pub type KvManager = Kv<KvValue>;
+// pub type KvManager = Kv<KvValue>;
+#[derive(Clone)]
+pub struct KvManager {
+    kv: Kv<KvValue>,
+    io: FileIo,
+}
+
+impl KvManager {
+    pub fn new(root: &str, password: Password) -> KvResult<Self> {
+        Ok(KvManager {
+            kv: Kv::<KvValue>::new(root, password)?,
+            io: FileIo::new(PathBuf::from(root)),
+        })
+    }
+    pub fn kv(&self) -> &Kv<KvValue> {
+        &self.kv
+    }
+    pub fn io(&self) -> &FileIo {
+        &self.io
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum KvValue {

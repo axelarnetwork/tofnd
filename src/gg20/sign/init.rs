@@ -43,7 +43,7 @@ impl Gg20Service {
         };
 
         // try to get party info related to session id
-        let party_info: PartyInfo = match self.kv_manager.get(&sign_init.key_uid).await {
+        let party_info: PartyInfo = match self.kv_manager.kv().get(&sign_init.key_uid).await {
             Ok(value) => value.try_into()?,
             Err(err) => {
                 // if no such session id exists, send a message to client that indicates that recovery is needed and stop sign

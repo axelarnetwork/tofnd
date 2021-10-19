@@ -90,10 +90,9 @@ impl TofndParty {
                 panic!("could not start kv manager");
             }
         };
+        let kv_manager = kv_manager.handle_mnemonic(&cfg.mnemonic_cmd).await.unwrap();
 
-        let my_service = gg20::service::new_service(cfg.clone(), kv_manager)
-            .await
-            .unwrap();
+        let my_service = gg20::service::new_service(cfg.clone(), kv_manager).unwrap();
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();

@@ -38,7 +38,10 @@ impl Gg20Service {
         let keygen_outputs = match Self::aggregate_keygen_outputs(aggregator_receivers).await {
             Ok(keygen_outputs) => keygen_outputs,
             Err(err) => {
-                self.kv_manager.unreserve_key(key_uid_reservation).await;
+                self.kv_manager
+                    .kv()
+                    .unreserve_key(key_uid_reservation)
+                    .await;
                 return Err(anyhow!(
                     "Error at Keygen output aggregation. Unreserving key {}",
                     err
@@ -64,6 +67,7 @@ impl Gg20Service {
 
         // try to put data inside kv store
         self.kv_manager
+            .kv()
             .put(key_uid_reservation, kv_data.into())
             .await
             .map_err(|err| anyhow!(err))?;
