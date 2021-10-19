@@ -17,14 +17,11 @@ impl MultisigService {
         let signing_key_bytes = serialize(key_pair.signing_key())
             .map_err(|_| anyhow!("Cannot serialize signing key"))?;
 
-        let encoded_verifying_key = key_pair
-            .encoded_verifying_key()
-            .map_err(|_| anyhow!("Cannot encode verifying key"))?;
-
         self.kv_manager
             .kv()
             .put(reservation, signing_key_bytes.into())
             .await?;
-        Ok(encoded_verifying_key.to_vec())
+
+        Ok(key_pair.encoded_verifying_key().to_vec())
     }
 }
