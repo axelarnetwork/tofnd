@@ -6,13 +6,13 @@ use crate::{
     gg20::types::{Entropy, PartyInfo},
     mnemonic::FileIo,
 };
-type SigningKey = Vec<u8>;
 
 use super::{
     error::{KvError, KvResult},
     kv::Kv,
 };
 
+type SigningKey = Vec<u8>;
 
 /// Kv manager for grpc services
 #[derive(Clone)]
