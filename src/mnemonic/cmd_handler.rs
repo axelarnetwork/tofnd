@@ -68,10 +68,10 @@ impl KvManager {
     /// async function that handles all mnemonic commands
     pub async fn handle_mnemonic(self, cmd: &Cmd) -> MnemonicResult<Self> {
         let _ = match cmd {
-            Cmd::Existing => self.handle_existing().await.map_err(ExistingErr),
-            Cmd::Create => self.handle_create().await.map_err(CreateErr),
-            Cmd::Import => self.handle_import().await.map_err(ImportErr),
-            Cmd::Export => self.handle_export().await.map_err(ExportErr),
+            Cmd::Existing => self.handle_existing().await.map_err(ExistingErr)?,
+            Cmd::Create => self.handle_create().await.map_err(CreateErr)?,
+            Cmd::Import => self.handle_import().await.map_err(ImportErr)?,
+            Cmd::Export => self.handle_export().await.map_err(ExportErr)?,
         };
         Ok(self)
     }
