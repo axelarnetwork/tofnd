@@ -11,6 +11,7 @@ use crate::{
     config::Config,
     encrypted_sled::{get_test_password, PasswordMethod},
     gg20::{self, mnemonic::Cmd},
+    kv_manager::KvManager,
     proto,
     tests::SLEEP_TIME,
 };
@@ -76,19 +77,23 @@ impl TofndParty {
         // attempting to open the kv with some artificial delay.
         // https://github.com/spacejam/sled/issues/1234#issuecomment-754769425
         let mut tries = 0;
-        let my_service = loop {
-            match gg20::service::new_service(cfg.clone(), get_test_password()).await {
-                Ok(my_service) => break my_service,
+        let kv_manager = loop {
+            match KvManager::new(&cfg.tofnd_path, get_test_password()) {
+                Ok(kv_manager) => break kv_manager,
                 Err(err) => {
                     tries += 1;
-                    warn!("({}/3) unable to create service: {}", tries, err);
+                    warn!("({}/3) unable to start kv manager: {}", tries, err);
                 }
             };
             sleep(Duration::from_secs(SLEEP_TIME)).await;
             if tries == MAX_TRIES {
-                panic!("could not create service");
+                panic!("could not start kv manager");
             }
         };
+
+        let my_service = gg20::service::new_service(cfg.clone(), kv_manager)
+            .await
+            .unwrap();
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();

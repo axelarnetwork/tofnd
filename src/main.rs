@@ -20,6 +20,8 @@ pub mod proto {
 mod config;
 use config::parse_args;
 
+use crate::kv_manager::KvManager;
+
 fn set_up_logs() {
     // enable only tofnd and tofn debug logs - disable serde, tonic, tokio, etc.
     tracing_subscriber::fmt()
@@ -73,14 +75,16 @@ async fn main() -> TofndResult<()> {
     );
 
     let cmd = cfg.mnemonic_cmd.clone();
-    let my_service = gg20::service::new_service(cfg, password).await?;
+
+    let kv_manager = KvManager::new(&cfg.tofnd_path, password)?;
+    let gg20_service = gg20::service::new_service(cfg, kv_manager).await?;
 
     if cmd.exit_after_cmd() {
         info!("Tofnd exited after using command <{:?}>. Run `./tofnd -m existing` to execute gRPC daemon.", cmd);
         return Ok(());
     }
 
-    let proto_service = proto::gg20_server::Gg20Server::new(my_service);
+    let proto_service = proto::gg20_server::Gg20Server::new(gg20_service);
 
     tonic::transport::Server::builder()
         .add_service(proto_service)

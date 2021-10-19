@@ -11,7 +11,7 @@ use super::{
     types::{BytesVec, KeygenInitSanitized, TofnKeygenOutput, TofndKeygenOutput},
     Gg20Service,
 };
-use crate::{gg20::types::PartyInfo, kv_manager::types::KeyReservation};
+use crate::{gg20::types::PartyInfo, kv_manager::KeyReservation};
 
 // tonic cruft
 use tokio::sync::{

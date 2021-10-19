@@ -167,14 +167,14 @@ mod tests {
     use crate::{
         config::Config,
         encrypted_sled::get_test_password,
-        gg20::{
-            mnemonic::{
-                file_io::FileIo,
-                results::{file_io::FileIoError, mnemonic::InnerMnemonicError},
-            },
-            types::KvManager,
+        gg20::mnemonic::{
+            file_io::FileIo,
+            results::{file_io::FileIoError, mnemonic::InnerMnemonicError},
         },
-        kv_manager::error::{InnerKvError, KvError},
+        kv_manager::{
+            error::{InnerKvError, KvError},
+            KvManager,
+        },
     };
 
     use super::*;
