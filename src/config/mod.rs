@@ -50,14 +50,14 @@ pub fn parse_args() -> TofndResult<Config> {
         .arg(
             Arg::with_name("gg20-port")
                 .long("gg20-port")
-                .short("gp")
+                .short("g")
                 .required(false)
                 .default_value(DEFAULT_GG20_PORT),
         )
         .arg(
             Arg::with_name("multisig-port")
                 .long("multisig-port")
-                .short("mp")
+                .short("s")
                 .required(false)
                 .default_value(DEFAULT_MULTISIG_PORT),
         )
