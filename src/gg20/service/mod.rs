@@ -4,9 +4,6 @@ use super::proto;
 use crate::config::Config;
 use crate::kv_manager::KvManager;
 
-// error handling
-use crate::TofndResult;
-
 #[cfg(feature = "malicious")]
 pub mod malicious;
 
