@@ -1,3 +1,5 @@
+// TODO: consider moving cmd_handler in KvManager
+
 use super::{
     bip39_bindings::{bip39_from_phrase, bip39_new_w24, bip39_seed},
     results::mnemonic::{
@@ -5,7 +7,7 @@ use super::{
     },
 };
 use crate::{
-    gg20::types::{Entropy, Password}, // TODO: move from gg200::types
+    gg20::types::{Entropy, Password}, // TODO: move from gg20::types
     kv_manager::{
         error::{InnerKvError, KvError},
         KvManager,
@@ -51,7 +53,7 @@ impl Cmd {
     }
 }
 
-/// implement mnemonic-specific functions for Gg20Service
+/// implement mnemonic-specific functions for KvManager
 impl KvManager {
     /// get mnemonic seed from kv-store
     pub async fn seed(&self) -> SeedResult<SecretRecoveryKey> {
@@ -167,11 +169,11 @@ mod tests {
 
     use crate::{
         encrypted_sled::get_test_password,
-        gg20::mnemonic::results::{file_io::FileIoError, mnemonic::InnerMnemonicError},
         kv_manager::{
             error::{InnerKvError, KvError},
             KvManager,
         },
+        mnemonic::results::{file_io::FileIoError, mnemonic::InnerMnemonicError},
     };
 
     use super::*;

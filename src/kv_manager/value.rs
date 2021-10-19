@@ -3,10 +3,8 @@ use std::{convert::TryFrom, path::PathBuf};
 
 use crate::{
     encrypted_sled::Password,
-    gg20::{
-        mnemonic::FileIo,
-        types::{Entropy, PartyInfo},
-    },
+    gg20::types::{Entropy, PartyInfo},
+    mnemonic::FileIo,
 };
 
 use super::{

@@ -5,6 +5,7 @@ use tokio_stream::wrappers::TcpListenerStream;
 mod encrypted_sled;
 mod gg20;
 mod kv_manager;
+mod mnemonic;
 
 // gather logs; need to set RUST_LOG=info
 use tracing::{info, span, Level};

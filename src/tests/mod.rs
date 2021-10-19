@@ -24,7 +24,7 @@ use malicious::{MaliciousData, PartyMaliciousData};
 
 mod mnemonic;
 
-use crate::gg20::mnemonic::Cmd::{self, Create};
+use crate::mnemonic::Cmd::{self, Create};
 use proto::message_out::CriminalList;
 use tracing::{info, warn};
 

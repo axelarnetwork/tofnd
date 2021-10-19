@@ -10,8 +10,9 @@ use crate::{
     addr,
     config::Config,
     encrypted_sled::{get_test_password, PasswordMethod},
-    gg20::{self, mnemonic::Cmd},
+    gg20,
     kv_manager::KvManager,
+    mnemonic::Cmd,
     proto,
     tests::SLEEP_TIME,
 };
