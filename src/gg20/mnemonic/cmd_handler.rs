@@ -55,7 +55,7 @@ impl Cmd {
 impl Gg20Service {
     /// get mnemonic seed from kv-store
     pub async fn seed(&self) -> SeedResult<SecretRecoveryKey> {
-        let mnemonic = self.kv.get(MNEMONIC_KEY).await?.try_into()?;
+        let mnemonic = self.kv_manager.get(MNEMONIC_KEY).await?.try_into()?;
         // A user may decide to protect their mnemonic with a passphrase. We pass an empty password for now.
         // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
         Ok(bip39_seed(mnemonic, Password("".to_owned()))?
@@ -82,7 +82,7 @@ impl Gg20Service {
         self.io.check_if_not_exported()?;
 
         // try to get mnemonic from kv-store
-        match self.kv.exists(MNEMONIC_KEY).await? {
+        match self.kv_manager.exists(MNEMONIC_KEY).await? {
             true => Ok(()),
             false => Err(KvErr(KvError::ExistsErr(InnerKvError::LogicalErr(
                 "Mnemonic not found".to_string(),
@@ -94,10 +94,14 @@ impl Gg20Service {
     /// takes ownership of entropy to delegate zeroization.
     async fn handle_insert(&self, entropy: Entropy) -> InnerMnemonicResult<()> {
         // Don't use `map_err` to make it more readable.
-        let reservation = self.kv.reserve_key(MNEMONIC_KEY.to_owned()).await;
+        let reservation = self.kv_manager.reserve_key(MNEMONIC_KEY.to_owned()).await;
         match reservation {
             // if we can reserve, try put
-            Ok(reservation) => match self.kv.put(reservation, entropy.to_owned().into()).await {
+            Ok(reservation) => match self
+                .kv_manager
+                .put(reservation, entropy.to_owned().into())
+                .await
+            {
                 // if put is ok, write the phrase to a file
                 Ok(()) => {
                     info!("Mnemonic successfully added in kv store. Use the `-m export` command to retrieve it.");
@@ -144,7 +148,7 @@ impl Gg20Service {
 
         // try to get mnemonic from kv-store
         let entropy = self
-            .kv
+            .kv_manager
             .get(MNEMONIC_KEY)
             .await
             .map_err(|err| {
@@ -186,7 +190,7 @@ mod tests {
         let kv_path = testdir.to_str().unwrap();
 
         Gg20Service {
-            kv: KvManager::with_db_name(kv_path.to_owned(), get_test_password()).unwrap(),
+            kv_manager: KvManager::with_db_name(kv_path.to_owned(), get_test_password()).unwrap(),
             io: FileIo::new(testdir),
             cfg: Config::default(),
         }

@@ -19,7 +19,7 @@ impl Gg20Service {
         let _ = self.seed().await?;
 
         // check if requested key exists
-        if self.kv.exists(&request.key_uid).await? {
+        if self.kv_manager.exists(&request.key_uid).await? {
             info!(
                 "Found session-id {} in kv store during key presence check",
                 request.key_uid
