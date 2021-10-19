@@ -8,7 +8,8 @@ use anyhow::anyhow;
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 const DEFAULT_MNEMONIC_CMD: &str = "existing";
-const DEFAULT_PORT: &str = "50051";
+const DEFAULT_GG20_PORT: &str = "50051";
+const DEFAULT_MULTISIG_PORT: &str = "50052";
 const AVAILABLE_MNEMONIC_CMDS: [&str; 4] = ["existing", "create", "import", "export"];
 
 #[cfg(feature = "malicious")]
@@ -19,7 +20,8 @@ use malicious::*;
 // TODO: move to types.rs
 #[derive(Clone, Debug)]
 pub struct Config {
-    pub port: u16,
+    pub gg20_port: u16,
+    pub multisig_port: u16,
     pub safe_keygen: bool,
     pub mnemonic_cmd: Cmd,
     pub tofnd_path: String,
@@ -30,7 +32,8 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            port: 50051,
+            gg20_port: 50051,
+            multisig_port: 50052,
             safe_keygen: true,
             mnemonic_cmd: Cmd::Existing,
             tofnd_path: DEFAULT_PATH_ROOT.to_string(),
@@ -45,11 +48,18 @@ pub fn parse_args() -> TofndResult<Config> {
     let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
         .arg(
-            Arg::with_name("port")
-                .long("port")
-                .short("p")
+            Arg::with_name("gg20-port")
+                .long("gg20-port")
+                .short("gp")
                 .required(false)
-                .default_value(DEFAULT_PORT),
+                .default_value(DEFAULT_GG20_PORT),
+        )
+        .arg(
+            Arg::with_name("multisig-port")
+                .long("multisig-port")
+                .short("mp")
+                .required(false)
+                .default_value(DEFAULT_MULTISIG_PORT),
         )
         .arg(
             // TODO: change to something like `--unsafe-primes`
@@ -105,8 +115,12 @@ pub fn parse_args() -> TofndResult<Config> {
     let behaviours = get_behaviour_matches(app.clone())?;
 
     let matches = app.get_matches();
-    let port = matches
-        .value_of("port")
+    let gg20_port = matches
+        .value_of("gg20-port")
+        .ok_or_else(|| anyhow!("port value"))?
+        .parse::<u16>()?;
+    let multisig_port = matches
+        .value_of("multisig-port")
         .ok_or_else(|| anyhow!("port value"))?
         .parse::<u16>()?;
     let safe_keygen = !matches.is_present("unsafe");
@@ -127,7 +141,8 @@ pub fn parse_args() -> TofndResult<Config> {
     };
 
     Ok(Config {
-        port,
+        gg20_port,
+        multisig_port,
         safe_keygen,
         mnemonic_cmd,
         tofnd_path,

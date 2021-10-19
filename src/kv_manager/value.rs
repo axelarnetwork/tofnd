@@ -6,6 +6,7 @@ use crate::{
     gg20::types::{Entropy, PartyInfo},
     mnemonic::FileIo,
 };
+type SigningKey = Vec<u8>;
 
 use super::{
     error::{KvError, KvResult},
@@ -39,6 +40,7 @@ impl KvManager {
 pub enum KvValue {
     PartyInfo(PartyInfo),
     Entropy(Entropy),
+    SigningKey(SigningKey),
 }
 
 /// Create KvValue from PartyInfo
@@ -55,6 +57,13 @@ impl From<Entropy> for KvValue {
     }
 }
 
+/// Create KvValue from SigningKey
+impl From<SigningKey> for KvValue {
+    fn from(v: SigningKey) -> KvValue {
+        KvValue::SigningKey(v)
+    }
+}
+
 /// Create PartyInfo from KvValue
 impl TryFrom<KvValue> for PartyInfo {
     type Error = KvError;
@@ -63,6 +72,9 @@ impl TryFrom<KvValue> for PartyInfo {
             KvValue::PartyInfo(party_info) => Ok(party_info),
             KvValue::Entropy(_) => Err(Self::Error::ValueTypeErr(
                 "Expecting PartyInfo, got Entropy".to_string(),
+            )),
+            KvValue::SigningKey(_) => Err(Self::Error::ValueTypeErr(
+                "Expecting PartyInfo, got SigningKey".to_string(),
             )),
         }
     }
@@ -77,6 +89,25 @@ impl TryFrom<KvValue> for Entropy {
                 "Expecting Entropy, got PartyInfo".to_string(),
             )),
             KvValue::Entropy(entropy) => Ok(entropy),
+            KvValue::SigningKey(_) => Err(Self::Error::ValueTypeErr(
+                "Expecting Entropy, got SigningKey".to_string(),
+            )),
+        }
+    }
+}
+
+/// Create SigningKey from KvValue
+impl TryFrom<KvValue> for SigningKey {
+    type Error = KvError;
+    fn try_from(v: KvValue) -> Result<Self, Self::Error> {
+        match v {
+            KvValue::PartyInfo(_) => Err(Self::Error::ValueTypeErr(
+                "Expecting SigningKey, got PartyInfo".to_string(),
+            )),
+            KvValue::Entropy(_) => Err(Self::Error::ValueTypeErr(
+                "Expecting SigningKey, got Entroy".to_string(),
+            )),
+            KvValue::SigningKey(sk) => Ok(sk),
         }
     }
 }

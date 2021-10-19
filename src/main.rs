@@ -6,6 +6,7 @@ mod encrypted_sled;
 mod gg20;
 mod kv_manager;
 mod mnemonic;
+mod multisig;
 
 // gather logs; need to set RUST_LOG=info
 use tracing::{info, span, Level};
@@ -69,10 +70,11 @@ async fn main() -> TofndResult<()> {
     let main_span = span!(Level::INFO, "main");
     let _enter = main_span.enter();
 
-    let incoming = TcpListener::bind(addr(cfg.port)).await?;
+    let incoming_gg20 = TcpListener::bind(addr(cfg.gg20_port)).await?;
+    let incoming_multisig = TcpListener::bind(addr(cfg.multisig_port)).await?;
     info!(
         "tofnd listen addr {:?}, use ctrl+c to shutdown",
-        incoming.local_addr()?
+        incoming_gg20.local_addr()?
     );
 
     let cmd = cfg.mnemonic_cmd.clone();
@@ -81,18 +83,25 @@ async fn main() -> TofndResult<()> {
         .handle_mnemonic(&cfg.mnemonic_cmd)
         .await?;
 
-    let gg20_service = gg20::service::new_service(cfg, kv_manager)?;
+    let gg20_service = gg20::service::new_service(cfg, kv_manager.clone());
+    let multisig_service = multisig::service::new_service(kv_manager);
 
     if cmd.exit_after_cmd() {
         info!("Tofnd exited after using command <{:?}>. Run `./tofnd -m existing` to execute gRPC daemon.", cmd);
         return Ok(());
     }
 
-    let proto_service = proto::gg20_server::Gg20Server::new(gg20_service);
+    let gg20_service = proto::gg20_server::Gg20Server::new(gg20_service);
+    let multisig_service = proto::multisig_server::MultisigServer::new(multisig_service);
 
     tonic::transport::Server::builder()
-        .add_service(proto_service)
-        .serve_with_incoming_shutdown(TcpListenerStream::new(incoming), shutdown_signal())
+        .add_service(gg20_service)
+        .serve_with_incoming_shutdown(TcpListenerStream::new(incoming_gg20), shutdown_signal())
+        .await?;
+
+    tonic::transport::Server::builder()
+        .add_service(multisig_service)
+        .serve_with_incoming_shutdown(TcpListenerStream::new(incoming_multisig), shutdown_signal())
         .await?;
 
     Ok(())

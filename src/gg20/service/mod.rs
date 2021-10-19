@@ -18,9 +18,6 @@ pub struct Gg20Service {
 }
 
 /// create a new Gg20 gRPC server
-pub fn new_service(
-    cfg: Config,
-    kv_manager: KvManager,
-) -> TofndResult<impl proto::gg20_server::Gg20> {
-    Ok(Gg20Service { kv_manager, cfg })
+pub fn new_service(cfg: Config, kv_manager: KvManager) -> impl proto::gg20_server::Gg20 {
+    Gg20Service { kv_manager, cfg }
 }

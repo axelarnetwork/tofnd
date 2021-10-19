@@ -60,7 +60,8 @@ impl TofndParty {
 
         let cfg = Config {
             mnemonic_cmd,
-            port: server_port,
+            gg20_port: server_port,
+            multisig_port: 0, // we don't spawn multisig service
             safe_keygen: false,
             tofnd_path: tofnd_path.to_string(),
             password_method: PasswordMethod::NoPassword,
@@ -93,7 +94,7 @@ impl TofndParty {
         };
         let kv_manager = kv_manager.handle_mnemonic(&cfg.mnemonic_cmd).await.unwrap();
 
-        let my_service = gg20::service::new_service(cfg.clone(), kv_manager).unwrap();
+        let my_service = gg20::service::new_service(cfg.clone(), kv_manager);
 
         let proto_service = proto::gg20_server::Gg20Server::new(my_service);
         // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();
