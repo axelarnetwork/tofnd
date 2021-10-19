@@ -10,7 +10,7 @@ use crate::{
     addr,
     config::Config,
     encrypted_sled::{get_test_password, PasswordMethod},
-    grpc::{self, mnemonic::Cmd},
+    gg20::{self, mnemonic::Cmd},
     proto,
     tests::SLEEP_TIME,
 };
@@ -28,7 +28,7 @@ use tracing::{info, warn};
 #[cfg(feature = "malicious")]
 use super::malicious::PartyMaliciousData;
 #[cfg(feature = "malicious")]
-use grpc::service::malicious::Behaviours;
+use gg20::service::malicious::Behaviours;
 
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
@@ -77,7 +77,7 @@ impl TofndParty {
         // https://github.com/spacejam/sled/issues/1234#issuecomment-754769425
         let mut tries = 0;
         let my_service = loop {
-            match grpc::service::new_service(cfg.clone(), get_test_password()).await {
+            match gg20::service::new_service(cfg.clone(), get_test_password()).await {
                 Ok(my_service) => break my_service,
                 Err(err) => {
                     tries += 1;

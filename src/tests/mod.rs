@@ -24,13 +24,12 @@ use malicious::{MaliciousData, PartyMaliciousData};
 
 mod mnemonic;
 
-use crate::grpc::mnemonic::Cmd::{self, Create};
+use crate::gg20::mnemonic::Cmd::{self, Create};
 use proto::message_out::CriminalList;
 use tracing::{info, warn};
 
 use crate::proto::{
     self,
-    keygen_init::KeygenType::Multisig,
     message_out::{
         keygen_result::KeygenResultData::{Criminals as KeygenCriminals, Data as KeygenData},
         sign_result::SignResultData::{Criminals as SignCriminals, Signature},
@@ -56,7 +55,6 @@ struct TestCase {
     signer_indices: Vec<usize>,
     expected_keygen_faults: CriminalList,
     expected_sign_faults: CriminalList,
-    keygen_type: proto::keygen_init::KeygenType,
     #[cfg(feature = "malicious")]
     malicious_data: MaliciousData,
 }
@@ -99,15 +97,6 @@ async fn run_sign_fail_test_cases(test_cases: &[TestCase]) {
     let dir = testdir!();
     for test_case in test_cases {
         sign_init_fail(test_case, &dir).await;
-    }
-}
-
-async fn run_multisig_test_cases(test_cases: &[TestCase]) {
-    let restart = false;
-    let recover = false;
-    let dir = testdir!();
-    for test_case in test_cases {
-        basic_keygen_and_sign(test_case, &dir, restart, recover).await;
     }
 }
 
@@ -320,7 +309,6 @@ async fn basic_keygen(
     let party_share_counts = &test_case.share_counts;
     let threshold = test_case.threshold;
     let expected_keygen_faults = &test_case.expected_keygen_faults;
-    let keygen_type = test_case.keygen_type;
 
     info!(
         "======= Expected keygen crimes: {:?}",
@@ -339,7 +327,6 @@ async fn basic_keygen(
         new_key_uid,
         threshold,
         expect_timeout,
-        keygen_type,
     )
     .await;
 
@@ -414,12 +401,6 @@ async fn basic_keygen_and_sign(test_case: &TestCase, dir: &Path, restart: bool, 
 
     // Check that the session is present in the kvstore
     let parties = execute_key_presence(parties, new_key_uid.into(), true).await;
-
-    // TODO: don't return when Multisig sign is implemented
-    if matches!(test_case.keygen_type, Multisig) {
-        clean_up(parties).await;
-        return;
-    }
 
     // restart party if restart is enabled and return new parties' set
     let parties = match restart {
@@ -499,7 +480,6 @@ async fn keygen_init_fail(test_case: &TestCase, dir: &Path) {
         new_key_uid,
         test_case.threshold,
         false,
-        test_case.keygen_type,
     )
     .await;
 
@@ -688,7 +668,6 @@ async fn execute_keygen(
     new_key_uid: &str,
     threshold: usize,
     expect_timeout: bool,
-    keygen_type: proto::keygen_init::KeygenType,
 ) -> (Vec<TofndParty>, Vec<GrpcKeygenResult>, proto::KeygenInit) {
     info!("Expecting timeout: [{}]", expect_timeout);
     let share_count = parties.len();
@@ -706,7 +685,6 @@ async fn execute_keygen(
             party_share_counts: party_share_counts.to_owned(),
             my_party_index: u32::try_from(i).unwrap(),
             threshold: u32::try_from(threshold).unwrap(),
-            keygen_type: i32::try_from(keygen_type).unwrap(),
         };
         let delivery = keygen_delivery.clone();
         let n = notify.clone();
@@ -745,7 +723,6 @@ async fn execute_keygen(
         party_share_counts: party_share_counts.to_owned(),
         my_party_index: 0, // return keygen for first party. Might need to change index before using
         threshold: u32::try_from(threshold).unwrap(),
-        keygen_type: i32::try_from(keygen_type).unwrap(),
     };
     (parties, results, init)
 }
