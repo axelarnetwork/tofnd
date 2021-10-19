@@ -36,11 +36,13 @@ impl KvManager {
     }
 }
 
+/// Enumerate the possible value types of the kv store
+// TODO: this is starting to get out of hand. Use better ways to address different types in the kv store
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum KvValue {
-    PartyInfo(PartyInfo),
-    Entropy(Entropy),
-    SigningKey(SigningKey),
+    PartyInfo(PartyInfo),   // gg20
+    Entropy(Entropy),       // mnemonic
+    SigningKey(SigningKey), // multisig
 }
 
 /// Create KvValue from PartyInfo
