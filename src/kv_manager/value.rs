@@ -13,8 +13,8 @@ use super::{
     kv::Kv,
 };
 
+
 /// Kv manager for grpc services
-// pub type KvManager = Kv<KvValue>;
 #[derive(Clone)]
 pub struct KvManager {
     kv: Kv<KvValue>,
