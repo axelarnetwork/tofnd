@@ -73,8 +73,9 @@ async fn main() -> TofndResult<()> {
     let incoming_gg20 = TcpListener::bind(addr(cfg.gg20_port)).await?;
     let incoming_multisig = TcpListener::bind(addr(cfg.multisig_port)).await?;
     info!(
-        "tofnd listen addr {:?}, use ctrl+c to shutdown",
-        incoming_gg20.local_addr()?
+        "use ctrl+c to shutdown\ntofnd listen addresses:\n\tGG20: {:?}\n\tmultisig: {:?}, ",
+        incoming_gg20.local_addr()?,
+        incoming_multisig.local_addr()?
     );
 
     let cmd = cfg.mnemonic_cmd.clone();
