@@ -1,9 +1,6 @@
-use crate::proto::{
-    keygen_init::KeygenType::Gg20,
-    message_out::{
-        criminal_list::{criminal::CrimeType, Criminal},
-        CriminalList,
-    },
+use crate::proto::message_out::{
+    criminal_list::{criminal::CrimeType, Criminal},
+    CriminalList,
 };
 use tofn::collections::TypedUsize;
 
@@ -92,7 +89,6 @@ impl TestCase {
             expected_keygen_faults: expected_faults,
             expected_sign_faults: CriminalList::default(),
             malicious_data,
-            keygen_type: Gg20,
         }
     }
 

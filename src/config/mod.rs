@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 
 // error handling
-use crate::{encrypted_sled::PasswordMethod, grpc::mnemonic::Cmd, TofndResult};
+use crate::{encrypted_sled::PasswordMethod, gg20::mnemonic::Cmd, TofndResult};
 use anyhow::anyhow;
 
 // TODO: move these into constants.rs
