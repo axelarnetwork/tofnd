@@ -61,6 +61,7 @@ async fn test_multisig() {
     let request = proto::SignRequest {
         key_uid: "some key".to_string(),
         msg_to_sign: vec![32; 32],
+        party_uid: "party".to_string(),
     };
     let response = client.sign(request).await.unwrap().into_inner();
     match response.sign_response {
