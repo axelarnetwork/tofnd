@@ -1,12 +1,12 @@
 use super::service::MultisigService;
 use crate::{proto::KeygenRequest, TofndResult};
-
-use anyhow::anyhow;
 use tofn::{ecdsa::keygen, sdk::api::serialize};
 
+use anyhow::anyhow;
+
 impl MultisigService {
-    pub(super) async fn handle_keygen(&self, request: KeygenRequest) -> TofndResult<Vec<u8>> {
-        let session_nonce = request.key_uid;
+    pub(super) async fn handle_keygen(&self, request: &KeygenRequest) -> TofndResult<Vec<u8>> {
+        let session_nonce = request.key_uid.clone();
         let secret_recovery_key = self.kv_manager.seed().await?;
 
         // generate signing key and verifying key
