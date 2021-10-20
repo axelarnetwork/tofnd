@@ -1,31 +1,51 @@
-use crate::{addr, encrypted_sled::get_test_password, kv_manager::KvManager, proto};
-use tokio::{self, net::TcpListener, sync::oneshot};
+use crate::{addr, encrypted_sled::get_test_password, kv_manager::KvManager};
+use tokio::{
+    self,
+    net::TcpListener,
+    sync::oneshot::{channel, Sender},
+};
 use tokio_stream::wrappers::TcpListenerStream;
+use tonic::transport::Channel;
 
 use super::service::new_service;
 
 use testdir::testdir;
-use tracing::{info, warn};
+use tracing::error;
 use tracing_test::traced_test;
 
-#[traced_test]
-#[tokio::test]
-async fn test_multisig() {
+use std::convert::TryInto;
+
+use crate::proto::{
+    keygen_response::KeygenResponse, multisig_client::MultisigClient,
+    multisig_server::MultisigServer, sign_response::SignResponse, KeygenRequest, SignRequest,
+};
+
+// set up tests
+async fn spin_test_service_and_client() -> (MultisigClient<Channel>, Sender<()>) {
+    // create root directory for service
     let root = testdir!();
+
+    // create a kv_manager
     let kv_manager = KvManager::new(root.to_str().unwrap(), get_test_password())
         .unwrap()
         .handle_mnemonic(&crate::mnemonic::Cmd::Create)
         .await
         .unwrap();
 
+    // create service
     let service = new_service(kv_manager);
-    let service = proto::multisig_server::MultisigServer::new(service);
+    let service = MultisigServer::new(service);
 
+    // create incoming tcp server for service
     let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
+
+    // create shutdown channels
+    let (shutdown_sender, shutdown_receiver) = channel::<()>();
+
+    // get server's address
     let server_addr = incoming.local_addr().unwrap();
 
-    let (shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
-
+    // spin up multisig gRPC server with incoming shutdown
     tokio::spawn(async move {
         tonic::transport::Server::builder()
             .add_service(service)
@@ -36,45 +56,175 @@ async fn test_multisig() {
             .unwrap();
     });
 
-    let mut client =
-        proto::multisig_client::MultisigClient::connect(format!("http://{}", server_addr))
-            .await
-            .unwrap();
+    // create a client to multisig service
+    let client = MultisigClient::connect(format!("http://{}", server_addr))
+        .await
+        .unwrap();
 
-    let request = proto::KeygenRequest {
-        key_uid: "some key".to_string(),
-        party_uid: "party".to_string(),
-    };
+    // return the client and the shutdown channel for the service
+    (client, shutdown_sender)
+}
+
+// dummy ctor for KeygenResult
+impl KeygenRequest {
+    fn new(key_uid: &str) -> KeygenRequest {
+        KeygenRequest {
+            key_uid: key_uid.to_string(),
+            party_uid: String::default(),
+        }
+    }
+}
+
+// dummy ctor for KeygenResult
+impl SignRequest {
+    fn new(key_uid: &str) -> SignRequest {
+        SignRequest {
+            key_uid: key_uid.to_string(),
+            msg_to_sign: vec![32, 32],
+            party_uid: String::default(),
+        }
+    }
+}
+
+// vec to array
+fn to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
+    v.try_into()
+        .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
+}
+
+#[traced_test]
+#[tokio::test]
+async fn test_multisig() {
+    let key = "multisig key";
+    let (mut client, shutdown_sender) = spin_test_service_and_client().await;
+
+    let request = KeygenRequest::new(key);
+
     let response = client.keygen(request).await.unwrap().into_inner();
-    match response.keygen_response {
-        Some(proto::keygen_response::KeygenResponse::PubKey(_)) => {
-            info!("Got pub key!")
+    let pub_key = match response.keygen_response.unwrap() {
+        KeygenResponse::PubKey(pub_key) => pub_key,
+        KeygenResponse::Error(err) => {
+            panic!("Got error from keygen: {}", err);
         }
-        Some(proto::keygen_response::KeygenResponse::Error(err)) => {
-            warn!("Got error from keygen: {}", err)
-        }
-        None => {
-            panic!("Invalid keygen response. Could not convert to enum")
-        }
-    }
-
-    let request = proto::SignRequest {
-        key_uid: "some key".to_string(),
-        msg_to_sign: vec![32; 32],
-        party_uid: "party".to_string(),
     };
+
+    let request = SignRequest::new(key);
+    let msg_digest = request.msg_to_sign.as_slice().try_into().unwrap();
     let response = client.sign(request).await.unwrap().into_inner();
-    match response.sign_response {
-        Some(proto::sign_response::SignResponse::Signature(_)) => {
-            info!("Got signature!")
+    let signature = match response.sign_response.unwrap() {
+        SignResponse::Signature(signature) => signature,
+        SignResponse::Error(err) => {
+            panic!("Got error from sign: {}", err)
         }
-        Some(proto::sign_response::SignResponse::Error(err)) => {
-            warn!("Got error from sign: {}", err)
-        }
-        None => {
-            panic!("Invalid sign response. Could not convert to enum")
-        }
+    };
+
+    let _ = shutdown_sender.send(()).unwrap();
+
+    assert!(tofn::ecdsa::verify(&to_array(pub_key), &msg_digest, &signature,).unwrap());
+}
+
+#[traced_test]
+#[tokio::test]
+async fn test_tofn_keygen_multisig_fail() {
+    let key = "k"; // too small key
+    let (mut client, shutdown_sender) = spin_test_service_and_client().await;
+
+    let request = KeygenRequest::new(key);
+    let response = client.keygen(request).await.unwrap().into_inner();
+
+    if let KeygenResponse::Error(err) = response.clone().keygen_response.unwrap() {
+        error!("{}", err);
     }
+    assert!(matches!(
+        response.keygen_response.unwrap(),
+        KeygenResponse::Error(_)
+    ));
+
+    let _ = shutdown_sender.send(()).unwrap();
+}
+
+#[traced_test]
+#[tokio::test]
+async fn test_tofnd_keygen_multisig_fail() {
+    let key = "key-uid";
+    let (mut client, shutdown_sender) = spin_test_service_and_client().await;
+
+    let request = KeygenRequest::new(key);
+    let response = client.keygen(request.clone()).await.unwrap().into_inner();
+    assert!(matches!(
+        response.keygen_response.unwrap(),
+        KeygenResponse::PubKey(_)
+    ));
+
+    // try to execute same keygen again
+    let response = client.keygen(request).await.unwrap().into_inner();
+    if let KeygenResponse::Error(err) = response.clone().keygen_response.unwrap() {
+        error!("{}", err);
+    }
+    assert!(matches!(
+        response.keygen_response.unwrap(),
+        KeygenResponse::Error(_)
+    ));
+
+    let _ = shutdown_sender.send(()).unwrap();
+}
+
+#[traced_test]
+#[tokio::test]
+async fn test_tofn_multisig_sign_fail() {
+    let key = "key-uid";
+    let (mut client, shutdown_sender) = spin_test_service_and_client().await;
+
+    let request = KeygenRequest::new(key);
+    let response = client.keygen(request.clone()).await.unwrap().into_inner();
+    assert!(matches!(
+        response.keygen_response.unwrap(),
+        KeygenResponse::PubKey(_)
+    ));
+
+    let mut request = SignRequest::new(key);
+    request.msg_to_sign = vec![32; 31]; // truncate msg digest
+    let response = client.sign(request.clone()).await.unwrap().into_inner();
+
+    if let SignResponse::Error(err) = response.clone().sign_response.unwrap() {
+        error!("{}", err);
+    }
+    assert!(matches!(
+        response.sign_response.unwrap(),
+        SignResponse::Error(_)
+    ));
+
+    // execute sign without keygen
+    let request = SignRequest::new("non-existing key");
+    let response = client.sign(request.clone()).await.unwrap().into_inner();
+
+    if let SignResponse::Error(err) = response.clone().sign_response.unwrap() {
+        error!("{}", err);
+    }
+    assert!(matches!(
+        response.sign_response.unwrap(),
+        SignResponse::Error(_)
+    ));
+
+    let _ = shutdown_sender.send(()).unwrap();
+}
+
+#[traced_test]
+#[tokio::test]
+async fn test_kv_value_fail() {
+    let (mut client, shutdown_sender) = spin_test_service_and_client().await;
+
+    // attempt to get mnemonic value; this should fail because of different value type
+    let request = SignRequest::new("mnemonic");
+    let response = client.sign(request.clone()).await.unwrap().into_inner();
+
+    if let SignResponse::Error(err) = response.clone().sign_response.unwrap() {
+        error!("{}", err);
+    }
+    assert!(matches!(
+        response.sign_response.unwrap(),
+        SignResponse::Error(_)
+    ));
 
     let _ = shutdown_sender.send(()).unwrap();
 }
