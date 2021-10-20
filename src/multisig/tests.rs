@@ -175,6 +175,7 @@ async fn test_tofn_multisig_sign_fail() {
     let key = "key-uid";
     let (mut client, shutdown_sender) = spin_test_service_and_client().await;
 
+    // keygen should be fine
     let request = KeygenRequest::new(key);
     let response = client.keygen(request.clone()).await.unwrap().into_inner();
     assert!(matches!(
@@ -182,10 +183,10 @@ async fn test_tofn_multisig_sign_fail() {
         KeygenResponse::PubKey(_)
     ));
 
+    // attempt sign with truncated msg digest
     let mut request = SignRequest::new(key);
-    request.msg_to_sign = vec![32; 31]; // truncate msg digest
+    request.msg_to_sign = vec![32; 31];
     let response = client.sign(request.clone()).await.unwrap().into_inner();
-
     if let SignResponse::Error(err) = response.clone().sign_response.unwrap() {
         error!("{}", err);
     }
@@ -194,10 +195,9 @@ async fn test_tofn_multisig_sign_fail() {
         SignResponse::Error(_)
     ));
 
-    // execute sign without keygen
+    // attempt sign with an unkown key
     let request = SignRequest::new("non-existing key");
     let response = client.sign(request.clone()).await.unwrap().into_inner();
-
     if let SignResponse::Error(err) = response.clone().sign_response.unwrap() {
         error!("{}", err);
     }
