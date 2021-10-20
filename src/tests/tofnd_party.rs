@@ -60,8 +60,7 @@ impl TofndParty {
 
         let cfg = Config {
             mnemonic_cmd,
-            gg20_port: server_port,
-            multisig_port: 0, // we don't spawn multisig service
+            port: server_port,
             safe_keygen: false,
             tofnd_path: tofnd_path.to_string(),
             password_method: PasswordMethod::NoPassword,

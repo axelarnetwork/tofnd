@@ -70,11 +70,10 @@ async fn main() -> TofndResult<()> {
     let main_span = span!(Level::INFO, "main");
     let _enter = main_span.enter();
 
-    let incoming_gg20 = TcpListener::bind(addr(cfg.gg20_port)).await?;
-    let incoming_multisig = TcpListener::bind(addr(cfg.multisig_port)).await?;
+    let incoming = TcpListener::bind(addr(cfg.port)).await?;
     info!(
         "tofnd listen addr {:?}, use ctrl+c to shutdown",
-        incoming_gg20.local_addr()?
+        incoming.local_addr()?
     );
 
     let cmd = cfg.mnemonic_cmd.clone();
@@ -96,12 +95,8 @@ async fn main() -> TofndResult<()> {
 
     tonic::transport::Server::builder()
         .add_service(gg20_service)
-        .serve_with_incoming_shutdown(TcpListenerStream::new(incoming_gg20), shutdown_signal())
-        .await?;
-
-    tonic::transport::Server::builder()
         .add_service(multisig_service)
-        .serve_with_incoming_shutdown(TcpListenerStream::new(incoming_multisig), shutdown_signal())
+        .serve_with_incoming_shutdown(TcpListenerStream::new(incoming), shutdown_signal())
         .await?;
 
     Ok(())

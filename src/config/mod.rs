@@ -8,8 +8,7 @@ use anyhow::anyhow;
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 const DEFAULT_MNEMONIC_CMD: &str = "existing";
-const DEFAULT_GG20_PORT: u16 = 50051;
-const DEFAULT_MULTISIG_PORT: u16 = 50052;
+const DEFAULT_PORT: u16 = 50051;
 const AVAILABLE_MNEMONIC_CMDS: [&str; 4] = ["existing", "create", "import", "export"];
 
 #[cfg(feature = "malicious")]
@@ -20,8 +19,7 @@ use malicious::*;
 // TODO: move to types.rs
 #[derive(Clone, Debug)]
 pub struct Config {
-    pub gg20_port: u16,
-    pub multisig_port: u16,
+    pub port: u16,
     pub safe_keygen: bool,
     pub mnemonic_cmd: Cmd,
     pub tofnd_path: String,
@@ -32,8 +30,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            gg20_port: DEFAULT_GG20_PORT,
-            multisig_port: DEFAULT_MULTISIG_PORT,
+            port: DEFAULT_PORT,
             safe_keygen: true,
             mnemonic_cmd: Cmd::Existing,
             tofnd_path: DEFAULT_PATH_ROOT.to_string(),
@@ -46,24 +43,16 @@ impl Default for Config {
 
 pub fn parse_args() -> TofndResult<Config> {
     // need to use let to avoid dropping temporary value
-    let gg20_port = &DEFAULT_GG20_PORT.to_string();
-    let multisig_port = &DEFAULT_GG20_PORT.to_string();
+    let port = &DEFAULT_PORT.to_string();
 
     let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
         .arg(
-            Arg::with_name("gg20-port")
-                .long("gg20-port")
-                .short("g")
+            Arg::with_name("port")
+                .long("port")
+                .short("p")
                 .required(false)
-                .default_value(gg20_port),
-        )
-        .arg(
-            Arg::with_name("multisig-port")
-                .long("multisig-port")
-                .short("s")
-                .required(false)
-                .default_value(multisig_port),
+                .default_value(port),
         )
         .arg(
             // TODO: change to something like `--unsafe-primes`
@@ -119,12 +108,9 @@ pub fn parse_args() -> TofndResult<Config> {
     let behaviours = get_behaviour_matches(app.clone())?;
 
     let matches = app.get_matches();
-    let gg20_port = matches
-        .value_of("gg20-port")
-        .ok_or_else(|| anyhow!("port value"))?
-        .parse::<u16>()?;
-    let multisig_port = matches
-        .value_of("multisig-port")
+
+    let port = matches
+        .value_of("port")
         .ok_or_else(|| anyhow!("port value"))?
         .parse::<u16>()?;
     let safe_keygen = !matches.is_present("unsafe");
@@ -133,20 +119,17 @@ pub fn parse_args() -> TofndResult<Config> {
         .ok_or_else(|| anyhow!("cmd value"))?
         .to_string();
     let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
-
     let tofnd_path = matches
         .value_of("directory")
         .ok_or_else(|| anyhow!("directory value"))?
         .to_string();
-
     let password_method = match matches.is_present("no-password") {
         true => PasswordMethod::NoPassword,
         false => PasswordMethod::Prompt,
     };
 
     Ok(Config {
-        gg20_port,
-        multisig_port,
+        port,
         safe_keygen,
         mnemonic_cmd,
         tofnd_path,
