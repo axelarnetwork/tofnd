@@ -80,7 +80,7 @@ impl SignRequest {
     fn new(key_uid: &str) -> SignRequest {
         SignRequest {
             key_uid: key_uid.to_string(),
-            msg_to_sign: vec![32, 32],
+            msg_to_sign: vec![32; 32],
             party_uid: String::default(),
         }
     }
