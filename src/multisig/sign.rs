@@ -8,7 +8,7 @@ use tofn::{ecdsa::sign, sdk::api::deserialize};
 impl MultisigService {
     pub(super) async fn handle_sign(&self, request: &SignRequest) -> TofndResult<Vec<u8>> {
         // get multisig value from kv store
-        let kv_value = self.kv_manager.kv().get(&request.party_uid).await?;
+        let kv_value = self.kv_manager.kv().get(&request.key_uid).await?;
 
         // convert multisig value into signing key bytes
         let signing_key_bytes: Vec<u8> = kv_value.try_into()?;
