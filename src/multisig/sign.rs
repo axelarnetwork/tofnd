@@ -10,13 +10,18 @@ impl MultisigService {
         let session_nonce = request.key_uid;
 
         let kv_value = self.kv_manager.kv().get(&session_nonce).await?;
+        // convert multisig value into signing key bytes
         let signing_key_bytes: Vec<u8> = kv_value.try_into()?;
+
+        // deserialize to signing key
         let signing_key = deserialize(&signing_key_bytes)
             .ok_or_else(|| anyhow!("Cannot deserialize SigningKey"))?;
 
+        // get signature
         let signature = sign(&signing_key, &request.msg_to_sign.as_slice().try_into()?)
             .map_err(|_| anyhow!("Cannot generate keypair"))?;
 
+        // return signature
         Ok(signature)
     }
 }
