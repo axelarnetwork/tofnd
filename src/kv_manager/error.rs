@@ -28,8 +28,6 @@ pub enum KvError {
     GetErr(InnerKvError),
     #[error("Exits Error: {0}")]
     ExistsErr(InnerKvError),
-    #[error("Value type Error: {0}")]
-    ValueTypeErr(String),
 }
 pub type KvResult<Success> = Result<Success, KvError>;
 

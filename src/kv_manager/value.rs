@@ -41,7 +41,7 @@ type KvValue = Vec<u8>;
 impl TryFrom<KvValue> for PartyInfo {
     type Error = InnerKvError;
     fn try_from(v: KvValue) -> Result<Self, Self::Error> {
-        deserialize(&v).ok_or_else(|| InnerKvError::DeserializationErr)
+        deserialize(&v).ok_or(InnerKvError::DeserializationErr)
     }
 }
 
@@ -57,7 +57,7 @@ impl TryFrom<PartyInfo> for KvValue {
 impl TryFrom<KvValue> for Entropy {
     type Error = InnerKvError;
     fn try_from(v: KvValue) -> Result<Self, Self::Error> {
-        deserialize(&v).ok_or_else(|| InnerKvError::DeserializationErr)
+        deserialize(&v).ok_or(InnerKvError::DeserializationErr)
     }
 }
 

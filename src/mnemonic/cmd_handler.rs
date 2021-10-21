@@ -62,7 +62,7 @@ impl KvManager {
             .get(MNEMONIC_KEY)
             .await?
             .try_into()
-            .map_err(|err| KvError::GetErr(err))?;
+            .map_err(KvError::GetErr)?;
         // A user may decide to protect their mnemonic with a passphrase. We pass an empty password for now.
         // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
         Ok(bip39_seed(mnemonic, Password("".to_owned()))?
@@ -107,10 +107,7 @@ impl KvManager {
             // if we can reserve, try put
             Ok(reservation) => match self
                 .kv()
-                .put(
-                    reservation,
-                    entropy.try_into().map_err(|err| KvError::PutErr(err))?,
-                )
+                .put(reservation, entropy.try_into().map_err(KvError::PutErr)?)
                 .await
             {
                 // if put is ok, write the phrase to a file
@@ -167,7 +164,7 @@ impl KvManager {
                 err
             })?
             .try_into()
-            .map_err(|err| KvError::GetErr(err))?;
+            .map_err(KvError::GetErr)?;
 
         // write to file
         info!("Mnemonic found in kv store");
