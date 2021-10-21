@@ -56,7 +56,7 @@ impl proto::multisig_server::Multisig for MultisigService {
             }
             Err(err) => {
                 error!(
-                    "[{}] Multisig keygen failed: {}",
+                    "[{}] Multisig sign failed: {}",
                     request.party_uid,
                     err.to_string()
                 );
