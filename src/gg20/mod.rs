@@ -100,7 +100,6 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
                 if let Err(e) = msg_sender.send(Err(Status::invalid_argument(e.to_string()))) {
                     error!("could not send error to client: {}", e.to_string());
                 }
-                return;
             }
         });
         Ok(Response::new(UnboundedReceiverStream::new(rx)))
@@ -128,7 +127,6 @@ impl proto::gg20_server::Gg20 for service::Gg20Service {
                 if let Err(e) = msg_sender.send(Err(Status::invalid_argument(e.to_string()))) {
                     error!("could not send error to client: {}", e.to_string());
                 }
-                return;
             }
         });
         Ok(Response::new(UnboundedReceiverStream::new(rx)))
