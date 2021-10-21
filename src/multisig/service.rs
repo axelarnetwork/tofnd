@@ -51,7 +51,7 @@ impl proto::multisig_server::Multisig for MultisigService {
         let request = request.into_inner();
         let result = match self.handle_sign(&request).await {
             Ok(pub_key) => {
-                info!("[{}] Multisig keygen completed", request.party_uid);
+                info!("[{}] Multisig sign completed", request.party_uid);
                 proto::sign_response::SignResponse::Signature(pub_key)
             }
             Err(err) => {
