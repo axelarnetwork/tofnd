@@ -7,11 +7,16 @@
 /// Custom error types for [kv] and [sled_bindings]
 pub mod error;
 /// public API of kv manager
-pub mod kv;
+mod kv;
 /// sled bindings for basic kv operations
 mod sled_bindings;
 /// definition of kv_manager types and default paths
-pub mod types;
+mod types;
+/// wrapers for values stored by tofnd services
+mod value;
+
+pub use types::KeyReservation;
+pub use value::KvManager;
 
 // tests for low-level operations
 #[cfg(test)]

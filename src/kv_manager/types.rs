@@ -2,6 +2,9 @@
 
 use std::fmt::Debug;
 
+// default KV store names
+pub const DEFAULT_KV_NAME: &str = "kv";
+
 /// default path of kv store
 /// the full name of the kv store is "DEFAULT_KV_PATH/kv_name"
 pub(super) const DEFAULT_KV_PATH: &str = "kvstore";

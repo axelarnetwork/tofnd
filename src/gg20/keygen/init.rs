@@ -17,7 +17,7 @@ use super::{
     types::{KeygenInitSanitized, MAX_PARTY_SHARE_COUNT, MAX_TOTAL_SHARE_COUNT},
     Gg20Service,
 };
-use crate::kv_manager::types::KeyReservation;
+use crate::kv_manager::KeyReservation;
 
 impl Gg20Service {
     /// Receives a message from the stream and tries to handle keygen init operations.
@@ -73,7 +73,8 @@ impl Gg20Service {
 
         // reserve key
         let key_uid_reservation = self
-            .kv
+            .kv_manager
+            .kv()
             .reserve_key(keygen_init.new_key_uid.clone())
             .await
             .map_err(|err| anyhow!("failed to reseve key: {}", err))?;

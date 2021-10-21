@@ -35,7 +35,8 @@ impl Gg20Service {
 
         // check if key-uid already exists in kv-store. If yes, return success and don't update the kv-store
         if self
-            .kv
+            .kv_manager
+            .kv()
             .exists(&keygen_init.new_key_uid)
             .await
             .map_err(|err| anyhow!(err))?
@@ -49,7 +50,7 @@ impl Gg20Service {
 
         // recover secret key shares from request
         // get mnemonic seed
-        let secret_recovery_key = self.seed().await?;
+        let secret_recovery_key = self.kv_manager.seed().await?;
         let secret_key_shares = self
             .recover_secret_key_shares(&secret_recovery_key, &keygen_init, &keygen_output)
             .map_err(|err| anyhow!("Failed to acquire secret key share {}", err))?;
@@ -146,7 +147,8 @@ impl Gg20Service {
     ) -> TofndResult<()> {
         // try to make a reservation
         let reservation = self
-            .kv
+            .kv_manager
+            .kv()
             .reserve_key(keygen_init_sanitized.new_key_uid)
             .await
             .map_err(|err| anyhow!("failed to complete reservation: {}", err))?;
@@ -159,7 +161,8 @@ impl Gg20Service {
         );
         // try writing the data to the kv-store
         Ok(self
-            .kv
+            .kv_manager
+            .kv()
             .put(reservation, kv_data.into())
             .await
             .map_err(|err| anyhow!("failed to update kv store: {}", err))?)

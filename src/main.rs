@@ -5,6 +5,8 @@ use tokio_stream::wrappers::TcpListenerStream;
 mod encrypted_sled;
 mod gg20;
 mod kv_manager;
+mod mnemonic;
+mod multisig;
 
 // gather logs; need to set RUST_LOG=info
 use tracing::{info, span, Level};
@@ -19,6 +21,8 @@ pub mod proto {
 
 mod config;
 use config::parse_args;
+
+use crate::kv_manager::KvManager;
 
 fn set_up_logs() {
     // enable only tofnd and tofn debug logs - disable serde, tonic, tokio, etc.
@@ -73,17 +77,25 @@ async fn main() -> TofndResult<()> {
     );
 
     let cmd = cfg.mnemonic_cmd.clone();
-    let my_service = gg20::service::new_service(cfg, password).await?;
+
+    let kv_manager = KvManager::new(&cfg.tofnd_path, password)?
+        .handle_mnemonic(&cfg.mnemonic_cmd)
+        .await?;
+
+    let gg20_service = gg20::service::new_service(cfg, kv_manager.clone());
+    let multisig_service = multisig::service::new_service(kv_manager);
 
     if cmd.exit_after_cmd() {
         info!("Tofnd exited after using command <{:?}>. Run `./tofnd -m existing` to execute gRPC daemon.", cmd);
         return Ok(());
     }
 
-    let proto_service = proto::gg20_server::Gg20Server::new(my_service);
+    let gg20_service = proto::gg20_server::Gg20Server::new(gg20_service);
+    let multisig_service = proto::multisig_server::MultisigServer::new(multisig_service);
 
     tonic::transport::Server::builder()
-        .add_service(proto_service)
+        .add_service(gg20_service)
+        .add_service(multisig_service)
         .serve_with_incoming_shutdown(TcpListenerStream::new(incoming), shutdown_signal())
         .await?;
 

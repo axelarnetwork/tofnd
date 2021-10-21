@@ -2,7 +2,7 @@
 
 use super::{InitParty, TofndParty};
 
-use crate::gg20::mnemonic::Cmd;
+use crate::mnemonic::Cmd;
 use testdir::testdir;
 
 #[cfg(feature = "malicious")]

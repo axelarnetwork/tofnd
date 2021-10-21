@@ -56,7 +56,7 @@ impl FileIo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gg20::mnemonic::bip39_bindings::{bip39_new_w24, tests::bip39_to_phrase};
+    use crate::mnemonic::bip39_bindings::{bip39_new_w24, tests::bip39_to_phrase};
     use std::io::Read;
     use testdir::testdir;
     use tracing_test::traced_test;

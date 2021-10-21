@@ -8,7 +8,7 @@ use super::{
     sled_bindings::{handle_exists, handle_get, handle_put, handle_reserve},
     types::{
         Command::{self, *},
-        KeyReservation, DEFAULT_KV_PATH,
+        KeyReservation, DEFAULT_KV_NAME, DEFAULT_KV_PATH,
     },
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -31,8 +31,10 @@ where
 {
     /// Creates a new kv service. Returns [InitErr] on failure.
     /// the path of the kvstore is `root_path` + "/kvstore/" + `kv_name`
-    pub fn new(root_path: &str, kv_name: &str, password: Password) -> KvResult<Self> {
-        let kv_path = PathBuf::from(root_path).join(DEFAULT_KV_PATH).join(kv_name);
+    pub fn new(root_path: &str, password: Password) -> KvResult<Self> {
+        let kv_path = PathBuf::from(root_path)
+            .join(DEFAULT_KV_PATH)
+            .join(DEFAULT_KV_NAME);
         // use to_string_lossy() instead of to_str() to avoid handling Option<&str>
         let kv_path = kv_path.to_string_lossy().to_string();
         Self::with_db_name(kv_path, password)

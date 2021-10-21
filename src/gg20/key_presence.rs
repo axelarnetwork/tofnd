@@ -16,10 +16,10 @@ impl Gg20Service {
         request: proto::KeyPresenceRequest,
     ) -> TofndResult<proto::key_presence_response::Response> {
         // check if mnemonic is available
-        let _ = self.seed().await?;
+        let _ = self.kv_manager.seed().await?;
 
         // check if requested key exists
-        if self.kv.exists(&request.key_uid).await? {
+        if self.kv_manager.kv().exists(&request.key_uid).await? {
             info!(
                 "Found session-id {} in kv store during key presence check",
                 request.key_uid

@@ -18,7 +18,6 @@ use tracing::{error, info, span, Level};
 mod broadcast;
 mod key_presence;
 mod keygen;
-pub mod mnemonic;
 mod protocol;
 mod recover;
 pub mod service;

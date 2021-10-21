@@ -1,14 +1,14 @@
 use clap::{App, Arg};
 
 // error handling
-use crate::{encrypted_sled::PasswordMethod, gg20::mnemonic::Cmd, TofndResult};
+use crate::{encrypted_sled::PasswordMethod, mnemonic::Cmd, TofndResult};
 use anyhow::anyhow;
 
 // TODO: move these into constants.rs
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 const DEFAULT_MNEMONIC_CMD: &str = "existing";
-const DEFAULT_PORT: &str = "50051";
+const DEFAULT_PORT: u16 = 50051;
 const AVAILABLE_MNEMONIC_CMDS: [&str; 4] = ["existing", "create", "import", "export"];
 
 #[cfg(feature = "malicious")]
@@ -30,7 +30,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            port: 50051,
+            port: DEFAULT_PORT,
             safe_keygen: true,
             mnemonic_cmd: Cmd::Existing,
             tofnd_path: DEFAULT_PATH_ROOT.to_string(),
@@ -42,6 +42,9 @@ impl Default for Config {
 }
 
 pub fn parse_args() -> TofndResult<Config> {
+    // need to use let to avoid dropping temporary value
+    let port = &DEFAULT_PORT.to_string();
+
     let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
         .arg(
@@ -49,7 +52,7 @@ pub fn parse_args() -> TofndResult<Config> {
                 .long("port")
                 .short("p")
                 .required(false)
-                .default_value(DEFAULT_PORT),
+                .default_value(port),
         )
         .arg(
             // TODO: change to something like `--unsafe-primes`
@@ -105,6 +108,7 @@ pub fn parse_args() -> TofndResult<Config> {
     let behaviours = get_behaviour_matches(app.clone())?;
 
     let matches = app.get_matches();
+
     let port = matches
         .value_of("port")
         .ok_or_else(|| anyhow!("port value"))?
@@ -115,12 +119,10 @@ pub fn parse_args() -> TofndResult<Config> {
         .ok_or_else(|| anyhow!("cmd value"))?
         .to_string();
     let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
-
     let tofnd_path = matches
         .value_of("directory")
         .ok_or_else(|| anyhow!("directory value"))?
         .to_string();
-
     let password_method = match matches.is_present("no-password") {
         true => PasswordMethod::NoPassword,
         false => PasswordMethod::Prompt,

@@ -11,7 +11,7 @@ use super::{
     types::{BytesVec, KeygenInitSanitized, TofnKeygenOutput, TofndKeygenOutput},
     Gg20Service,
 };
-use crate::{gg20::types::PartyInfo, kv_manager::types::KeyReservation};
+use crate::{gg20::types::PartyInfo, kv_manager::KeyReservation};
 
 // tonic cruft
 use tokio::sync::{
@@ -38,7 +38,10 @@ impl Gg20Service {
         let keygen_outputs = match Self::aggregate_keygen_outputs(aggregator_receivers).await {
             Ok(keygen_outputs) => keygen_outputs,
             Err(err) => {
-                self.kv.unreserve_key(key_uid_reservation).await;
+                self.kv_manager
+                    .kv()
+                    .unreserve_key(key_uid_reservation)
+                    .await;
                 return Err(anyhow!(
                     "Error at Keygen output aggregation. Unreserving key {}",
                     err
@@ -63,7 +66,8 @@ impl Gg20Service {
         );
 
         // try to put data inside kv store
-        self.kv
+        self.kv_manager
+            .kv()
             .put(key_uid_reservation, kv_data.into())
             .await
             .map_err(|err| anyhow!(err))?;
@@ -106,7 +110,7 @@ impl Gg20Service {
 
                 // check that all shares returned the same public key and group recover info
                 let share_id = secret_key_shares[0].share().index();
-                let pub_key = secret_key_shares[0].group().pubkey_bytes();
+                let pub_key = secret_key_shares[0].group().encoded_pubkey();
                 let group_info = secret_key_shares[0]
                     .group()
                     .all_shares_bytes()
@@ -116,7 +120,7 @@ impl Gg20Service {
                 // Here we check that the first share produced the same info as the i-th.
                 for secret_key_share in &secret_key_shares[1..] {
                     // try to get pubkey of i-th share. Each share should produce the same pubkey
-                    if pub_key != secret_key_share.group().pubkey_bytes() {
+                    if pub_key != secret_key_share.group().encoded_pubkey() {
                         return Err(anyhow!(
                             "Party {}'s share {} and {} returned different public key",
                             keygen_init.my_index,
