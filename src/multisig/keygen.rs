@@ -17,13 +17,14 @@ impl MultisigService {
         let reservation = self.kv_manager.kv().reserve_key(session_nonce).await?;
 
         // serialize signing key
+        // SecretScalar is not exposed, so we need to serialize manually here
         let signing_key_bytes = serialize(key_pair.signing_key())
             .map_err(|_| anyhow!("Cannot serialize signing key"))?;
 
         // put signing key into kv store
         self.kv_manager
             .kv()
-            .put(reservation, signing_key_bytes.into())
+            .put(reservation, signing_key_bytes)
             .await?;
 
         // return verifying key

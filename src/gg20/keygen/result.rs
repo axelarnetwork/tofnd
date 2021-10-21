@@ -24,6 +24,8 @@ use tonic::Status;
 use crate::TofndResult;
 use anyhow::anyhow;
 
+use std::convert::TryInto;
+
 impl Gg20Service {
     /// aggregate results from all keygen threads, create a record and insert it in the KvStore
     pub(super) async fn aggregate_results(
@@ -68,7 +70,7 @@ impl Gg20Service {
         // try to put data inside kv store
         self.kv_manager
             .kv()
-            .put(key_uid_reservation, kv_data.into())
+            .put(key_uid_reservation, kv_data.try_into()?)
             .await
             .map_err(|err| anyhow!(err))?;
 
