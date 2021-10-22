@@ -44,6 +44,15 @@ fn test_encrypted_sled() {
 }
 
 #[test]
+fn test_use_existing_salt() {
+    let db_path = testdir!("encrypted_db");
+    let db = EncryptedDb::open(&db_path, get_test_password()).unwrap();
+    drop(db);
+    // open existing db
+    assert!(EncryptedDb::open(&db_path, get_test_password()).is_ok());
+}
+
+#[test]
 fn test_password() {
     let db_path = testdir!("test_password");
 
