@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, path::PathBuf};
+use tofn::sdk::api::{deserialize, serialize};
 
 use crate::{
     encrypted_sled::Password,
@@ -8,11 +8,9 @@ use crate::{
 };
 
 use super::{
-    error::{KvError, KvResult},
+    error::{InnerKvError, KvResult},
     kv::Kv,
 };
-
-type SigningKey = Vec<u8>;
 
 /// Kv manager for grpc services
 #[derive(Clone)]
@@ -36,80 +34,37 @@ impl KvManager {
     }
 }
 
-/// Enumerate the possible value types of the kv store
-// TODO: this is starting to get out of hand. Use better ways to address different types in the kv store
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum KvValue {
-    PartyInfo(PartyInfo),   // gg20
-    Entropy(Entropy),       // mnemonic
-    SigningKey(SigningKey), // multisig
-}
-
-/// Create KvValue from PartyInfo
-impl From<PartyInfo> for KvValue {
-    fn from(v: PartyInfo) -> KvValue {
-        KvValue::PartyInfo(v)
-    }
-}
-
-/// Create KvValue from Entropy
-impl From<Entropy> for KvValue {
-    fn from(v: Entropy) -> KvValue {
-        KvValue::Entropy(v)
-    }
-}
-
-/// Create KvValue from SigningKey
-impl From<SigningKey> for KvValue {
-    fn from(v: SigningKey) -> KvValue {
-        KvValue::SigningKey(v)
-    }
-}
+/// Value type stored in the kv-store
+type KvValue = Vec<u8>;
 
 /// Create PartyInfo from KvValue
 impl TryFrom<KvValue> for PartyInfo {
-    type Error = KvError;
+    type Error = InnerKvError;
     fn try_from(v: KvValue) -> Result<Self, Self::Error> {
-        match v {
-            KvValue::PartyInfo(party_info) => Ok(party_info),
-            KvValue::Entropy(_) => Err(Self::Error::ValueTypeErr(
-                "Expecting PartyInfo, got Entropy".to_string(),
-            )),
-            KvValue::SigningKey(_) => Err(Self::Error::ValueTypeErr(
-                "Expecting PartyInfo, got SigningKey".to_string(),
-            )),
-        }
+        deserialize(&v).ok_or(InnerKvError::DeserializationErr)
+    }
+}
+
+/// Create KvValue from PartyInfo
+impl TryFrom<PartyInfo> for KvValue {
+    type Error = InnerKvError;
+    fn try_from(v: PartyInfo) -> Result<Self, Self::Error> {
+        serialize(&v).map_err(|_| InnerKvError::SerializationErr)
     }
 }
 
 /// Create Entropy from KvValue
 impl TryFrom<KvValue> for Entropy {
-    type Error = KvError;
+    type Error = InnerKvError;
     fn try_from(v: KvValue) -> Result<Self, Self::Error> {
-        match v {
-            KvValue::PartyInfo(_) => Err(Self::Error::ValueTypeErr(
-                "Expecting Entropy, got PartyInfo".to_string(),
-            )),
-            KvValue::Entropy(entropy) => Ok(entropy),
-            KvValue::SigningKey(_) => Err(Self::Error::ValueTypeErr(
-                "Expecting Entropy, got SigningKey".to_string(),
-            )),
-        }
+        deserialize(&v).ok_or(InnerKvError::DeserializationErr)
     }
 }
 
-/// Create SigningKey from KvValue
-impl TryFrom<KvValue> for SigningKey {
-    type Error = KvError;
-    fn try_from(v: KvValue) -> Result<Self, Self::Error> {
-        match v {
-            KvValue::PartyInfo(_) => Err(Self::Error::ValueTypeErr(
-                "Expecting SigningKey, got PartyInfo".to_string(),
-            )),
-            KvValue::Entropy(_) => Err(Self::Error::ValueTypeErr(
-                "Expecting SigningKey, got Entroy".to_string(),
-            )),
-            KvValue::SigningKey(sk) => Ok(sk),
-        }
+/// Create KvValue from Entropy
+impl TryFrom<Entropy> for KvValue {
+    type Error = InnerKvError;
+    fn try_from(v: Entropy) -> Result<Self, Self::Error> {
+        serialize(&v).map_err(|_| InnerKvError::SerializationErr)
     }
 }

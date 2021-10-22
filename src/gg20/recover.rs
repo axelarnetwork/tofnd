@@ -19,6 +19,8 @@ use tracing::{info, warn};
 use crate::TofndResult;
 use anyhow::anyhow;
 
+use std::convert::TryInto;
+
 impl Gg20Service {
     pub(super) async fn handle_recover(&self, request: proto::RecoverRequest) -> TofndResult<()> {
         // get keygen init sanitized from request
@@ -163,7 +165,7 @@ impl Gg20Service {
         Ok(self
             .kv_manager
             .kv()
-            .put(reservation, kv_data.into())
+            .put(reservation, kv_data.try_into()?)
             .await
             .map_err(|err| anyhow!("failed to update kv store: {}", err))?)
     }
