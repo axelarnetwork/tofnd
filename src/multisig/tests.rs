@@ -16,8 +16,12 @@ use tracing_test::traced_test;
 use std::convert::TryInto;
 
 use crate::proto::{
-    keygen_response::KeygenResponse, multisig_client::MultisigClient,
-    multisig_server::MultisigServer, sign_response::SignResponse, KeygenRequest, SignRequest,
+    key_presence_response::Response::{Absent, Present},
+    keygen_response::KeygenResponse,
+    multisig_client::MultisigClient,
+    multisig_server::MultisigServer,
+    sign_response::SignResponse,
+    KeyPresenceRequest, KeygenRequest, SignRequest,
 };
 
 // set up tests
@@ -225,6 +229,46 @@ async fn test_kv_value_fail() {
         response.sign_response.unwrap(),
         SignResponse::Error(_)
     ));
+
+    let _ = shutdown_sender.send(()).unwrap();
+}
+
+#[traced_test]
+#[tokio::test]
+async fn test_key_presence() {
+    let key = "key_uid";
+    let (mut client, shutdown_sender) = spin_test_service_and_client().await;
+
+    // request a non-existing key
+    let presence_request = KeyPresenceRequest {
+        key_uid: key.to_string(),
+    };
+    let response = client
+        .key_presence(presence_request.clone())
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(response.response, Absent as i32);
+
+    // generate key reqeust
+    let keygen_request = KeygenRequest::new(key);
+    let response = client.keygen(keygen_request).await.unwrap().into_inner();
+
+    // generate key
+    let _ = match response.keygen_response.unwrap() {
+        KeygenResponse::PubKey(pub_key) => pub_key,
+        KeygenResponse::Error(err) => {
+            panic!("Got error from keygen: {}", err);
+        }
+    };
+
+    // request existing key
+    let response = client
+        .key_presence(presence_request)
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(response.response, Present as i32);
 
     let _ = shutdown_sender.send(()).unwrap();
 }
