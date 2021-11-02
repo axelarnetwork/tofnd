@@ -19,6 +19,28 @@ pub fn new_service(kv_manager: KvManager) -> impl proto::multisig_server::Multis
 
 #[tonic::async_trait]
 impl proto::multisig_server::Multisig for MultisigService {
+    async fn key_presence(
+        &self,
+        request: tonic::Request<proto::KeyPresenceRequest>,
+    ) -> Result<Response<proto::KeyPresenceResponse>, Status> {
+        let request = request.into_inner();
+
+        let response = match self.handle_key_presence(request).await {
+            Ok(res) => {
+                info!("Key presence check completed succesfully!");
+                res
+            }
+            Err(err) => {
+                error!("Unable to complete key presence check: {}", err);
+                proto::key_presence_response::Response::Fail
+            }
+        };
+
+        Ok(Response::new(proto::KeyPresenceResponse {
+            response: response as i32,
+        }))
+    }
+
     async fn keygen(
         &self,
         request: tonic::Request<proto::KeygenRequest>,
