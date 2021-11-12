@@ -47,7 +47,7 @@ jobs:
 
       - name: Push to DockerHub (release)
         run: |
-          docker tag axelar/tofnd:latest axelarnet/tofnd${{ github.event.inputs.tag }}
+          docker tag axelar/tofnd:latest axelarnet/tofnd:${{ github.event.inputs.tag }}
           docker push axelarnet/tofnd:${{ github.event.inputs.tag }}
 
       - name: Upload binaries to release
