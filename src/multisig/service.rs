@@ -78,7 +78,7 @@ impl proto::multisig_server::Multisig for MultisigService {
         let result = match self.handle_sign(&request).await {
             Ok(pub_key) => {
                 info!(
-                    "[{}] Multisig sign [{}] completed",
+                    "[{}] Multisig sign with key [{}] completed",
                     request.party_uid, request.key_uid
                 );
                 proto::sign_response::SignResponse::Signature(pub_key)
