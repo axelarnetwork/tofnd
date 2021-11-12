@@ -49,14 +49,14 @@ impl proto::multisig_server::Multisig for MultisigService {
         let result = match self.handle_keygen(&request).await {
             Ok(pub_key) => {
                 info!(
-                    "[{}] Multisig keygen [{}] completed",
+                    "[{}] Multisig Keygen with key id [{}] completed",
                     request.party_uid, request.key_uid
                 );
                 proto::keygen_response::KeygenResponse::PubKey(pub_key)
             }
             Err(err) => {
                 error!(
-                    "[{}] Multisig keygen [{}] failed: {}",
+                    "[{}] Multisig Keygen with key id [{}] failed: {}",
                     request.party_uid,
                     request.key_uid,
                     err.to_string()
@@ -78,16 +78,17 @@ impl proto::multisig_server::Multisig for MultisigService {
         let result = match self.handle_sign(&request).await {
             Ok(pub_key) => {
                 info!(
-                    "[{}] Multisig sign with key [{}] completed",
-                    request.party_uid, request.key_uid
+                    "[{}] Multisig Sign with key id [{}] and message [{:?}] completed",
+                    request.party_uid, request.key_uid, request.msg_to_sign,
                 );
                 proto::sign_response::SignResponse::Signature(pub_key)
             }
             Err(err) => {
                 error!(
-                    "[{}] Multisig sign with key [{}] failed: {}",
+                    "[{}] Multisig sign with key id [{}] and message [{:?}] failed: {}",
                     request.party_uid,
                     request.key_uid,
+                    request.msg_to_sign,
                     err.to_string()
                 );
                 proto::sign_response::SignResponse::Error(err.to_string())
