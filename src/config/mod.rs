@@ -1,4 +1,4 @@
-use clap::{App, Arg};
+use clap::{crate_version, App, Arg};
 
 // error handling
 use crate::{encrypted_sled::PasswordMethod, mnemonic::Cmd, TofndResult};
@@ -47,6 +47,7 @@ pub fn parse_args() -> TofndResult<Config> {
 
     let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
+        .version(crate_version!())
         .arg(
             Arg::with_name("port")
                 .long("port")
