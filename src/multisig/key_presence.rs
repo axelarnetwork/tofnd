@@ -18,19 +18,10 @@ impl MultisigService {
         // check if mnemonic is available
         let _ = self.kv_manager.seed().await?;
 
-        // check if requested key exists
-        if self.kv_manager.kv().exists(&request.key_uid).await? {
-            info!(
-                "Found session-id {} in kv store during multisig key presence check",
-                request.key_uid
-            );
-            Ok(proto::key_presence_response::Response::Present)
-        } else {
-            info!(
-                "Did not find session-id {} in kv store during multisig key presence check",
-                request.key_uid
-            );
-            Ok(proto::key_presence_response::Response::Absent)
-        }
+        info!(
+            "[{}] Executing key presence check for multisig",
+            request.key_uid
+        );
+        Ok(proto::key_presence_response::Response::Present)
     }
 }
