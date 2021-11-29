@@ -27,7 +27,7 @@ impl Gg20Service {
     pub(super) async fn handle_sign_init(
         &self,
         in_stream: &mut tonic::Streaming<proto::MessageIn>,
-        mut out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
+        out_stream: &mut mpsc::UnboundedSender<Result<proto::MessageOut, Status>>,
         sign_span: Span,
     ) -> TofndResult<(SignInitSanitized, PartyInfo)> {
         let msg_type = in_stream
@@ -47,7 +47,7 @@ impl Gg20Service {
             Ok(value) => value.try_into()?,
             Err(err) => {
                 // if no such session id exists, send a message to client that indicates that recovery is needed and stop sign
-                Self::send_kv_store_failure(&mut out_stream)?;
+                Self::send_kv_store_failure(out_stream)?;
                 let err = anyhow!("Unable to find session-id {} in kv store. Issuing share recovery and exit sign {:?}", sign_init.key_uid, err);
                 return Err(err);
             }

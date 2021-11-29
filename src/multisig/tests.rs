@@ -16,11 +16,8 @@ use tracing_test::traced_test;
 use std::convert::TryInto;
 
 use crate::proto::{
-    key_presence_response::Response::{Absent, Present},
-    keygen_response::KeygenResponse,
-    multisig_client::MultisigClient,
-    multisig_server::MultisigServer,
-    sign_response::SignResponse,
+    key_presence_response::Response::Present, keygen_response::KeygenResponse,
+    multisig_client::MultisigClient, multisig_server::MultisigServer, sign_response::SignResponse,
     KeyPresenceRequest, KeygenRequest, SignRequest,
 };
 
@@ -98,7 +95,7 @@ fn to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
 
 #[traced_test]
 #[tokio::test]
-async fn test_multisig() {
+async fn test_multisig_keygen_sign() {
     let key = "multisig key";
     let (mut client, shutdown_sender) = spin_test_service_and_client().await;
 
@@ -129,19 +126,48 @@ async fn test_multisig() {
 
 #[traced_test]
 #[tokio::test]
-async fn test_tofn_keygen_multisig_fail() {
-    let key = "k"; // too small key
+async fn test_multisig_only_sign() {
+    let key = "multisig key";
     let (mut client, shutdown_sender) = spin_test_service_and_client().await;
 
-    let request = KeygenRequest::new(key);
-    let response = client.keygen(request).await.unwrap().into_inner();
+    let request = SignRequest::new(key);
+    let response = client.sign(request).await.unwrap().into_inner();
+    let _ = match response.sign_response.unwrap() {
+        SignResponse::Signature(signature) => signature,
+        SignResponse::Error(err) => {
+            panic!("Got error from sign: {}", err)
+        }
+    };
 
-    if let KeygenResponse::Error(err) = response.clone().keygen_response.unwrap() {
+    let _ = shutdown_sender.send(()).unwrap();
+}
+
+#[traced_test]
+#[tokio::test]
+async fn test_multisig_short_key_fail() {
+    let key = "k"; // too short key
+    let (mut client, shutdown_sender) = spin_test_service_and_client().await;
+
+    let keygen_request = KeygenRequest::new(key);
+    let keygen_response = client.keygen(keygen_request).await.unwrap().into_inner();
+
+    if let KeygenResponse::Error(err) = keygen_response.clone().keygen_response.unwrap() {
         error!("{}", err);
     }
     assert!(matches!(
-        response.keygen_response.unwrap(),
+        keygen_response.keygen_response.unwrap(),
         KeygenResponse::Error(_)
+    ));
+
+    let sign_request = SignRequest::new(key);
+    let sign_response = client.sign(sign_request).await.unwrap().into_inner();
+
+    if let SignResponse::Error(err) = sign_response.clone().sign_response.unwrap() {
+        error!("{}", err);
+    }
+    assert!(matches!(
+        sign_response.sign_response.unwrap(),
+        SignResponse::Error(_)
     ));
 
     let _ = shutdown_sender.send(()).unwrap();
@@ -149,79 +175,14 @@ async fn test_tofn_keygen_multisig_fail() {
 
 #[traced_test]
 #[tokio::test]
-async fn test_tofnd_keygen_multisig_fail() {
+async fn test_multisig_truncated_msg_fail() {
     let key = "key-uid";
     let (mut client, shutdown_sender) = spin_test_service_and_client().await;
-
-    let request = KeygenRequest::new(key);
-    let response = client.keygen(request.clone()).await.unwrap().into_inner();
-    assert!(matches!(
-        response.keygen_response.unwrap(),
-        KeygenResponse::PubKey(_)
-    ));
-
-    // try to execute same keygen again
-    let response = client.keygen(request).await.unwrap().into_inner();
-    if let KeygenResponse::Error(err) = response.clone().keygen_response.unwrap() {
-        error!("{}", err);
-    }
-    assert!(matches!(
-        response.keygen_response.unwrap(),
-        KeygenResponse::Error(_)
-    ));
-
-    let _ = shutdown_sender.send(()).unwrap();
-}
-
-#[traced_test]
-#[tokio::test]
-async fn test_tofn_multisig_sign_fail() {
-    let key = "key-uid";
-    let (mut client, shutdown_sender) = spin_test_service_and_client().await;
-
-    // keygen should be fine
-    let request = KeygenRequest::new(key);
-    let response = client.keygen(request.clone()).await.unwrap().into_inner();
-    assert!(matches!(
-        response.keygen_response.unwrap(),
-        KeygenResponse::PubKey(_)
-    ));
 
     // attempt sign with truncated msg digest
     let mut request = SignRequest::new(key);
     request.msg_to_sign = vec![32; 31];
     let response = client.sign(request.clone()).await.unwrap().into_inner();
-    if let SignResponse::Error(err) = response.clone().sign_response.unwrap() {
-        error!("{}", err);
-    }
-    assert!(matches!(
-        response.sign_response.unwrap(),
-        SignResponse::Error(_)
-    ));
-
-    // attempt sign with an unkown key
-    let request = SignRequest::new("non-existing key");
-    let response = client.sign(request.clone()).await.unwrap().into_inner();
-    if let SignResponse::Error(err) = response.clone().sign_response.unwrap() {
-        error!("{}", err);
-    }
-    assert!(matches!(
-        response.sign_response.unwrap(),
-        SignResponse::Error(_)
-    ));
-
-    let _ = shutdown_sender.send(()).unwrap();
-}
-
-#[traced_test]
-#[tokio::test]
-async fn test_kv_value_fail() {
-    let (mut client, shutdown_sender) = spin_test_service_and_client().await;
-
-    // attempt to get mnemonic value; this should fail because of different value type
-    let request = SignRequest::new("mnemonic");
-    let response = client.sign(request.clone()).await.unwrap().into_inner();
-
     if let SignResponse::Error(err) = response.clone().sign_response.unwrap() {
         error!("{}", err);
     }
@@ -236,33 +197,12 @@ async fn test_kv_value_fail() {
 #[traced_test]
 #[tokio::test]
 async fn test_key_presence() {
-    let key = "key_uid";
     let (mut client, shutdown_sender) = spin_test_service_and_client().await;
 
-    // request a non-existing key
     let presence_request = KeyPresenceRequest {
-        key_uid: key.to_string(),
-    };
-    let response = client
-        .key_presence(presence_request.clone())
-        .await
-        .unwrap()
-        .into_inner();
-    assert_eq!(response.response, Absent as i32);
-
-    // generate key reqeust
-    let keygen_request = KeygenRequest::new(key);
-    let response = client.keygen(keygen_request).await.unwrap().into_inner();
-
-    // generate key
-    let _ = match response.keygen_response.unwrap() {
-        KeygenResponse::PubKey(pub_key) => pub_key,
-        KeygenResponse::Error(err) => {
-            panic!("Got error from keygen: {}", err);
-        }
+        key_uid: "key_uid".to_string(),
     };
 
-    // request existing key
     let response = client
         .key_presence(presence_request)
         .await
