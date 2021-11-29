@@ -1,6 +1,5 @@
 //! This module handles the key_presence gRPC.
 //! Request includes [proto::message_in::Data::KeyPresenceRequest] struct and encrypted recovery info.
-//! The recovery info is decrypted by party's mnemonic seed and saved in the KvStore.
 
 use super::service::MultisigService;
 
@@ -18,6 +17,9 @@ impl MultisigService {
         // check if mnemonic is available
         let _ = self.kv_manager.seed().await?;
 
+        // key presence for multisig always returns `Present`.
+        // this is done in order to not break compatibility with axelar-core
+        // TODO: better handling for multisig key presence.
         info!(
             "[{}] Executing key presence check for multisig",
             request.key_uid
