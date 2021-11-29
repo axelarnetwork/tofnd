@@ -4,7 +4,7 @@
 use super::service::MultisigService;
 
 // logging
-use tracing::info;
+use tracing::debug;
 
 // error handling
 use crate::{proto, TofndResult};
@@ -20,8 +20,8 @@ impl MultisigService {
         // key presence for multisig always returns `Present`.
         // this is done in order to not break compatibility with axelar-core
         // TODO: better handling for multisig key presence.
-        info!(
-            "[{}] Executing key presence check for multisig",
+        debug!(
+            "[{}] key presence check for multisig always return Present",
             request.key_uid
         );
         Ok(proto::key_presence_response::Response::Present)

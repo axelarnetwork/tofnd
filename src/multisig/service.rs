@@ -27,7 +27,7 @@ impl proto::multisig_server::Multisig for MultisigService {
 
         let response = match self.handle_key_presence(request).await {
             Ok(res) => {
-                info!("Key presence check completed succesfully!");
+                info!("Key presence check completed succesfully");
                 res
             }
             Err(err) => {
