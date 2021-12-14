@@ -48,4 +48,4 @@ jobs:
           secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           region: us-east-2
           local-image: axelar/tofnd
-          image: tofnd:${{ steps.set-tag.outputs.TAG }}
+          image: tofnd:${{ steps.set-tag.outputs.TAG }}, tofnd:${{ github.sha }}
