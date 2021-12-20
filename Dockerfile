@@ -11,9 +11,6 @@ WORKDIR /tofnd
 COPY ./Cargo.toml .
 COPY ./Cargo.lock .
 
-# pacify ssh: add github.com to known_hosts
-RUN mkdir -p -m 0600 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-
 # build dependencies separately
 RUN mkdir src && echo 'fn main() {}' > src/main.rs
 RUN --mount=type=ssh cargo build --release
@@ -37,7 +34,8 @@ RUN --mount=type=ssh if [ "$features" = "default" ]; then \
   fi
 
 FROM debian:buster-slim as runner
-
+RUN addgroup --system axelard && adduser --system --ingroup axelard axelard
+USER axelard
 COPY --from=builder /tofnd/target/release/tofnd /usr/local/bin
 
 COPY ./entrypoint.sh /

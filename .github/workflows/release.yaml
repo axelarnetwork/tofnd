@@ -32,6 +32,23 @@ jobs:
           WITH_V: true
           DRY_RUN: true
 
+      - id: read_toml
+        uses: SebRollen/toml-action@v1.0.0
+        with:
+          file: 'Cargo.toml'
+          field: 'package.version'
+
+      - name: match toml with tag
+        run: |
+          new_tag=${{steps.release.outputs.new_tag}}
+          new_tag="${new_tag:1}"
+          if [ "${{steps.read_toml.outputs.value}}" != "$new_tag" ]; then
+            echo "New Release Tag is $new_tag"
+            echo "Cargo.toml Tag is ${{steps.read_toml.outputs.value}}"
+            echo "Update Cargo.toml and Cargo.lock and try again"
+            exit 1
+          fi
+
       - id: parsed-release
         uses: booxmedialtd/ws-action-parse-semver@v1
         with:
