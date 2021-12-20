@@ -34,7 +34,7 @@ RUN --mount=type=ssh if [ "$features" = "default" ]; then \
   fi
 
 FROM debian:buster-slim as runner
-RUN addgroup --system axelard && adduser --system --ingroup axelard axelard
+RUN addgroup --system --gid 1001 axelard && adduser --system --uid 1000 --ingroup axelard axelard
 USER axelard
 COPY --from=builder /tofnd/target/release/tofnd /usr/local/bin
 
