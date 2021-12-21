@@ -18,7 +18,7 @@ import_mnemonic() {
 
     # check if import file exists
     if [ ! -f "$IMPORT_PATH" ]; then \
-        echo "No import file found at $IMPORT_PATH" 
+        echo "No import file found at $IMPORT_PATH"
         return $ERR
     fi
 
@@ -44,8 +44,9 @@ export_mnemonic() {
     return $OK
 }
 
-# TODO: get actual password from user. See https://github.com/axelarnetwork/axelarate/issues/269.
-PASSWORD=""
+# Get password from env var
+EMPTY_STRING=""
+PASSWORD="${PASSWORD:-$EMPTY_STRING}"
 
 # gather user's args
 ARGS=""
@@ -65,15 +66,15 @@ ARGS=${UNSAFE:+"${ARGS} --unsafe"}
 # check mnemonic arg
 if [ -n "${MNEMONIC_CMD}" ]; then \
 
-    case ${MNEMONIC_CMD} in 
-        # auto: try to set up tofnd and then spin up tofnd with the existing mnemonic. 
-        # Order of set up: 1) import mnemonic, 2) create mnemonic. 
+    case ${MNEMONIC_CMD} in
+        # auto: try to set up tofnd and then spin up tofnd with the existing mnemonic.
+        # Order of set up: 1) import mnemonic, 2) create mnemonic.
         auto)
             echo "Trying import" && import_mnemonic \
             || (echo "... skipping. Trying to create" && create_mnemonic) \
             || echo "... skipping"
             ;;
-         
+
         existing)
             ;;
 
