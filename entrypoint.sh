@@ -8,7 +8,7 @@ ERR=1
 # create: create a new mnemonic, export it to a file under the name "import" and continue
 create_mnemonic() {
     echo "Creating mnemonic ..."
-    ${PASSWORD} | tofnd ${ARGS} -m create && mv $EXPORT_PATH $IMPORT_PATH && echo "... ok" && return $OK
+    (echo ${PASSWORD} | tofnd ${ARGS} -m create) && mv $EXPORT_PATH $IMPORT_PATH && echo "... ok" && return $OK
     return $ERR
 }
 
