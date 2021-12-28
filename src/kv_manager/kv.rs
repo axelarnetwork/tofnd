@@ -16,7 +16,7 @@ use std::{fmt::Debug, path::PathBuf};
 use tokio::sync::{mpsc, oneshot};
 
 // logging
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 #[derive(Clone)]
 pub struct Kv<V> {
@@ -122,7 +122,10 @@ pub fn get_kv_store(
     password: Password,
 ) -> encrypted_sled::Result<encrypted_sled::Db> {
     // create/open DB
-    let kv = encrypted_sled::Db::open(db_name, password)?;
+    let kv = encrypted_sled::Db::open(db_name, password).map_err(|err| {
+        error!("{}", err);
+        err
+    })?;
 
     // log whether the DB was newly created or not
     if kv.was_recovered() {
