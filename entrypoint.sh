@@ -8,6 +8,13 @@ ERR=1
 # create: create a new mnemonic, export it to a file under the name "import" and continue
 create_mnemonic() {
     echo "Creating mnemonic ..."
+
+    # check if mnemonic path exists
+    if [ -f "$TOFND_HOME/kvstore/kv/db" ]; then
+        echo "Skipping create because a kv-store was found at $TOFND_HOME"
+        return $ERR
+    fi
+
     (echo ${PASSWORD} | tofnd ${ARGS} -m create) && mv $EXPORT_PATH $IMPORT_PATH && echo "... ok" && return $OK
     return $ERR
 }
@@ -16,19 +23,21 @@ create_mnemonic() {
 import_mnemonic() {
     echo "Importing mnemonic ..."
 
-    # check if import file exists
+    if [ -f "$TOFND_HOME/kvstore/kv/db" ]; then
+        echo "Skipping import because a kv-store already exists at $TOFND_HOME"
+        return $ERR
+    fi
+
     if [ ! -f "$IMPORT_PATH" ]; then \
         echo "No import file found at $IMPORT_PATH"
         return $ERR
     fi
 
-    # check if password exists
     if [ -n "${NOPASSWORD}" ]; then \
         echo "No password"
         (cat $IMPORT_PATH | tofnd ${ARGS} -m import) || return $ERR
     else
         echo "With password"
-        # TODO: provide actual password here
         ((echo $PASSWORD && cat $IMPORT_PATH) | tofnd ${ARGS} -m import) || return $ERR
     fi
 
