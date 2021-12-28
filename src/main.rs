@@ -51,9 +51,10 @@ async fn main() -> TofndResult<()> {
     let cfg = parse_args()?;
 
     // immediately read an encryption password from stdin
-    let password = cfg.password_method.execute()?;
-
-    set_up_logs();
+    let password = cfg.password_method.execute().map_err(|err| {
+        error!("{}", err);
+        err
+    })?;
 
     // print config warnings
     #[cfg(feature = "malicious")]
