@@ -47,7 +47,16 @@ fn warn_for_unsafe_execution() {
 /// worker_threads defaults to the number of cpus on the system
 /// https://docs.rs/tokio/1.2.0/tokio/attr.main.html#multi-threaded-runtime
 #[tokio::main(flavor = "multi_thread")]
-async fn main() -> TofndResult<()> {
+async fn main() {
+    match real_main().await {
+        Ok(()) => std::process::exit(exitcode::OK),
+        Err(_) => std::process::exit(exitcode::USAGE),
+    };
+}
+
+async fn real_main() -> TofndResult<()> {
+    set_up_logs();
+
     let cfg = parse_args()?;
 
     // immediately read an encryption password from stdin
