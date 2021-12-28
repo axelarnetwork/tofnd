@@ -5,11 +5,14 @@ use tokio_stream::wrappers::TcpListenerStream;
 mod encrypted_sled;
 mod gg20;
 mod kv_manager;
+use kv_manager::KvManager;
+mod config;
 mod mnemonic;
 mod multisig;
+use config::parse_args;
 
 // gather logs; need to set RUST_LOG=info
-use tracing::{info, span, Level};
+use tracing::{error, info, span, warn, Level};
 
 // error handling
 pub type TofndResult<Success> = anyhow::Result<Success>;
@@ -18,11 +21,6 @@ pub type TofndResult<Success> = anyhow::Result<Success>;
 pub mod proto {
     tonic::include_proto!("tofnd");
 }
-
-mod config;
-use config::parse_args;
-
-use crate::kv_manager::KvManager;
 
 fn set_up_logs() {
     // enable only tofnd and tofn debug logs - disable serde, tonic, tokio, etc.
@@ -39,12 +37,10 @@ fn set_up_logs() {
 
 #[cfg(feature = "malicious")]
 pub fn warn_for_malicious_build() {
-    use tracing::warn;
     warn!("WARNING: THIS tofnd BINARY AS COMPILED IN 'MALICIOUS' MODE.  MALICIOUS BEHAVIOUR IS INTENTIONALLY INSERTED INTO SOME MESSAGES.  THIS BEHAVIOUR WILL CAUSE OTHER tofnd PROCESSES TO IDENTIFY THE CURRENT PROCESS AS MALICIOUS.");
 }
 
 fn warn_for_unsafe_execution() {
-    use tracing::warn;
     warn!("WARNING: THIS tofnd BINARY IS NOT SAFE: SAFE PRIMES ARE NOT USED BECAUSE '--unsafe' FLAG IS ENABLED.  USE '--unsafe' FLAG ONLY FOR TESTING.");
 }
 
