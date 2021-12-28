@@ -17,7 +17,7 @@ use tofn::gg20::keygen::SecretRecoveryKey;
 
 use rpassword::read_password;
 use std::convert::TryInto;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 // default key to store mnemonic
 const MNEMONIC_KEY: &str = "mnemonic";
@@ -123,7 +123,7 @@ impl KvManager {
             },
             // if we cannot reserve, return failure
             Err(err) => {
-                error!("Cannot reserve mnemonic: {:?}", err);
+                warn!("Cannot reserve mnemonic: {:?}", err);
                 Err(KvErr(err))
             }
         }
