@@ -15,7 +15,7 @@ create_mnemonic() {
         return $ERR
     fi
 
-    (echo ${PASSWORD} | tofnd ${ARGS} -m create) && mv $EXPORT_PATH $IMPORT_PATH && echo "... ok" && return $OK
+    (echo ${PASSWORD} | tofnd ${ARGS} -m create) && echo "... ok" && return $OK
     return $ERR
 }
 
@@ -48,7 +48,7 @@ import_mnemonic() {
 # export: export the mnemonic to $EXPORT_PATH, move it to $IMPORT_PATH and exit
 export_mnemonic() {
     echo "Exporting mnemonic ..."
-    echo ${PASSWORD} | tofnd ${ARGS} -m export && mv $EXPORT_PATH $IMPORT_PATH || return $ERR
+    echo ${PASSWORD} | tofnd ${ARGS} -m export || return $ERR
     echo "... ok"
     return $OK
 }
@@ -80,7 +80,7 @@ if [ -n "${MNEMONIC_CMD}" ]; then \
         # Order of set up: 1) import mnemonic, 2) create mnemonic.
         auto)
             echo "Trying import" && import_mnemonic \
-            || (echo "... skipping. Trying to create" && create_mnemonic) \
+            || (echo "... skipping. Trying to create" && create_mnemonic && mv $EXPORT_PATH $IMPORT_PATH) \
             || echo "... skipping"
             ;;
 
