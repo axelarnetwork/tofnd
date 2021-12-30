@@ -44,10 +44,14 @@ impl FileIo {
         // delegate zeroization for entropy; no need to worry about mnemonic, it is cleaned automatically
         let mnemonic = bip39_from_entropy(entropy)?;
         let phrase = mnemonic.phrase();
+
         // if there is an existing exported file raise an error
         self.check_if_not_exported()?;
+
         let mut file = std::fs::File::create(&self.export_path())?;
         file.write_all(phrase.as_bytes())?;
+        file.sync_all()?;
+
         info!("Mnemonic written in file {:?}", &self.export_path());
         Ok(())
     }

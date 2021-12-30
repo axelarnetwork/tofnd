@@ -5,30 +5,39 @@ set -e
 OK=0
 ERR=1
 
-# create: create a new mnemonic, export it to a file under the name "import" and continue
+# create: create a new mnemonic and export it to $EXPORT_PATH
 create_mnemonic() {
     echo "Creating mnemonic ..."
-    (echo ${PASSWORD} | tofnd ${ARGS} -m create) && mv $EXPORT_PATH $IMPORT_PATH && echo "... ok" && return $OK
+
+    # check if mnemonic path exists
+    if [ -f "$TOFND_HOME/kvstore/kv/db" ]; then
+        echo "Skipping create because a kv-store was found at $TOFND_HOME"
+        return $ERR
+    fi
+
+    (echo ${PASSWORD} | tofnd ${ARGS} -m create) && echo "... ok" && return $OK
     return $ERR
 }
 
-# import: import a mnemonic from $IMPORT_PATH and continue
+# import: import a mnemonic from $IMPORT_PATH
 import_mnemonic() {
     echo "Importing mnemonic ..."
 
-    # check if import file exists
+    if [ -f "$TOFND_HOME/kvstore/kv/db" ]; then
+        echo "Skipping import because a kv-store already exists at $TOFND_HOME"
+        return $ERR
+    fi
+
     if [ ! -f "$IMPORT_PATH" ]; then \
         echo "No import file found at $IMPORT_PATH"
         return $ERR
     fi
 
-    # check if password exists
     if [ -n "${NOPASSWORD}" ]; then \
         echo "No password"
         (cat $IMPORT_PATH | tofnd ${ARGS} -m import) || return $ERR
     else
         echo "With password"
-        # TODO: provide actual password here
         ((echo $PASSWORD && cat $IMPORT_PATH) | tofnd ${ARGS} -m import) || return $ERR
     fi
 
@@ -36,10 +45,10 @@ import_mnemonic() {
     return $OK
 }
 
-# export: export the mnemonic to $EXPORT_PATH, move it to $IMPORT_PATH and exit
+# export: export the mnemonic to $EXPORT_PATH
 export_mnemonic() {
     echo "Exporting mnemonic ..."
-    echo ${PASSWORD} | tofnd ${ARGS} -m export && mv $EXPORT_PATH $IMPORT_PATH || return $ERR
+    echo ${PASSWORD} | tofnd ${ARGS} -m export || return $ERR
     echo "... ok"
     return $OK
 }
@@ -69,9 +78,10 @@ if [ -n "${MNEMONIC_CMD}" ]; then \
     case ${MNEMONIC_CMD} in
         # auto: try to set up tofnd and then spin up tofnd with the existing mnemonic.
         # Order of set up: 1) import mnemonic, 2) create mnemonic.
+        # If 2) then move the mnemonic to $IMPORT_PATH so that tofnd will not complain
         auto)
             echo "Trying import" && import_mnemonic \
-            || (echo "... skipping. Trying to create" && create_mnemonic) \
+            || (echo "... skipping. Trying to create" && create_mnemonic && mv $EXPORT_PATH $IMPORT_PATH) \
             || echo "... skipping"
             ;;
 
