@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:experimental
 
-FROM rust:1.51 as builder
+FROM rust:1.57 as builder
 
 RUN set -ex \
   && apt-get update \
