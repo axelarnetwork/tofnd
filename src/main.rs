@@ -30,7 +30,6 @@ fn set_up_logs() {
         .with_env_filter("tofnd=debug,tofn=debug")
         .json()
         .with_ansi(atty::is(atty::Stream::Stdout))
-        .without_time()
         .with_target(false)
         .with_current_span(false)
         .flatten_event(true) // make logs complient with datadog
