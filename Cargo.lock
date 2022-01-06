@@ -1173,6 +1173,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "matchers"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
+dependencies = [
+ "regex-automata",
+]
+
+[[package]]
 name = "matches"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2156,7 +2165,7 @@ dependencies = [
  "tonic",
  "tonic-build",
  "tracing",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.5",
  "tracing-test",
  "zeroize",
 ]
@@ -2384,7 +2393,28 @@ dependencies = [
  "ansi_term",
  "chrono",
  "lazy_static",
- "matchers",
+ "matchers 0.0.1",
+ "regex",
+ "serde",
+ "serde_json",
+ "sharded-slab",
+ "smallvec",
+ "thread_local",
+ "tracing",
+ "tracing-core",
+ "tracing-log",
+ "tracing-serde",
+]
+
+[[package]]
+name = "tracing-subscriber"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d81bfa81424cc98cb034b837c985b7a290f592e5b4322f353f94a0ab0f9f594"
+dependencies = [
+ "ansi_term",
+ "lazy_static",
+ "matchers 0.1.0",
  "regex",
  "serde",
  "serde_json",
@@ -2405,7 +2435,7 @@ checksum = "a3b48778c2d401c6a7fcf38a0e3c55dc8e8e753cbd381044a8cdb6fd69a29f53"
 dependencies = [
  "lazy_static",
  "tracing-core",
- "tracing-subscriber",
+ "tracing-subscriber 0.2.25",
  "tracing-test-macro",
 ]
 
