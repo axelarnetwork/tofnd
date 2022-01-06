@@ -49,15 +49,15 @@ pub fn parse_args() -> TofndResult<Config> {
         .about("A threshold signature scheme daemon")
         .version(crate_version!())
         .arg(
-            Arg::with_name("port")
+            Arg::new("port")
                 .long("port")
-                .short("p")
+                .short('p')
                 .required(false)
                 .default_value(port),
         )
         .arg(
             // TODO: change to something like `--unsafe-primes`
-            Arg::with_name("unsafe")
+            Arg::new("unsafe")
                 .help(
                     "Use unsafe primes for generation of Pailler encryption keys. (default: deactivated) **Security warning:** This option is intented for use only in tests.  Do not use this option to secure real value.",
                 )
@@ -67,7 +67,7 @@ pub fn parse_args() -> TofndResult<Config> {
                 .display_order(0),
         )
         .arg(
-            Arg::with_name("no-password")
+            Arg::new("no-password")
                 .help(
                     "Skip providing a password. (default: disabled) **Security warning:** If this option is set then on-disk storage is encrypted with a default (and insecure) password.",
                 )
@@ -77,17 +77,17 @@ pub fn parse_args() -> TofndResult<Config> {
                 .display_order(0),
         )
         .arg(
-            Arg::with_name("mnemonic")
+            Arg::new("mnemonic")
                 .long("mnemonic")
-                .short("m")
+                .short('m')
                 .required(false)
                 .default_value(DEFAULT_MNEMONIC_CMD)
                 .possible_values(&AVAILABLE_MNEMONIC_CMDS),
         )
         .arg(
-            Arg::with_name("directory")
+            Arg::new("directory")
                 .long("directory")
-                .short("d")
+                .short('d')
                 .required(false)
                 .env(TOFND_HOME_ENV_VAR)
                 .default_value(DEFAULT_PATH_ROOT),
@@ -95,15 +95,15 @@ pub fn parse_args() -> TofndResult<Config> {
 
     #[cfg(feature = "malicious")]
     let app = app.subcommand(
-        SubCommand::with_name("malicious")
+        App::new("malicious")
             .about("Select malicious behaviour")
             .arg(
-                Arg::with_name("behaviour")
+                Arg::new("behaviour")
                     .required(true)
                     .possible_values(&AVAILABLE_BEHAVIOURS)
                     .help("malicious behaviour"),
             )
-            .arg(Arg::with_name("victim").required(true).help("victim")),
+            .arg(Arg::new("victim").required(true).help("victim")),
     );
     #[cfg(feature = "malicious")]
     let behaviours = get_behaviour_matches(app.clone())?;

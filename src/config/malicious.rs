@@ -13,7 +13,6 @@ use tofn::{
 use clap::App;
 
 pub(super) type Behaviours = crate::gg20::service::malicious::Behaviours;
-pub(super) type SubCommand<'a> = clap::SubCommand<'a>;
 
 pub(super) const AVAILABLE_BEHAVIOURS: [&str; 20] = [
     "Honest",
