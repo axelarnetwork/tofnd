@@ -33,7 +33,7 @@ RUN --mount=type=ssh if [ "$features" = "default" ]; then \
   cargo install --locked --features ${features} --path .; \
   fi
 
-FROM debian:buster-slim as runner
+FROM debian:bullseye-slim as runner
 RUN addgroup --system --gid 1001 axelard && adduser --system --uid 1000 --ingroup axelard axelard
 RUN mkdir /.tofnd && chown axelard /.tofnd
 USER axelard
