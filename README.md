@@ -10,7 +10,7 @@ git clone git@github.com:axelarnetwork/tofnd.git --recursive
 ```
 
 `tofnd` uses the [hyperium/tonic](https://github.com/hyperium/tonic) Rust gRPC implementation, which requires:
-* Rust `1.39` or greater for the `async_await` feature
+* Rust `1.56` or greater
     ```
     $ rustup update
     ```
@@ -22,6 +22,9 @@ git clone git@github.com:axelarnetwork/tofnd.git --recursive
 # Running the server
 
 ```
+# install tofnd at ./target/release/tofnd
+$ cargo install --path . && cd ./target/release
+
 # init tofnd
 $ ./tofnd -m create
 
