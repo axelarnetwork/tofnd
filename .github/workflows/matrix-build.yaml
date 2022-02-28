@@ -27,6 +27,16 @@ jobs:
           fetch-depth: '0'
           submodules: recursive
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v4
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
       - name: Install SSH key
         uses: webfactory/ssh-agent@v0.4.1
         with:
@@ -36,7 +46,38 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-      - name: build binaries  
+      - name: build binaries
+        working-directory: ./home/runner/work/tofnd  
         run: |
+          if [ "$RUNNER_OS" == "Linux" ]
+          then
+              OS="linux"
+          else
+              OS="darwin"
+          fi
+          ARCH="${{ matrix.arch }}"
           cargo install --path .
+          mv tofnd tofnd-"$OS"-"$ARCH"
 
+      - name: Sign Binaries
+        working-directory: ./home/runner/work/tofnd
+        env:
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]
+          then
+              OS="linux"
+          else
+              OS="darwin"
+          fi
+          ARCH="${{ matrix.arch }}"
+          gpg --armor --detach-sign  tofnd-"$OS"-"$ARCH"
+
+      - name: Create zip and sha256 files
+        working-directory: ./home/runner/work/tofnd
+        run: |
+          for i in `ls | grep -v .asc`
+          do
+            shasum -a 256 $i | awk '{print $1}' > $i.sha256
+            zip $i.zip $i
+            shasum -a 256 $i.zip | awk '{print $1}' > $i.zip.sha256
+          done
