@@ -6,11 +6,13 @@ on:
       - feat/matrix-build
 jobs:
   release:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os:
-          - ubuntu-18.04
-    runs-on: ${{ matrix.os }}
+        os: [ubuntu-18.04, macos-latest]
+        arch: [amd64, arm64, arm]
+        exclude:
+          - {os: "macos-latest", arch: "arm"}
 
     permissions:
       contents: write
@@ -18,17 +20,23 @@ jobs:
       id-token: write
 
     steps:
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@main
 
-      - name: Import GPG key
-        id: import_gpg
-        uses: crazy-max/ghaction-import-gpg@v4
+      - name: Checkout code
+        uses: actions/checkout@v2
         with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          fetch-depth: '0'
+          submodules: recursive
 
       - name: Install SSH key
         uses: webfactory/ssh-agent@v0.4.1
         with:
           ssh-private-key: ${{ secrets.CICD_RSA_KEY }}
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+      - name: build binaries  
+        run: |
+          cargo install --path .
+
