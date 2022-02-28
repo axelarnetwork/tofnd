@@ -67,7 +67,9 @@ jobs:
               OS="darwin"
           fi
           ARCH="${{ matrix.arch }}"
-          gpg --armor --detach-sign  /home/runner/work/tofnd/tofnd-"$OS"-"$ARCH"
+          cd /home/runner/work/tofnd
+          ls
+          gpg --armor --detach-sign  tofnd-"$OS"-"$ARCH"
 
       - name: Create zip and sha256 files
         run: |
