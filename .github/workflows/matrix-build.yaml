@@ -1,6 +1,9 @@
 name: Test build matrix
 
 on:
+  push:
+    branches:
+      - feat/matrix-build
   workflow_dispatch:
     inputs:
       tag:
