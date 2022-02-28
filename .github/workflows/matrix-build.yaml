@@ -1,9 +1,8 @@
 name: Test build matrix
 
-on:
-  push:
-    branches:
-      - feat/matrix-build
+on: 
+  workflow_dispatch:
+
 jobs:
   release:
     strategy:
@@ -12,5 +11,5 @@ jobs:
           - ubuntu-18.04
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code and submodule
+      - name: test
         run: echo "pipeline creation"
