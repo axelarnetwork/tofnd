@@ -61,7 +61,6 @@ jobs:
 
       - name: Sign Binaries
         working-directory: ./home/runner/work/tofnd
-        env:
         run: |
           if [ "$RUNNER_OS" == "Linux" ]
           then
