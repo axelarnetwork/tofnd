@@ -49,6 +49,7 @@ lazy_static::lazy_static! {
 const SLEEP_TIME: u64 = 1;
 const MAX_TRIES: u32 = 3;
 pub const DEFAULT_TEST_IP: &str = "0.0.0.0";
+pub const DEFAULT_TEST_PORT: u16 = 0; // use port 0 and let the OS decide
 
 struct TestCase {
     uid_count: usize,

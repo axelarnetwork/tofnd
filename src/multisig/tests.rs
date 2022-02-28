@@ -1,5 +1,8 @@
 use crate::{
-    addr, encrypted_sled::get_test_password, kv_manager::KvManager, tests::DEFAULT_TEST_IP,
+    addr,
+    encrypted_sled::get_test_password,
+    kv_manager::KvManager,
+    tests::{DEFAULT_TEST_IP, DEFAULT_TEST_PORT},
 };
 use tokio::{
     self,
@@ -40,9 +43,9 @@ async fn spin_test_service_and_client() -> (MultisigClient<Channel>, Sender<()>)
     let service = MultisigServer::new(service);
 
     // create incoming tcp server for service
-    let incoming = TcpListener::bind(addr(DEFAULT_TEST_IP, 0).unwrap())
+    let incoming = TcpListener::bind(addr(DEFAULT_TEST_IP, DEFAULT_TEST_PORT).unwrap())
         .await
-        .unwrap(); // use port 0 and let the OS decide
+        .unwrap();
 
     // create shutdown channels
     let (shutdown_sender, shutdown_receiver) = channel::<()>();

@@ -5,7 +5,7 @@
 
 use super::{
     mock::SenderReceiver, Deliverer, GrpcKeygenResult, GrpcSignResult, InitParty, Party,
-    DEFAULT_TEST_IP, MAX_TRIES,
+    DEFAULT_TEST_IP, DEFAULT_TEST_PORT, MAX_TRIES,
 };
 use crate::{
     addr,
@@ -54,9 +54,9 @@ impl TofndParty {
         // start server
         let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
 
-        let incoming = TcpListener::bind(addr(DEFAULT_TEST_IP, 0).unwrap())
+        let incoming = TcpListener::bind(addr(DEFAULT_TEST_IP, DEFAULT_TEST_PORT).unwrap())
             .await
-            .unwrap(); // use port 0 and let the OS decide
+            .unwrap();
         let server_addr = incoming.local_addr().unwrap();
         let server_ip = server_addr.ip();
         let server_port = server_addr.port();
