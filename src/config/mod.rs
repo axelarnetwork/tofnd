@@ -54,7 +54,7 @@ pub fn parse_args() -> TofndResult<Config> {
         .version(crate_version!())
         .arg(
             Arg::new("ip")
-                .long("ip address")
+                .long("address")
                 .short('a')
                 .required(false)
                 .default_value(ip),
