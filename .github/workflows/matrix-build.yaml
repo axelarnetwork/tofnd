@@ -56,7 +56,7 @@ jobs:
           fi
           ARCH="${{ matrix.arch }}"
           cargo install --path .
-          mv ./home/runner/work/tofnd/tofnd ./home/runner/work/tofnd/tofnd-"$OS"-"$ARCH"
+          mv /home/runner/work/tofnd/tofnd /home/runner/work/tofnd/tofnd-"$OS"-"$ARCH"
 
       - name: Sign Binaries
         run: |
@@ -67,11 +67,11 @@ jobs:
               OS="darwin"
           fi
           ARCH="${{ matrix.arch }}"
-          gpg --armor --detach-sign  ./home/runner/work/tofnd/tofnd-"$OS"-"$ARCH"
+          gpg --armor --detach-sign  /home/runner/work/tofnd/tofnd-"$OS"-"$ARCH"
 
       - name: Create zip and sha256 files
         run: |
-          cd ./home/runner/work/tofnd
+          cd /home/runner/work/tofnd
           for i in `ls | grep -v .asc`
           do
             shasum -a 256 $i | awk '{print $1}' > $i.sha256
