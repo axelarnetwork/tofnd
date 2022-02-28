@@ -47,7 +47,6 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
       - name: build binaries
-        working-directory: ./home/runner/work/tofnd  
         run: |
           if [ "$RUNNER_OS" == "Linux" ]
           then
@@ -57,10 +56,9 @@ jobs:
           fi
           ARCH="${{ matrix.arch }}"
           cargo install --path .
-          mv tofnd tofnd-"$OS"-"$ARCH"
+          mv ./home/runner/work/tofnd/tofnd ./home/runner/work/tofnd/tofnd-"$OS"-"$ARCH"
 
       - name: Sign Binaries
-        working-directory: ./home/runner/work/tofnd
         run: |
           if [ "$RUNNER_OS" == "Linux" ]
           then
@@ -69,11 +67,11 @@ jobs:
               OS="darwin"
           fi
           ARCH="${{ matrix.arch }}"
-          gpg --armor --detach-sign  tofnd-"$OS"-"$ARCH"
+          gpg --armor --detach-sign  ./home/runner/work/tofnd/tofnd-"$OS"-"$ARCH"
 
       - name: Create zip and sha256 files
-        working-directory: ./home/runner/work/tofnd
         run: |
+          cd ./home/runner/work/tofnd
           for i in `ls | grep -v .asc`
           do
             shasum -a 256 $i | awk '{print $1}' > $i.sha256
