@@ -56,7 +56,7 @@ jobs:
           fi
           ARCH="${{ matrix.arch }}"
           cargo install --locked --path .
-          mv /home/runner/.cargo/bin/tofnd-"$OS"-"$ARCH"
+          mv /home/runner/.cargo/bin/tofnd /home/runner/.cargo/bin/tofnd-"$OS"-"$ARCH"
 
       - name: Sign Binaries
         run: |
