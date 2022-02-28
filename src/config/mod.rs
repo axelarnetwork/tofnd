@@ -8,6 +8,7 @@ use anyhow::anyhow;
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 const DEFAULT_MNEMONIC_CMD: &str = "existing";
+const DEFAULT_IP: &str = "0.0.0.0";
 const DEFAULT_PORT: u16 = 50051;
 const AVAILABLE_MNEMONIC_CMDS: [&str; 4] = ["existing", "create", "import", "export"];
 
@@ -19,6 +20,7 @@ use malicious::*;
 // TODO: move to types.rs
 #[derive(Clone, Debug)]
 pub struct Config {
+    pub ip: String,
     pub port: u16,
     pub safe_keygen: bool,
     pub mnemonic_cmd: Cmd,
@@ -30,6 +32,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
+            ip: DEFAULT_IP.to_string(),
             port: DEFAULT_PORT,
             safe_keygen: true,
             mnemonic_cmd: Cmd::Existing,
@@ -43,11 +46,19 @@ impl Default for Config {
 
 pub fn parse_args() -> TofndResult<Config> {
     // need to use let to avoid dropping temporary value
+    let ip = &DEFAULT_IP.to_string();
     let port = &DEFAULT_PORT.to_string();
 
     let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
         .version(crate_version!())
+        .arg(
+            Arg::new("ip")
+                .long("ip address")
+                .short('a')
+                .required(false)
+                .default_value(ip),
+        )
         .arg(
             Arg::new("port")
                 .long("port")
@@ -110,6 +121,10 @@ pub fn parse_args() -> TofndResult<Config> {
 
     let matches = app.get_matches();
 
+    let ip = matches
+        .value_of("ip")
+        .ok_or_else(|| anyhow!("ip value"))?
+        .to_string();
     let port = matches
         .value_of("port")
         .ok_or_else(|| anyhow!("port value"))?
@@ -130,6 +145,7 @@ pub fn parse_args() -> TofndResult<Config> {
     };
 
     Ok(Config {
+        ip,
         port,
         safe_keygen,
         mnemonic_cmd,
