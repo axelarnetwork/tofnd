@@ -55,7 +55,7 @@ jobs:
               OS="darwin"
           fi
           ARCH="${{ matrix.arch }}"
-          cargo install--locked --path .
+          cargo install --locked --path .
           mv target/releases/tofnd target/releases/tofnd-"$OS"-"$ARCH"
 
       - name: Sign Binaries
