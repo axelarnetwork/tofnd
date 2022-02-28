@@ -56,7 +56,7 @@ jobs:
           fi
           ARCH="${{ matrix.arch }}"
           cargo install --locked --path .
-          mv /home/runner/.cargo/bin/tofnd /home/runner/.cargo/bin/tofnd-"$OS"-"$ARCH"
+          mv /home/runner/work/tofnd/tofnd/target/releases/tofnd /home/runner/work/tofnd/tofnd/target/releases/tofnd-"$OS"-"$ARCH"
 
       - name: Sign Binaries
         run: |
@@ -67,7 +67,7 @@ jobs:
               OS="darwin"
           fi
           ARCH="${{ matrix.arch }}"
-          gpg --armor --detach-sign  /home/runner/.cargo/bin/tofnd-"$OS"-"$ARCH"
+          gpg --armor --detach-sign  /home/runner/work/tofnd/tofnd/target/releases/tofnd-"$OS"-"$ARCH"
 
       - name: Create zip and sha256 files
         run: |
