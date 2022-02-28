@@ -1,7 +1,12 @@
 name: Test build matrix
 
-on: 
+on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Github tag to release binaries for (reusing same tag will overwrite previously released binaries)
+        required: true
+        default: latest
 
 jobs:
   release:
@@ -10,6 +15,36 @@ jobs:
         os:
           - ubuntu-18.04
     runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+
     steps:
-      - name: test
-        run: echo "pipeline creation"
+      - name: Validate tag
+        env:
+          SEMVER: ${{ github.event.inputs.tag }}
+        run: |
+          if [[ $SEMVER =~ v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3} ]]; then echo "Tag is okay" && exit 0; else echo "invalid tag" && exit 1; fi
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: '0'
+          ref: ${{ github.event.inputs.tag }}
+          submodules: recursive
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v4
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Install SSH key
+        uses: webfactory/ssh-agent@v0.4.1
+        with:
+          ssh-private-key: ${{ secrets.CICD_RSA_KEY }}
