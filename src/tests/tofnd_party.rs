@@ -4,7 +4,8 @@
 //       produces less friction in the code. Should implement a beeter solution soon.
 
 use super::{
-    mock::SenderReceiver, Deliverer, GrpcKeygenResult, GrpcSignResult, InitParty, Party, MAX_TRIES,
+    mock::SenderReceiver, Deliverer, GrpcKeygenResult, GrpcSignResult, InitParty, Party,
+    DEFAULT_TEST_IP, DEFAULT_TEST_PORT, MAX_TRIES,
 };
 use crate::{
     addr,
@@ -53,13 +54,17 @@ impl TofndParty {
         // start server
         let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
 
-        let incoming = TcpListener::bind(addr(0)).await.unwrap(); // use port 0 and let the OS decide
+        let incoming = TcpListener::bind(addr(DEFAULT_TEST_IP, DEFAULT_TEST_PORT).unwrap())
+            .await
+            .unwrap();
         let server_addr = incoming.local_addr().unwrap();
+        let server_ip = server_addr.ip();
         let server_port = server_addr.port();
         info!("new party bound to port [{:?}]", server_port);
 
         let cfg = Config {
             mnemonic_cmd,
+            ip: server_ip.to_string(),
             port: server_port,
             safe_keygen: false,
             tofnd_path: tofnd_path.to_string(),

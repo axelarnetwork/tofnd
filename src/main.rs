@@ -52,6 +52,7 @@ fn warn_for_unsafe_execution() {
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> TofndResult<()> {
     let cfg = parse_args()?;
+    let socket_address = addr(&cfg.ip, cfg.port)?;
 
     // immediately read an encryption password from stdin
     let password = cfg.password_method.execute()?;
@@ -69,7 +70,7 @@ async fn main() -> TofndResult<()> {
     let main_span = span!(Level::INFO, "main");
     let _enter = main_span.enter();
 
-    let incoming = TcpListener::bind(addr(cfg.port)).await?;
+    let incoming = TcpListener::bind(socket_address).await?;
     info!(
         "tofnd listen addr {:?}, use ctrl+c to shutdown",
         incoming.local_addr()?
@@ -101,8 +102,11 @@ async fn main() -> TofndResult<()> {
     Ok(())
 }
 
-fn addr(port: u16) -> SocketAddr {
-    SocketAddr::from(([0, 0, 0, 0], port)) // ipv4
+fn addr(ip: &str, port: u16) -> TofndResult<SocketAddr> {
+    let socket_addr = format!("{}:{}", ip, port);
+    socket_addr
+        .parse::<SocketAddr>()
+        .map_err(|err| anyhow::anyhow!(err))
 }
 
 // graceful shutdown https://hyper.rs/guides/server/graceful-shutdown/

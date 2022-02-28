@@ -89,6 +89,7 @@ FLAGS:
     -V, --version        Prints version information
 
 OPTIONS:
+    -a, --address <ip>              [default: 0.0.0.0]
     -d, --directory <directory>     [env: TOFND_HOME=]  [default: .tofnd]
     -m, --mnemonic <mnemonic>       [default: existing]  [possible values: existing, create, import, export]
     -p, --port <port>               [default: 50051]]
