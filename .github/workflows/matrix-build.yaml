@@ -48,11 +48,11 @@ jobs:
           fi
           ARCH="${{ matrix.arch }}"
           cargo install --locked --path .
-          mkdir tofnbin
+          mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-$ARCH" 
 
       - name: Test tofnd version
-        working-directory: ./tofnbin
+        working-directory: ./tofndbin
         run: |
           ./tofnd-* --version
 
@@ -64,7 +64,7 @@ jobs:
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Sign binaries
-        working-directory: ./tofnbin
+        working-directory: ./tofndbin
         run: |
           if [ "$RUNNER_OS" == "Linux" ]
           then
