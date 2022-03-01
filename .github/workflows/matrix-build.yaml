@@ -36,7 +36,7 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-      - name: build binaries
+      - name: build binaries for Linux/MacOS
         run: |
           if [ "$RUNNER_OS" == "Linux" ]
           then
@@ -82,6 +82,7 @@ jobs:
           ARCH="${{ matrix.arch }}"
           cd $TOFND_PATH  
           gpg --armor --detach-sign  tofnd-"$OS"-"$ARCH"
+          ls -ltr
 
       - name: Create zip and sha256 files
         run: |
@@ -98,3 +99,4 @@ jobs:
             shasum -a 256 tofnd-"$OS"-"$ARCH" | awk '{print $1}' > $i.sha256
             zip tofnd-"$OS"-"$ARCH".zip tofnd-"$OS"-"$ARCH"
             shasum -a 256 tofnd-"$OS"-"$ARCH".zip | awk '{print $1}' > $i.zip.sha256
+            ls -ltr
