@@ -98,4 +98,3 @@ jobs:
             shasum -a 256 tofnd-"$OS"-"$ARCH" | awk '{print $1}' > $i.sha256
             zip tofnd-"$OS"-"$ARCH".zip tofnd-"$OS"-"$ARCH"
             shasum -a 256 tofnd-"$OS"-"$ARCH".zip | awk '{print $1}' > $i.zip.sha256
-          done
