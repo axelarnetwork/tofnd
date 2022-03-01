@@ -51,9 +51,11 @@ jobs:
           if [ "$RUNNER_OS" == "Linux" ]
           then
               OS="linux"
+              TOFND_PATH="/home/runner/work/tofnd/tofnd"
           else
               OS="darwin"
+              TOFND_PATH="/Users/runner/work/tofnd/tofnd"
           fi
           ARCH="${{ matrix.arch }}"
           cargo install --locked --path .
-          ls -la /home/runner/work/tofnd/tofnd
+          ls -la "$TOFND_PATH"
