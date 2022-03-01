@@ -96,7 +96,8 @@ jobs:
           fi
           ARCH="${{ matrix.arch }}"
           cd $TOFND_PATH  
-            shasum -a 256 tofnd-"$OS"-"$ARCH" | awk '{print $1}' > $i.sha256
+            shasum -a 256 tofnd-"$OS"-"$ARCH" | awk '{print $1}' > tofnd-"$OS"-"$ARCH".sha256
             zip tofnd-"$OS"-"$ARCH".zip tofnd-"$OS"-"$ARCH"
-            shasum -a 256 tofnd-"$OS"-"$ARCH".zip | awk '{print $1}' > $i.zip.sha256
-            ls -ltr
+            shasum -a 256 tofnd-"$OS"-"$ARCH".zip | awk '{print $1}' > tofnd-"$OS"-"$ARCH".zip.sha256
+            cat tofnd-"$OS"-"$ARCH".sha256
+            cat tofnd-"$OS"-"$ARCH".zip.sha256
