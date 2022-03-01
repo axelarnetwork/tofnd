@@ -56,6 +56,4 @@ jobs:
           fi
           ARCH="${{ matrix.arch }}"
           cargo install --locked --path .
-          pwd
-          ls -la /home/runner/.cargo/bin/
-          ls -la /home/runner/work/tofnd
+          ls -la /home/runner/work/tofnd/tofnd
