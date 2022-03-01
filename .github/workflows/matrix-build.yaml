@@ -48,18 +48,12 @@ jobs:
           fi
           ARCH="${{ matrix.arch }}"
           cargo install --locked --path .
-          cd $TOFND_PATH
-          mv tofnd tofnd-"$OS"-"$ARCH" 
+          mkdir tofnbin
+          mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-$ARCH" 
 
       - name: Test tofnd version
+        working-directory: ./tofnbin
         run: |
-          if [ "$RUNNER_OS" == "Linux" ]
-          then
-              TOFND_PATH="/home/runner/work/tofnd/tofnd/target/release"
-          else
-              TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
-          fi
-          cd $TOFND_PATH
           ./tofnd-* --version
 
       - name: Import GPG key
@@ -70,34 +64,28 @@ jobs:
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Sign binaries
+        working-directory: ./tofnbin
         run: |
           if [ "$RUNNER_OS" == "Linux" ]
           then
               OS="linux"
-              TOFND_PATH="/home/runner/work/tofnd/tofnd/target/release"
           else
               OS="darwin"
-              TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
-          ARCH="${{ matrix.arch }}"
-          cd $TOFND_PATH  
+          ARCH="${{ matrix.arch }}" 
           gpg --armor --detach-sign  tofnd-"$OS"-"$ARCH"
           ls -ltr
 
       - name: Create zip and sha256 files
+        working-directory: ./tofndbin
         run: |
           if [ "$RUNNER_OS" == "Linux" ]
           then
               OS="linux"
-              TOFND_PATH="/home/runner/work/tofnd/tofnd/target/release"
           else
               OS="darwin"
-              TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
-          ARCH="${{ matrix.arch }}"
-          cd $TOFND_PATH  
+          ARCH="${{ matrix.arch }}"  
             shasum -a 256 tofnd-"$OS"-"$ARCH" | awk '{print $1}' > tofnd-"$OS"-"$ARCH".sha256
             zip tofnd-"$OS"-"$ARCH".zip tofnd-"$OS"-"$ARCH"
             shasum -a 256 tofnd-"$OS"-"$ARCH".zip | awk '{print $1}' > tofnd-"$OS"-"$ARCH".zip.sha256
-            cat tofnd-"$OS"-"$ARCH".sha256
-            cat tofnd-"$OS"-"$ARCH".zip.sha256
