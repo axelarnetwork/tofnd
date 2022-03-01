@@ -56,25 +56,6 @@ jobs:
           fi
           ARCH="${{ matrix.arch }}"
           cargo install --locked --path .
-          mv /home/runner/work/tofnd/tofnd/target/releases/tofnd /home/runner/work/tofnd/tofnd/target/releases/tofnd-"$OS"-"$ARCH"
-
-      - name: Sign Binaries
-        run: |
-          if [ "$RUNNER_OS" == "Linux" ]
-          then
-              OS="linux"
-          else
-              OS="darwin"
-          fi
-          ARCH="${{ matrix.arch }}"
-          gpg --armor --detach-sign  /home/runner/work/tofnd/tofnd/target/releases/tofnd-"$OS"-"$ARCH"
-
-      - name: Create zip and sha256 files
-        run: |
-          /home/runner/.cargo/bin/
-          for i in `ls | grep -v .asc`
-          do
-            shasum -a 256 $i | awk '{print $1}' > $i.sha256
-            zip $i.zip $i
-            shasum -a 256 $i.zip | awk '{print $1}' > $i.zip.sha256
-          done
+          pwd
+          ls -la /home/runner/.cargo/bin/
+          ls -la /home/runner/work/tofnd
