@@ -116,8 +116,7 @@ jobs:
               OS="darwin"
           fi
           ARCH="${{ matrix.arch }}" 
-          gpg --armor --detach-sign  tofnd-"$OS"-"$ARCH-"$SEMVER"
-          ls -ltr
+          gpg --armor --detach-sign  tofnd-"$OS"-"$ARCH"-"$SEMVER"
 
       - name: Create zip and sha256 files
         working-directory: ./bin
