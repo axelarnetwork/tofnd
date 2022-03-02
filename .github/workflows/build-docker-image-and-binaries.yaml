@@ -7,14 +7,15 @@ on:
         description: Github tag to release binaries for (reusing same tag will overwrite previously released binaries)
         required: true
         default: latest
-
 jobs:
   release:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os:
-          - ubuntu-18.04
-    runs-on: ${{ matrix.os }}
+        os: [ubuntu-18.04, macos-latest]
+        arch: [amd64, arm64, arm]
+        exclude:
+          - {os: "macos-latest", arch: "arm"}
 
     permissions:
       contents: write
@@ -36,7 +37,65 @@ jobs:
           submodules: recursive
 
       - name: Install Cosign
+        if: matrix.os == 'ubuntu-18.04' && matrix.arch == 'amd64'
         uses: sigstore/cosign-installer@main
+
+      - name: Install SSH key
+        if: matrix.os == 'ubuntu-18.04' && matrix.arch == 'amd64'
+        uses: webfactory/ssh-agent@v0.4.1
+        with:
+          ssh-private-key: ${{ secrets.CICD_RSA_KEY }}
+
+      - name: Build docker image
+        if: matrix.os == 'ubuntu-18.04' && matrix.arch == 'amd64'
+        run: |
+          make docker-image
+
+      - name: Login to DockerHub
+        if: matrix.os == 'ubuntu-18.04' && matrix.arch == 'amd64'
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Push to DockerHub (release)
+        if: matrix.os == 'ubuntu-18.04' && matrix.arch == 'amd64'
+        run: |
+          docker tag axelar/tofnd:latest axelarnet/tofnd:${{ github.event.inputs.tag }}
+          docker push axelarnet/tofnd:${{ github.event.inputs.tag }}
+
+      - name: Sign the images with GitHub OIDC
+        if: matrix.os == 'ubuntu-18.04' && matrix.arch == 'amd64'
+        run: cosign sign --oidc-issuer https://token.actions.githubusercontent.com ${TAGS}
+        env:
+          TAGS: axelarnet/tofnd:${{ github.event.inputs.tag }}
+          COSIGN_EXPERIMENTAL: 1
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+      - name: build binaries for Linux/MacOS
+        env:
+          SEMVER: ${{ github.event.inputs.tag }}
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]
+          then
+              OS="linux"
+              TOFND_PATH="/home/runner/work/tofnd/tofnd/target/release"
+          else
+              OS="darwin"
+              TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
+          fi
+          ARCH="${{ matrix.arch }}"
+          cargo install --locked --path .
+          mkdir tofndbin
+          mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER" 
+
+      - name: Test tofnd version
+        working-directory: ./tofndbin
+        run: |
+          ./tofnd-* --version
 
       - name: Import GPG key
         id: import_gpg
@@ -45,50 +104,35 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Install SSH key
-        uses: webfactory/ssh-agent@v0.4.1
-        with:
-          ssh-private-key: ${{ secrets.CICD_RSA_KEY }}
-
-      - name: Build docker image
-        run: |
-          make docker-image
-
-      - name: Copy binary from docker image
+      - name: Sign binaries
+        working-directory: ./tofndbin
         env:
           SEMVER: ${{ github.event.inputs.tag }}
         run: |
-          make copy-binary-from-image
+          if [ "$RUNNER_OS" == "Linux" ]
+          then
+              OS="linux"
+          else
+              OS="darwin"
+          fi
+          ARCH="${{ matrix.arch }}" 
+          gpg --armor --detach-sign  tofnd-"$OS"-"$ARCH"-"$SEMVER"
 
-      - name: Sign Binaries
-        working-directory: ./bin
-        env:
-          SEMVER: ${{ github.event.inputs.tag }}
+      - name: Create zip and sha256 files
+        working-directory: ./tofndbin
         run: |
-          gpg --armor --detach-sign  tofnd-linux-amd64-v${SEMVER}
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-      - name: Push to DockerHub (release)
-        run: |
-          docker tag axelar/tofnd:latest axelarnet/tofnd:${{ github.event.inputs.tag }}
-          docker push axelarnet/tofnd:${{ github.event.inputs.tag }}
-
-      - name: Sign the images with GitHub OIDC
-        run: cosign sign --oidc-issuer https://token.actions.githubusercontent.com ${TAGS}
-        env:
-          TAGS: axelarnet/tofnd:${{ github.event.inputs.tag }}
-          COSIGN_EXPERIMENTAL: 1
+          for i in `ls | grep -v .asc`
+          do
+            shasum -a 256 $i | awk '{print $1}' > $i.sha256
+            zip $i.zip $i
+            shasum -a 256 $i.zip | awk '{print $1}' > $i.zip.sha256
+          done
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./bin/*
+          file: ./tofndbin/*
           tag: ${{ github.event.inputs.tag }}
           overwrite: true
           file_glob: true
@@ -104,4 +148,5 @@ jobs:
         env:
           S3_PATH: s3://axelar-releases/tofnd/${{ github.event.inputs.tag }}
         run: |
-          make upload-binaries-to-s3
+          aws s3 cp ./tofndbin ${S3_PATH}/ --recursive
+
