@@ -32,7 +32,7 @@ async fn spin_test_service_and_client() -> (MultisigClient<Channel>, Sender<()>)
     let root = testdir!();
 
     // create a kv_manager
-    let kv_manager = KvManager::new(root.to_str().unwrap(), get_test_password())
+    let kv_manager = KvManager::new(root, get_test_password())
         .unwrap()
         .handle_mnemonic(&crate::mnemonic::Cmd::Create)
         .await

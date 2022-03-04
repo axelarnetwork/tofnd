@@ -43,6 +43,8 @@ zeroize = { version = "1.4", features = ["zeroize_derive"], default-features = f
 thiserror = { version = "1.0", default-features = false }
 anyhow = { version = "1.0", default-features = false }
 
+dirs = "4.0"
+
 [build-dependencies]
 tonic-build = {version = "0.6"}
 

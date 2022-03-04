@@ -78,7 +78,7 @@ async fn main() -> TofndResult<()> {
 
     let cmd = cfg.mnemonic_cmd.clone();
 
-    let kv_manager = KvManager::new(&cfg.tofnd_path, password)?
+    let kv_manager = KvManager::new(cfg.tofnd_path.clone(), password)?
         .handle_mnemonic(&cfg.mnemonic_cmd)
         .await?;
 
