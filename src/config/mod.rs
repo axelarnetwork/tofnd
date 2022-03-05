@@ -20,10 +20,10 @@ mod malicious;
 use malicious::*;
 
 // default path is ~/.tofnd
-fn default_tofnd_dir() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or(PathBuf::new())
-        .join(DEFAULT_PATH_ROOT)
+fn default_tofnd_dir() -> TofndResult<PathBuf> {
+    Ok(dirs::home_dir()
+        .ok_or_else(|| anyhow!("no home dir"))?
+        .join(DEFAULT_PATH_ROOT))
 }
 
 // TODO: move to types.rs
@@ -38,27 +38,15 @@ pub struct Config {
     #[cfg(feature = "malicious")]
     pub behaviours: Behaviours,
 }
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            ip: DEFAULT_IP.to_string(),
-            port: DEFAULT_PORT,
-            safe_keygen: true,
-            mnemonic_cmd: Cmd::Existing,
-            tofnd_path: default_tofnd_dir(),
-            password_method: PasswordMethod::Prompt,
-            #[cfg(feature = "malicious")]
-            behaviours: Behaviours::default(),
-        }
-    }
-}
 
 pub fn parse_args() -> TofndResult<Config> {
     // need to use let to avoid dropping temporary value
     let ip = &DEFAULT_IP.to_string();
     let port = &DEFAULT_PORT.to_string();
-    let default_dir = default_tofnd_dir();
-    let default_dir = default_dir.to_str().ok_or_else(|| anyhow!("default dir"))?;
+    let default_dir = default_tofnd_dir()?;
+    let default_dir = default_dir
+        .to_str()
+        .ok_or_else(|| anyhow!("can't convert default dir to str"))?;
 
     let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
