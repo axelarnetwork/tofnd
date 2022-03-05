@@ -120,7 +120,9 @@ pub fn get_kv_store(
     password: Password,
 ) -> encrypted_sled::Result<encrypted_sled::Db> {
     // create/open DB
+    info!("START: decrypt kvstore");
     let kv = encrypted_sled::Db::open(db_name, password)?;
+    info!("DONE: decrypt kvstore");
 
     // log whether the DB was newly created or not
     if kv.was_recovered() {

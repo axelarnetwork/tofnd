@@ -70,7 +70,7 @@ async fn main() -> TofndResult<()> {
     let _enter = main_span.enter();
     let cmd = cfg.mnemonic_cmd.clone();
 
-    // TODO why does this step take so long?
+    // this step takes a long time due to password-based decryption
     let kv_manager = KvManager::new(cfg.tofnd_path.clone(), password)?
         .handle_mnemonic(&cfg.mnemonic_cmd)
         .await?;
