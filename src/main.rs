@@ -51,13 +51,12 @@ fn warn_for_unsafe_execution() {
 /// https://docs.rs/tokio/1.2.0/tokio/attr.main.html#multi-threaded-runtime
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> TofndResult<()> {
+    set_up_logs(); // can't print any logs until they're set up
     let cfg = parse_args()?;
     let socket_address = addr(&cfg.ip, cfg.port)?;
 
     // immediately read an encryption password from stdin
     let password = cfg.password_method.execute()?;
-
-    set_up_logs();
 
     // print config warnings
     #[cfg(feature = "malicious")]
@@ -69,16 +68,10 @@ async fn main() -> TofndResult<()> {
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
     let _enter = main_span.enter();
-
-    let incoming = TcpListener::bind(socket_address).await?;
-    info!(
-        "tofnd listen addr {:?}, use ctrl+c to shutdown",
-        incoming.local_addr()?
-    );
-
     let cmd = cfg.mnemonic_cmd.clone();
 
-    let kv_manager = KvManager::new(&cfg.tofnd_path, password)?
+    // this step takes a long time due to password-based decryption
+    let kv_manager = KvManager::new(cfg.tofnd_path.clone(), password)?
         .handle_mnemonic(&cfg.mnemonic_cmd)
         .await?;
 
@@ -92,6 +85,12 @@ async fn main() -> TofndResult<()> {
 
     let gg20_service = proto::gg20_server::Gg20Server::new(gg20_service);
     let multisig_service = proto::multisig_server::MultisigServer::new(multisig_service);
+
+    let incoming = TcpListener::bind(socket_address).await?;
+    info!(
+        "tofnd listen addr {:?}, use ctrl+c to shutdown",
+        incoming.local_addr()?
+    );
 
     tonic::transport::Server::builder()
         .add_service(gg20_service)

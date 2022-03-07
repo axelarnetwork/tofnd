@@ -192,8 +192,7 @@ mod tests {
     // create a service
     fn get_kv_manager(testdir: PathBuf) -> KvManager {
         // create test dirs
-        let kv_path = testdir.to_str().unwrap();
-        KvManager::new(kv_path, get_test_password()).unwrap()
+        KvManager::new(testdir, get_test_password()).unwrap()
     }
 
     #[traced_test]

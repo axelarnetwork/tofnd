@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{crate_version, App, Arg};
 
 // error handling
@@ -17,6 +19,13 @@ mod malicious;
 #[cfg(feature = "malicious")]
 use malicious::*;
 
+// default path is ~/.tofnd
+fn default_tofnd_dir() -> TofndResult<PathBuf> {
+    Ok(dirs::home_dir()
+        .ok_or_else(|| anyhow!("no home dir"))?
+        .join(DEFAULT_PATH_ROOT))
+}
+
 // TODO: move to types.rs
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -24,30 +33,20 @@ pub struct Config {
     pub port: u16,
     pub safe_keygen: bool,
     pub mnemonic_cmd: Cmd,
-    pub tofnd_path: String,
+    pub tofnd_path: PathBuf,
     pub password_method: PasswordMethod,
     #[cfg(feature = "malicious")]
     pub behaviours: Behaviours,
-}
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            ip: DEFAULT_IP.to_string(),
-            port: DEFAULT_PORT,
-            safe_keygen: true,
-            mnemonic_cmd: Cmd::Existing,
-            tofnd_path: DEFAULT_PATH_ROOT.to_string(),
-            password_method: PasswordMethod::Prompt,
-            #[cfg(feature = "malicious")]
-            behaviours: Behaviours::default(),
-        }
-    }
 }
 
 pub fn parse_args() -> TofndResult<Config> {
     // need to use let to avoid dropping temporary value
     let ip = &DEFAULT_IP.to_string();
     let port = &DEFAULT_PORT.to_string();
+    let default_dir = default_tofnd_dir()?;
+    let default_dir = default_dir
+        .to_str()
+        .ok_or_else(|| anyhow!("can't convert default dir to str"))?;
 
     let app = App::new("tofnd")
         .about("A threshold signature scheme daemon")
@@ -101,7 +100,7 @@ pub fn parse_args() -> TofndResult<Config> {
                 .short('d')
                 .required(false)
                 .env(TOFND_HOME_ENV_VAR)
-                .default_value(DEFAULT_PATH_ROOT),
+                .default_value(default_dir),
         );
 
     #[cfg(feature = "malicious")]
@@ -138,7 +137,7 @@ pub fn parse_args() -> TofndResult<Config> {
     let tofnd_path = matches
         .value_of("directory")
         .ok_or_else(|| anyhow!("directory value"))?
-        .to_string();
+        .into();
     let password_method = match matches.is_present("no-password") {
         true => PasswordMethod::NoPassword,
         false => PasswordMethod::Prompt,

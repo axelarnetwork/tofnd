@@ -19,8 +19,8 @@ use crate::{
 };
 
 use proto::message_out::{KeygenResult, SignResult};
-use std::convert::TryFrom;
 use std::path::Path;
+use std::{convert::TryFrom, path::PathBuf};
 use tokio::time::{sleep, Duration};
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tokio_stream::wrappers::{TcpListenerStream, UnboundedReceiverStream};
@@ -36,7 +36,7 @@ use gg20::service::malicious::Behaviours;
 // I tried to keep this struct private and return `impl Party` from new() but ran into so many problems with the Rust compiler
 // I also tried using Box<dyn Party> but ran into this: https://github.com/rust-lang/rust/issues/63033
 pub(super) struct TofndParty {
-    tofnd_path: String,
+    tofnd_path: PathBuf,
     client: proto::gg20_client::Gg20Client<tonic::transport::Channel>,
     server_handle: JoinHandle<()>,
     server_shutdown_sender: oneshot::Sender<()>,
@@ -49,7 +49,6 @@ impl TofndParty {
     pub(super) async fn new(init_party: InitParty, mnemonic_cmd: Cmd, testdir: &Path) -> Self {
         let tofnd_path = format!("test-key-{:02}", init_party.party_index);
         let tofnd_path = testdir.join(tofnd_path);
-        let tofnd_path = tofnd_path.to_str().unwrap();
 
         // start server
         let (server_shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
@@ -67,7 +66,7 @@ impl TofndParty {
             ip: server_ip.to_string(),
             port: server_port,
             safe_keygen: false,
-            tofnd_path: tofnd_path.to_string(),
+            tofnd_path,
             password_method: PasswordMethod::NoPassword,
             #[cfg(feature = "malicious")]
             behaviours: Behaviours {
@@ -84,7 +83,7 @@ impl TofndParty {
         // https://github.com/spacejam/sled/issues/1234#issuecomment-754769425
         let mut tries = 0;
         let kv_manager = loop {
-            match KvManager::new(&cfg.tofnd_path, get_test_password()) {
+            match KvManager::new(cfg.tofnd_path.clone(), get_test_password()) {
                 Ok(kv_manager) => break kv_manager,
                 Err(err) => {
                     tries += 1;
@@ -128,7 +127,7 @@ impl TofndParty {
             .unwrap();
 
         TofndParty {
-            tofnd_path: tofnd_path.to_owned(),
+            tofnd_path: cfg.tofnd_path,
             client,
             server_handle,
             server_shutdown_sender,
@@ -511,9 +510,6 @@ impl Party for TofndParty {
     }
 
     fn get_root(&self) -> std::path::PathBuf {
-        let name: &str = &self.tofnd_path;
-        let mut path = std::path::PathBuf::new();
-        path.push(name);
-        path
+        self.tofnd_path.clone()
     }
 }

@@ -20,10 +20,10 @@ pub struct KvManager {
 }
 
 impl KvManager {
-    pub fn new(root: &str, password: Password) -> KvResult<Self> {
+    pub fn new(root: PathBuf, password: Password) -> KvResult<Self> {
         Ok(KvManager {
-            kv: Kv::<KvValue>::new(root, password)?,
-            io: FileIo::new(PathBuf::from(root)),
+            kv: Kv::<KvValue>::new(root.clone(), password)?,
+            io: FileIo::new(root),
         })
     }
     pub fn kv(&self) -> &Kv<KvValue> {

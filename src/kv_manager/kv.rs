@@ -31,10 +31,8 @@ where
 {
     /// Creates a new kv service. Returns [InitErr] on failure.
     /// the path of the kvstore is `root_path` + "/kvstore/" + `kv_name`
-    pub fn new(root_path: &str, password: Password) -> KvResult<Self> {
-        let kv_path = PathBuf::from(root_path)
-            .join(DEFAULT_KV_PATH)
-            .join(DEFAULT_KV_NAME);
+    pub fn new(root_path: PathBuf, password: Password) -> KvResult<Self> {
+        let kv_path = root_path.join(DEFAULT_KV_PATH).join(DEFAULT_KV_NAME);
         // use to_string_lossy() instead of to_str() to avoid handling Option<&str>
         let kv_path = kv_path.to_string_lossy().to_string();
         Self::with_db_name(kv_path, password)
@@ -122,7 +120,9 @@ pub fn get_kv_store(
     password: Password,
 ) -> encrypted_sled::Result<encrypted_sled::Db> {
     // create/open DB
+    info!("START: decrypt kvstore");
     let kv = encrypted_sled::Db::open(db_name, password)?;
+    info!("DONE: decrypt kvstore");
 
     // log whether the DB was newly created or not
     if kv.was_recovered() {
