@@ -28,6 +28,11 @@ const MNEMONIC_KEY: &str = "mnemonic";
 // key to store mnemonic count
 const MNEMONIC_COUNT_KEY: &str = "mnemonic_count";
 
+// A user may decide to protect their mnemonic with a passphrase.
+// We pass an empty password since the mnemonic has sufficient entropy and will be backed up.
+// https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
+const MNEMONIC_PASSWORD: &str = "";
+
 #[derive(Clone, Debug)]
 pub enum Cmd {
     Existing,
@@ -66,17 +71,37 @@ impl Cmd {
 impl KvManager {
     /// get mnemonic seed from kv-store
     pub async fn seed(&self) -> SeedResult<SecretRecoveryKey> {
+        self.get_seed(MNEMONIC_KEY).await
+    }
+
+    /// Get mnemonic seed under key
+    pub async fn get_seed(&self, key: &str) -> SeedResult<SecretRecoveryKey> {
         let mnemonic = self
             .kv()
-            .get(MNEMONIC_KEY)
+            .get(key)
             .await?
             .try_into()
             .map_err(KvError::GetErr)?;
-        // A user may decide to protect their mnemonic with a passphrase. We pass an empty password for now.
-        // https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
-        Ok(bip39_seed(mnemonic, Password("".to_owned()))?
-            .as_bytes()
-            .try_into()?)
+
+        Ok(
+            bip39_seed(mnemonic, Password(MNEMONIC_PASSWORD.to_owned()))?
+                .as_bytes()
+                .try_into()?,
+        )
+    }
+
+    pub async fn seed_key_iter(&self) -> InnerMnemonicResult<impl Iterator<Item = String>> {
+        let count = self.seed_count().await?;
+
+        // The old mnemonics are stored in descending order
+        let range = (0..1).chain(count..0).map(|i| {
+            match i {
+                0 => String::from(MNEMONIC_KEY), // latest mnemonic is preserved in the original key
+                _ => std::format!("{}_{}", MNEMONIC_KEY, i), // i is 0-indexed
+            }
+        });
+
+        Ok(range)
     }
 
     /// async function that handles all mnemonic commands
@@ -109,7 +134,7 @@ impl KvManager {
     }
 
     /// Get the mnemonic count in the kv store.
-    async fn seed_count(&self) -> InnerMnemonicResult<u32> {
+    pub async fn seed_count(&self) -> InnerMnemonicResult<u32> {
         match self.kv().get(MNEMONIC_COUNT_KEY).await {
             Ok(encoded_count) => Ok(deserialize(&encoded_count)
                 .ok_or(KvErr(KvError::GetErr(InnerKvError::DeserializationErr)))?),
@@ -171,7 +196,10 @@ impl KvManager {
     async fn handle_insert(&self, entropy: Entropy) -> InnerMnemonicResult<()> {
         let (key, count) = self.get_next_key().await?;
 
-        info!("Inserting mnemonic under key '{}' with total count '{}'", key, count);
+        info!(
+            "Inserting mnemonic under key '{}' with total count '{}'",
+            key, count
+        );
 
         let reservation = self.kv().reserve_key(key).await.map_err(|err| {
             error!("Cannot reserve mnemonic key: {:?}", err);

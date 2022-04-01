@@ -15,7 +15,9 @@ impl MultisigService {
         request: proto::KeyPresenceRequest,
     ) -> TofndResult<proto::key_presence_response::Response> {
         // check if mnemonic is available
-        let _ = self.kv_manager.seed().await?;
+        let _ = self
+            .find_matching_seed(&request.key_uid, &request.pub_key)
+            .await?;
 
         // key presence for multisig always returns `Present`.
         // this is done in order to not break compatibility with axelar-core
