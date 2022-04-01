@@ -90,6 +90,7 @@ impl SignRequest {
             key_uid: key_uid.to_string(),
             msg_to_sign: vec![32; 32],
             party_uid: String::default(),
+            pub_key: vec![0; 1],
         }
     }
 }

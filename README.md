@@ -76,7 +76,6 @@ For more information, see on mnemonic options, see [Mnemonic](#mnemonic).
 5. By default, `tofnd` expects a password from the standard input. Users that don't want to use passwords can use the `--no-password` flag. **Attention: Use `--no-password` only for testing .**
 ```
 A threshold signature scheme daemon
-
 USAGE:
     tofnd [FLAGS] [OPTIONS]
 

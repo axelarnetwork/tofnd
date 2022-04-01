@@ -10,7 +10,7 @@ pub const DEFAULT_KV_NAME: &str = "kv";
 pub(super) const DEFAULT_KV_PATH: &str = "kvstore";
 
 /// default value for reserved key
-pub(super) const DEFAULT_RESERV: &str = "";
+pub(super) const DEFAULT_RESERVE: &str = "";
 
 /// Returned from a successful `ReserveKey` command
 #[derive(Debug)] // disallow derive Clone, Copy
@@ -48,5 +48,9 @@ pub(super) enum Command<V> {
     Exists {
         key: String, // TODO should be &str except lifetimes...
         resp: Responder<bool>,
+    },
+    Delete {
+        key: String,
+        resp: Responder<()>,
     },
 }
