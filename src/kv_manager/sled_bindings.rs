@@ -8,7 +8,7 @@ use super::types::{KeyReservation, DEFAULT_RESERVE};
 
 use crate::encrypted_sled;
 
-/// Reserves a key. New's key value is [DEFAULT_RESERVE].
+/// Reserves a key. New key's value is [DEFAULT_RESERVE].
 /// Returns [SledErr] of [LogicalErr] on failure.
 pub(super) fn handle_reserve(
     kv: &encrypted_sled::Db,

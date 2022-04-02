@@ -138,15 +138,11 @@ impl KvManager {
         match self.kv().get(MNEMONIC_COUNT_KEY).await {
             Ok(encoded_count) => Ok(deserialize(&encoded_count)
                 .ok_or(KvErr(KvError::GetErr(InnerKvError::DeserializationErr)))?),
-            Err(KvError::GetErr(_)) => {
-                let count = if self.kv().exists(MNEMONIC_KEY).await? {
-                    1
-                } else {
-                    0
-                };
-
-                Ok(count)
-            }
+            // if MNEMONIC_COUNT_KEY does not exist then mnemonic count is either 0 or 1
+            Err(KvError::GetErr(_)) => Ok(match self.kv().exists(MNEMONIC_KEY).await? {
+                true => 1,
+                false => 0,
+            }),
             Err(_) => {
                 error!("");
                 Err(PasswordErr(String::from("")))
