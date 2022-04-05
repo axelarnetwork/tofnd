@@ -28,19 +28,22 @@ impl MultisigService {
     }
 
     /// Given a `key_uid` and `pub_key`, find the matching mnemonic.
-    /// If `pub_key` is empty, use the currently active mnemonic.
+    /// If `pub_key` is [None], use the currently active mnemonic.
     pub(super) async fn find_matching_seed(
         &self,
         key_uid: &str,
-        pub_key: &[u8],
+        pub_key: &Option<Vec<u8>>,
     ) -> TofndResult<SecretRecoveryKey> {
-        if pub_key.is_empty() {
-            return self
-                .kv_manager
-                .seed()
-                .await
-                .map_err(|_| anyhow!("could not find current mnemonic"));
-        }
+        let pub_key = match pub_key {
+            Some(key) => key,
+            None => {
+                return self
+                    .kv_manager
+                    .seed()
+                    .await
+                    .map_err(|_| anyhow!("could not find current mnemonic"))
+            }
+        };
 
         let seed_key_iter = self
             .kv_manager

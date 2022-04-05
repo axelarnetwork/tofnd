@@ -90,18 +90,25 @@ impl KvManager {
         )
     }
 
-    pub async fn seed_key_iter(&self) -> InnerMnemonicResult<impl Iterator<Item = String>> {
+    pub async fn seed_key_iter(&self) -> InnerMnemonicResult<Vec<String>> {
         let count = self.seed_count().await?;
+        if count == 0 {
+            return Err(KvErr(KvError::GetErr(InnerKvError::LogicalErr(
+                "no mnemonic found".to_owned(),
+            ))));
+        }
 
-        // The old mnemonics are stored in descending order
-        let range = (0..1).chain(count..0).map(|i| {
-            match i {
-                0 => String::from(MNEMONIC_KEY), // latest mnemonic is preserved in the original key
-                _ => std::format!("{}_{}", MNEMONIC_KEY, i), // i is 0-indexed
-            }
-        });
+        // To optimize performance, iterate from the latest mnemonic to the oldest
+        // Latest mnemonic is stored under 'mnemonic'
+        // Second latest mnemonic is stored under 'mnemonic_x' where x is the seed count
+        // Older mnemonics are stored in decreasing order of index
+        let mut keys = vec![String::from(MNEMONIC_KEY)];
 
-        Ok(range)
+        for i in (1..count).rev() {
+            keys.push(format!("{}_{}", MNEMONIC_KEY, i))
+        }
+
+        Ok(keys)
     }
 
     /// async function that handles all mnemonic commands
@@ -202,8 +209,10 @@ impl KvManager {
             KvErr(err)
         })?;
 
+        // Insert before updating the count to minimize state corruption if it fails in the middle
         self.put_entropy(reservation, entropy).await?;
 
+        // If delete isn't successful, the previous mnemonic count will still allow tofnd to work
         self.kv().delete(MNEMONIC_COUNT_KEY).await.map_err(|err| {
             error!("could not delete mnemonic count: {:?}", err);
             KvErr(err)
@@ -221,6 +230,7 @@ impl KvManager {
         let encoded_count = serialize(&(count + 1))
             .map_err(|_| KvErr(KvError::PutErr(InnerKvError::SerializationErr)))?;
 
+        // If the new count isn't written, tofnd will still work with the latest mnemonic
         self.kv()
             .put(count_reservation, encoded_count)
             .await
@@ -236,8 +246,6 @@ impl KvManager {
     async fn handle_create(&self) -> InnerMnemonicResult<()> {
         info!("Creating mnemonic");
 
-        // create a new entropy
-        let new_entropy = bip39_new_w24();
         if self.kv().exists(MNEMONIC_KEY).await? {
             error!("Mnemonic was already created");
             return Err(KvErr(KvError::ReserveErr(InnerKvError::LogicalErr(
@@ -245,7 +253,11 @@ impl KvManager {
             ))));
         }
 
+        // create a new entropy
+        let new_entropy = bip39_new_w24();
+
         self.handle_insert(new_entropy.clone()).await?;
+
         Ok(self.io().entropy_to_file(new_entropy)?)
     }
 
@@ -287,6 +299,7 @@ impl KvManager {
         // create a new entropy
         let new_entropy = bip39_new_w24();
 
+        // export right away in case of intermediate failures
         self.io().entropy_to_file(new_entropy.clone())?;
 
         let current_entropy: Entropy = self
@@ -322,7 +335,7 @@ impl KvManager {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{io::Read, path::PathBuf};
     use testdir::testdir;
 
     use crate::{
@@ -421,5 +434,70 @@ mod tests {
             kv.handle_export().await,
             Err(InnerMnemonicError::FileIoErr(FileIoError::Exists(_)))
         ));
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn test_rotate() {
+        let testdir = testdir!();
+        let rotations = 5;
+
+        // create a service
+        let kv = get_kv_manager(testdir);
+
+        let path = std::path::Path::new(kv.io().export_path());
+
+        let mut seeds: Vec<SecretRecoveryKey> = vec![];
+
+        for i in 0..rotations {
+            if i == 0 {
+                assert!(kv.handle_create().await.is_ok());
+            } else {
+                assert!(kv.handle_rotate().await.is_ok());
+            }
+
+            assert!(kv.io().check_if_not_exported().is_err());
+
+            let mut file = std::fs::File::open(path).expect("can't read exported mnemonic");
+
+            let mut phrase = String::new();
+            assert!(file.read_to_string(&mut phrase).is_ok());
+
+            assert!(std::fs::remove_file(path).is_ok());
+
+            seeds.push(
+                bip39_seed(
+                    bip39_from_phrase(Password(phrase)).unwrap(),
+                    Password(MNEMONIC_PASSWORD.to_owned()),
+                )
+                .unwrap()
+                .as_bytes()
+                .try_into()
+                .unwrap(),
+            );
+        }
+
+        let mut ordered_keys = vec![MNEMONIC_KEY.into()];
+
+        for i in (1..rotations).rev() {
+            ordered_keys.push(format!("{}_{}", MNEMONIC_KEY, i));
+        }
+
+        assert_eq!(
+            ordered_keys,
+            kv.seed_key_iter().await.expect("failed to get seed keys")
+        );
+
+        for (i, key) in kv.seed_key_iter().await.unwrap().iter().enumerate() {
+            let seed = kv.get_seed(key).await.expect("failed to retrieve seed");
+
+            assert_eq!(
+                format!("{:?}", seeds[rotations - i - 1]),
+                format!("{:?}", seed),
+                "seed {} with key {}",
+                i,
+                key
+            );
+        }
     }
 }

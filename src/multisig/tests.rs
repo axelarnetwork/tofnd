@@ -90,7 +90,7 @@ impl SignRequest {
             key_uid: key_uid.to_string(),
             msg_to_sign: vec![32; 32],
             party_uid: String::default(),
-            pub_key: vec![],
+            pub_key: None,
         }
     }
 }
@@ -209,7 +209,7 @@ async fn test_key_presence() {
 
     let presence_request = KeyPresenceRequest {
         key_uid: "key_uid".to_string(),
-        pub_key: vec![],
+        pub_key: None,
     };
 
     let response = client
