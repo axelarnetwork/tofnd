@@ -19,6 +19,10 @@ git clone git@github.com:axelarnetwork/tofnd.git --recursive
     $ rustup component add rustfmt
     ```
 
+`tofnd` depends on `tofn`, which needs the GNU Multiple Precision Arithmetic Library
+* MacOS: `brew install gmp`
+* Ubuntu: `sudo apt install libgmp-dev`
+
 # Running the server
 
 ```
@@ -76,6 +80,7 @@ For more information, see on mnemonic options, see [Mnemonic](#mnemonic).
 5. By default, `tofnd` expects a password from the standard input. Users that don't want to use passwords can use the `--no-password` flag. **Attention: Use `--no-password` only for testing .**
 ```
 A threshold signature scheme daemon
+
 USAGE:
     tofnd [FLAGS] [OPTIONS]
 
