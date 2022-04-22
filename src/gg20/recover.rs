@@ -57,9 +57,8 @@ impl Gg20Service {
             .recover_secret_key_shares(&secret_recovery_key, &keygen_init, &keygen_output)
             .map_err(|err| anyhow!("Failed to acquire secret key share {}", err))?;
 
-        Ok(self
-            .update_share_kv_store(keygen_init, secret_key_shares)
-            .await?)
+        self.update_share_kv_store(keygen_init, secret_key_shares)
+            .await
     }
 
     /// get recovered secret key shares from serilized share recovery info
@@ -162,11 +161,10 @@ impl Gg20Service {
             keygen_init_sanitized.my_index,
         );
         // try writing the data to the kv-store
-        Ok(self
-            .kv_manager
+        self.kv_manager
             .kv()
             .put(reservation, kv_data.try_into()?)
             .await
-            .map_err(|err| anyhow!("failed to update kv store: {}", err))?)
+            .map_err(|err| anyhow!("failed to update kv store: {}", err))
     }
 }
