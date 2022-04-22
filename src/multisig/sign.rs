@@ -39,7 +39,7 @@ impl MultisigService {
                 .kv_manager
                 .seed()
                 .await
-                .map_err(|_| anyhow!("could not find current mnemonic"))
+                .map_err(|_| anyhow!("could not find current mnemonic"));
         }
 
         let seed_key_iter = self
