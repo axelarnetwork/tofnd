@@ -19,11 +19,9 @@ git clone git@github.com:axelarnetwork/tofnd.git --recursive
     $ rustup component add rustfmt
     ```
 
-`tofnd` also needs GNU Multiple Precision Arithmetic Library, which on default Ubuntu installations requires:
-* Install libgmp-dev
-    ```
-    $ sudo apt install libgmp-dev
-    ```
+`tofnd` depends on `tofn`, which needs the GNU Multiple Precision Arithmetic Library
+* MacOS: `brew install gmp`
+* Ubuntu: `sudo apt install libgmp-dev`
 
 # Running the server
 
