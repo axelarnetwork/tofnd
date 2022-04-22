@@ -379,7 +379,7 @@ impl Party for TofndParty {
     async fn execute_key_presence(&mut self, key_uid: String) -> bool {
         let key_presence_request = proto::KeyPresenceRequest {
             key_uid,
-            pub_key: None,
+            pub_key: vec![],
         };
 
         let response = self

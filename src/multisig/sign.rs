@@ -32,18 +32,15 @@ impl MultisigService {
     pub(super) async fn find_matching_seed(
         &self,
         key_uid: &str,
-        pub_key: &Option<Vec<u8>>,
+        pub_key: &[u8],
     ) -> TofndResult<SecretRecoveryKey> {
-        let pub_key = match pub_key {
-            Some(key) => key,
-            None => {
-                return self
-                    .kv_manager
-                    .seed()
-                    .await
-                    .map_err(|_| anyhow!("could not find current mnemonic"))
-            }
-        };
+        if pub_key.is_empty() {
+            return self
+                .kv_manager
+                .seed()
+                .await
+                .map_err(|_| anyhow!("could not find current mnemonic"))
+        }
 
         let seed_key_iter = self
             .kv_manager
