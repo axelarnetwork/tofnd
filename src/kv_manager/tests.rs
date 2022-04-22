@@ -3,7 +3,7 @@
 use super::{
     error::InnerKvError::LogicalErr,
     sled_bindings::{handle_exists, handle_get, handle_put, handle_reserve},
-    types::{KeyReservation, DEFAULT_RESERV},
+    types::{KeyReservation, DEFAULT_RESERVE},
 };
 use crate::encrypted_sled;
 
@@ -42,7 +42,7 @@ fn reserve_success() {
     // get bytes
     let default_reserv = kv.get(&key).unwrap().unwrap();
     // convert to value type
-    assert!(default_reserv == DEFAULT_RESERV);
+    assert!(default_reserv == DEFAULT_RESERVE);
 
     clean_up(kv_name.to_str().unwrap(), kv);
 }

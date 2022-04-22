@@ -12,7 +12,7 @@ const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 const DEFAULT_MNEMONIC_CMD: &str = "existing";
 const DEFAULT_IP: &str = "0.0.0.0";
 const DEFAULT_PORT: u16 = 50051;
-const AVAILABLE_MNEMONIC_CMDS: [&str; 4] = ["existing", "create", "import", "export"];
+const AVAILABLE_MNEMONIC_CMDS: &[&str] = &["existing", "create", "import", "export", "rotate"];
 
 #[cfg(feature = "malicious")]
 mod malicious;
@@ -92,7 +92,7 @@ pub fn parse_args() -> TofndResult<Config> {
                 .short('m')
                 .required(false)
                 .default_value(DEFAULT_MNEMONIC_CMD)
-                .possible_values(&AVAILABLE_MNEMONIC_CMDS),
+                .possible_values(AVAILABLE_MNEMONIC_CMDS),
         )
         .arg(
             Arg::new("directory")

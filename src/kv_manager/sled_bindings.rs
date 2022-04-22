@@ -4,11 +4,11 @@ use serde::{de::DeserializeOwned, Serialize};
 use tofn::sdk::api::{deserialize, serialize};
 
 use super::error::{InnerKvError::*, InnerKvResult};
-use super::types::{KeyReservation, DEFAULT_RESERV};
+use super::types::{KeyReservation, DEFAULT_RESERVE};
 
 use crate::encrypted_sled;
 
-/// Reserves a key. New's key value is [DEFAULT_RESERV].
+/// Reserves a key. New key's value is [DEFAULT_RESERVE].
 /// Returns [SledErr] of [LogicalErr] on failure.
 pub(super) fn handle_reserve(
     kv: &encrypted_sled::Db,
@@ -24,10 +24,30 @@ pub(super) fn handle_reserve(
     }
 
     // try to insert the new key with default value
-    kv.insert(&key, DEFAULT_RESERV)?;
+    kv.insert(&key, DEFAULT_RESERVE)?;
 
     // return key reservation
     Ok(KeyReservation { key })
+}
+
+/// Deletes an unreserved key if it exists.
+/// Returns [SledErr] of [LogicalErr] on failure.
+pub(super) fn handle_delete(kv: &encrypted_sled::Db, key: String) -> InnerKvResult<()> {
+    if !kv.contains_key(&key)? {
+        return Ok(());
+    }
+
+    // check if key holds the default reserve value. If yes, can't delete it.
+    if kv.get(&key)? == Some(sled::IVec::from(DEFAULT_RESERVE)) {
+        return Err(LogicalErr(format!(
+            "can't delete reserved key <{}> in kv store.",
+            key
+        )));
+    }
+
+    kv.remove(&key)?;
+
+    Ok(())
 }
 
 /// Inserts a value to an existing key.
@@ -44,7 +64,7 @@ where
     // Explanation of code ugliness: that's the standard way to compare a
     // sled retrieved value with a local value:
     // https://docs.rs/sled/0.34.6/sled/struct.Tree.html#examples-4
-    if kv.get(&reservation.key)? != Some(sled::IVec::from(DEFAULT_RESERV)) {
+    if kv.get(&reservation.key)? != Some(sled::IVec::from(DEFAULT_RESERVE)) {
         return Err(LogicalErr(format!(
             "did not find reservation for key <{}> in kv store.",
             reservation.key
