@@ -54,7 +54,7 @@ jobs:
           if [ "$ARCH" == "arm64" ]
           then
               rustup target add aarch64-apple-darwin
-              cargo install --target=aarch64-apple-darwin --locked --path .
+              cargo install --target aarch64-apple-darwin --locked --path .
           else
               cargo install --locked --path .
           fi
