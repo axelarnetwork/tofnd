@@ -49,15 +49,15 @@ jobs:
           else
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
-              TARGET="aarch64-apple-darwin"
-          fi
-          if [ -z ${TARGET+x} ];
-          then
-            cargo install --locked --path .
-          else
-            cargo install --target="$TARGET" --locked --path .
           fi
           ARCH="${{ matrix.arch }}"
+          if [ "$ARCH" == "arm64" ]
+          then
+              rustup target add aarch64-apple-darwin
+              cargo install --target=aarch64-apple-darwin --locked --path .
+          else
+              cargo install --locked --path .
+          fi
           mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-$ARCH" 
 
@@ -66,7 +66,6 @@ jobs:
         run: |
           ./tofnd-* --version
           file tofnd-"$OS"-"$ARCH"
-
 
       - name: Import GPG key
         id: import_gpg
