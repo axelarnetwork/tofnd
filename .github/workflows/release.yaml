@@ -10,11 +10,7 @@ on:
 
 jobs:
   release:
-    strategy:
-      matrix:
-        os:
-          - ubuntu-18.04
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v3.0.1
@@ -23,7 +19,7 @@ jobs:
           submodules: recursive
 
       - id: release
-        uses: skillupco/github-tag-action@1.39.0-skco # change this back to anothrNick/github-tag-action pending https://github.com/anothrNick/github-tag-action/pull/149
+        uses: anothrNick/github-tag-action@1.39.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BUMP: ${{ github.event.inputs.bumpType }}
