@@ -59,16 +59,24 @@ jobs:
           else
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
+              TARGET="aarch64-apple-darwin"
+          fi
+          if [ -z ${TARGET+x} ];
+          then
+            cargo install --locked --path .
+          else
+            cargo install --target="$TARGET" --locked --path .
           fi
           ARCH="${{ matrix.arch }}"
-          cargo install --locked --path .
           mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER" 
 
-      - name: Test tofnd version
+      - name: Test tofnd
         working-directory: ./tofndbin
         run: |
           ./tofnd-* --version
+          file tofnd-"$OS"-"$ARCH"-"$SEMVER"
+
 
       - name: Import GPG key
         id: import_gpg
@@ -101,73 +109,3 @@ jobs:
             shasum -a 256 $i.zip | awk '{print $1}' > $i.zip.sha256
           done
 
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./tofndbin/*
-          tag: ${{ github.event.inputs.tag }}
-          overwrite: true
-          file_glob: true
-
-      - name: Upload binaries to S3
-        env:
-          S3_PATH: s3://axelar-releases/tofnd/${{ github.event.inputs.tag }}
-        run: |
-          aws s3 cp ./tofndbin ${S3_PATH}/ --recursive
-
-  release-docker:
-
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-18.04]
-
-    permissions:
-      contents: write
-      packages: write
-      id-token: write
-
-    steps:
-
-      - name: Checkout code for docker image build
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: '0'
-          ref: ${{ github.event.inputs.tag }}
-          submodules: recursive
-
-      - name: Install Cosign
-        if: matrix.os == 'ubuntu-18.04'
-        uses: sigstore/cosign-installer@main
-
-      - name: Install SSH key
-        if: matrix.os == 'ubuntu-18.04'
-        uses: webfactory/ssh-agent@v0.4.1
-        with:
-          ssh-private-key: ${{ secrets.CICD_RSA_KEY }}
-
-      - name: Build docker image
-        if: matrix.os == 'ubuntu-18.04'
-        run: |
-          make docker-image
-
-      - name: Login to DockerHub
-        if: matrix.os == 'ubuntu-18.04'
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-      - name: Push to DockerHub (release)
-        if: matrix.os == 'ubuntu-18.04'
-        run: |
-          docker tag axelar/tofnd:latest axelarnet/tofnd:${{ github.event.inputs.tag }}
-          docker push axelarnet/tofnd:${{ github.event.inputs.tag }}
-
-      - name: Sign the images with GitHub OIDC
-        if: matrix.os == 'ubuntu-18.04'
-        run: cosign sign --oidc-issuer https://token.actions.githubusercontent.com ${TAGS}
-        env:
-          TAGS: axelarnet/tofnd:${{ github.event.inputs.tag }}
-          COSIGN_EXPERIMENTAL: 1
