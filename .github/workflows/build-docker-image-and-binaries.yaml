@@ -51,7 +51,7 @@ jobs:
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
           ARCH="${{ matrix.arch }}"
-          if [ "$ARCH" == "arm64" ] && [ "OS" == "darwin" ] 
+          if [ "$ARCH" == "arm64" ] && [ "$OS" == "darwin" ] 
           then
               SDKROOT=$(xcrun -sdk macosx --show-sdk-path) 
               MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx --show-sdk-platform-version)
