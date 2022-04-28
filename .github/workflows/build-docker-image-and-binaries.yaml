@@ -49,8 +49,6 @@ jobs:
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
-              SDKROOT=$(xcrun -sdk macosx --show-sdk-path) 
-              MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx --show-sdk-platform-version)
               rustup target add aarch64-apple-darwin
               cargo build --target aarch64-apple-darwin
           mkdir tofndbin
