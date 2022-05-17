@@ -10,7 +10,7 @@ use anyhow::anyhow;
 const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 const DEFAULT_MNEMONIC_CMD: &str = "existing";
-const DEFAULT_IP: &str = "0.0.0.0";
+const DEFAULT_IP: &str = "localhost";
 const DEFAULT_PORT: u16 = 50051;
 const AVAILABLE_MNEMONIC_CMDS: &[&str] = &["existing", "create", "import", "export", "rotate"];
 
