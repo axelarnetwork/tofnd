@@ -1,6 +1,6 @@
 [package]
 name = "tofnd"
-version = "0.10.1"
+version = "0.10.2"
 authors = ["Gus Gutoski <gus@axelar.network>", "Stelios Daveas <stelios@axelar.network>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -23,7 +23,7 @@ clap = {version = "3.0", default-features = false, features = ["std", "cargo", "
 # sled dependency
 serde = { version = "1.0", features = ["derive"], default-features = false }
 # sled encryption
-chacha20poly1305 = { version = "0.9", features = ["alloc"], default-features = false }
+chacha20poly1305 = { version = "0.10.0-pre", features = ["alloc"], default-features = false }
 rand = {version = "0.8", default-features = false }
 
 rpassword = { version = "5.0", default-features = false }
@@ -37,7 +37,7 @@ futures-util = {version = "0.3", default-features = false}
 
 # mnemonic
 tiny-bip39 = { version = "0.8.2", default-features = false}
-zeroize = { version = "1.4", features = ["zeroize_derive"], default-features = false}
+zeroize = { version = "1.5.4", features = ["zeroize_derive"], default-features = false}
 
 #error handling
 thiserror = { version = "1.0", default-features = false }
