@@ -9,7 +9,7 @@ pub mod error;
 /// public API of kv manager
 mod kv;
 /// sled bindings for basic kv operations
-mod sled_bindings;
+pub mod sled_bindings;
 /// definition of kv_manager types and default paths
 mod types;
 /// wrapers for values stored by tofnd services
