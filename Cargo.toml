@@ -31,7 +31,7 @@ scrypt = { version = "0.8", default-features = false, features = ["std"] }
 
 # tonic dependencies
 prost = {version = "0.9", default-features = false}
-tokio = { version = "1.8", features = ["rt-multi-thread", "macros", "signal", "net", "sync"], default-features = false }
+tokio = { version = "1.13", features = ["rt-multi-thread", "macros", "signal", "net", "sync"], default-features = false }
 tokio-stream = {version = "0.1.7", features = ["net"], default-features = false}
 futures-util = {version = "0.3", default-features = false}
 
