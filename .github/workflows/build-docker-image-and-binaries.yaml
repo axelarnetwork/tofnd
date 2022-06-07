@@ -1,18 +1,16 @@
 name: Upload Binaries and Docker Image
 
-
 on:
   push:
     branches:
       - feat/arm-support
 
 jobs:
-
   release-binaries:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04]
+        os: [macos-latest]
 
     permissions:
       contents: write
@@ -39,17 +37,20 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: aarch64-apple-darwin
-          override: true
-
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --target aarch64-apple-darwin
+      - name: build binaries
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]
+          then
+              OS="linux"
+              TOFND_PATH="/home/runner/work/tofnd/tofnd/target/release"
+          else
+              OS="darwin"
+              TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
+          fi
+              rustup target add aarch64-apple-darwin
+              cargo build --target aarch64-apple-darwin
+          mkdir tofndbin
+          mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-arm64" 
 
       - name: Test tofnd
         working-directory: ./tofndbin
@@ -85,6 +86,3 @@ jobs:
             zip $i.zip $i
             shasum -a 256 $i.zip | awk '{print $1}' > $i.zip.sha256
           done
-
-
-
