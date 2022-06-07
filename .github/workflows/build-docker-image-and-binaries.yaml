@@ -47,6 +47,7 @@ jobs:
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
+              brew install autoconf automake libtool
               rustup target add aarch64-apple-darwin
               cargo build --target aarch64-apple-darwin
           mkdir tofndbin
