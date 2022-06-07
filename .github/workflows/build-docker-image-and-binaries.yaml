@@ -47,7 +47,7 @@ jobs:
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
-              cargo install -f cross
+              cargo install cross --git https://github.com/cross-rs/cross
               cross build --target aarch64-unknown-linux-gnu
           mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-arm64" 
