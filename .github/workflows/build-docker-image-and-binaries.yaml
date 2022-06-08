@@ -47,17 +47,18 @@ jobs:
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
-              cargo install cross --git https://github.com/cross-rs/cross
-              cross build --target aarch64-unknown-linux-gnu
+              sudo apt install libgmp-dev
+              rustup target add aarch64-apple-darwin
+              cargo build --release --target aarch64-apple-darwin
           mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-arm64" 
 
       - name: Test tofnd
+
         working-directory: ./tofndbin
         run: |
           ./tofnd-* --version
           file tofnd-"$OS"-arm64
-
       - name: Import GPG key
         id: import_gpg
         uses: crazy-max/ghaction-import-gpg@v4
