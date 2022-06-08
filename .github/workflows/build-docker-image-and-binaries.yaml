@@ -52,7 +52,7 @@ jobs:
               brew install gmp
               cargo clean
               rustup target add aarch64-apple-darwin
-              cargo build --release --target aarch64-apple-darwin
+              cargo build --release --target aarch64-apple-darwin -v
           mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-arm64" 
 
