@@ -47,9 +47,8 @@ jobs:
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
+          brew uninstall --ignore-dependencies --force gmp
           brew install gmp
-          SDKROOT=$(xcrun -sdk macosx --show-sdk-path) 
-          MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx --show-sdk-platform-version) 
           cargo build --release --target aarch64-apple-darwin -v
           mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-arm64" 
