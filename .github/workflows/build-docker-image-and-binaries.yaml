@@ -48,6 +48,7 @@ jobs:
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
               brew install gmp
+              cargo clean
               rustup target add aarch64-apple-darwin
               cargo build --release --target aarch64-apple-darwin
           mkdir tofndbin
