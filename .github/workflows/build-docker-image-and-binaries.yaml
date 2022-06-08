@@ -47,6 +47,7 @@ jobs:
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
+          rustup target add aarch64-apple-darwin
           brew uninstall --ignore-dependencies --force gmp
           brew install gmp
           cargo build --release --target aarch64-apple-darwin -v
