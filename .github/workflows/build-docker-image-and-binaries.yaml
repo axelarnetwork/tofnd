@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [macos-latest]
 
     permissions:
       contents: write
@@ -47,7 +47,7 @@ jobs:
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
-              sudo apt install libgmp-dev
+              brew install gmp
               rustup target add aarch64-apple-darwin
               cargo build --release --target aarch64-apple-darwin
           mkdir tofndbin
