@@ -46,12 +46,11 @@ jobs:
           else
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
-          fi
-              export LIBRARY_PATH=$LIBRARY_PATH:/opt/homebrew/lib
-              export INCLUDE_PATH=$INCLUDE_PATH:/opt/homebrew/include
-              brew install gmp
-              cargo clean
+          fi  
               rustup target add aarch64-apple-darwin
+              brew install gmp
+              SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path) \
+              MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version) \
               cargo build --release --target aarch64-apple-darwin -v
           mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-arm64" 
