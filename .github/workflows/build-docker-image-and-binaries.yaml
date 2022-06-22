@@ -49,7 +49,7 @@ jobs:
           fi
           rustup target add aarch64-apple-darwin
           brew uninstall --ignore-dependencies --force gmp
-          brew install gmp
+          brew fetch --force --deps --bottle-tag=arm64_monterey gmp
           cargo build --release --target aarch64-apple-darwin -v
           mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-arm64" 
