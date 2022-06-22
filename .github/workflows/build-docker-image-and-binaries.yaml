@@ -48,8 +48,7 @@ jobs:
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
           rustup target add aarch64-apple-darwin
-          brew uninstall --ignore-dependencies --force gmp
-          brew fetch --force --deps --bottle-tag=arm64_monterey gmp
+          brew fetch --force --bottle-tag=arm64_monterey gmp
           cd /Users/runner/Library/Caches/Homebrew/downloads/
           for i in $(ls *.tar.gz)
           do
