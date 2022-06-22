@@ -51,7 +51,7 @@ jobs:
           brew uninstall --ignore-dependencies --force gmp
           brew fetch --force --deps --bottle-tag=arm64_monterey gmp
           cd /Users/runner/Library/Caches/Homebrew/downloads/
-          for i in ls *.tar.gz
+          for i in $(ls *.tar.gz)
           do
           brew install "$i"
           done
