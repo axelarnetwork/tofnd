@@ -47,9 +47,9 @@ jobs:
               OS="darwin"
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
+          brew uninstall --force gmp
           rustup target add aarch64-apple-darwin
           brew fetch --force --bottle-tag=arm64_big_sur gmp
-          brew uninstall --ignore-dependencies --force gmp
           cd /Users/runner/Library/Caches/Homebrew/downloads/
           for i in $(ls *.tar.gz | grep 'gmp-' | grep arm64 )
           do
