@@ -50,7 +50,7 @@ jobs:
           rustup target add aarch64-apple-darwin
           brew fetch --force --bottle-tag=arm64_monterey gmp
           cd /Users/runner/Library/Caches/Homebrew/downloads/
-          for i in $(ls *.tar.gz)
+          for i in $(ls *.tar.gz | grep 'gmp-')
           do
           brew install "$i"
           done
