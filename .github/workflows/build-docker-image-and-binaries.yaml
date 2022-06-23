@@ -70,6 +70,7 @@ jobs:
           ARCH="${{ matrix.arch }}" 
           if [ "$ARCH" == "arm64" ]
           then
+            rustup target add aarch64-unknown-linux-gnu
             cargo build --release --target aarch64-unknown-linux-gnu
             mkdir tofndbin
             mv /home/runner/work/tofnd/tofnd/target/aarch64-unknown-linux-gnu/release/tofnd "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
