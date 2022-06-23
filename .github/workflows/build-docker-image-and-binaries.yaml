@@ -61,6 +61,29 @@ jobs:
             mv "/Users/runner/work/tofnd/tofnd/target/release/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
           fi
 
+      - name: build linux binaries
+        env: 
+          SEMVER: v3.3.3
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          OS="linux"
+          ARCH="${{ matrix.arch }}" 
+          if [ "$ARCH" == "arm64" ]
+          then
+            export HOMEBREW_NO_INSTALL_CLEANUP=TRUE
+            brew uninstall --ignore-dependencies gmp
+            rustup target add aarch64-unknown-linux-gnu
+            ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=arm64_big_sur gmp | grep Downloaded | awk '{print $3}')
+            brew install "$ARM_DEPENDENCY"
+            cargo build --release --target aarch64-unknown-linux-gnu
+            mkdir tofndbin
+            mv /home/runner/work/tofnd/tofnd/target/aarch64-unknown-linux-gnu/release/tofnd "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
+          else
+            cargo install --locked --path .
+            mkdir tofndbin
+            mv "/home/runner/work/tofnd/tofnd/target/release/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
+          fi
+
       - name: Test tofnd 
         working-directory: ./tofndbin
         run: |
