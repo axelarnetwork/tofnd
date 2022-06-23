@@ -81,7 +81,8 @@ jobs:
             export TARGET_LD=aarch64-linux-gnu-ld
             export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=$TARGET_CC
             sudo apt -y update
-            sudo apt -y install binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            sudo apt -y lgmp
+            sudo apt -y install binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu 
             rustup target add aarch64-unknown-linux-gnu
             cargo build --release --target aarch64-unknown-linux-gnu
             mkdir tofndbin
