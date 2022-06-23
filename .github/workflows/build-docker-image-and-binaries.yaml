@@ -56,7 +56,7 @@ jobs:
           mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-arm64" 
 
-      - name: Test tofnd
+      - name: Test tofnd binary
 
         working-directory: ./tofndbin
         run: |
