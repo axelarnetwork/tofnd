@@ -70,7 +70,7 @@ jobs:
           ARCH="${{ matrix.arch }}" 
           if [ "$ARCH" == "arm64" ]
           then
-            sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libgmp-dev
             export CMAKE_SYSTEM_NAME=Linux
             export TARGET=aarch64-linux-gnu
             export TARGET_AR=aarch64-linux-gnu-ar
