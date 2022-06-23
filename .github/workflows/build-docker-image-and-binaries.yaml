@@ -71,7 +71,6 @@ jobs:
           export TARGET_LD=aarch64-linux-gnu-ld
           if [ "$ARCH" == "arm64" ]
           then
-            sudo rm 
             sudo apt -y update
             sudo apt -y install binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
             rustup target add aarch64-unknown-linux-gnu
