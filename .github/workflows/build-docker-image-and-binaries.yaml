@@ -71,7 +71,7 @@ jobs:
           if [ "$ARCH" == "arm64" ]
           then
             sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-            sudo apt install gmp libgmp3-dev
+            sudo apt install libgmp3-dev
             export CMAKE_SYSTEM_NAME=Linux
             export TARGET=aarch64-linux-gnu
             export TARGET_AR=aarch64-linux-gnu-ar
