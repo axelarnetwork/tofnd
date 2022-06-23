@@ -64,5 +64,4 @@ jobs:
       - name: Test tofnd 
         working-directory: ./tofndbin
         run: |
-          ./tofnd-* --version
           file ./tofnd-*
