@@ -72,7 +72,7 @@ jobs:
           then
             sudo apt -y update
             # sudo apt -y install gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu crossbuild-essential-arm64
-            sudo apt -y install gcc-multilib gcc-9-aarch64-linux-gnu gcc-aarch64-linux-gnu 
+            sudo apt -y install gcc-aarch64-linux-gnu 
             rustup target add aarch64-unknown-linux-gnu
             cargo build --release --target aarch64-unknown-linux-gnu
             mkdir tofndbin
