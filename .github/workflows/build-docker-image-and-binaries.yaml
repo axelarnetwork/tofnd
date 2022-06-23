@@ -52,7 +52,7 @@ jobs:
           rustup target add aarch64-apple-darwin
           brew fetch --force --bottle-tag=arm64_big_sur gmp
           cd /Users/runner/Library/Caches/Homebrew/downloads/
-          brew install 3e74dcc39d8faf31f1e226060beea4bda63ec6888f7fe71d3513fd2b977df55e--gmp--6.2.1_1.arm64_big_sur.bottle.tar.gz
+          brew install /Users/runner/Library/Caches/Homebrew/downloads/3e74dcc39d8faf31f1e226060beea4bda63ec6888f7fe71d3513fd2b977df55e--gmp--6.2.1_1.arm64_big_sur.bottle.tar.gz
           cargo build --release --target aarch64-apple-darwin
           mkdir tofndbin
           mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-arm64" 
