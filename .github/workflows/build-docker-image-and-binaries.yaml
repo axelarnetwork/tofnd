@@ -70,9 +70,9 @@ jobs:
           ARCH="${{ matrix.arch }}" 
           if [ "$ARCH" == "arm64" ]
           then
-            rustup toolchain uninstall stable && rustup toolchain install stable
             sudo apt -y update
-            sudo apt -y install gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu crossbuild-essential-arm64
+            # sudo apt -y install gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu crossbuild-essential-arm64
+            sudo apt -y install gcc-multilib
             rustup target add aarch64-unknown-linux-gnu
             cargo build --release --target aarch64-unknown-linux-gnu
             mkdir tofndbin
