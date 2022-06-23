@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest]
+        os: [macos-latest,ubuntu-latest]
         arch: [amd64, arm64]
 
     permissions:
