@@ -69,7 +69,6 @@ jobs:
           if [ "$ARCH" == "arm64" ]
           then
             sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-            sudo apt install libgmp3-dev
             export CMAKE_SYSTEM_NAME=Linux
             export TARGET=aarch64-linux-gnu
             export TARGET_AR=aarch64-linux-gnu-ar
@@ -80,8 +79,8 @@ jobs:
             export TARGET_LD=aarch64-linux-gnu-ld
             export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=$TARGET_CC
             sudo dpkg --add-architecture arm64
-            sudo echo "deb [arch=amd64] http://de2.archive.ubuntu.com/ubuntu/ bionic main restricted" >> /etc/apt/sources.list
-            sudo echo "deb-src [arch=amd64] http://de.archive.ubuntu.com/ubuntu/ bionic main restricted" >>  /etc/apt/sources.list
+            sudo echo "deb [arch=amd64] http://de2.archive.ubuntu.com/ubuntu/ bionic main restricted" >> /etc/apt/sources.list.d/deb-arm.list
+            sudo echo "deb-src [arch=amd64] http://de.archive.ubuntu.com/ubuntu/ bionic main restricted" >>  /etc/apt/sources.list.d/deb-src-arm.list
             sudo apt -y update
             sudo apt -y install binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu 
             sudo apt -y install libgmp-dev:arm64
