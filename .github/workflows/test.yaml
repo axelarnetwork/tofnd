@@ -1,32 +1,68 @@
-name: Testing
+name: Upload Binaries and Docker Image
 
 on:
-  - pull_request
+  push:
+    branches:
+      - feat/arm-support
 
 jobs:
-  test:
+  release-binaries:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os:
-          # - ubuntu-18.04          
-          - macos-10.15          
-    runs-on: ${{ matrix.os }}
+        os: [macos-latest]
+        arch: [amd64, arm64]
+
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+
     steps:
-      - name: Checkout code and submodule
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Checkout code 
         uses: actions/checkout@v2
         with:
+          fetch-depth: '0'
+          ref: ${{ github.event.inputs.tag }}
           submodules: recursive
 
-      - uses: webfactory/ssh-agent@v0.5.1
-        with:
-            ssh-private-key: ${{ secrets.CICD_RSA_KEY }}
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - name: build darwin binaries
+        env: 
+          SEMVER: v3.3.3
+        if: matrix.os == 'macos-latest'
+        run: |
+          OS="darwin"
+          ARCH="${{ matrix.arch }}" 
+          if [ "$ARCH" == "arm64" ]
+          then
+            export HOMEBREW_NO_INSTALL_CLEANUP=TRUE
+            brew uninstall --ignore-dependencies gmp
+            rustup target add aarch64-apple-darwin
+            ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=arm64_big_sur gmp | grep Downloaded | awk '{print $3}')
+            brew install "$ARM_DEPENDENCY"
+            rustup target add aarch64-unknown-linux-gnu
+            cargo build --release --target aarch64-unknown-linux-gnu
+            mkdir tofndbin
+            mv /Users/runner/work/tofnd/tofnd/target/aarch64-apple-darwin/release/tofnd "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
+          else
+            cargo install --locked --path .
+            mkdir tofndbin
+            mv "/Users/runner/work/tofnd/tofnd/target/release/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
+          fi
 
-      - name: Run cargo test
-        run: cargo test --release --all-features
+      - name: Test tofnd 
+        working-directory: ./tofndbin
+        run: |
+          file ./tofnd-*
