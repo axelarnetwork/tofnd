@@ -52,6 +52,7 @@ jobs:
             rustup target add aarch64-apple-darwin
             ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=arm64_big_sur gmp | grep Downloaded | awk '{print $3}')
             brew install "$ARM_DEPENDENCY"
+            brew install aarch64-elf-gcc
             rustup target add aarch64-unknown-linux-gnu
             cargo build --release --target aarch64-unknown-linux-gnu
             mkdir tofndbin
