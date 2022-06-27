@@ -89,7 +89,7 @@ jobs:
       - name: Sign binaries
         working-directory: ./tofndbin
         env:
-          SEMVER: ${{ github.event.inputs.tag }}
+          SEMVER: v1.1.1
         run: |
           if [ "$RUNNER_OS" == "Linux" ]
           then
