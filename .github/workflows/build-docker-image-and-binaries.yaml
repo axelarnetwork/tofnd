@@ -59,11 +59,13 @@ jobs:
           ARCH="${{ matrix.arch }}" 
           if [ "$ARCH" == "arm64" ]
           then
-            export HOMEBREW_NO_INSTALL_CLEANUP=TRUE
-            brew uninstall --ignore-dependencies gmp
+            ./install-gmp-arm64.sh
             rustup target add aarch64-apple-darwin
-            ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=arm64_big_sur gmp | grep Downloaded | awk '{print $3}')
-            brew install "$ARM_DEPENDENCY"
+            cargo build --release --target aarch64-apple-darwin
+            mkdir tofndbin
+            mv /Users/runner/work/tofnd/tofnd/target/aarch64-apple-darwin/release/tofnd "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
+
+            rustup target add aarch64-apple-darwin
             cargo build --release --target aarch64-apple-darwin
             mkdir tofndbin
             mv /Users/runner/work/tofnd/tofnd/target/aarch64-apple-darwin/release/tofnd "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
