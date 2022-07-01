@@ -48,6 +48,8 @@ jobs:
           ARCH="${{ matrix.arch }}" 
           if [ "$ARCH" == "arm64" ]
           then
+            pwd
+            ls -la
             ./install-gmp-arm64.sh
             rustup target add aarch64-apple-darwin
             cargo build --release --target aarch64-apple-darwin
