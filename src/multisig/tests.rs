@@ -127,7 +127,7 @@ async fn test_multisig_keygen_sign() {
         }
     };
 
-    let _ = shutdown_sender.send(()).unwrap();
+    shutdown_sender.send(()).unwrap();
 
     assert!(tofn::ecdsa::verify(&to_array(pub_key), &msg_digest, &signature,).unwrap());
 }
@@ -147,7 +147,7 @@ async fn test_multisig_only_sign() {
         }
     };
 
-    let _ = shutdown_sender.send(()).unwrap();
+    shutdown_sender.send(()).unwrap();
 }
 
 #[traced_test]
@@ -178,7 +178,7 @@ async fn test_multisig_short_key_fail() {
         SignResponse::Error(_)
     ));
 
-    let _ = shutdown_sender.send(()).unwrap();
+    shutdown_sender.send(()).unwrap();
 }
 
 #[traced_test]
@@ -199,7 +199,7 @@ async fn test_multisig_truncated_msg_fail() {
         SignResponse::Error(_)
     ));
 
-    let _ = shutdown_sender.send(()).unwrap();
+    shutdown_sender.send(()).unwrap();
 }
 
 #[traced_test]
@@ -219,5 +219,5 @@ async fn test_key_presence() {
         .into_inner();
     assert_eq!(response.response, Present as i32);
 
-    let _ = shutdown_sender.send(()).unwrap();
+    shutdown_sender.send(()).unwrap();
 }
