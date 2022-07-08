@@ -23,6 +23,18 @@ git clone git@github.com:axelarnetwork/tofnd.git --recursive
 * MacOS: `brew install gmp`
 * Ubuntu: `sudo apt install libgmp-dev`
 
+# Build binaries
+
+The pipeline will build binaries for the following OS/architecures :
+ 
+* Linux AMD64
+* MacOS AMD64
+* MacOS ARM64
+
+See https://github.com/axelarnetwork/tofnd/releases
+
+For any other OS/Architecture, binaries should be built locally.
+
 # Running the server
 
 ```
