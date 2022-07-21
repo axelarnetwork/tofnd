@@ -57,15 +57,14 @@ export_mnemonic() {
 EMPTY_STRING=""
 PASSWORD="${PASSWORD:-$EMPTY_STRING}"
 
-# gather user's args
-ARGS=""
-
 # set tofnd root. TOFND_HOME can be set to a different path by the user.
 TOFND_HOME=${TOFND_HOME:-"./.tofnd"}
 IMPORT_PATH=$TOFND_HOME/import
 EXPORT_PATH=$TOFND_HOME/export
 
 echo "Using tofnd root:" $TOFND_HOME
+
+# gather user's args
 
 # add '--no-password' and '--unsafe' flags to args if enabled
 ARGS=${NOPASSWORD:+"--no-password"}
