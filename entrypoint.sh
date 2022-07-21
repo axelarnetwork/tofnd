@@ -57,9 +57,6 @@ export_mnemonic() {
 EMPTY_STRING=""
 PASSWORD="${PASSWORD:-$EMPTY_STRING}"
 
-# gather user's args
-ARGS=""
-
 # set tofnd root. TOFND_HOME can be set to a different path by the user.
 TOFND_HOME=${TOFND_HOME:-"./.tofnd"}
 IMPORT_PATH=$TOFND_HOME/import
@@ -67,10 +64,16 @@ EXPORT_PATH=$TOFND_HOME/export
 
 echo "Using tofnd root:" $TOFND_HOME
 
+# gather user's args
+
 # add '--no-password' and '--unsafe' flags to args if enabled
-ARGS=${NOPASSWORD:+"${ARGS} --no-password"}
+ARGS=${NOPASSWORD:+"--no-password"}
 # add '--unsafe' flag to args if enabled
-ARGS=${UNSAFE:+"${ARGS} --unsafe"}
+ARGS+=${UNSAFE:+" --unsafe"}
+# add '--address' flag to args if enabled
+ARGS+=${ADDRESS:+" --address ${ADDRESS}"}
+# add '--port' flag to args if enabled
+ARGS+=${PORT:+" --port ${PORT}"}
 
 # check mnemonic arg
 if [ -n "${MNEMONIC_CMD}" ]; then \
@@ -110,7 +113,7 @@ if [ -n "${MNEMONIC_CMD}" ]; then \
     esac
 
     echo "Using existing mnemonic ..."
-    ARGS="${ARGS} -m existing"
+    ARGS+=" -m existing"
 fi
 
 # execute tofnd daemon
