@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, macos-latest]
+        os: [ubuntu-22.04, macos-latest]
         arch: [amd64, arm64]
 
     permissions:
@@ -37,7 +37,7 @@ jobs:
           if [[ $SEMVER =~ v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3} ]]; then echo "Tag is okay" && exit 0; else echo "invalid tag" && exit 1; fi
           aws s3 ls s3://axelar-releases/tofnd/"$SEMVER" && echo "tag already exists, use a new one" && exit 1
 
-      - name: Checkout code 
+      - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: '0'
@@ -63,7 +63,7 @@ jobs:
           ARCH="${{ matrix.arch }}"
           cargo install --locked --path .
           mkdir tofndbin
-          mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER" 
+          mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
 
       - name: Test tofnd version
         working-directory: ./tofndbin
@@ -88,7 +88,7 @@ jobs:
           else
               OS="darwin"
           fi
-          ARCH="${{ matrix.arch }}" 
+          ARCH="${{ matrix.arch }}"
           gpg --armor --detach-sign  tofnd-"$OS"-"$ARCH"-"$SEMVER"
 
       - name: Create zip and sha256 files
@@ -121,7 +121,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04]
+        os: [ubuntu-22.04]
 
     permissions:
       contents: write
@@ -138,35 +138,35 @@ jobs:
           submodules: recursive
 
       - name: Install Cosign
-        if: matrix.os == 'ubuntu-18.04'
+        if: matrix.os == 'ubuntu-22.04'
         uses: sigstore/cosign-installer@main
 
       - name: Install SSH key
-        if: matrix.os == 'ubuntu-18.04'
+        if: matrix.os == 'ubuntu-22.04'
         uses: webfactory/ssh-agent@v0.4.1
         with:
           ssh-private-key: ${{ secrets.CICD_RSA_KEY }}
 
       - name: Build docker image
-        if: matrix.os == 'ubuntu-18.04'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           make docker-image
 
       - name: Login to DockerHub
-        if: matrix.os == 'ubuntu-18.04'
+        if: matrix.os == 'ubuntu-22.04'
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Push to DockerHub (release)
-        if: matrix.os == 'ubuntu-18.04'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           docker tag axelar/tofnd:latest axelarnet/tofnd:${{ github.event.inputs.tag }}
           docker push axelarnet/tofnd:${{ github.event.inputs.tag }}
 
       - name: Sign the images with GitHub OIDC
-        if: matrix.os == 'ubuntu-18.04'
+        if: matrix.os == 'ubuntu-22.04'
         run: cosign sign --oidc-issuer https://token.actions.githubusercontent.com ${TAGS}
         env:
           TAGS: axelarnet/tofnd:${{ github.event.inputs.tag }}
