@@ -17,10 +17,8 @@ copy-binary-from-image: guard-SEMVER
 upload-binaries-to-s3: guard-S3_PATH
 	aws s3 cp ./bin ${S3_PATH}/ --recursive
 
-.PHONY: docker-image-all
-docker-image-all: git-submodule-setup
-	make docker-image
-	make docker-image-malicious
+.PHONY: all
+all: git-submodule-setup docker-image docker-image-malicious
 
 .PHONY: git-submodule-setup
 git-submodule-setup:
