@@ -40,7 +40,7 @@ jobs:
           aws s3 ls s3://axelar-releases/tofnd/"$SEMVER" && echo "tag already exists, use a new one" && exit 1
 
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: '0'
           ref: ${{ github.event.inputs.tag }}
