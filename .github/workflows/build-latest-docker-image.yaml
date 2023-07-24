@@ -21,16 +21,9 @@ jobs:
 
       - uses: nelonoel/branch-name@v1.0.1
 
-      - id: set-tag
-        name: Set image tag
+      - name: fetch tags
         run: |
-          TAG="latest"
-
-          if [[ "$BRANCH_NAME" != "main" ]]; then
-            TAG=$(echo $BRANCH_NAME | tr "/" "-")
-          fi
-
-          echo '::set-output name=TAG::'$TAG
+          git fetch --unshallow
 
       - name: Install SSH key
         uses: webfactory/ssh-agent@v0.4.1
@@ -41,11 +34,11 @@ jobs:
         run: |
           make docker-image
 
-      - name: Push to ECR (latest)
+      - name: Push to ECR
         uses: jwalton/gh-ecr-push@v1
         with:
           access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           region: us-east-2
           local-image: axelar/tofnd
-          image: tofnd:${{ steps.set-tag.outputs.TAG }}, tofnd:${{ github.sha }}
+          image: tofnd:${{ github.sha }}
