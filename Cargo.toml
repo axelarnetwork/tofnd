@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 tonic = "0.6"
-tofn = { git = "https://github.com/axelarnetwork/tofn", branch = "main"}
+tofn = { git = "https://github.com/mobilecoinofficial/tofn", branch = "basic-ed25519-support"}
 # tofn = { path = "../tofn" }
 sled = {version = "0.34", default-features = false}
 
@@ -27,7 +27,7 @@ chacha20poly1305 = { version = "0.9", features = ["alloc"], default-features = f
 rand = {version = "0.8", default-features = false }
 
 rpassword = { version = "5.0", default-features = false }
-scrypt = { version = "0.8", default-features = false, features = ["std"] }
+scrypt = { version = "0.11", default-features = false, features = ["std"] }
 
 # tonic dependencies
 prost = {version = "0.9", default-features = false}
