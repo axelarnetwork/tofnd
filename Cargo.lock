@@ -519,9 +519,9 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
-version = "4.0.0-rc.3"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "436ace70fc06e06f7f689d2624dc4e2f0ea666efb5aa704215f7249ae6e047a7"
+checksum = "f711ade317dd348950a9910f81c5947e3d8907ebd2b83f76203ff1807e6a2bc2"
 dependencies = [
  "cfg-if 1.0.0",
  "cpufeatures",
@@ -657,8 +657,9 @@ dependencies = [
 
 [[package]]
 name = "ed25519-dalek"
-version = "2.0.0-rc.3"
-source = "git+https://github.com/dalek-cryptography/ed25519-dalek?tag=2.0.0-rc.3#58a967f6fb28806a21180c880bbec4fdeb907aef"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7277392b266383ef8396db7fdeb1e77b6c52fed775f5df15bb24f35b72156980"
 dependencies = [
  "curve25519-dalek",
  "ed25519",
@@ -2357,7 +2358,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 [[package]]
 name = "tofn"
 version = "0.1.0"
-source = "git+https://github.com/mobilecoinofficial/tofn?branch=basic-ed25519-support#21705c1296a513d11a19208f5f9341c3f2ecfdbe"
+source = "git+https://github.com/axelarnetwork/tofn?branch=main#18dc9c3449b6af4fd50c29971d3cd095cd126e41"
 dependencies = [
  "bincode",
  "der 0.7.8",
