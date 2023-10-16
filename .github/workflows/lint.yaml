@@ -17,10 +17,6 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: webfactory/ssh-agent@v0.5.1
-        with:
-            ssh-private-key: ${{ secrets.CICD_RSA_KEY }}
-
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
