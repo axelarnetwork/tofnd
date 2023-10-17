@@ -1,16 +1,19 @@
-use super::service::MultisigService;
-use crate::{proto::KeygenRequest, TofndResult};
-use tofn::ecdsa::keygen;
-
+use super::{keypair::KeyPair, service::MultisigService};
+use crate::{
+    proto::{Algorithm, KeygenRequest},
+    TofndResult,
+};
 use anyhow::anyhow;
 
 impl MultisigService {
     pub(super) async fn handle_keygen(&self, request: &KeygenRequest) -> TofndResult<Vec<u8>> {
+        let algorithm = Algorithm::from_i32(request.algorithm)
+            .ok_or(anyhow!("Invalid algorithm: {}", request.algorithm))?;
         let secret_recovery_key = self.kv_manager.seed().await?;
 
-        let key_pair = keygen(&secret_recovery_key, request.key_uid.as_bytes())
-            .map_err(|_| anyhow!("Cannot generate keypair"))?;
-
-        Ok(key_pair.encoded_verifying_key().to_vec())
+        Ok(
+            KeyPair::generate(&secret_recovery_key, request.key_uid.as_bytes(), algorithm)?
+                .encoded_verifying_key(),
+        )
     }
 }
