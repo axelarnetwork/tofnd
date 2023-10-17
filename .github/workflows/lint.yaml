@@ -36,3 +36,7 @@ jobs:
         with:
           command: clippy
           args: --all-features --all-targets -- -D warnings
+
+      - name: Run cargo build
+        run: cargo build --release --all-features
+  
