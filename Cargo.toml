@@ -72,7 +72,7 @@ lazy_static = { version = "1.4", default-features = false }
 # enable logging for tests
 tracing-test = { version = "0.2", default-features = false }
 
-testdir = { version = "0.8", default-features = false }
+testdir = { version = "0.6", default-features = false }
 
 # Don't abort in case there is a panic to clean up data
 [profile.dev]
