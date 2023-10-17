@@ -1,43 +1,62 @@
 [package]
 name = "tofnd"
 version = "0.10.2"
-authors = ["Gus Gutoski <gus@axelar.network>", "Stelios Daveas <stelios@axelar.network>"]
+authors = [
+    "Gus Gutoski <gus@axelar.network>",
+    "Stelios Daveas <stelios@axelar.network>",
+]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 tonic = "0.6"
-tofn = { git = "https://github.com/axelarnetwork/tofn", branch = "main"}
+tofn = { git = "https://github.com/axelarnetwork/tofn", rev = "0b441ed758ebed6726f7a2cf1ccce6a95c33152c" }
 # tofn = { path = "../tofn" }
-sled = {version = "0.34", default-features = false}
+sled = { version = "0.34", default-features = false }
 
 # logging
-log = {version = "0.4",default-features = false }
-tracing = {version = "0.1", default-features = false}
-tracing-subscriber= {version = "0.3", features = ["json", "env-filter"]}
-atty = {version = "0.2", default-features = false}
+log = { version = "0.4", default-features = false }
+tracing = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+atty = { version = "0.2", default-features = false }
 
 # config
-clap = {version = "3.0", default-features = false, features = ["std", "cargo", "env"]}
+clap = { version = "3.0", default-features = false, features = [
+    "std",
+    "cargo",
+    "env",
+] }
 
 # sled dependency
 serde = { version = "1.0", features = ["derive"], default-features = false }
 # sled encryption
-chacha20poly1305 = { version = "0.9", features = ["alloc"], default-features = false }
-rand = {version = "0.8", default-features = false }
+chacha20poly1305 = { version = "0.9", features = [
+    "alloc",
+], default-features = false }
+rand = { version = "0.8", default-features = false }
 
 rpassword = { version = "5.0", default-features = false }
-scrypt = { version = "0.11", default-features = false, features = ["std"] }
+scrypt = { version = "0.8", default-features = false, features = ["std"] }
 
 # tonic dependencies
-prost = {version = "0.9", default-features = false}
-tokio = { version = "1.8", features = ["rt-multi-thread", "macros", "signal", "net", "sync"], default-features = false }
-tokio-stream = {version = "0.1.7", features = ["net"], default-features = false}
-futures-util = {version = "0.3", default-features = false}
+prost = { version = "0.9", default-features = false }
+tokio = { version = "1.8", features = [
+    "rt-multi-thread",
+    "macros",
+    "signal",
+    "net",
+    "sync",
+], default-features = false }
+tokio-stream = { version = "0.1.7", features = [
+    "net",
+], default-features = false }
+futures-util = { version = "0.3", default-features = false }
 
 # mnemonic
-tiny-bip39 = { version = "0.8.2", default-features = false}
-zeroize = { version = "1.4", features = ["zeroize_derive"], default-features = false}
+tiny-bip39 = { version = "0.8.2", default-features = false }
+zeroize = { version = "1.4", features = [
+    "zeroize_derive",
+], default-features = false }
 
 #error handling
 thiserror = { version = "1.0", default-features = false }
@@ -46,14 +65,14 @@ anyhow = { version = "1.0", default-features = false }
 dirs = { version = "4.0", default-features = false }
 
 [build-dependencies]
-tonic-build = {version = "0.6"}
+tonic-build = { version = "0.6" }
 
 [dev-dependencies]
-lazy_static = { version = "1.4", default-features = false}
+lazy_static = { version = "1.4", default-features = false }
 # enable logging for tests
-tracing-test = {version = "0.2", default-features = false}
+tracing-test = { version = "0.2", default-features = false }
 
-testdir = {version = "0.4", default-features = false}
+testdir = { version = "0.8", default-features = false }
 
 # Don't abort in case there is a panic to clean up data
 [profile.dev]
