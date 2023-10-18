@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:experimental
 
-FROM rust:1.72.1-bullseye as builder
+FROM rust:1.73.0-bullseye as builder
 
 RUN set -ex \
   && apt-get update \
