@@ -25,6 +25,9 @@ jobs:
           override: true
           components: rustfmt, clippy
 
+      - name: Run cargo build
+        run: cargo build --release --all-features
+
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
