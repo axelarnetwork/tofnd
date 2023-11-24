@@ -7,7 +7,11 @@ use super::service::MultisigService;
 use tracing::debug;
 
 // error handling
-use crate::{proto, TofndResult};
+use crate::{
+    proto::{self, Algorithm},
+    TofndResult,
+};
+use anyhow::anyhow;
 
 impl MultisigService {
     pub(super) async fn handle_key_presence(
@@ -15,8 +19,11 @@ impl MultisigService {
         request: proto::KeyPresenceRequest,
     ) -> TofndResult<proto::key_presence_response::Response> {
         // check if mnemonic is available
+        let algorithm = Algorithm::from_i32(request.algorithm)
+            .ok_or(anyhow!("Invalid algorithm: {}", request.algorithm))?;
+
         let _ = self
-            .find_matching_seed(&request.key_uid, &request.pub_key)
+            .find_matching_seed(&request.key_uid, &request.pub_key, algorithm)
             .await?;
 
         // key presence for multisig always returns `Present`.

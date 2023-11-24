@@ -14,7 +14,7 @@ use crate::{
     gg20,
     kv_manager::KvManager,
     mnemonic::Cmd,
-    proto,
+    proto::{self, Algorithm},
     tests::SLEEP_TIME,
 };
 
@@ -380,6 +380,7 @@ impl Party for TofndParty {
         let key_presence_request = proto::KeyPresenceRequest {
             key_uid,
             pub_key: vec![],
+            algorithm: Algorithm::Ecdsa as i32,
         };
 
         let response = self

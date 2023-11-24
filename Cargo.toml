@@ -27,7 +27,7 @@ chacha20poly1305 = { version = "0.9", features = ["alloc"], default-features = f
 rand = {version = "0.8", default-features = false }
 
 rpassword = { version = "5.0", default-features = false }
-scrypt = { version = "0.8", default-features = false, features = ["std"] }
+scrypt = { version = "0.11", default-features = false, features = ["std"] }
 
 # tonic dependencies
 prost = {version = "0.9", default-features = false}
