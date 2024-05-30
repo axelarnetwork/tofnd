@@ -5,11 +5,7 @@ on:
 
 jobs:
   test:
-    strategy:
-      matrix:
-        os:
-          - macos-13
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-13
     steps:
       - name: Checkout code and submodule
         uses: actions/checkout@v2
@@ -24,7 +20,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.77.2
+          toolchain: 1.58.1
           override: true
           components: rustfmt, clippy
 
