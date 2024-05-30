@@ -148,7 +148,9 @@ jobs:
 
       - name: Install Cosign
         if: matrix.os == 'ubuntu-latest'
-        uses: sigstore/cosign-installer@main
+        uses: sigstore/cosign-installer@v3.3.0
+        with:
+          cosign-release: 'v2.2.2'
 
       - name: Install SSH key
         if: matrix.os == 'ubuntu-latest'
@@ -176,7 +178,7 @@ jobs:
 
       - name: Sign the images with GitHub OIDC
         if: matrix.os == 'ubuntu-latest'
-        run: cosign sign --oidc-issuer https://token.actions.githubusercontent.com ${TAGS}
+        run: cosign sign -y --oidc-issuer https://token.actions.githubusercontent.com ${TAGS}
         env:
           TAGS: axelarnet/tofnd:${{ github.event.inputs.tag }}
           COSIGN_EXPERIMENTAL: 1
