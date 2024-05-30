@@ -63,6 +63,32 @@ jobs:
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
 
+      - name: build darwin binaries
+        env:
+          SEMVER: ${{ github.event.inputs.tag }}
+        if: matrix.os == 'macos-latest'
+        run: |
+          OS="darwin"
+          ARCH="${{ matrix.arch }}"
+          if [ "$ARCH" == "arm64" ]
+          then
+            export HOMEBREW_NO_INSTALL_CLEANUP=TRUE
+            brew uninstall --ignore-dependencies gmp
+            ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=arm64_sonoma gmp | grep Downloaded | awk '{print $3}')
+            brew install "$ARM_DEPENDENCY"
+            rustup target add aarch64-apple-darwin
+            cargo build --release --target aarch64-apple-darwin
+            mkdir -p tofndbin
+            mv /Users/runner/work/tofnd/tofnd/target/aarch64-apple-darwin/release/tofnd "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
+          else
+            export HOMEBREW_NO_INSTALL_CLEANUP=TRUE
+            brew uninstall --ignore-dependencies gmp
+            ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=x86_64_sonoma gmp | grep Downloaded | awk '{print $3}')
+            brew install "$ARM_DEPENDENCY"
+            cargo install --locked --path .
+            mkdir -p tofndbin
+            mv "/Users/runner/work/tofnd/tofnd/target/release/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
+          fi
       - name: build linux binaries
         env:
           SEMVER: ${{ github.event.inputs.tag }}
@@ -71,8 +97,8 @@ jobs:
           OS="linux"
           ARCH="${{ matrix.arch }}"
           cargo install --locked --path .
-          mkdir tofndbin
-          mv "$TOFND_PATH/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
+          mkdir -p tofndbin
+          mv "/home/runner/.cargo/bin/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
 
       - name: Test tofnd version
         working-directory: ./tofndbin
