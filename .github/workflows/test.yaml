@@ -5,12 +5,7 @@ on:
 
 jobs:
   test:
-    strategy:
-      matrix:
-        os:
-          # - ubuntu-latest
-          - macos-latest
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-13
     steps:
       - name: Checkout code and submodule
         uses: actions/checkout@v2
@@ -25,8 +20,9 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.58.1
           override: true
+          components: rustfmt, clippy
 
       - name: Run cargo test
         run: cargo test --release --all-features
