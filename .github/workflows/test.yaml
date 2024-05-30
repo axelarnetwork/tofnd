@@ -26,6 +26,7 @@ jobs:
           profile: minimal
           toolchain: 1.73.0
           override: true
+          components: rustfmt, clippy
 
       - name: Run cargo test
         run: cargo test --release --all-features
