@@ -72,6 +72,8 @@ jobs:
           ARCH="${{ matrix.arch }}"
           if [ "$ARCH" == "arm64" ]
           then
+            export LIBRARY_PATH=/opt/homebrew/lib:$LIBRARY_PATH
+            export LD_LIBRARY_PATH=/opt/homebrew/lib:$LD_LIBRARY_PATH
             export HOMEBREW_NO_INSTALL_CLEANUP=TRUE
             brew uninstall --ignore-dependencies gmp
             ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=arm64_sonoma gmp | grep Downloaded | awk '{print $3}')
@@ -81,9 +83,14 @@ jobs:
             mkdir -p tofndbin
             mv /Users/runner/work/tofnd/tofnd/target/aarch64-apple-darwin/release/tofnd "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
           else
+            export RUSTFLAGS="-L/opt/homebrew/lib"
+            export LIBRARY_PATH=/opt/homebrew/lib:$LIBRARY_PATH
+            export LD_LIBRARY_PATH=/opt/homebrew/lib:$LD_LIBRARY_PATH
+            export C_INCLUDE_PATH=/opt/homebrew/include:$C_INCLUDE_PATH
+            export CPLUS_INCLUDE_PATH=/opt/homebrew/include:$CPLUS_INCLUDE_PATH
             export HOMEBREW_NO_INSTALL_CLEANUP=TRUE
             brew uninstall --ignore-dependencies gmp
-            ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=x86_64_sonoma gmp | grep Downloaded | awk '{print $3}')
+            ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=arm64_sonoma gmp | grep Downloaded | awk '{print $3}')
             brew install "$ARM_DEPENDENCY"
             cargo install --locked --path .
             mkdir -p tofndbin
