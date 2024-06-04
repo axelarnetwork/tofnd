@@ -72,27 +72,24 @@ jobs:
           ARCH="${{ matrix.arch }}"
 
           export LIBRARY_PATH=/opt/homebrew/lib:$LIBRARY_PATH
-          export HOMEBREW_NO_INSTALL_CLEANUP=TRUE
           export LD_LIBRARY_PATH=/opt/homebrew/lib:$LD_LIBRARY_PATH
-          brew uninstall --ignore-dependencies gmp
+
           mkdir -p tofndbin
 
           if [ "$ARCH" == "arm64" ]
           then
+            export HOMEBREW_NO_INSTALL_CLEANUP=TRUE
+
+            brew uninstall --ignore-dependencies gmp
             ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=arm64_sonoma gmp | grep Downloaded | awk '{print $3}')
+            brew install "$ARM_DEPENDENCY"
+
             rustup target add aarch64-apple-darwin
 
             cargo build --release --target aarch64-apple-darwin
             mv /Users/runner/work/tofnd/tofnd/target/aarch64-apple-darwin/release/tofnd "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
           else
-            export RUSTFLAGS="-L/opt/homebrew/lib"
-            export C_INCLUDE_PATH=/opt/homebrew/include:$C_INCLUDE_PATH
-            export CPLUS_INCLUDE_PATH=/opt/homebrew/include:$CPLUS_INCLUDE_PATH
-            ARM_DEPENDENCY=$(brew fetch --force --bottle-tag=arm64_sonoma gmp | grep Downloaded | awk '{print $3}')
-
-            brew install "$ARM_DEPENDENCY"
             cargo install --locked --path .
-
             mv "/Users/runner/work/tofnd/tofnd/target/release/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
           fi
       - name: build linux binaries
