@@ -15,8 +15,6 @@ services:
     volumes:
       - tofnd:/.tofnd
     environment:
-      # Attention! Use UNSAFE=true only for testing
-      - UNSAFE=true
       - NOPASSWORD=true
       - MNEMONIC_CMD=auto
       - TOFND_HOME=.tofnd

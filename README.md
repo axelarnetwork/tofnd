@@ -71,11 +71,9 @@ Users can specify:
 
 1. Tofnd's root folder. Use `--directory` or `-d` to specify a full or a relative path. If no argument is provided, then the environment variable `TOFND_HOME` is used. If no environment variable is set either, the default `./tofnd` directory is used.
 2. The port number of the gRPC server (default is 50051).
-3. The option to run in _unsafe_ mode. By default, this option is off, and safe primes are used for keygen. Use the `--unsafe` flag only for testing.
-4. `mnemonic` operations for their `tofnd` instance (default is `Existing`).
+3. `mnemonic` operations for their `tofnd` instance (default is `Existing`).
 For more information, see on mnemonic options, see [Mnemonic](#mnemonic).
-5. The option to run in _unsafe_ mode. By default, this option is off, and safe primes are used for keygen. **Attention: Use the `--unsafe` flag only for testing**.
-6. By default, `tofnd` expects a password from the standard input. Users that don't want to use passwords can use the `--no-password` flag. **Attention: Use `--no-password` only for testing .**
+4. By default, `tofnd` expects a password from the standard input. Users that don't want to use passwords can use the `--no-password` flag. **Attention: Use `--no-password` only for testing .**
 
 ```text
 A cryptographic signing service
@@ -86,8 +84,6 @@ USAGE:
 FLAGS:
         --no-password    Skip providing a password. Disabled by default. **Important note** If --no-password is set, the
                          a default (and public) password is used to encrypt.
-        --unsafe         Use unsafe primes. Deactivated by default. **Important note** This option should only be used
-                         for testing.
     -h, --help           Prints help information
     -V, --version        Prints version information
 
@@ -127,7 +123,7 @@ docker volume rm tofnd_tofnd
 
 ### Testing
 
-For testing purposes, `docker-compose.test.yml` is available, which is equivelent to `./tofnd --no-password --unsafe`. To spin up a test `tofnd` container, run
+For testing purposes, `docker-compose.test.yml` is available, which is equivelent to `./tofnd --no-password`. To spin up a test `tofnd` container, run
 
 ```bash
 docker-compose -f docker-compose.test.yml up

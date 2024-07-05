@@ -26,7 +26,6 @@ fn default_tofnd_dir() -> TofndResult<PathBuf> {
 pub struct Config {
     pub ip: String,
     pub port: u16,
-    pub safe_keygen: bool,
     pub mnemonic_cmd: Cmd,
     pub tofnd_path: PathBuf,
     pub password_method: PasswordMethod,
@@ -57,17 +56,6 @@ pub fn parse_args() -> TofndResult<Config> {
                 .short('p')
                 .required(false)
                 .default_value(port),
-        )
-        .arg(
-            // TODO: change to something like `--unsafe-primes`
-            Arg::new("unsafe")
-                .help(
-                    "Use unsafe primes for generation of Pailler encryption keys. (default: deactivated) **Security warning:** This option is intented for use only in tests.  Do not use this option to secure real value.",
-                )
-                .long("unsafe")
-                .required(false)
-                .takes_value(false)
-                .display_order(0),
         )
         .arg(
             Arg::new("no-password")
@@ -106,7 +94,6 @@ pub fn parse_args() -> TofndResult<Config> {
         .value_of("port")
         .ok_or_else(|| anyhow!("port value"))?
         .parse::<u16>()?;
-    let safe_keygen = !matches.is_present("unsafe");
     let mnemonic_cmd = matches
         .value_of("mnemonic")
         .ok_or_else(|| anyhow!("cmd value"))?
@@ -124,7 +111,6 @@ pub fn parse_args() -> TofndResult<Config> {
     Ok(Config {
         ip,
         port,
-        safe_keygen,
         mnemonic_cmd,
         tofnd_path,
         password_method,

@@ -48,7 +48,6 @@ impl TofndParty {
             mnemonic_cmd,
             ip: server_ip.to_string(),
             port: server_port,
-            safe_keygen: false,
             tofnd_path,
             password_method: PasswordMethod::NoPassword,
         };

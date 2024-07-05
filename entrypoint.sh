@@ -35,10 +35,10 @@ import_mnemonic() {
 
     if [ -n "${NOPASSWORD}" ]; then \
         echo "No password"
-        (cat $IMPORT_PATH | tofnd ${ARGS} -m import) || return $ERR
+        ( cat $IMPORT_PATH | tofnd ${ARGS} -m import ) || return $ERR
     else
         echo "With password"
-        ((echo $PASSWORD && cat $IMPORT_PATH) | tofnd ${ARGS} -m import) || return $ERR
+        ( (echo $PASSWORD && cat $IMPORT_PATH) | tofnd ${ARGS} -m import ) || return $ERR
     fi
 
     echo "... ok"
@@ -66,10 +66,8 @@ echo "Using tofnd root:" $TOFND_HOME
 
 # gather user's args
 
-# add '--no-password' and '--unsafe' flags to args if enabled
+# add '--no-password' flag to args if enabled
 ARGS=${NOPASSWORD:+"--no-password"}
-# add '--unsafe' flag to args if enabled
-ARGS+=${UNSAFE:+" --unsafe"}
 # add '--address' flag to args if enabled
 ARGS+=${ADDRESS:+" --address ${ADDRESS}"}
 # add '--port' flag to args if enabled

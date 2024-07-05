@@ -35,11 +35,6 @@ fn set_up_logs() {
         .init();
 }
 
-fn warn_for_unsafe_execution() {
-    use tracing::warn;
-    warn!("WARNING: THIS tofnd BINARY IS NOT SAFE: SAFE PRIMES ARE NOT USED BECAUSE '--unsafe' FLAG IS ENABLED.  USE '--unsafe' FLAG ONLY FOR TESTING.");
-}
-
 /// worker_threads defaults to the number of cpus on the system
 /// https://docs.rs/tokio/1.2.0/tokio/attr.main.html#multi-threaded-runtime
 #[tokio::main(flavor = "multi_thread")]
@@ -50,11 +45,6 @@ async fn main() -> TofndResult<()> {
 
     // immediately read an encryption password from stdin
     let password = cfg.password_method.execute()?;
-
-    // print config warnings
-    if !cfg.safe_keygen {
-        warn_for_unsafe_execution();
-    }
 
     // set up span for logs
     let main_span = span!(Level::INFO, "main");
