@@ -5,13 +5,11 @@ use super::{
     results::mnemonic::{
         InnerMnemonicError::*, InnerMnemonicResult, MnemonicError::*, MnemonicResult, SeedResult,
     },
+    types::{Entropy, Password},
 };
-use crate::{
-    gg20::types::{Entropy, Password}, // TODO: move from gg20::types
-    kv_manager::{
-        error::{InnerKvError, KvError},
-        KeyReservation, KvManager,
-    },
+use crate::kv_manager::{
+    error::{InnerKvError, KvError},
+    KeyReservation, KvManager,
 };
 use tofn::{
     gg20::keygen::SecretRecoveryKey,

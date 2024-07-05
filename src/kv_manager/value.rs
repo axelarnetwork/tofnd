@@ -3,8 +3,7 @@ use tofn::sdk::api::{deserialize, serialize};
 
 use crate::{
     encrypted_sled::Password,
-    gg20::types::{Entropy, PartyInfo},
-    mnemonic::FileIo,
+    mnemonic::{Entropy, FileIo},
 };
 
 use super::{
@@ -36,22 +35,6 @@ impl KvManager {
 
 /// Value type stored in the kv-store
 type KvValue = Vec<u8>;
-
-/// Create PartyInfo from KvValue
-impl TryFrom<KvValue> for PartyInfo {
-    type Error = InnerKvError;
-    fn try_from(v: KvValue) -> Result<Self, Self::Error> {
-        deserialize(&v).ok_or(InnerKvError::DeserializationErr)
-    }
-}
-
-/// Create KvValue from PartyInfo
-impl TryFrom<PartyInfo> for KvValue {
-    type Error = InnerKvError;
-    fn try_from(v: PartyInfo) -> Result<Self, Self::Error> {
-        serialize(&v).map_err(|_| InnerKvError::SerializationErr)
-    }
-}
 
 /// Create Entropy from KvValue
 impl TryFrom<KvValue> for Entropy {

@@ -1,19 +1,12 @@
 //! mnemonic tests at the TofndParty level
 
-use super::{InitParty, TofndParty};
-
 use crate::mnemonic::Cmd;
 use testdir::testdir;
 
-#[cfg(feature = "malicious")]
-use super::MaliciousData;
+use super::{tofnd_party::TofndParty, InitParty};
 
 fn dummy_init_party() -> InitParty {
-    InitParty::new(
-        0,
-        #[cfg(feature = "malicious")]
-        &MaliciousData::empty(1),
-    )
+    InitParty::new(0)
 }
 
 #[should_panic]

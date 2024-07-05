@@ -3,7 +3,6 @@ use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 
 mod encrypted_sled;
-mod gg20;
 mod kv_manager;
 mod mnemonic;
 mod multisig;
@@ -36,12 +35,6 @@ fn set_up_logs() {
         .init();
 }
 
-#[cfg(feature = "malicious")]
-pub fn warn_for_malicious_build() {
-    use tracing::warn;
-    warn!("WARNING: THIS tofnd BINARY AS COMPILED IN 'MALICIOUS' MODE.  MALICIOUS BEHAVIOUR IS INTENTIONALLY INSERTED INTO SOME MESSAGES.  THIS BEHAVIOUR WILL CAUSE OTHER tofnd PROCESSES TO IDENTIFY THE CURRENT PROCESS AS MALICIOUS.");
-}
-
 fn warn_for_unsafe_execution() {
     use tracing::warn;
     warn!("WARNING: THIS tofnd BINARY IS NOT SAFE: SAFE PRIMES ARE NOT USED BECAUSE '--unsafe' FLAG IS ENABLED.  USE '--unsafe' FLAG ONLY FOR TESTING.");
@@ -59,8 +52,6 @@ async fn main() -> TofndResult<()> {
     let password = cfg.password_method.execute()?;
 
     // print config warnings
-    #[cfg(feature = "malicious")]
-    warn_for_malicious_build();
     if !cfg.safe_keygen {
         warn_for_unsafe_execution();
     }
@@ -75,7 +66,6 @@ async fn main() -> TofndResult<()> {
         .handle_mnemonic(&cfg.mnemonic_cmd)
         .await?;
 
-    let gg20_service = gg20::service::new_service(cfg, kv_manager.clone());
     let multisig_service = multisig::service::new_service(kv_manager);
 
     if cmd.exit_after_cmd() {
@@ -83,7 +73,6 @@ async fn main() -> TofndResult<()> {
         return Ok(());
     }
 
-    let gg20_service = proto::gg20_server::Gg20Server::new(gg20_service);
     let multisig_service = proto::multisig_server::MultisigServer::new(multisig_service);
 
     let incoming = TcpListener::bind(socket_address).await?;
@@ -93,7 +82,6 @@ async fn main() -> TofndResult<()> {
     );
 
     tonic::transport::Server::builder()
-        .add_service(gg20_service)
         .add_service(multisig_service)
         .serve_with_incoming_shutdown(TcpListenerStream::new(incoming), shutdown_signal())
         .await?;

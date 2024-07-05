@@ -14,11 +14,6 @@ const DEFAULT_IP: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 50051;
 const AVAILABLE_MNEMONIC_CMDS: &[&str] = &["existing", "create", "import", "export", "rotate"];
 
-#[cfg(feature = "malicious")]
-mod malicious;
-#[cfg(feature = "malicious")]
-use malicious::*;
-
 // default path is ~/.tofnd
 fn default_tofnd_dir() -> TofndResult<PathBuf> {
     Ok(dirs::home_dir()
@@ -35,8 +30,6 @@ pub struct Config {
     pub mnemonic_cmd: Cmd,
     pub tofnd_path: PathBuf,
     pub password_method: PasswordMethod,
-    #[cfg(feature = "malicious")]
-    pub behaviours: Behaviours,
 }
 
 pub fn parse_args() -> TofndResult<Config> {
@@ -49,7 +42,7 @@ pub fn parse_args() -> TofndResult<Config> {
         .ok_or_else(|| anyhow!("can't convert default dir to str"))?;
 
     let app = App::new("tofnd")
-        .about("A threshold signature scheme daemon")
+        .about("A cryptographic signing service")
         .version(crate_version!())
         .arg(
             Arg::new("ip")
@@ -103,21 +96,6 @@ pub fn parse_args() -> TofndResult<Config> {
                 .default_value(default_dir),
         );
 
-    #[cfg(feature = "malicious")]
-    let app = app.subcommand(
-        App::new("malicious")
-            .about("Select malicious behaviour")
-            .arg(
-                Arg::new("behaviour")
-                    .required(true)
-                    .possible_values(&AVAILABLE_BEHAVIOURS)
-                    .help("malicious behaviour"),
-            )
-            .arg(Arg::new("victim").required(true).help("victim")),
-    );
-    #[cfg(feature = "malicious")]
-    let behaviours = get_behaviour_matches(app.clone())?;
-
     let matches = app.get_matches();
 
     let ip = matches
@@ -150,7 +128,5 @@ pub fn parse_args() -> TofndResult<Config> {
         mnemonic_cmd,
         tofnd_path,
         password_method,
-        #[cfg(feature = "malicious")]
-        behaviours,
     })
 }

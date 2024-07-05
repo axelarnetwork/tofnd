@@ -4,7 +4,7 @@ use testdir::testdir;
 #[test]
 fn test_encrypted_sled() {
     let db_path = testdir!("encrypted_db");
-    let db = EncryptedDb::open(&db_path, get_test_password()).unwrap();
+    let db = EncryptedDb::open(db_path, get_test_password()).unwrap();
 
     // insert <key: value> -> returns None
     let res = db.insert("key", "value").unwrap();
@@ -75,7 +75,7 @@ fn test_password() {
 fn test_large_input() {
     let db_path = testdir!("large_input");
 
-    let db = EncryptedDb::open(&db_path, get_test_password()).unwrap();
+    let db = EncryptedDb::open(db_path, get_test_password()).unwrap();
 
     let large_value = vec![0; 100000];
     let res = db.insert("key", large_value.clone()).unwrap();
