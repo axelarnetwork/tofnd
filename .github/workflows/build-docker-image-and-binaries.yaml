@@ -40,37 +40,39 @@ jobs:
           aws s3 ls s3://axelar-releases/tofnd/"$SEMVER" && echo "tag already exists, use a new one" && exit 1
 
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: '0'
           ref: ${{ github.event.inputs.tag }}
           submodules: recursive
 
-      - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.78.0
+          override: true
+          components: rustfmt, clippy
 
-      - name: build darwin binaries
+      - name: Build Mac OS binaries
         env:
           SEMVER: ${{ github.event.inputs.tag }}
         if: matrix.os == 'macos-latest'
         run: |
           OS="darwin"
           ARCH="${{ matrix.arch }}"
+          mkdir tofndbin
           if [ "$ARCH" == "arm64" ]
           then
-            ./install-gmp-arm64.sh
             rustup target add aarch64-apple-darwin
-            cargo build --release --target aarch64-apple-darwin
-            mkdir tofndbin
+            cargo build --release --locked --target aarch64-apple-darwin
             mv /Users/runner/work/tofnd/tofnd/target/aarch64-apple-darwin/release/tofnd "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
           else
             cargo install --locked --path .
-            mkdir tofndbin
             mv "/Users/runner/work/tofnd/tofnd/target/release/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
           fi
 
-      - name: build linux binaries
+      - name: Build Linux binaries
         env:
           SEMVER: ${{ github.event.inputs.tag }}
         if: matrix.os == 'ubuntu-latest'
@@ -147,7 +149,7 @@ jobs:
     steps:
 
       - name: Checkout code for docker image build
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: '0'
           ref: ${{ github.event.inputs.tag }}
