@@ -5,7 +5,7 @@ use crate::{
 };
 use anyhow::anyhow;
 use std::convert::TryInto;
-use tofn::multisig::keygen::SecretRecoveryKey;
+use tofn::sdk::api::SecretRecoveryKey;
 
 impl MultisigService {
     pub(super) async fn handle_sign(&self, request: &SignRequest) -> TofndResult<Vec<u8>> {

@@ -11,10 +11,7 @@ use crate::kv_manager::{
     error::{InnerKvError, KvError},
     KeyReservation, KvManager,
 };
-use tofn::{
-    gg20::keygen::SecretRecoveryKey,
-    sdk::api::{deserialize, serialize},
-};
+use tofn::sdk::api::{deserialize, serialize, SecretRecoveryKey};
 
 use rpassword::read_password;
 use std::convert::TryInto;
