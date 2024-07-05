@@ -63,7 +63,7 @@ jobs:
               TOFND_PATH="/Users/runner/work/tofnd/tofnd/target/release"
           fi
 
-      - name: build darwin binaries
+      - name: Build Mac OS binaries
         env:
           SEMVER: ${{ github.event.inputs.tag }}
         if: matrix.os == 'macos-latest'
@@ -92,7 +92,7 @@ jobs:
             cargo install --locked --path .
             mv "/Users/runner/work/tofnd/tofnd/target/release/tofnd" "./tofndbin/tofnd-$OS-$ARCH-$SEMVER"
           fi
-      - name: build linux binaries
+      - name: Build Linux binaries
         env:
           SEMVER: ${{ github.event.inputs.tag }}
         if: matrix.os == 'ubuntu-latest'
