@@ -2,14 +2,12 @@
 name = "tofnd"
 version = "0.11.0"
 authors = ["Gus Gutoski <gus@axelar.network>", "Stelios Daveas <stelios@axelar.network>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 tonic = "0.6"
-tofn = { git = "https://github.com/axelarnetwork/tofn", branch = "main"}
-# tofn = { path = "../tofn" }
-sled = {version = "0.34", default-features = false}
+tofn = { git = "https://github.com/axelarnetwork/tofn", branch = "update-deps"}
 
 # logging
 log = {version = "0.4",default-features = false }
@@ -21,6 +19,7 @@ atty = {version = "0.2", default-features = false}
 clap = {version = "3.0", default-features = false, features = ["std", "cargo", "env"]}
 
 # sled dependency
+sled = {version = "0.34", default-features = false}
 serde = { version = "1.0", features = ["derive"], default-features = false }
 # sled encryption
 chacha20poly1305 = { version = "0.9", features = ["alloc"], default-features = false }
@@ -37,7 +36,7 @@ futures-util = {version = "0.3", default-features = false}
 
 # mnemonic
 tiny-bip39 = { version = "0.8.2", default-features = false}
-zeroize = { version = "1.4", features = ["zeroize_derive"], default-features = false}
+zeroize = { version = "1.8", features = ["zeroize_derive"], default-features = false}
 
 #error handling
 thiserror = { version = "1.0", default-features = false }
