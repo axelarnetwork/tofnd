@@ -91,12 +91,13 @@ OPTIONS:
     -a, --address <ip>              [default: 0.0.0.0]
     -d, --directory <directory>     [env: TOFND_HOME=]  [default: .tofnd]
     -m, --mnemonic <mnemonic>       [default: existing]  [possible values: existing, create, import, export]
-    -p, --port <port>               [default: 50051]]
+    -p, --port <port>               [default: 50051]
 ```
 
 ## Docker
 
-### Setup
+### Docker Setup
+
 To setup a `tofnd` container, use the `create` mnemonic command:
 
 ```bash

@@ -89,14 +89,17 @@ pub fn parse_args() -> TofndResult<Config> {
 
     let ip = matches
         .get_one::<String>("ip")
-        .ok_or_else(|| anyhow!("ip value"))?.clone();
+        .ok_or_else(|| anyhow!("ip value"))?
+        .clone();
     let port = matches
         .get_one::<String>("port")
         .ok_or_else(|| anyhow!("port value"))?
         .parse::<u16>()?;
-    let mnemonic_cmd = Cmd::from_string(matches
-        .get_one::<String>("mnemonic")
-        .ok_or_else(|| anyhow!("cmd value"))?)?;
+    let mnemonic_cmd = Cmd::from_string(
+        matches
+            .get_one::<String>("mnemonic")
+            .ok_or_else(|| anyhow!("cmd value"))?,
+    )?;
     let tofnd_path = matches
         .get_one::<String>("directory")
         .ok_or_else(|| anyhow!("directory value"))?

@@ -1,3 +1,5 @@
+use multisig::service::MultisigService;
+use proto::multisig_server::MultisigServer;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
@@ -56,14 +58,12 @@ async fn main() -> TofndResult<()> {
         .handle_mnemonic(&cfg.mnemonic_cmd)
         .await?;
 
-    let multisig_service = multisig::service::new_service(kv_manager);
-
     if cmd.exit_after_cmd() {
         info!("Tofnd exited after using command <{:?}>. Run `./tofnd -m existing` to execute gRPC daemon.", cmd);
         return Ok(());
     }
 
-    let multisig_service = proto::multisig_server::MultisigServer::new(multisig_service);
+    let service = MultisigServer::new(MultisigService::new(kv_manager));
 
     let incoming = TcpListener::bind(socket_address).await?;
     info!(
@@ -72,7 +72,7 @@ async fn main() -> TofndResult<()> {
     );
 
     tonic::transport::Server::builder()
-        .add_service(multisig_service)
+        .add_service(service)
         .serve_with_incoming_shutdown(TcpListenerStream::new(incoming), shutdown_signal())
         .await?;
 

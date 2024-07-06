@@ -6,7 +6,7 @@
 
 use std::convert::TryInto;
 
-use chacha20poly1305::aead::{AeadInPlace, NewAead};
+use chacha20poly1305::aead::{AeadInPlace, KeyInit};
 use chacha20poly1305::{self, XChaCha20Poly1305};
 use rand::RngCore;
 

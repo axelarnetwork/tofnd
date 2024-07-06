@@ -11,7 +11,8 @@ pub enum KeyPair {
 }
 
 impl KeyPair {
-    pub fn generate(
+    /// Create a new `KeyPair` from the provided `SecretRecoveryKey` and `session_nonce` deterministically, for the given `algorithm`.
+    pub fn new(
         secret_recovery_key: &SecretRecoveryKey,
         session_nonce: &[u8],
         algorithm: Algorithm,
@@ -35,18 +36,16 @@ impl KeyPair {
 
     pub fn encoded_verifying_key(&self) -> Vec<u8> {
         match self {
-            Self::Ecdsa(key_pair) => key_pair.encoded_verifying_key().to_vec(),
-            Self::Ed25519(key_pair) => key_pair.encoded_verifying_key().to_vec(),
+            Self::Ecdsa(key_pair) => key_pair.encoded_verifying_key().into(),
+            Self::Ed25519(key_pair) => key_pair.encoded_verifying_key().into(),
         }
     }
 
     pub fn sign(&self, msg_to_sign: &MessageDigest) -> TofndResult<Vec<u8>> {
         match self {
-            Self::Ecdsa(key_pair) => ecdsa::sign(key_pair.signing_key(), msg_to_sign)
-                .map_err(|_| anyhow!("signing failed")),
-            Self::Ed25519(key_pair) => {
-                ed25519::sign(key_pair, msg_to_sign).map_err(|_| anyhow!("signing failed"))
-            }
+            Self::Ecdsa(key_pair) => ecdsa::sign(key_pair.signing_key(), msg_to_sign),
+            Self::Ed25519(key_pair) => ed25519::sign(key_pair, msg_to_sign),
         }
+        .map_err(|_| anyhow!("signing failed"))
     }
 }
