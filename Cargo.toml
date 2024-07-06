@@ -16,7 +16,7 @@ tracing-subscriber= {version = "0.3", features = ["json", "env-filter"]}
 atty = {version = "0.2", default-features = false}
 
 # config
-clap = {version = "3.0", default-features = false, features = ["std", "cargo", "env"]}
+clap = {version = "3.2", default-features = false, features = ["std", "cargo", "env"]}
 
 # sled dependency
 sled = {version = "0.34", default-features = false}
