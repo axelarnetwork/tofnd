@@ -23,6 +23,7 @@ jobs:
           profile: minimal
           toolchain: 1.78.0
           override: true
+          components: rustfmt
 
       - name: Run cargo test
         run: cargo test --release --all-features
