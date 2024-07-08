@@ -8,8 +8,7 @@ jobs:
     strategy:
       matrix:
         os:
-          # - ubuntu-latest
-          - macos-latest
+          - ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code and submodule
@@ -23,6 +22,7 @@ jobs:
           profile: minimal
           toolchain: 1.78.0
           override: true
+          components: rustfmt
 
       - name: Run cargo test
         run: cargo test --release --all-features

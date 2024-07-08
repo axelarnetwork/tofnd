@@ -8,8 +8,7 @@ jobs:
     strategy:
       matrix:
         os:
-          # - ubuntu-latest
-          - macos-latest
+          - ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
@@ -23,7 +22,7 @@ jobs:
           profile: minimal
           toolchain: 1.78.0
           override: true
-          components: rustfmt, clippy
+          components: rustfmt
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
