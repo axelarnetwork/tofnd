@@ -10,6 +10,8 @@ mod bip39_bindings;
 mod cmd_handler;
 mod file_io;
 mod results;
+mod types;
 
 pub use cmd_handler::Cmd;
 pub use file_io::FileIo;
+pub use types::Entropy;

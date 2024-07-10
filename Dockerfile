@@ -43,7 +43,6 @@ COPY ./entrypoint.sh /
 
 VOLUME [ "/.tofnd" ]
 
-ENV UNSAFE ""
 ENV MNEMONIC_CMD ""
 ENV NOPASSWORD ""
 ENV TOFND_HOME ""

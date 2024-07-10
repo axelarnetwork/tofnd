@@ -63,6 +63,7 @@ where
     }
 
     /// Unreserves an existing reservation
+    #[allow(dead_code)]
     pub async fn unreserve_key(&self, reservation: KeyReservation) {
         let _ = self.sender.send(UnreserveKey { reservation });
     }
@@ -150,12 +151,10 @@ pub fn get_kv_store(
 }
 
 // private handler function to process commands as per the "actor" pattern (see above)
-async fn kv_cmd_handler<V: 'static>(
+async fn kv_cmd_handler<V: 'static + Serialize + DeserializeOwned>(
     mut rx: mpsc::UnboundedReceiver<Command<V>>,
     kv: encrypted_sled::Db,
-) where
-    V: Serialize + DeserializeOwned,
-{
+) {
     // if resp.send() fails then log a warning and continue
     // see discussion https://github.com/axelarnetwork/tofnd/pull/15#discussion_r595426775
     while let Some(cmd) = rx.recv().await {

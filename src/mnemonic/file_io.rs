@@ -4,8 +4,8 @@ use std::{io::Write, path::PathBuf};
 
 use tracing::info;
 
+use super::types::Entropy;
 use super::{bip39_bindings::bip39_from_entropy, results::file_io::FileIoError::Exists};
-use crate::gg20::types::Entropy;
 
 /// name of export file
 const EXPORT_FILE: &str = "export";
@@ -48,7 +48,7 @@ impl FileIo {
         // if there is an existing exported file raise an error
         self.check_if_not_exported()?;
 
-        let mut file = std::fs::File::create(&self.export_path())?;
+        let mut file = std::fs::File::create(self.export_path())?;
         file.write_all(phrase.as_bytes())?;
         file.sync_all()?;
 

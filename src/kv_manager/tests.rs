@@ -153,7 +153,7 @@ fn get_failure() {
 #[test]
 fn test_exists() {
     let kv_name = testdir!();
-    let kv = open_with_test_password(&kv_name).unwrap();
+    let kv = open_with_test_password(kv_name).unwrap();
     let key: String = "key".to_string();
     let value: String = "value".to_string();
 

@@ -2,7 +2,7 @@ use crate::{proto::Algorithm, TofndResult};
 use anyhow::anyhow;
 use tofn::{
     ecdsa, ed25519,
-    multisig::{keygen::SecretRecoveryKey, sign::MessageDigest},
+    sdk::api::{MessageDigest, SecretRecoveryKey},
 };
 
 pub enum KeyPair {
@@ -18,14 +18,14 @@ impl KeyPair {
     ) -> TofndResult<Self> {
         Ok(match algorithm {
             Algorithm::Ecdsa => {
-                let key_pair = ecdsa::keygen(&secret_recovery_key, session_nonce)
+                let key_pair = ecdsa::keygen(secret_recovery_key, session_nonce)
                     .map_err(|_| anyhow!("Cannot generate keypair"))?;
 
                 Self::Ecdsa(key_pair)
             }
 
             Algorithm::Ed25519 => {
-                let key_pair = ed25519::keygen(&secret_recovery_key, session_nonce)
+                let key_pair = ed25519::keygen(secret_recovery_key, session_nonce)
                     .map_err(|_| anyhow!("Cannot generate keypair"))?;
 
                 Self::Ed25519(key_pair)

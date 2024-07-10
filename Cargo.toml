@@ -1,13 +1,13 @@
 [package]
 name = "tofnd"
-version = "0.10.2"
+version = "0.11.0"
 authors = ["Gus Gutoski <gus@axelar.network>", "Stelios Daveas <stelios@axelar.network>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 tonic = "0.6"
-tofn = { git = "https://github.com/axelarnetwork/tofn", branch = "main"}
+tofn = { version = "1.0" }
 # tofn = { path = "../tofn" }
 sled = {version = "0.34", default-features = false}
 
@@ -63,5 +63,3 @@ panic = "unwind"
 panic = "unwind"
 
 [features]
-# when we compile tofnd with malicious build, also use malicious build for tofn
-malicious = ["tofn/malicious"]
