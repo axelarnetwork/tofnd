@@ -6,7 +6,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-tofn = { git = "https://github.com/axelarnetwork/tofn", branch = "update-deps"}
+tofn = { version = "1.0" }
 
 # logging
 log = { version = "0.4",default-features = false }
