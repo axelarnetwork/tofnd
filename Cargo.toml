@@ -1,9 +1,11 @@
 [package]
 name = "tofnd"
 version = "1.0.0"
-authors = ["Gus Gutoski <gus@axelar.network>", "Stelios Daveas <stelios@axelar.network>"]
+authors = ["Interoplabs Eng <eng@interoplabs.io>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "A cryptographic signing service, used by the Axelar network"
+keywords = ["cryptography", "blockchain", "axelar", "ecdsa", "ed25519"]
 
 [dependencies]
 tofn = { version = "1.0" }

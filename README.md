@@ -1,4 +1,4 @@
-# Tofnd: A gRPC threshold signature scheme daemon
+# tofnd: A cryptographic signing service
 
 Tofnd is a [gRPC](https://grpc.io/) server written in Rust that wraps the [tofn](https://github.com/axelarnetwork/tofn) cryptography library.
 
@@ -165,7 +165,6 @@ We use the [zeroize](https://docs.rs/zeroize/1.1.1/zeroize/) crate to clear sens
 
 1. entropy
 2. passwords
-3. passphrases
 
 Note that, [tiny-bip39](https://docs.rs/crate/tiny-bip39) also uses `zeroize` internally.
 
@@ -174,10 +173,6 @@ Note that, [tiny-bip39](https://docs.rs/crate/tiny-bip39) also uses `zeroize` in
 To persist information between different gRPCs (i.e. _keygen_ and _sign_), we use a key-value storage based on [sled](https://sled.rs/).
 
 `Tofnd` uses an encrypted mnemonic KV Store which stores the entropy of a mnemonic passphrase. This entropy is used to derive user's keys. The KV Store is encrypted with a password provided by the user. The password is used to derive a key that encrypts the KV Store.
-
-## Security
-
-**Important note**: Currently, the `mnemonic KV Store` is **not** encrypted. The mnemonic entropy is stored in clear text on disk. Our current security model assumes secure device access.
 
 ## Threshold cryptography
 
