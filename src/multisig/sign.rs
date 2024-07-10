@@ -9,11 +9,8 @@ use tofn::sdk::api::SecretRecoveryKey;
 
 impl MultisigService {
     pub(super) async fn handle_sign(&self, request: &SignRequest) -> TofndResult<Vec<u8>> {
-        let algorithm = match request.algorithm {
-            0 => Algorithm::Ecdsa,
-            1 => Algorithm::Ed25519,
-            _ => return Err(anyhow!("Invalid algorithm: {}", request.algorithm)),
-        };
+        let algorithm = Algorithm::from_i32(request.algorithm)
+            .ok_or_else(|| anyhow!("Invalid algorithm: {}", request.algorithm))?;
 
         // re-generate secret key from seed, then sign
         let secret_recovery_key = self

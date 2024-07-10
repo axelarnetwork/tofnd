@@ -7,11 +7,8 @@ use anyhow::anyhow;
 
 impl MultisigService {
     pub(super) async fn handle_keygen(&self, request: &KeygenRequest) -> TofndResult<Vec<u8>> {
-        let algorithm = match request.algorithm {
-            0 => Algorithm::Ecdsa,
-            1 => Algorithm::Ed25519,
-            _ => return Err(anyhow!("Invalid algorithm: {}", request.algorithm)),
-        };
+        let algorithm = Algorithm::from_i32(request.algorithm)
+            .ok_or_else(|| anyhow!("Invalid algorithm: {}", request.algorithm))?;
         let secret_recovery_key = self.kv_manager.seed().await?;
 
         Ok(
