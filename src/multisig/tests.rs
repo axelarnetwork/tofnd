@@ -13,7 +13,7 @@ use tokio::{
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Channel;
 
-use super::service::new_service;
+use super::service::MultisigService;
 
 use testdir::testdir;
 use tracing::error;
@@ -40,8 +40,7 @@ async fn spin_test_service_and_client() -> (MultisigClient<Channel>, Sender<()>)
         .unwrap();
 
     // create service
-    let service = new_service(kv_manager);
-    let service = MultisigServer::new(service);
+    let service = MultisigServer::new(MultisigService::new(kv_manager));
 
     // create incoming tcp server for service
     let incoming = TcpListener::bind(addr(DEFAULT_TEST_IP, DEFAULT_TEST_PORT).unwrap())

@@ -3,7 +3,7 @@ use testdir::testdir;
 
 #[test]
 fn test_encrypted_sled() {
-    let db_path = testdir!("encrypted_db");
+    let db_path = testdir!("encrypted_sled");
     let db = EncryptedDb::open(db_path, get_test_password()).unwrap();
 
     // insert <key: value> -> returns None
@@ -45,7 +45,7 @@ fn test_encrypted_sled() {
 
 #[test]
 fn test_use_existing_salt() {
-    let db_path = testdir!("encrypted_db");
+    let db_path = testdir!("use_existing_salt");
     let db = EncryptedDb::open(&db_path, get_test_password()).unwrap();
     drop(db);
     // open existing db

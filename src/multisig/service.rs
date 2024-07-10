@@ -6,15 +6,17 @@ use crate::proto;
 
 use tracing::{error, info};
 
-/// Gg20Service
+/// `MultisigService` is a gRPC service wrapper around tofn's keygen and signing functions
 #[derive(Clone)]
 pub struct MultisigService {
     pub(super) kv_manager: KvManager,
 }
 
-/// create a new Multisig gRPC server
-pub fn new_service(kv_manager: KvManager) -> impl proto::multisig_server::Multisig {
-    MultisigService { kv_manager }
+/// Create a new Multisig gRPC server
+impl MultisigService {
+    pub fn new(kv_manager: KvManager) -> Self {
+        Self { kv_manager }
+    }
 }
 
 #[tonic::async_trait]

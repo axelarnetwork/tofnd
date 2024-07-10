@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{crate_version, App, Arg};
+use clap::{builder::PossibleValuesParser, crate_version, Arg, Command};
 
 // error handling
 use crate::{encrypted_sled::PasswordMethod, mnemonic::Cmd, TofndResult};
@@ -40,7 +40,7 @@ pub fn parse_args() -> TofndResult<Config> {
         .to_str()
         .ok_or_else(|| anyhow!("can't convert default dir to str"))?;
 
-    let app = App::new("tofnd")
+    let app = Command::new("tofnd")
         .about("A cryptographic signing service")
         .version(crate_version!())
         .arg(
@@ -73,7 +73,8 @@ pub fn parse_args() -> TofndResult<Config> {
                 .short('m')
                 .required(false)
                 .default_value(DEFAULT_MNEMONIC_CMD)
-                .possible_values(AVAILABLE_MNEMONIC_CMDS),
+                .value_parser(PossibleValuesParser::new(AVAILABLE_MNEMONIC_CMDS))
+                .takes_value(true),
         )
         .arg(
             Arg::new("directory")
@@ -87,23 +88,23 @@ pub fn parse_args() -> TofndResult<Config> {
     let matches = app.get_matches();
 
     let ip = matches
-        .value_of("ip")
+        .get_one::<String>("ip")
         .ok_or_else(|| anyhow!("ip value"))?
-        .to_string();
+        .clone();
     let port = matches
-        .value_of("port")
+        .get_one::<String>("port")
         .ok_or_else(|| anyhow!("port value"))?
         .parse::<u16>()?;
-    let mnemonic_cmd = matches
-        .value_of("mnemonic")
-        .ok_or_else(|| anyhow!("cmd value"))?
-        .to_string();
-    let mnemonic_cmd = Cmd::from_string(&mnemonic_cmd)?;
+    let mnemonic_cmd = Cmd::from_string(
+        matches
+            .get_one::<String>("mnemonic")
+            .ok_or_else(|| anyhow!("cmd value"))?,
+    )?;
     let tofnd_path = matches
-        .value_of("directory")
+        .get_one::<String>("directory")
         .ok_or_else(|| anyhow!("directory value"))?
         .into();
-    let password_method = match matches.is_present("no-password") {
+    let password_method = match matches.contains_id("no-password") {
         true => PasswordMethod::NoPassword,
         false => PasswordMethod::Prompt,
     };

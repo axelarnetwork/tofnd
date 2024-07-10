@@ -1,59 +1,61 @@
 [package]
 name = "tofnd"
-version = "0.11.0"
-authors = ["Gus Gutoski <gus@axelar.network>", "Stelios Daveas <stelios@axelar.network>"]
-edition = "2018"
+version = "1.0.0"
+authors = ["Interoplabs Eng <eng@interoplabs.io>"]
+edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "A cryptographic signing service, used by the Axelar network"
+keywords = ["cryptography", "blockchain", "axelar", "ecdsa", "ed25519"]
 
 [dependencies]
-tonic = "0.6"
 tofn = { version = "1.0" }
-# tofn = { path = "../tofn" }
-sled = {version = "0.34", default-features = false}
 
 # logging
-log = {version = "0.4",default-features = false }
-tracing = {version = "0.1", default-features = false}
-tracing-subscriber= {version = "0.3", features = ["json", "env-filter"]}
-atty = {version = "0.2", default-features = false}
+log = { version = "0.4",default-features = false }
+tracing = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+atty = { version = "0.2", default-features = false }
 
-# config
-clap = {version = "3.0", default-features = false, features = ["std", "cargo", "env"]}
+# CLI args
+clap = { version = "3.2", default-features = false, features = ["std", "cargo", "env"] }
 
-# sled dependency
+# kv store
+sled = { version = "0.34", default-features = false }
 serde = { version = "1.0", features = ["derive"], default-features = false }
-# sled encryption
-chacha20poly1305 = { version = "0.9", features = ["alloc"], default-features = false }
-rand = {version = "0.8", default-features = false }
+dirs = { version = "5.0", default-features = false }
 
-rpassword = { version = "5.0", default-features = false }
+# kv store encryption
+chacha20poly1305 = { version = "0.10", features = ["alloc"], default-features = false }
+rand = { version = "0.8", default-features = false }
+rpassword = { version = "7.3", default-features = false }
 scrypt = { version = "0.11", default-features = false, features = ["std"] }
 
-# tonic dependencies
-prost = {version = "0.9", default-features = false}
-tokio = { version = "1.8", features = ["rt-multi-thread", "macros", "signal", "net", "sync"], default-features = false }
-tokio-stream = {version = "0.1.7", features = ["net"], default-features = false}
-futures-util = {version = "0.3", default-features = false}
+# gRPC server
+tonic = { version = "0.6" } # ensure tonic-build version matches this
+prost = { version = "0.9" }
+
+# async runtime
+tokio = { version = "1.38", features = ["rt-multi-thread", "macros", "signal", "net", "sync"], default-features = false }
+tokio-stream = { version = "0.1.15", features = ["net"], default-features = false }
+futures-util = { version = "0.3", default-features = false }
 
 # mnemonic
-tiny-bip39 = { version = "0.8.2", default-features = false}
-zeroize = { version = "1.4", features = ["zeroize_derive"], default-features = false}
+tiny-bip39 = { version = "1.0.0", default-features = false}
+zeroize = { version = "1.8", features = ["zeroize_derive"], default-features = false}
 
-#error handling
+# error handling
 thiserror = { version = "1.0", default-features = false }
 anyhow = { version = "1.0", default-features = false }
 
-dirs = { version = "4.0", default-features = false }
-
 [build-dependencies]
-tonic-build = {version = "0.6"}
+tonic-build = { version = "0.6" }
 
 [dev-dependencies]
-lazy_static = { version = "1.4", default-features = false}
+lazy_static = { version = "1.5", default-features = false}
 # enable logging for tests
-tracing-test = {version = "0.2", default-features = false}
+tracing-test = { version = "0.2", default-features = false }
 
-testdir = {version = "0.4", default-features = false}
+testdir = { version = "0.9", default-features = false }
 
 # Don't abort in case there is a panic to clean up data
 [profile.dev]

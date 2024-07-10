@@ -5,7 +5,8 @@ use crate::{
     encrypted_sled::{get_test_password, PasswordMethod},
     kv_manager::KvManager,
     mnemonic::Cmd,
-    multisig, proto,
+    multisig::service::MultisigService,
+    proto::{self, multisig_server::MultisigServer},
     tests::SLEEP_TIME,
 };
 
@@ -74,13 +75,12 @@ impl TofndParty {
         };
         let kv_manager = kv_manager.handle_mnemonic(&cfg.mnemonic_cmd).await.unwrap();
 
-        let my_service = multisig::service::new_service(kv_manager);
+        let service = MultisigServer::new(MultisigService::new(kv_manager));
 
-        let proto_service = proto::multisig_server::MultisigServer::new(my_service);
         // let (startup_sender, startup_receiver) = tokio::sync::oneshot::channel::<()>();
         let server_handle = tokio::spawn(async move {
             tonic::transport::Server::builder()
-                .add_service(proto_service)
+                .add_service(service)
                 .serve_with_incoming_shutdown(TcpListenerStream::new(incoming), async {
                     shutdown_receiver.await.unwrap();
                 })
