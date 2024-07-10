@@ -2,7 +2,7 @@ use crate::{proto::Algorithm, TofndResult};
 use anyhow::anyhow;
 use tofn::{
     ecdsa, ed25519,
-    multisig::{keygen::SecretRecoveryKey, sign::MessageDigest},
+    sdk::api::{MessageDigest, SecretRecoveryKey},
 };
 
 pub enum KeyPair {
