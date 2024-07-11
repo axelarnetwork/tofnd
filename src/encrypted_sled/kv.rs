@@ -70,7 +70,7 @@ impl EncryptedDb {
     }
 
     /// Recommended default params. Should NOT be changed without a migration of the kvstore.
-    /// See [scrypt::Params] for more info. These are fixed instead of using [Params::default()]
+    /// See [scrypt::Params] for more info. These are fixed instead of using [scrypt::Params::default()]
     /// to avoid regression if the default recommendation changes.
     fn scrypt_params() -> EncryptedDbResult<scrypt::Params> {
         scrypt::Params::new(15, 8, 1, 32).map_err(PasswordScryptParams)
