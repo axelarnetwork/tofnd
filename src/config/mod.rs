@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{builder::PossibleValuesParser, crate_version, Arg, ArgAction, Command};
+use clap::{builder::PossibleValuesParser, crate_version, value_parser, Arg, ArgAction, Command};
 
 // error handling
 use crate::{encrypted_sled::PasswordMethod, mnemonic::Cmd, TofndResult};
@@ -50,6 +50,7 @@ pub fn parse_args() -> TofndResult<Config> {
                 .long("port")
                 .short('p')
                 .required(false)
+                .value_parser(value_parser!(u16))
                 .default_value(DEFAULT_PORT),
         )
         .arg(
@@ -58,8 +59,8 @@ pub fn parse_args() -> TofndResult<Config> {
                     "Skip providing a password. (default: disabled) **Security warning:** If this option is set then on-disk storage is encrypted with a default (and insecure) password.",
                 )
                 .long("no-password")
-                .action(ArgAction::SetTrue)
                 .required(false)
+                .action(ArgAction::SetTrue)
                 .display_order(0),
         )
         .arg(
@@ -85,10 +86,9 @@ pub fn parse_args() -> TofndResult<Config> {
         .get_one::<String>("ip")
         .ok_or_else(|| anyhow!("ip value"))?
         .clone();
-    let port = matches
-        .get_one::<String>("port")
-        .ok_or_else(|| anyhow!("port value"))?
-        .parse::<u16>()?;
+    let port = *matches
+        .get_one::<u16>("port")
+        .ok_or_else(|| anyhow!("port value"))?;
     let mnemonic_cmd = Cmd::from_string(
         matches
             .get_one::<String>("mnemonic")
@@ -98,9 +98,10 @@ pub fn parse_args() -> TofndResult<Config> {
         .get_one::<String>("directory")
         .ok_or_else(|| anyhow!("directory value"))?
         .into();
-    let password_method = match matches.contains_id("no-password") {
-        true => PasswordMethod::NoPassword,
-        false => PasswordMethod::Prompt,
+    let password_method = if matches.get_flag("no-password") {
+        PasswordMethod::NoPassword
+    } else {
+        PasswordMethod::Prompt
     };
 
     Ok(Config {
