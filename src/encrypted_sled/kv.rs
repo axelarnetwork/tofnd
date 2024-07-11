@@ -69,17 +69,21 @@ impl EncryptedDb {
         Ok(encrypted_db)
     }
 
+    /// Recommended default params. Should NOT be changed without a migration of the kvstore.
+    fn scrypt_params() -> EncryptedDbResult<scrypt::Params> {
+        scrypt::Params::new(15, 8, 1, 32).map_err(PasswordScryptParams)
+    }
+
     fn chacha20poly1305_kdf(
         password: Password,
         salt: PasswordSalt,
     ) -> EncryptedDbResult<chacha20poly1305::Key> {
         let mut output = chacha20poly1305::Key::default();
 
-        // default params: log_n = 15, r = 8, p = 1
         scrypt::scrypt(
             password.as_ref(),
             salt.as_ref(),
-            &scrypt::Params::default(),
+            &Self::scrypt_params()?,
             output.as_mut_slice(),
         )?;
 
@@ -182,5 +186,21 @@ impl EncryptedDb {
     #[cfg(test)]
     pub fn flush(&self) -> EncryptedDbResult<usize> {
         Ok(self.kv.flush()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::encrypted_sled::{password::PasswordSalt, Password};
+    use super::EncryptedDb;
+
+    #[test]
+    fn chacha20poly1305_kdf_known_vector() {
+        let password = Password::from("test_password");
+        let salt = PasswordSalt::from([2; 32]);
+
+        let key = hex::encode(EncryptedDb::chacha20poly1305_kdf(password, salt).unwrap());
+
+        goldie::assert_json!(key);
     }
 }

@@ -52,10 +52,10 @@ tonic-build = { version = "0.6" }
 
 [dev-dependencies]
 lazy_static = { version = "1.5", default-features = false}
-# enable logging for tests
 tracing-test = { version = "0.2", default-features = false }
-
 testdir = { version = "0.9", default-features = false }
+goldie = { version = "0.5" }
+hex = { version = "0.4" }
 
 # Don't abort in case there is a panic to clean up data
 [profile.dev]
