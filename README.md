@@ -20,6 +20,18 @@ To build yourself, run:
 cargo build --release --locked
 ```
 
+Run tests:
+
+```bash
+cargo test --release
+```
+
+Generate golden files for relevant tests:
+
+```bash
+GOLDIE_UPDATE=1 cargo test --release
+```
+
 ## Running the server
 
 ```bash
