@@ -193,8 +193,8 @@ impl EncryptedDb {
 
 #[cfg(test)]
 mod tests {
-    use crate::encrypted_sled::{password::PasswordSalt, Password};
     use super::EncryptedDb;
+    use crate::encrypted_sled::{password::PasswordSalt, Password};
 
     #[test]
     fn chacha20poly1305_kdf_known_vector() {

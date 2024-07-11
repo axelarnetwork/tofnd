@@ -90,7 +90,8 @@ pub mod tests {
             0x6A, 0x79,
         ];
 
-        let output = hex::encode(bip39_seed(Entropy(entropy), Password("password".to_owned())).unwrap());
+        let output =
+            hex::encode(bip39_seed(Entropy(entropy), Password("password".to_owned())).unwrap());
 
         goldie::assert_json!(output);
     }
