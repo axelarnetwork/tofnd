@@ -8,6 +8,16 @@ Tofnd is a [gRPC](https://grpc.io/) server written in Rust that wraps the [tofn]
 git clone git@github.com:axelarnetwork/tofnd.git
 ```
 
+Install `protoc`
+
+```bash
+# Ubuntu
+sudo apt install protobuf-compiler
+
+# MacOS
+brew install protobuf
+```
+
 ## Build binaries
 
 Pre-built releases can be found [here](https://github.com/axelarnetwork/tofnd/releases)
