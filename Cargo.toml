@@ -31,8 +31,8 @@ rpassword = { version = "7.3", default-features = false }
 scrypt = { version = "0.11", default-features = false, features = ["std"] }
 
 # gRPC server
-tonic = { version = "0.6" } # ensure tonic-build version matches this
-prost = { version = "0.9" }
+tonic = { version = "0.12" } # ensure tonic-build version matches this
+prost = { version = "0.13" }
 
 # async runtime
 tokio = { version = "1.38", features = ["rt-multi-thread", "macros", "signal", "net", "sync"], default-features = false }
@@ -48,7 +48,7 @@ thiserror = { version = "1.0", default-features = false }
 anyhow = { version = "1.0", default-features = false }
 
 [build-dependencies]
-tonic-build = { version = "0.6" }
+tonic-build = { version = "0.12" }
 
 [dev-dependencies]
 lazy_static = { version = "1.5", default-features = false}

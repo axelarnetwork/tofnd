@@ -18,8 +18,8 @@ impl MultisigService {
         &self,
         request: proto::KeyPresenceRequest,
     ) -> TofndResult<proto::key_presence_response::Response> {
-        let algorithm = Algorithm::from_i32(request.algorithm)
-            .ok_or_else(|| anyhow!("Invalid algorithm: {}", request.algorithm))?;
+        let algorithm = Algorithm::try_from(request.algorithm)
+            .map_err(|_| anyhow!("Invalid algorithm: {}", request.algorithm))?;
 
         // check if mnemonic is available
         let _ = self
