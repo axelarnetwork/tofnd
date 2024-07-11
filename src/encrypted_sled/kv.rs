@@ -106,6 +106,14 @@ impl EncryptedDb {
     {
         let nonce = Self::generate_nonce();
 
+        self.encrypt_with_nonce(value, nonce)
+    }
+
+    /// create a new [EncryptedRecord] containing an encrypted value and a given nonce.
+    fn encrypt_with_nonce<V>(&self, value: V, nonce: chacha20poly1305::XNonce) -> EncryptedDbResult<EncryptedRecord>
+    where
+        V: Into<IVec>,
+    {
         let mut value = value.into().to_vec();
 
         // encrypt value
@@ -193,6 +201,8 @@ impl EncryptedDb {
 
 #[cfg(test)]
 mod tests {
+    use chacha20poly1305::{XChaCha20Poly1305, XNonce, KeyInit};
+
     use super::EncryptedDb;
     use crate::encrypted_sled::{password::PasswordSalt, Password};
 
@@ -204,5 +214,24 @@ mod tests {
         let key = hex::encode(EncryptedDb::chacha20poly1305_kdf(password, salt).unwrap());
 
         goldie::assert_json!(key);
+    }
+
+    #[test]
+    fn encrypt_with_nonce_known_vector() {
+        // Create a mock EncryptedDb with a deterministic cipher
+        let mock_db = EncryptedDb {
+            kv: sled::Config::new().temporary(true).open().unwrap(),
+            cipher: XChaCha20Poly1305::new(&chacha20poly1305::Key::from([5u8; 32])),
+        };
+
+        let value = b"test_value";
+        let nonce = XNonce::from([1u8; 24]);
+
+        let encrypted_record = mock_db.encrypt_with_nonce(value, nonce).unwrap();
+
+        goldie::assert_json!(&encrypted_record);
+
+        let decrypted_value = mock_db.decrypt_record_value(encrypted_record).unwrap();
+        assert_eq!(decrypted_value.as_ref(), value);
     }
 }
