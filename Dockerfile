@@ -4,7 +4,7 @@ FROM rust:1.78.0-bullseye as builder
 
 RUN set -ex \
   && apt-get update \
-  && apt-get install -qq --no-install-recommends ca-certificates openssh-client git make
+  && apt-get install -qq --no-install-recommends ca-certificates openssh-client git make protobuf-compiler
 
 WORKDIR /tofnd
 
