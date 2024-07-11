@@ -110,7 +110,11 @@ impl EncryptedDb {
     }
 
     /// create a new [EncryptedRecord] containing an encrypted value and a given nonce.
-    fn encrypt_with_nonce<V>(&self, value: V, nonce: chacha20poly1305::XNonce) -> EncryptedDbResult<EncryptedRecord>
+    fn encrypt_with_nonce<V>(
+        &self,
+        value: V,
+        nonce: chacha20poly1305::XNonce,
+    ) -> EncryptedDbResult<EncryptedRecord>
     where
         V: Into<IVec>,
     {
@@ -201,7 +205,7 @@ impl EncryptedDb {
 
 #[cfg(test)]
 mod tests {
-    use chacha20poly1305::{XChaCha20Poly1305, XNonce, KeyInit};
+    use chacha20poly1305::{KeyInit, XChaCha20Poly1305, XNonce};
 
     use super::EncryptedDb;
     use crate::encrypted_sled::{password::PasswordSalt, Password};
