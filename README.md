@@ -4,10 +4,18 @@ Tofnd is a [gRPC](https://grpc.io/) server written in Rust that wraps the [tofn]
 
 ## Setup
 
-The gRPC protobuf file is a separate [submodule](https://github.com/axelarnetwork/grpc-protobuf/). To fetch it, please be sure that the `--recursive` flag is enabled:
-
 ```bash
 git clone git@github.com:axelarnetwork/tofnd.git --recursive
+```
+
+Install `protoc`
+
+```bash
+# Ubuntu
+sudo apt install protobuf-compiler
+
+# MacOS
+brew install protobuf
 ```
 
 ## Build binaries
@@ -18,6 +26,18 @@ To build yourself, run:
 
 ```bash
 cargo build --release --locked
+```
+
+Run tests:
+
+```bash
+cargo test --release
+```
+
+Generate golden files for relevant tests:
+
+```bash
+GOLDIE_UPDATE=1 cargo test --release
 ```
 
 ## Running the server

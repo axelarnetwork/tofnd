@@ -61,7 +61,7 @@ pub mod tests {
 
     #[traced_test]
     #[test]
-    fn test_create() {
+    fn create() {
         let entropy = bip39_new_w24();
         let mnemonic = Mnemonic::from_entropy(&entropy.0, DEFAUT_LANG).unwrap();
         let passphrase = mnemonic.phrase();
@@ -73,7 +73,7 @@ pub mod tests {
 
     #[traced_test]
     #[test]
-    fn test_from_entropy() {
+    fn from_entropy() {
         let ok_entropy = Entropy(vec![42; 16]);
         let err_entropy = Entropy(vec![42; 15]);
 
@@ -83,17 +83,16 @@ pub mod tests {
 
     #[traced_test]
     #[test]
-    fn test_seed() {
+    fn seed_known_vector() {
+        // Expected output: https://github.com/maciejhirsz/tiny-bip39/blob/master/src/seed.rs#L102
         let entropy = vec![
             0x33, 0xE4, 0x6B, 0xB1, 0x3A, 0x74, 0x6E, 0xA4, 0x1C, 0xDD, 0xE4, 0x5C, 0x90, 0x84,
             0x6A, 0x79,
         ];
-        // expected output as per https://github.com/maciejhirsz/tiny-bip39/blob/master/src/seed.rs#L102
-        let expected_output = "0bde96f14c35a66235478e0c16c152fcaf6301e4d9a81d3febc50879fe7e5438e6a8dd3e39bdf3ab7b12d6b44218710e17d7a2844ee9633fab0e03d9a6c8569b";
-        let actual_output = format!(
-            "{:x}",
-            bip39_seed(Entropy(entropy), Password("password".to_owned())).unwrap()
-        );
-        assert_eq!(expected_output, &actual_output);
+
+        let output =
+            hex::encode(bip39_seed(Entropy(entropy), Password("password".to_owned())).unwrap());
+
+        goldie::assert_json!(output);
     }
 }

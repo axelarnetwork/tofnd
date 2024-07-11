@@ -8,7 +8,7 @@ description = "A cryptographic signing service, used by the Axelar network"
 keywords = ["cryptography", "blockchain", "axelar", "ecdsa", "ed25519"]
 
 [dependencies]
-tofn = { version = "1.0" }
+tofn = { version = "1.1" }
 
 # logging
 log = { version = "0.4",default-features = false }
@@ -17,7 +17,7 @@ tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 atty = { version = "0.2", default-features = false }
 
 # CLI args
-clap = { version = "3.2", default-features = false, features = ["std", "cargo", "env"] }
+clap = { version = "4.5", default-features = false, features = ["std", "cargo", "env", "string", "help"] }
 
 # kv store
 sled = { version = "0.34", default-features = false }
@@ -31,8 +31,8 @@ rpassword = { version = "7.3", default-features = false }
 scrypt = { version = "0.11", default-features = false, features = ["std"] }
 
 # gRPC server
-tonic = { version = "0.6" } # ensure tonic-build version matches this
-prost = { version = "0.9" }
+tonic = { version = "0.12" } # ensure tonic-build version matches this
+prost = { version = "0.13" }
 
 # async runtime
 tokio = { version = "1.38", features = ["rt-multi-thread", "macros", "signal", "net", "sync"], default-features = false }
@@ -48,14 +48,14 @@ thiserror = { version = "1.0", default-features = false }
 anyhow = { version = "1.0", default-features = false }
 
 [build-dependencies]
-tonic-build = { version = "0.6" }
+tonic-build = { version = "0.12" }
 
 [dev-dependencies]
 lazy_static = { version = "1.5", default-features = false}
-# enable logging for tests
 tracing-test = { version = "0.2", default-features = false }
-
 testdir = { version = "0.9", default-features = false }
+goldie = { version = "0.5" }
+hex = { version = "0.4" }
 
 # Don't abort in case there is a panic to clean up data
 [profile.dev]
