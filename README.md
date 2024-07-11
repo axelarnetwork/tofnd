@@ -5,7 +5,7 @@ Tofnd is a [gRPC](https://grpc.io/) server written in Rust that wraps the [tofn]
 ## Setup
 
 ```bash
-git clone git@github.com:axelarnetwork/tofnd.git
+git clone git@github.com:axelarnetwork/tofnd.git --recursive
 ```
 
 Install `protoc`
