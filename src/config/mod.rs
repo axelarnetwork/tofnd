@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{builder::PossibleValuesParser, crate_version, Arg, Command};
+use clap::{builder::PossibleValuesParser, crate_version, Arg, ArgAction, Command};
 
 // error handling
 use crate::{encrypted_sled::PasswordMethod, mnemonic::Cmd, TofndResult};
@@ -58,6 +58,7 @@ pub fn parse_args() -> TofndResult<Config> {
                     "Skip providing a password. (default: disabled) **Security warning:** If this option is set then on-disk storage is encrypted with a default (and insecure) password.",
                 )
                 .long("no-password")
+                .action(ArgAction::SetTrue)
                 .required(false)
                 .display_order(0),
         )
