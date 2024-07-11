@@ -2,11 +2,7 @@
 
 Tofnd is a [gRPC](https://grpc.io/) server written in Rust that wraps the [tofn](https://github.com/axelarnetwork/tofn) cryptography library.
 
-## Setup
-
-```bash
-git clone git@github.com:axelarnetwork/tofnd.git --recursive
-```
+## Install
 
 Install `protoc`
 
@@ -18,15 +14,31 @@ sudo apt install protobuf-compiler
 brew install protobuf
 ```
 
-## Build binaries
+### Cargo
+
+```bash
+cargo install tofnd
+```
+
+### Releases
 
 Pre-built releases can be found [here](https://github.com/axelarnetwork/tofnd/releases)
 
-To build yourself, run:
+### Source
 
 ```bash
-cargo build --release --locked
+git clone git@github.com:axelarnetwork/tofnd.git --recursive
 ```
+
+```bash
+cargo install --locked --path .
+```
+
+```bash
+./target/release/tofnd --version
+```
+
+## Development
 
 Run tests:
 
@@ -43,10 +55,7 @@ GOLDIE_UPDATE=1 cargo test --release
 ## Running the server
 
 ```bash
-# install tofnd at ./target/release/tofnd
-cargo install --locked --path . && cd ./target/release
-
-# init tofnd
+# Initialize tofnd
 ./tofnd -m create
 
 # IMPORTANT: store the content of ./.tofnd/export file at a safe, offline place, and then delete the file
