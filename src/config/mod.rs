@@ -11,14 +11,17 @@ const DEFAULT_PATH_ROOT: &str = ".tofnd";
 const TOFND_HOME_ENV_VAR: &str = "TOFND_HOME";
 const DEFAULT_MNEMONIC_CMD: &str = "existing";
 const DEFAULT_IP: &str = "127.0.0.1";
-const DEFAULT_PORT: u16 = 50051;
+const DEFAULT_PORT: &str = "50051";
 const AVAILABLE_MNEMONIC_CMDS: &[&str] = &["existing", "create", "import", "export", "rotate"];
 
 // default path is ~/.tofnd
-fn default_tofnd_dir() -> TofndResult<PathBuf> {
+fn default_tofnd_dir() -> TofndResult<String> {
     Ok(dirs::home_dir()
         .ok_or_else(|| anyhow!("no home dir"))?
-        .join(DEFAULT_PATH_ROOT))
+        .join(DEFAULT_PATH_ROOT)
+        .to_str()
+        .ok_or_else(|| anyhow!("can't convert default dir to str"))?
+        .into())
 }
 
 // TODO: move to types.rs
@@ -32,14 +35,6 @@ pub struct Config {
 }
 
 pub fn parse_args() -> TofndResult<Config> {
-    // need to use let to avoid dropping temporary value
-    let ip = &DEFAULT_IP.to_string();
-    let port = &DEFAULT_PORT.to_string();
-    let default_dir = default_tofnd_dir()?;
-    let default_dir = default_dir
-        .to_str()
-        .ok_or_else(|| anyhow!("can't convert default dir to str"))?;
-
     let app = Command::new("tofnd")
         .about("A cryptographic signing service")
         .version(crate_version!())
@@ -48,14 +43,14 @@ pub fn parse_args() -> TofndResult<Config> {
                 .long("address")
                 .short('a')
                 .required(false)
-                .default_value(ip),
+                .default_value(DEFAULT_IP),
         )
         .arg(
             Arg::new("port")
                 .long("port")
                 .short('p')
                 .required(false)
-                .default_value(port),
+                .default_value(DEFAULT_PORT),
         )
         .arg(
             Arg::new("no-password")
@@ -64,7 +59,6 @@ pub fn parse_args() -> TofndResult<Config> {
                 )
                 .long("no-password")
                 .required(false)
-                .takes_value(false)
                 .display_order(0),
         )
         .arg(
@@ -74,7 +68,6 @@ pub fn parse_args() -> TofndResult<Config> {
                 .required(false)
                 .default_value(DEFAULT_MNEMONIC_CMD)
                 .value_parser(PossibleValuesParser::new(AVAILABLE_MNEMONIC_CMDS))
-                .takes_value(true),
         )
         .arg(
             Arg::new("directory")
@@ -82,7 +75,7 @@ pub fn parse_args() -> TofndResult<Config> {
                 .short('d')
                 .required(false)
                 .env(TOFND_HOME_ENV_VAR)
-                .default_value(default_dir),
+                .default_value(default_tofnd_dir()?),
         );
 
     let matches = app.get_matches();
