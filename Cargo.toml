@@ -1,6 +1,6 @@
 [package]
 name = "tofnd"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Interoplabs Eng <eng@interoplabs.io>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -27,7 +27,7 @@ dirs = { version = "5.0", default-features = false }
 # kv store encryption
 chacha20poly1305 = { version = "0.10", features = ["alloc"], default-features = false }
 rand = { version = "0.8", default-features = false }
-rpassword = { version = "7.3", default-features = false }
+rpassword = { version = "5.0", default-features = false } # future versions don't support reading both from stdin and tty at the same time
 scrypt = { version = "0.11", default-features = false, features = ["std"] }
 
 # gRPC server
