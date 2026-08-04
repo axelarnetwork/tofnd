@@ -99,14 +99,15 @@ impl EncryptedDb {
         bytes
     }
 
-    /// create a new [EncryptedRecord] containing an encrypted value and a newly derived random nonce
-    fn encrypt<V>(&self, value: V) -> EncryptedDbResult<EncryptedRecord>
+    /// create a new [EncryptedRecord] containing an encrypted value and a newly derived random nonce.
+    /// `aad` is bound into the AEAD (typically the sled key) so ciphertext cannot be swapped across keys.
+    fn encrypt<V>(&self, value: V, aad: &[u8]) -> EncryptedDbResult<EncryptedRecord>
     where
         V: Into<IVec>,
     {
         let nonce = Self::generate_nonce();
 
-        self.encrypt_with_nonce(value, nonce)
+        self.encrypt_with_nonce(value, nonce, aad)
     }
 
     /// create a new [EncryptedRecord] containing an encrypted value and a given nonce.
@@ -114,40 +115,45 @@ impl EncryptedDb {
         &self,
         value: V,
         nonce: chacha20poly1305::XNonce,
+        aad: &[u8],
     ) -> EncryptedDbResult<EncryptedRecord>
     where
         V: Into<IVec>,
     {
         let mut value = value.into().to_vec();
 
-        // encrypt value
+        // encrypt value — AAD binds ciphertext to the store key / uid
         self.cipher
-            .encrypt_in_place(&nonce, b"", &mut value)
+            .encrypt_in_place(&nonce, aad, &mut value)
             .map_err(|e| Encryption(e.to_string()))?;
 
         // return record
         Ok(EncryptedRecord::new(value, nonce))
     }
 
-    /// derive a decrypted value from a [EncryptedRecord] containing an encrypted value and a random nonce
-    fn decrypt_record_value(&self, record: EncryptedRecord) -> EncryptedDbResult<IVec> {
-        let (mut value, nonce) = record.into();
+    /// derive a decrypted value from a [EncryptedRecord] containing an encrypted value and a random nonce.
+    /// Tries `aad` first; falls back to empty AAD for records written before key-binding.
+    fn decrypt_record_value(&self, record: EncryptedRecord, aad: &[u8]) -> EncryptedDbResult<IVec> {
+        let (value, nonce) = record.into();
 
-        // decrypt value
+        let mut with_aad = value.clone();
+        if self.cipher.decrypt_in_place(&nonce, aad, &mut with_aad).is_ok() {
+            return Ok(with_aad.into());
+        }
+
+        let mut legacy = value;
         self.cipher
-            .decrypt_in_place(&nonce, b"", &mut value)
+            .decrypt_in_place(&nonce, b"", &mut legacy)
             .map_err(|e| Decryption(e.to_string()))?;
-
-        // return decrypted value
-        Ok(value.into())
+        Ok(legacy.into())
     }
 
     /// derive a decrypted value from [EncryptedRecord] bytes
-    fn decrypt(&self, record_bytes: Option<IVec>) -> EncryptedDbResult<Option<IVec>> {
+    fn decrypt(&self, record_bytes: Option<IVec>, aad: &[u8]) -> EncryptedDbResult<Option<IVec>> {
         let res = match record_bytes {
             Some(record_bytes) => {
                 let record = EncryptedRecord::from_bytes(&record_bytes)?;
-                let decrypted_value_bytes = self.decrypt_record_value(record)?;
+                let decrypted_value_bytes = self.decrypt_record_value(record, aad)?;
                 Some(decrypted_value_bytes)
             }
             None => None,
@@ -161,9 +167,10 @@ impl EncryptedDb {
         K: AsRef<[u8]>,
         V: Into<IVec>,
     {
-        let record = self.encrypt(value)?;
-        let prev_record_bytes_opt = self.kv.insert(&key, record.to_bytes()?)?;
-        self.decrypt(prev_record_bytes_opt)
+        let key_ref = key.as_ref();
+        let record = self.encrypt(value, key_ref)?;
+        let prev_record_bytes_opt = self.kv.insert(key_ref, record.to_bytes()?)?;
+        self.decrypt(prev_record_bytes_opt, key_ref)
     }
 
     /// Retrieve and decrypt a value from the `Tree` if it exists.
@@ -171,8 +178,9 @@ impl EncryptedDb {
     where
         K: AsRef<[u8]>,
     {
-        let bytes_opt = self.kv.get(&key)?;
-        self.decrypt(bytes_opt)
+        let key_ref = key.as_ref();
+        let bytes_opt = self.kv.get(key_ref)?;
+        self.decrypt(bytes_opt, key_ref)
     }
 
     /// Returns `true` if the `Tree` contains a value for the specified key.
@@ -188,8 +196,9 @@ impl EncryptedDb {
     where
         K: AsRef<[u8]>,
     {
-        let prev_val = self.kv.remove(&key)?;
-        self.decrypt(prev_val)
+        let key_ref = key.as_ref();
+        let prev_val = self.kv.remove(key_ref)?;
+        self.decrypt(prev_val, key_ref)
     }
 
     /// Returns true if the database was recovered from a previous process.
@@ -231,11 +240,36 @@ mod tests {
         let value = b"test_value";
         let nonce = XNonce::from([1u8; 24]);
 
-        let encrypted_record = mock_db.encrypt_with_nonce(value, nonce).unwrap();
+        let aad = b"test_key";
+        let encrypted_record = mock_db.encrypt_with_nonce(value, nonce, aad).unwrap();
 
         goldie::assert_json!(&encrypted_record);
 
-        let decrypted_value = mock_db.decrypt_record_value(encrypted_record).unwrap();
+        let decrypted_value = mock_db.decrypt_record_value(encrypted_record, aad).unwrap();
         assert_eq!(decrypted_value.as_ref(), value);
     }
+
+    #[test]
+    fn ciphertext_bound_to_key_aad() {
+        let mock_db = EncryptedDb {
+            kv: sled::Config::new().temporary(true).open().unwrap(),
+            cipher: XChaCha20Poly1305::new(&chacha20poly1305::Key::from([5u8; 32])),
+        };
+        let value = b"share_material";
+        let nonce = XNonce::from([1u8; 24]);
+        let record_wrong = mock_db
+            .encrypt_with_nonce(value, nonce, b"key-a")
+            .unwrap();
+        assert!(mock_db
+            .decrypt_record_value(record_wrong, b"key-b")
+            .is_err());
+        let record_ok = mock_db
+            .encrypt_with_nonce(value, nonce, b"key-a")
+            .unwrap();
+        assert_eq!(
+            mock_db.decrypt_record_value(record_ok, b"key-a").unwrap().as_ref(),
+            value
+        );
+    }
 }
+
