@@ -10,7 +10,7 @@ mod mnemonic;
 mod multisig;
 
 // gather logs; need to set RUST_LOG=info
-use tracing::{info, span, Level};
+use tracing::{info, span, warn, Level};
 
 // error handling
 pub type TofndResult<Success> = anyhow::Result<Success>;
@@ -44,6 +44,18 @@ async fn main() -> TofndResult<()> {
     set_up_logs(); // can't print any logs until they're set up
     let cfg = parse_args()?;
     let socket_address = addr(&cfg.ip, cfg.port)?;
+
+    // The gRPC server is plaintext and unauthenticated: any caller that can
+    // reach the port can request signatures for every key this daemon holds.
+    // Loopback binds keep that power on the local machine, but a non-loopback
+    // bind exposes a signing oracle to the network. Warn loudly so exposing it
+    // is a deliberate operator choice rather than a silent configuration slip.
+    if !socket_address.ip().is_loopback() {
+        warn!(
+            "tofnd is binding to {}, which is not a loopback address: the gRPC              service is plaintext and unauthenticated, so any party that can              reach this port can request signatures with this validator's keys.              Restrict network access to this port.",
+            socket_address.ip()
+        );
+    }
 
     // immediately read an encryption password from stdin
     let password = cfg.password_method.execute()?;
