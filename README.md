@@ -168,9 +168,9 @@ In containerized environments the `auto` mnemonic command can be used.  This com
 3. Create a new mnemonic.  The newly created mnemonic is automatically written to the file `TOFND_HOME/export`---rename this file to `TOFND_HOME/import` so as to unblock future executions of tofnd.  Then launch `tofnd` server.
 
 The rationale behind `auto` is that users can frictionlessly launch and restart their tofnd nodes without the need to execute multiple commands.
-`auto` is currently the default command only in `docker-compose.test.yml`, but users can edit the `docker-compose.yml` to use it at their own discretion.
+`auto` is the command set in both `docker-compose.yml` and `docker-compose.test.yml`.
 
-**Attention:** `auto` leaves the mnemonic on plain text on disk. You should remove the `TOFND_HOME/import` file and store the mnemonic at a safe, offline place.
+**Attention:** `auto` leaves the mnemonic on plain text on disk. You should remove the `TOFND_HOME/import` file and store the mnemonic at a safe, offline place. Once the file is removed, the mnemonic on disk is protected only by the kv-store password, so make sure `PASSWORD` is set.
 
 ## Mnemonic
 
